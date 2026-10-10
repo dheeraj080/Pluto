@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { expensesApi } from "@/lib/expenses";
 import type { Expense } from "@/lib/types";
-import { ErrorNote, LoadingNote, PageHeader } from "@/components/ui";
+import { ErrorNote, Skeleton } from "@/components/ui";
+import { IconArrowLeft } from "@/components/icons";
 import { ExpenseForm } from "../../expense-form";
 import { useExpenseSetup } from "../../use-expenses";
 
@@ -51,9 +53,22 @@ export default function EditExpensePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Edit expense" description="Update the details or move it to another category." />
+      <Link
+        href="/expenses"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-ink"
+      >
+        <IconArrowLeft className="h-4 w-4" />
+        Back to dashboard
+      </Link>
       {combinedError && <ErrorNote message={combinedError} />}
-      {!ready && !combinedError && <LoadingNote label="Loading expense…" />}
+      {!ready && !combinedError && (
+        <div className="space-y-4 rounded-2xl border border-border bg-background p-6">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-1/2" />
+        </div>
+      )}
       {ready && expense && (
         <ExpenseForm
           expense={expense}

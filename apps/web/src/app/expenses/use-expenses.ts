@@ -13,10 +13,12 @@ import { expensesApi, ratesApi } from "@/lib/expenses";
 import {
   getBaseCurrency,
   getBaseCurrencyServerSnapshot,
+  isOnboardingDismissed,
+  markOnboardingDone,
   subscribeBaseCurrency,
   writeBaseCurrency,
 } from "@/lib/base-currency";
-import type { ExpenseCategory, SupportedCurrency } from "@/lib/types";
+import type { ExpenseCategory, RateSnapshot, SupportedCurrency } from "@/lib/types";
 
 interface ExpenseSetup {
   categories: ExpenseCategory[];
@@ -97,4 +99,62 @@ export function useBaseCurrency(): BaseCurrencyState {
   }, []);
 
   return { base, setBase };
+}
+
+/**
+ * Latest public rate snapshot, for display-only conversion previews.
+ *
+ * Loaded once per screen; failure is non-fatal (the preview simply stays
+ * hidden), so errors are swallowed intentionally.
+ */
+export function useRateSnapshot(): RateSnapshot | null {
+  const [snapshot, setSnapshot] = useState<RateSnapshot | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    ratesApi
+      .getLatest()
+      .then((data) => {
+        if (!cancelled) setSnapshot(data);
+      })
+      .catch(() => {
+        /* preview is optional */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return snapshot;
+}
+
+/**
+ * Whether the user still needs to choose a reporting currency.
+ *
+ * Server snapshot reports "already dismissed" so the prompt never flashes in
+ * prerendered HTML; it appears after hydration only for genuinely new users.
+ */
+function getReportingSetupSnapshot(): string {
+  return `${getBaseCurrency() ?? ""}|${isOnboardingDismissed() ? "1" : "0"}`;
+}
+
+function getReportingSetupServerSnapshot(): string {
+  return "|1";
+}
+
+export function useReportingSetup(): { needsSetup: boolean; hasBase: boolean; dismiss: () => void } {
+  const snapshot = useSyncExternalStore(
+    subscribeBaseCurrency,
+    getReportingSetupSnapshot,
+    getReportingSetupServerSnapshot,
+  );
+  const separator = snapshot.lastIndexOf("|");
+  const base = snapshot.slice(0, separator);
+  const dismissed = snapshot.slice(separator + 1) === "1";
+
+  return {
+    needsSetup: base === "" && !dismissed,
+    hasBase: base !== "",
+    dismiss: markOnboardingDone,
+  };
 }

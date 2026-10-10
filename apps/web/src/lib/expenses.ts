@@ -17,6 +17,7 @@ import type {
   ExpenseSummary,
   ExpenseTrend,
   Paginated,
+  RateSnapshot,
   SupportedCurrency,
 } from "./types";
 
@@ -122,4 +123,7 @@ export const expensesApi = {
 /** Public, unauthenticated list driving every currency dropdown. */
 export const ratesApi = {
   getSupportedCurrencies: () => api.get<SupportedCurrency[]>("/rates/supported-currencies"),
+  /** Latest published snapshot, used for display-only conversion previews. */
+  getLatest: (base?: string) =>
+    api.get<RateSnapshot>(`/rates/latest${buildQuery({ base: base ?? undefined })}`),
 };

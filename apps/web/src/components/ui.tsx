@@ -480,8 +480,8 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
 
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <div className="relative">
-      <select {...props} className={`${CONTROL} appearance-none pr-9 ${className ?? ""}`} />
+    <div className={`relative ${className ?? ""}`}>
+      <select {...props} className={`${CONTROL} appearance-none pr-9`} />
       <IconChevronDown
         aria-hidden="true"
         className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"

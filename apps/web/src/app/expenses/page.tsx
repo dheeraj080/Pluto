@@ -1,18 +1,26 @@
 "use client";
 
 /**
- * Expense dashboard: this month's totals, a filterable list, and quick delete.
+ * Expense dashboard: a period-driven total with comparison, a category and
+ * currency breakdown, and the filterable transaction list.
  *
- * Summary and list are fetched together — they describe the same filtered
- * window, so loading them separately would let the two halves disagree while a
- * request is in flight.
+ * The selected period drives both the summary and the list so the headline and
+ * the rows below always describe the same window. Conversion figures come from
+ * the server aggregates; the per-row "≈" amounts are display-only, computed
+ * from the public ECB snapshot.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { expensesApi, type ExpenseSort } from "@/lib/expenses";
-import { formatDate, formatMoney, formatPercent } from "@/lib/format";
-import type { Expense, ExpenseCategory, ExpenseSummary, Paginated } from "@/lib/types";
+import { formatDate, formatPercent } from "@/lib/format";
+import { buildConversionPreview } from "@/lib/convert";
+import type {
+  Expense,
+  ExpenseCategory,
+  ExpenseSummary,
+  Paginated,
+} from "@/lib/types";
 import {
   Badge,
   Button,
@@ -20,216 +28,461 @@ import {
   EmptyState,
   ErrorNote,
   Input,
-  LoadingNote,
+  Money,
   PageHeader,
   Pagination,
+  SegmentedControl,
   Select,
+  Skeleton,
   StatCard,
   Table,
+  TableSkeleton,
 } from "@/components/ui";
-import { useBaseCurrency, useExpenseSetup } from "./use-expenses";
+import { ConfirmDialog } from "@/components/dialog";
+import { IconGlobe, IconPlus, IconReceipt, IconSearch } from "@/components/icons";
+import { useBaseCurrency, useExpenseSetup, useRateSnapshot, useReportingSetup } from "./use-expenses";
 
-const SORTS = [
+const SORTS: { value: ExpenseSort; label: string }[] = [
   { value: "date_desc", label: "Newest first" },
   { value: "date_asc", label: "Oldest first" },
   { value: "amount_desc", label: "Highest amount" },
   { value: "amount_asc", label: "Lowest amount" },
-] as const;
+];
+
+const PERIODS = [
+  { value: "month", label: "This month" },
+  { value: "30d", label: "30 days" },
+  { value: "year", label: "This year" },
+  { value: "all", label: "All" },
+  { value: "custom", label: "Custom" },
+];
+
+const LIMIT = 10;
+
+/* --------------------------- Period helpers --------------------------- */
+
+function isoDaysAgo(days: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+function startOfMonthIso(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function startOfYearIso(): string {
+  return `${new Date().getUTCFullYear()}-01-01`;
+}
+
+function addDaysIso(iso: string, days: number): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function diffDays(from: string, to: string): number {
+  return Math.round(
+    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000,
+  );
+}
+
+interface Range {
+  from: string;
+  to: string;
+  prevFrom: string;
+  prevTo: string;
+  /** False when a comparison window is not meaningful (all time / open range). */
+  comparable: boolean;
+}
+
+function computeRange(period: string, customFrom: string, customTo: string): Range {
+  const today = isoDaysAgo(0);
+  let from = today;
+  let to = today;
+  let comparable = true;
+
+  switch (period) {
+    case "month":
+      from = startOfMonthIso();
+      break;
+    case "30d":
+      from = isoDaysAgo(29);
+      break;
+    case "year":
+      from = startOfYearIso();
+      break;
+    case "all":
+      from = "1970-01-01";
+      comparable = false;
+      break;
+    case "custom":
+      from = customFrom || "1970-01-01";
+      to = customTo || today;
+      comparable = Boolean(customFrom && customTo);
+      break;
+  }
+
+  const length = Math.max(1, diffDays(from, to) + 1);
+  const prevTo = addDaysIso(from, -1);
+  const prevFrom = addDaysIso(prevTo, -(length - 1));
+  return { from, to, prevFrom, prevTo, comparable };
+}
+
+/* ------------------------------ Component ----------------------------- */
 
 export default function ExpensesDashboardPage() {
   const { categories, currencies, loading: setupLoading, error: setupError } = useExpenseSetup();
   const { base, setBase } = useBaseCurrency();
+  const { needsSetup, dismiss } = useReportingSetup();
+  const snapshot = useRateSnapshot();
+
+  const [period, setPeriod] = useState("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
 
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
+  const [prevSummary, setPrevSummary] = useState<ExpenseSummary | null>(null);
   const [page, setPage] = useState<Paginated<Expense> | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [sort, setSort] = useState<(typeof SORTS)[number]["value"]>("date_desc");
+  const [currency, setCurrency] = useState("");
+  const [sort, setSort] = useState<ExpenseSort>("date_desc");
   const [pageNumber, setPageNumber] = useState(1);
 
-  const LIMIT = 10;
+  const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const range = useMemo(
+    () => computeRange(period, customFrom, customTo),
+    [period, customFrom, customTo],
+  );
 
   const load = useCallback(async () => {
     setError(null);
     const baseParam = base ?? undefined;
     try {
-      const [summaryResult, listResult] = await Promise.all([
-        expensesApi.getSummary({ base: baseParam }),
+      const [summaryResult, listResult, prevResult] = await Promise.all([
+        expensesApi.getSummary({ from: range.from, to: range.to, base: baseParam }),
         expensesApi.listExpenses({
           page: pageNumber,
           limit: LIMIT,
           categoryId: categoryId || undefined,
-          from: from || undefined,
-          to: to || undefined,
+          currency: currency || undefined,
+          from: range.from,
+          to: range.to,
           search: search || undefined,
           sort,
         }),
+        range.comparable
+          ? expensesApi.getSummary({ from: range.prevFrom, to: range.prevTo, base: baseParam })
+          : Promise.resolve(null),
       ]);
       setSummary(summaryResult);
       setPage(listResult);
+      setPrevSummary(prevResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load expenses.");
     }
-  }, [base, categoryId, from, pageNumber, search, sort, to]);
+  }, [base, categoryId, currency, pageNumber, range, search, sort]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load]);
 
-  // Changing any filter invalidates the current page number. Done in the
-  // handlers rather than an effect so the reset lands in the same render pass
-  // as the filter change instead of causing an extra one.
-  const onSearchChange = (value: string) => {
-    setSearch(value);
-    setPageNumber(1);
-  };
-  const onCategoryChange = (value: string) => {
-    setCategoryId(value);
-    setPageNumber(1);
-  };
-  const onFromChange = (value: string) => {
-    setFrom(value);
-    setPageNumber(1);
-  };
-  const onToChange = (value: string) => {
-    setTo(value);
-    setPageNumber(1);
-  };
-  const onSortChange = (value: ExpenseSort) => {
-    setSort(value);
+  const resetPage = <T,>(setter: (value: T) => void) => (value: T) => {
+    setter(value);
     setPageNumber(1);
   };
 
-  const handleDelete = async (expense: Expense) => {
-    if (!window.confirm(`Delete “${expense.description ?? expense.categoryName}”?`)) return;
-    setBusyId(expense.id);
+  const clearFilters = () => {
+    setSearch("");
+    setCategoryId("");
+    setCurrency("");
+    setPageNumber(1);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await expensesApi.deleteExpense(expense.id);
+      await expensesApi.deleteExpense(deleteTarget.id);
+      setDeleteTarget(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete the expense.");
     } finally {
-      setBusyId(null);
+      setDeleting(false);
     }
   };
 
+  /* -------- Derived display values -------- */
+  const effectiveBase = base ?? summary?.baseCurrency ?? null;
   const topCategory = summary?.byCategory[0];
+
+  const delta =
+    summary && prevSummary && summary.converted && prevSummary.converted &&
+    summary.total !== null && prevSummary.total !== null && prevSummary.total > 0
+      ? ((summary.total - prevSummary.total) / prevSummary.total) * 100
+      : null;
+
+  const hasFilters = Boolean(search || categoryId || currency);
+  const maxCategoryTotal = summary?.byCategory.reduce((max, c) => Math.max(max, c.total), 0) ?? 0;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Expenses"
+        title="Dashboard"
         description={
           summary
-            ? `${formatDate(summary.from)} – ${formatDate(summary.to)}`
+            ? `${formatDate(range.from)} – ${formatDate(range.to)} · totals in ${summary.baseCurrency}`
             : "Track spending across currencies."
         }
         action={
           <div className="flex items-center gap-2">
             <label htmlFor="base-currency" className="text-sm text-muted">
-              Base
+              Reporting
             </label>
             <Select
               id="base-currency"
+              aria-label="Reporting currency"
               value={base ?? ""}
               onChange={(event) => setBase(event.target.value)}
-              className="w-28"
+              className="w-32"
             >
-              <option value="">Default</option>
-              {currencies.map((currency) => (
-                <option key={currency.code} value={currency.code}>
-                  {currency.code}
-                </option>
-              ))}
+              <option value="">{summary?.baseCurrency ?? "Default"}</option>
+              {currencies
+                .filter((entry) => entry.code !== summary?.baseCurrency)
+                .map((entry) => (
+                  <option key={entry.code} value={entry.code}>
+                    {entry.code}
+                  </option>
+                ))}
             </Select>
           </div>
         }
       />
 
+      {needsSetup && (
+        <div className="flex flex-col gap-4 rounded-2xl border border-primary/25 bg-primary-subtle/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-background text-primary">
+              <IconGlobe className="h-4.5 w-4.5" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-ink">Choose your reporting currency</p>
+              <p className="text-sm text-muted">
+                Pick the currency your totals and reports should be shown in.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/onboarding"
+              className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
+            >
+              Set up
+            </Link>
+            <Button variant="ghost" onClick={dismiss}>
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
+
       {setupError && <ErrorNote message={setupError} />}
       {error && <ErrorNote message={error} />}
 
+      {/* Period selector */}
+      <div className="flex flex-wrap items-center gap-3">
+        <SegmentedControl
+          options={PERIODS}
+          value={period}
+          onChange={resetPage(setPeriod)}
+          label="Reporting period"
+        />
+        {period === "custom" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="date"
+              aria-label="From date"
+              value={customFrom}
+              onChange={(event) => resetPage(setCustomFrom)(event.target.value)}
+              className="w-40"
+            />
+            <span className="text-sm text-muted">to</span>
+            <Input
+              type="date"
+              aria-label="To date"
+              value={customTo}
+              onChange={(event) => resetPage(setCustomTo)(event.target.value)}
+              className="w-40"
+            />
+          </div>
+        )}
+      </div>
+
       {summary && !summary.converted && (
-        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+        <div className="rounded-xl border border-warning/25 bg-warning-subtle px-4 py-3 text-sm text-warning">
           Exchange rates are unavailable, so totals are shown per currency only. Category and
           combined totals will appear once rates can be fetched again.
-        </p>
+        </div>
       )}
 
-      {summary && (
+      {/* Stats */}
+      {!summary ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-2xl" />
+          ))}
+        </div>
+      ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            label={`Total spent (${summary.baseCurrency})`}
-            value={summary.total === null ? "—" : formatMoney(summary.total, summary.baseCurrency)}
+            label={`Spent (${summary.baseCurrency})`}
+            value={summary.total === null ? "—" : <Money amount={summary.total} currency={summary.baseCurrency} />}
+            sub={
+              delta !== null ? (
+                <Badge tone={delta <= 0 ? "ok" : "warn"}>
+                  {delta <= 0 ? "↓" : "↑"} {Math.abs(delta).toFixed(1)}% vs previous
+                </Badge>
+              ) : (
+                <span className="text-xs text-muted">No comparison available</span>
+              )
+            }
           />
           <StatCard label="Expenses" value={summary.count} />
           <StatCard
             label="Average"
             value={
-              summary.average === null ? "—" : formatMoney(summary.average, summary.baseCurrency)
+              summary.average === null ? "—" : <Money amount={summary.average} currency={summary.baseCurrency} />
             }
           />
           <StatCard
             label="Top category"
             value={
               topCategory ? (
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2 text-base font-medium">
                   <span
-                    aria-hidden
-                    className="inline-block size-2.5 rounded-full"
+                    aria-hidden="true"
+                    className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
                     style={{ backgroundColor: topCategory.color }}
                   />
-                  <span className="truncate text-lg">{topCategory.categoryName}</span>
-                  <span className="text-sm font-normal text-muted">
-                    {formatPercent(topCategory.percentage)}
-                  </span>
+                  <span className="truncate">{topCategory.categoryName}</span>
                 </span>
               ) : (
                 "—"
+              )
+            }
+            sub={
+              topCategory && (
+                <span className="text-xs text-muted">{formatPercent(topCategory.percentage)} of spending</span>
               )
             }
           />
         </div>
       )}
 
-      {summary && summary.byCurrency.length > 0 && (
-        <Card title="By currency">
-          <div className="flex flex-wrap gap-2">
-            {summary.byCurrency.map((entry) => (
-              <Badge key={entry.currency} tone="neutral">
-                {entry.currency} {formatMoney(entry.total, entry.currency)} · {entry.count}
-              </Badge>
-            ))}
-          </div>
-        </Card>
+      {/* Breakdown */}
+      {summary && summary.converted && summary.count > 0 && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card title="Spending by category">
+            <ul className="space-y-3.5">
+              {summary.byCategory.map((entry) => {
+                const width = maxCategoryTotal > 0 ? (entry.total / maxCategoryTotal) * 100 : 0;
+                return (
+                  <li key={entry.categoryId}>
+                    <div className="flex items-baseline justify-between gap-3 text-sm">
+                      <span className="inline-flex min-w-0 items-center gap-2">
+                        <span
+                          aria-hidden="true"
+                          className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <span className="truncate font-medium text-ink">{entry.categoryName}</span>
+                      </span>
+                      <span className="shrink-0 tabular-nums text-ink">
+                        <Money amount={entry.total} currency={summary.baseCurrency} />
+                        <span className="ml-2 text-xs text-muted">{formatPercent(entry.percentage)}</span>
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-muted">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${width}%`, backgroundColor: entry.color }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+
+          <Card title="By currency" bodyClassName="pt-4">
+            {summary.byCurrency.length === 0 ? (
+              <p className="text-sm text-muted">No expenses in this period.</p>
+            ) : (
+              <>
+                <ul className="space-y-3">
+                  {summary.byCurrency.map((entry) => (
+                    <li
+                      key={entry.currency}
+                      className="flex items-center justify-between gap-3 text-sm"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <span className="font-semibold text-ink">{entry.currency}</span>
+                        <span className="text-muted">
+                          {entry.count} {entry.count === 1 ? "expense" : "expenses"}
+                        </span>
+                      </span>
+                      <span className="tabular-nums font-medium text-ink">
+                        <Money amount={entry.total} currency={entry.currency} />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-4 text-xs leading-relaxed text-muted">
+                  Native amounts as recorded. Combined totals above are converted into{" "}
+                  {summary.baseCurrency}.
+                </p>
+              </>
+            )}
+          </Card>
+        </div>
       )}
 
+      {/* Transactions */}
       <Card
-        title="All expenses"
+        title="Transactions"
         action={
-          <Button onClick={() => void load()} disabled={setupLoading}>
+          <Button variant="secondary" size="sm" onClick={() => void load()} disabled={setupLoading}>
             Refresh
           </Button>
         }
       >
-        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Input
-            type="search"
-            placeholder="Search description…"
-            aria-label="Search description"
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-          />
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <IconSearch
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            />
+            <Input
+              type="search"
+              placeholder="Search description…"
+              aria-label="Search description"
+              value={search}
+              onChange={(event) => resetPage(setSearch)(event.target.value)}
+              className="pl-9"
+            />
+          </div>
           <Select
             aria-label="Filter by category"
             value={categoryId}
-            onChange={(event) => onCategoryChange(event.target.value)}
+            onChange={(event) => resetPage(setCategoryId)(event.target.value)}
           >
             <option value="">All categories</option>
             {categories.map((category: ExpenseCategory) => (
@@ -238,22 +491,22 @@ export default function ExpensesDashboardPage() {
               </option>
             ))}
           </Select>
-          <Input
-            type="date"
-            aria-label="From date"
-            value={from}
-            onChange={(event) => onFromChange(event.target.value)}
-          />
-          <Input
-            type="date"
-            aria-label="To date"
-            value={to}
-            onChange={(event) => onToChange(event.target.value)}
-          />
+          <Select
+            aria-label="Filter by currency"
+            value={currency}
+            onChange={(event) => resetPage(setCurrency)(event.target.value)}
+          >
+            <option value="">All currencies</option>
+            {currencies.map((entry) => (
+              <option key={entry.code} value={entry.code}>
+                {entry.code}
+              </option>
+            ))}
+          </Select>
           <Select
             aria-label="Sort order"
             value={sort}
-            onChange={(event) => onSortChange(event.target.value as ExpenseSort)}
+            onChange={(event) => resetPage(setSort)(event.target.value as ExpenseSort)}
           >
             {SORTS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -263,67 +516,99 @@ export default function ExpensesDashboardPage() {
           </Select>
         </div>
 
-        {!page && !error && <LoadingNote label="Loading expenses…" />}
+        {!page && !error && <TableSkeleton rows={4} cols={4} />}
 
         {page && (
           <>
             {page.items.length === 0 ? (
-              <EmptyState
-                title="No expenses match these filters"
-                description="Record your first expense to start building a picture of where your money goes."
-                action={
-                  <Link
-                    href="/expenses/new"
-                    className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
-                  >
-                    Add expense
-                  </Link>
-                }
-              />
+              hasFilters ? (
+                <EmptyState
+                  icon={<IconSearch className="h-5 w-5" />}
+                  title="No expenses match these filters"
+                  description="Try a different search, category or currency."
+                  action={
+                    <Button variant="secondary" onClick={clearFilters}>
+                      Clear filters
+                    </Button>
+                  }
+                />
+              ) : (
+                <EmptyState
+                  icon={<IconReceipt className="h-5 w-5" />}
+                  title="No expenses yet"
+                  description="Record your first expense to start building a picture of where your money goes."
+                  action={
+                    <Link
+                      href="/expenses/new"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
+                    >
+                      <IconPlus className="h-4 w-4" />
+                      Add expense
+                    </Link>
+                  }
+                />
+              )
             ) : (
               <Table headers={["Date", "Description", "Category", "Amount", ""]}>
-                {page.items.map((expense) => (
-                  <tr key={expense.id} className="hover:bg-background/60">
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-sm">
-                      {formatDate(expense.incurredOn)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium">{expense.description ?? "—"}</p>
-                      {expense.paymentMethod && (
-                        <p className="text-xs text-muted">{expense.paymentMethod}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-2">
-                        <span
-                          aria-hidden
-                          className="inline-block size-2.5 rounded-full"
-                          style={{ backgroundColor: expense.categoryColor }}
-                        />
-                        {expense.categoryName}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 font-medium">
-                      {formatMoney(expense.amount, expense.currency)}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      <Link
-                        href={`/expenses/${expense.id}/edit`}
-                        className="mr-3 text-sm text-accent underline-offset-2 hover:underline"
-                      >
-                        Edit
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => void handleDelete(expense)}
-                        disabled={busyId === expense.id}
-                        className="text-sm text-danger underline-offset-2 hover:underline disabled:opacity-40"
-                      >
-                        {busyId === expense.id ? "Deleting…" : "Delete"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {page.items.map((expense) => {
+                  const converted =
+                    effectiveBase && effectiveBase !== expense.currency && snapshot
+                      ? buildConversionPreview(expense.amount, expense.currency, effectiveBase, snapshot)
+                      : null;
+                  return (
+                    <tr key={expense.id} className="transition-colors hover:bg-surface-muted/60">
+                      <td className="whitespace-nowrap px-5 py-3 text-sm text-muted">
+                        {formatDate(expense.incurredOn)}
+                      </td>
+                      <td className="px-5 py-3">
+                        <Link
+                          href={`/expenses/${expense.id}`}
+                          className="font-medium text-ink underline-offset-2 hover:text-primary hover:underline"
+                        >
+                          {expense.description ?? "—"}
+                        </Link>
+                        {expense.paymentMethod && (
+                          <p className="text-xs text-muted">{expense.paymentMethod}</p>
+                        )}
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className="inline-flex items-center gap-2 text-sm text-ink">
+                          <span
+                            aria-hidden="true"
+                            className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: expense.categoryColor }}
+                          />
+                          {expense.categoryName}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3 text-right">
+                        <span className="font-medium tabular-nums text-ink">
+                          <Money amount={expense.amount} currency={expense.currency} />
+                        </span>
+                        {converted && (
+                          <span className="block text-xs text-muted">
+                            ≈ <Money amount={converted.amount} currency={converted.to} />
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3 text-right">
+                        <Link
+                          href={`/expenses/${expense.id}/edit`}
+                          className="mr-3 text-sm font-medium text-primary underline-offset-2 hover:underline"
+                        >
+                          Edit
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(expense)}
+                          className="text-sm font-medium text-danger underline-offset-2 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </Table>
             )}
             <Pagination
@@ -335,6 +620,20 @@ export default function ExpensesDashboardPage() {
           </>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete this expense?"
+        message={
+          deleteTarget
+            ? `“${deleteTarget.description ?? deleteTarget.categoryName}” will be permanently removed. This can't be undone.`
+            : ""
+        }
+        confirmLabel="Delete expense"
+        busy={deleting}
+        onConfirm={() => void confirmDelete()}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

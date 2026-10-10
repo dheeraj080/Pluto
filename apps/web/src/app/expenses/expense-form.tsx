@@ -4,15 +4,21 @@
  * Create/edit form shared by /expenses/new and /expenses/[id]/edit.
  *
  * Option lists arrive asynchronously from the parent, so sensible defaults are
- * applied in an effect rather than at initial state — otherwise the selects
- * would render empty and a user submitting quickly could send an empty
- * categoryId.
+ * derived during render (not synced in an effect) — otherwise the selects would
+ * render empty and a quick submit could send an empty categoryId.
+ *
+ * The live conversion preview is display-only: it is computed from the public
+ * ECB snapshot and never changes the amount that gets stored.
  */
 
 import { useState, type FormEvent } from "react";
 import { Button, Card, ErrorNote, Field, Input, Select } from "@/components/ui";
+import { IconSwap } from "@/components/icons";
 import { expensesApi } from "@/lib/expenses";
+import { buildConversionPreview } from "@/lib/convert";
+import { formatMoney } from "@/lib/format";
 import type { Expense, ExpenseCategory, SupportedCurrency } from "@/lib/types";
+import { useBaseCurrency, useRateSnapshot } from "./use-expenses";
 
 /** UTC "today", matching the YYYY-MM-DD the server stores for `incurredOn`. */
 function todayIso(): string {
@@ -34,6 +40,8 @@ export function ExpenseForm({
   onCancel: () => void;
 }) {
   const isEditing = expense !== undefined;
+  const { base } = useBaseCurrency();
+  const snapshot = useRateSnapshot();
 
   const [categoryId, setCategoryId] = useState(expense?.categoryId ?? "");
   const [amount, setAmount] = useState(expense ? String(expense.amount) : "");
@@ -45,22 +53,29 @@ export function ExpenseForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // An empty selection means "not chosen yet": fall back to the first loaded
-  // option, so the selects are never blank while the lists resolve. Derived
-  // during render rather than synced in an effect, which would cause an extra
-  // render pass and can submit an empty categoryId if the user is quick.
+  // An empty selection means "not chosen yet": fall back to the reporting
+  // currency (a sensible default) then the first loaded option.
   const effectiveCategoryId = categoryId || categories[0]?.id || "";
-  const effectiveCurrency = currency || currencies[0]?.code || "";
+  const effectiveCurrency = currency || base || currencies[0]?.code || "";
+
+  const amountNumber = Number(amount);
+  const amountValid = Number.isFinite(amountNumber) && amountNumber > 0;
+  const canSubmit = Boolean(effectiveCategoryId && effectiveCurrency && amountValid) && !saving;
+
+  const preview =
+    base && effectiveCurrency && base !== effectiveCurrency && amountValid
+      ? buildConversionPreview(amountNumber, effectiveCurrency, base, snapshot)
+      : null;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!effectiveCategoryId || !effectiveCurrency || !(Number(amount) > 0)) return;
+    if (saving || !canSubmit) return;
 
     setSaving(true);
     setError(null);
     const payload = {
       categoryId: effectiveCategoryId,
-      amount: Number(amount),
+      amount: amountNumber,
       currency: effectiveCurrency,
       incurredOn,
       description: description.trim() || undefined,
@@ -88,88 +103,112 @@ export function ExpenseForm({
 
   return (
     <Card title={isEditing ? "Edit expense" : "New expense"}>
-      <form onSubmit={(event) => void handleSubmit(event)} className="grid gap-4 sm:grid-cols-2">
-        {error && <div className="sm:col-span-2">{<ErrorNote message={error} />}</div>}
+      <form onSubmit={(event) => void handleSubmit(event)} className="space-y-5">
+        {error && <ErrorNote message={error} />}
 
-        <Field label="Category" htmlFor="expense-category">
-          <Select
-            id="expense-category"
-            value={effectiveCategoryId}
-            onChange={(event) => setCategoryId(event.target.value)}
-            required
-          >
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Field
+              label="Amount"
+              htmlFor="expense-amount"
+              hint="Record it exactly as you paid — Pluto converts only for reports."
+            >
+              <div className="flex gap-2">
+                <Input
+                  id="expense-amount"
+                  type="number"
+                  inputMode="decimal"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                  required
+                  className="min-w-0 flex-1"
+                  aria-invalid={amount !== "" && !amountValid}
+                />
+                <Select
+                  aria-label="Currency you paid in"
+                  value={effectiveCurrency}
+                  onChange={(event) => setCurrency(event.target.value)}
+                  required
+                  className="w-40 shrink-0"
+                >
+                  {currencies.map((entry) => (
+                    <option key={entry.code} value={entry.code}>
+                      {entry.code}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </Field>
 
-        <Field label="Currency" htmlFor="expense-currency">
-          <Select
-            id="expense-currency"
-            value={effectiveCurrency}
-            onChange={(event) => setCurrency(event.target.value)}
-            required
-          >
-            {currencies.map((entry) => (
-              <option key={entry.code} value={entry.code}>
-                {entry.code} — {entry.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+            {preview && (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border bg-surface-muted/60 px-4 py-3">
+                <span className="inline-flex items-center gap-2 text-sm font-medium text-ink">
+                  <IconSwap aria-hidden="true" className="h-4 w-4 text-primary" />
+                  ≈ {formatMoney(preview.amount, preview.to)}
+                  <span className="font-normal text-muted">in {preview.to}</span>
+                </span>
+                <span className="text-xs text-muted">
+                  1 {preview.from} = {preview.rate.toFixed(4)} {preview.to} ·{" "}
+                  {preview.provider} {preview.effectiveDate}
+                </span>
+              </div>
+            )}
+          </div>
 
-        <Field label="Amount" htmlFor="expense-amount">
-          <Input
-            id="expense-amount"
-            type="number"
-            inputMode="decimal"
-            min="0.01"
-            step="0.01"
-            placeholder="0.00"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            required
-          />
-        </Field>
+          <Field label="Category" htmlFor="expense-category">
+            <Select
+              id="expense-category"
+              value={effectiveCategoryId}
+              onChange={(event) => setCategoryId(event.target.value)}
+              required
+            >
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <Field label="Date" htmlFor="expense-date">
-          <Input
-            id="expense-date"
-            type="date"
-            value={incurredOn}
-            onChange={(event) => setIncurredOn(event.target.value)}
-            required
-          />
-        </Field>
+          <Field label="Date" htmlFor="expense-date">
+            <Input
+              id="expense-date"
+              type="date"
+              value={incurredOn}
+              onChange={(event) => setIncurredOn(event.target.value)}
+              required
+            />
+          </Field>
 
-        <Field label="Description" htmlFor="expense-description">
-          <Input
-            id="expense-description"
-            maxLength={280}
-            placeholder="e.g. Weekly groceries"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </Field>
+          <Field label="Description" htmlFor="expense-description" optional>
+            <Input
+              id="expense-description"
+              maxLength={280}
+              placeholder="e.g. Weekly groceries"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+          </Field>
 
-        <Field label="Payment method" htmlFor="expense-payment" hint="Optional">
-          <Input
-            id="expense-payment"
-            maxLength={32}
-            placeholder="e.g. CARD, CASH"
-            value={paymentMethod}
-            onChange={(event) => setPaymentMethod(event.target.value)}
-          />
-        </Field>
+          <Field label="Payment method" htmlFor="expense-payment" optional>
+            <Input
+              id="expense-payment"
+              maxLength={32}
+              placeholder="e.g. CARD, CASH"
+              value={paymentMethod}
+              onChange={(event) => setPaymentMethod(event.target.value)}
+            />
+          </Field>
+        </div>
 
-        <div className="flex gap-3 sm:col-span-2">
-          <Button type="submit" tone="accent" disabled={saving}>
-            {saving ? "Saving…" : isEditing ? "Save changes" : "Add expense"}
+        <div className="flex flex-wrap gap-3 border-t border-border pt-5">
+          <Button type="submit" variant="primary" loading={saving} disabled={!canSubmit}>
+            {isEditing ? "Save changes" : "Add expense"}
           </Button>
-          <Button onClick={onCancel} disabled={saving}>
+          <Button variant="secondary" onClick={onCancel} disabled={saving}>
             Cancel
           </Button>
         </div>
