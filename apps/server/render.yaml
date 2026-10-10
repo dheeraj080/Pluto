@@ -1,0 +1,137 @@
+###############################################################################
+# Render Blueprint – pluto-server (staging)
+#
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Pre-deploy command runs `prisma migrate deploy` ONCE (Render guarantees this
+# runs serially before traffic is shifted) — safe for multi-replica deployments.
+# Application instances start only after the pre-deploy job succeeds.
+###############################################################################
+
+services:
+  - type: web
+    name: pluto-server-staging
+    runtime: docker
+    # Build from the repo root using the existing multi-stage Dockerfile.
+    dockerfilePath: ./Dockerfile
+    # Render injects $PORT automatically; the app now binds to 0.0.0.0:$PORT.
+    # EXPOSE 3000 in the Dockerfile is informational only on Render.
+
+    region: oregon           # Change to the region closest to your DB / users.
+    plan: starter            # Upgrade to standard for auto-scaling.
+
+    # ---------------------------------------------------------------------------
+    # Pre-deploy command
+    # Runs ONCE per deployment, before any replica starts, under the same image.
+    # Uses the npm script alias so the exact prisma binary path is always correct.
+    # ---------------------------------------------------------------------------
+    preDeployCommand: "npm run prisma:migrate:deploy"
+
+    # ---------------------------------------------------------------------------
+    # Health-check
+    # Render will wait until this path returns 2xx before marking the deploy live.
+    # ---------------------------------------------------------------------------
+    healthCheckPath: /v1/health
+
+    # ---------------------------------------------------------------------------
+    # Environment variables
+    # Set secret values in the Render dashboard (Environment tab) or via the
+    # Render CLI. Only non-secret defaults are listed here; secrets are omitted
+    # intentionally -- never commit real credentials to this file.
+    # ---------------------------------------------------------------------------
+    envVars:
+      # -- Server ---------------------------------------------------------------
+      - key: NODE_ENV
+        value: production
+      # PORT is injected by Render automatically -- do NOT set it here.
+
+      - key: API_PREFIX
+        value: v1
+
+      - key: CORS_ORIGIN
+        value: "*"
+
+      - key: TRUST_PROXY
+        value: "true"
+
+      # -- Database -------------------------------------------------------------
+      # Set DATABASE_URL in the Render dashboard -- do NOT commit credentials.
+      - key: DATABASE_URL
+        sync: false
+
+      # -- Auth / JWT -----------------------------------------------------------
+      - key: JWT_ACCESS_SECRET
+        sync: false
+
+      - key: ACCESS_TOKEN_TTL
+        value: "15m"
+
+      - key: REFRESH_TOKEN_TTL_DAYS
+        value: "30"
+
+      - key: GOOGLE_ALLOWED_CLIENT_IDS
+        sync: false
+
+      # -- Rate Limiting --------------------------------------------------------
+      - key: THROTTLE_TTL
+        value: "60"
+
+      - key: THROTTLE_LIMIT
+        value: "100"
+
+      - key: AUTH_THROTTLE_LIMIT
+        value: "20"
+
+      # -- Exchange Rates -------------------------------------------------------
+      - key: EXCHANGE_RATE_PROVIDER
+        value: "frankfurter"
+
+      - key: EXCHANGE_RATE_API_KEY
+        value: ""
+
+      - key: EXCHANGE_RATE_BASE_URL
+        value: "https://api.frankfurter.dev/v1"
+
+      - key: EXCHANGE_RATE_BASE_CURRENCY
+        value: "USD"
+
+      - key: SUPPORTED_CURRENCIES
+        value: "USD,EUR,GBP,INR,JPY,CNY,CAD,AUD,CHF,SGD,NZD"
+
+      - key: EXCHANGE_RATE_SCHEDULE
+        value: "0 4 * * *"
+
+      # -- Object Storage -------------------------------------------------------
+      - key: OBJECT_STORAGE_ENDPOINT
+        sync: false
+
+      - key: OBJECT_STORAGE_REGION
+        value: "us-east-1"
+
+      - key: OBJECT_STORAGE_BUCKET
+        sync: false
+
+      - key: OBJECT_STORAGE_ACCESS_KEY_ID
+        sync: false
+
+      - key: OBJECT_STORAGE_SECRET_ACCESS_KEY
+        sync: false
+
+      - key: OBJECT_STORAGE_FORCE_PATH_STYLE
+        value: "false"
+
+      # -- Backup Quotas --------------------------------------------------------
+      - key: BACKUP_MAX_SIZE_BYTES
+        value: "52428800"
+
+      - key: BACKUP_RETENTION_COUNT
+        value: "5"
+
+      - key: BACKUP_UPLOAD_URL_TTL
+        value: "900"
+
+      - key: BACKUP_DOWNLOAD_URL_TTL
+        value: "900"
+
+      - key: BACKUP_PENDING_EXPIRY_HOURS
+        value: "24"
