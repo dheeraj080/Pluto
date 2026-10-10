@@ -15,6 +15,7 @@
  */
 
 const STORAGE_KEY = "pluto.baseCurrency";
+const ONBOARDED_KEY = "pluto.onboarded";
 
 type Listener = () => void;
 
@@ -61,4 +62,32 @@ export function writeBaseCurrency(code: string | null): void {
 /** Server snapshot: no `window` during prerender, so fall back to the default. */
 export function getBaseCurrencyServerSnapshot(): null {
   return null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Onboarding state                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * True once the user has chosen a currency (or dismissed the prompt). Used to
+ * avoid nagging existing users with the "set up your currency" card and to
+ * decide whether a fresh sign-in should land on onboarding.
+ */
+export function isOnboardingDismissed(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(ONBOARDED_KEY) === "true";
+}
+
+/** Marks onboarding as done and notifies subscribers so prompts hide immediately. */
+export function markOnboardingDone(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ONBOARDED_KEY, "true");
+  notify();
+}
+
+/** Clears the onboarding flag (used by tests/reset flows). */
+export function resetOnboarding(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(ONBOARDED_KEY);
+  notify();
 }

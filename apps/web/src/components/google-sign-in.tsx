@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, saveSession } from "@/lib/api";
 import type { AuthSession } from "@/lib/types";
+import { ErrorNote, Skeleton } from "./ui";
 
 const GSI_SCRIPT_URL = "https://accounts.google.com/gsi/client";
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
@@ -74,6 +75,7 @@ export function GoogleSignInButton({ onSignedIn }: GoogleSignInButtonProps) {
 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
 
   // Keep the callback ref fresh without touching refs during render.
   useEffect(() => {
@@ -119,6 +121,7 @@ export function GoogleSignInButton({ onSignedIn }: GoogleSignInButtonProps) {
           width: 280,
           text: "signin_with",
         });
+        if (!cancelled) setReady(true);
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Sign-in failed.");
@@ -129,14 +132,17 @@ export function GoogleSignInButton({ onSignedIn }: GoogleSignInButtonProps) {
   }, [handleCredential]);
 
   return (
-    <div className="flex flex-col items-start gap-3">
-      <div ref={containerRef} data-testid="google-sign-in" />
+    <div className="flex w-full flex-col items-center gap-3">
+      <div className="relative flex h-11 w-full items-center justify-center">
+        {!ready && !configError && <Skeleton className="absolute inset-0 h-11 w-full" />}
+        <div
+          ref={containerRef}
+          data-testid="google-sign-in"
+          className={ready ? "" : "invisible"}
+        />
+      </div>
       {busy && <p className="text-sm text-muted">Signing in…</p>}
-      {displayError && (
-        <p className="text-sm text-danger" role="alert">
-          {displayError}
-        </p>
-      )}
+      {displayError && <ErrorNote message={displayError} />}
     </div>
   );
 }

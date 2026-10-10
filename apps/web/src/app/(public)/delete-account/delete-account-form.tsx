@@ -12,7 +12,10 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { GoogleSignInButton } from "@/components/google-sign-in";
+import { Button, ErrorNote, Input, Spinner } from "@/components/ui";
+import { IconCheck, IconTrash } from "@/components/icons";
 import { api, clearSession, getRefreshToken } from "@/lib/api";
+import { formatBytes } from "@/lib/format";
 import type {
   AuthSession,
   BackupMetadata,
@@ -23,18 +26,6 @@ import type {
 type Step = "signin" | "review" | "deleting" | "done";
 
 const CONFIRM_PHRASE = "DELETE";
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB"];
-  let value = bytes / 1024;
-  let i = 0;
-  while (value >= 1024 && i < units.length - 1) {
-    value /= 1024;
-    i += 1;
-  }
-  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[i]}`;
-}
 
 export function DeleteAccountForm() {
   const [step, setStep] = useState<Step>("signin");
@@ -101,20 +92,20 @@ export function DeleteAccountForm() {
 
   if (step === "done") {
     return (
-      <div className="mt-8 rounded-xl border border-border p-6">
+      <div className="mt-8 rounded-2xl border border-border bg-background p-6 shadow-[0_1px_2px_rgba(23,33,27,0.04)]">
         <div className="flex items-center gap-3">
-          <span aria-hidden="true" className="text-2xl text-success">
-            ✓
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-success-subtle text-success">
+            <IconCheck className="h-5 w-5" />
           </span>
-          <h2 className="text-xl font-semibold">Your account has been deleted</h2>
+          <h2 className="text-lg font-semibold text-ink">Your account has been deleted</h2>
         </div>
-        <p className="mt-3 text-[15px] leading-relaxed text-muted">
+        <p className="mt-3 text-sm leading-relaxed text-muted">
           Your profile, cloud backups, and all active sessions have been permanently removed. Thank
           you for using Pluto.
         </p>
         <Link
           href="/"
-          className="mt-5 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
+          className="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
         >
           Back to home
         </Link>
@@ -124,42 +115,48 @@ export function DeleteAccountForm() {
 
   if (step === "deleting") {
     return (
-      <div className="mt-8 rounded-xl border border-border p-6" role="status">
-        <p className="text-[15px] text-muted">Deleting your account and backups…</p>
+      <div
+        className="mt-8 flex items-center gap-3 rounded-2xl border border-border bg-background p-6 text-sm text-muted"
+        role="status"
+      >
+        <Spinner className="h-4 w-4" />
+        Deleting your account and backups…
       </div>
     );
   }
 
   if (step === "signin") {
     return (
-      <div className="mt-6 space-y-6 text-[15px] leading-relaxed">
+      <div className="mt-6 space-y-6 text-sm leading-relaxed">
         <p className="text-muted">
           This page permanently deletes your Pluto account. Before you continue, here is exactly
           what will happen:
         </p>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>
-            Your <strong>profile</strong> (email, name, avatar) is erased.
-          </li>
-          <li>
-            <strong>Every cloud backup</strong> stored for your account is deleted — permanently
-            and irreversibly.
-          </li>
-          <li>
-            All active <strong>sessions and tokens</strong> are revoked immediately.
-          </li>
+        <ul className="space-y-2">
+          {[
+            "Your profile (email, name, avatar) is erased.",
+            "Every cloud backup stored for your account is deleted — permanently and irreversibly.",
+            "All active sessions and tokens are revoked immediately.",
+          ].map((item) => (
+            <li key={item} className="flex items-start gap-2.5">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-danger-subtle text-danger">
+                <IconTrash className="h-3 w-3" />
+              </span>
+              <span className="text-muted">{item}</span>
+            </li>
+          ))}
         </ul>
-        <div className="rounded-lg border border-border bg-background p-4 text-sm text-muted">
+        <div className="rounded-xl border border-border bg-surface-muted/50 p-4 text-sm text-muted">
           Want a copy of your data first? Sign in below and you can download your backups before
           deleting. You can also export them from the app.
         </div>
         <div>
-          <p className="mb-3 font-medium">Sign in to continue</p>
+          <p className="mb-3 font-medium text-ink">Sign in to continue</p>
           <GoogleSignInButton onSignedIn={handleSignedIn} />
         </div>
         <p className="text-sm text-muted">
           Deletion is governed by our{" "}
-          <Link href="/privacy" className="text-accent underline underline-offset-2">
+          <Link href="/privacy" className="text-primary underline underline-offset-2">
             Privacy Policy
           </Link>
           .
@@ -170,28 +167,28 @@ export function DeleteAccountForm() {
 
   /* step === "review" */
   return (
-    <div className="mt-6 space-y-6 text-[15px] leading-relaxed">
-      <div className="rounded-xl border border-border p-4">
-        <p className="text-sm text-muted">Signed in as</p>
-        <div className="mt-1 flex items-center gap-3">
+    <div className="mt-6 space-y-6 text-sm leading-relaxed">
+      <div className="rounded-xl border border-border bg-background p-4">
+        <p className="text-xs font-medium uppercase tracking-wider text-muted">Signed in as</p>
+        <div className="mt-2 flex items-center gap-3">
           {session?.user.avatarUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={session.user.avatarUrl}
               alt=""
-              className="h-9 w-9 rounded-full"
+              className="h-9 w-9 rounded-full object-cover"
               referrerPolicy="no-referrer"
             />
           )}
           <div>
-            <p className="font-medium">{session?.user.name ?? "Unnamed user"}</p>
+            <p className="font-medium text-ink">{session?.user.name ?? "Unnamed user"}</p>
             <p className="text-sm text-muted">{session?.user.email}</p>
           </div>
         </div>
       </div>
 
       <section>
-        <h2 className="font-medium">1. Download a copy of your backups (optional)</h2>
+        <h2 className="font-semibold text-ink">1. Download a copy of your backups (optional)</h2>
         {backups === null ? (
           <p className="mt-2 text-sm text-muted">
             Could not load your backups — you can still proceed with deletion.
@@ -199,11 +196,11 @@ export function DeleteAccountForm() {
         ) : backups.length === 0 ? (
           <p className="mt-2 text-sm text-muted">You have no completed backups.</p>
         ) : (
-          <ul className="mt-2 divide-y divide-border rounded-lg border border-border">
+          <ul className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border bg-background">
             {backups.map((backup) => (
               <li key={backup.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
+                  <p className="truncate text-sm font-medium text-ink">
                     Backup #{backup.sequenceNumber} · v{backup.appVersion}
                   </p>
                   <p className="text-xs text-muted">
@@ -211,65 +208,59 @@ export function DeleteAccountForm() {
                     {formatBytes(backup.fileSizeBytes)}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDownload(backup.id)}
-                  className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:bg-background"
-                >
+                <Button variant="secondary" size="sm" onClick={() => void handleDownload(backup.id)}>
                   Download
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
         )}
         {downloadError && (
-          <p className="mt-2 text-sm text-danger" role="alert">
-            {downloadError}
-          </p>
+          <div className="mt-3">
+            <ErrorNote message={downloadError} />
+          </div>
         )}
       </section>
 
       <section>
-        <h2 className="font-medium">2. Confirm deletion</h2>
+        <h2 className="font-semibold text-ink">2. Confirm deletion</h2>
         <p className="mt-2 text-sm text-muted">
           This action is <strong className="text-danger">immediate and irreversible</strong>. All
           backups will be destroyed.
         </p>
-        <label htmlFor="confirm" className="mt-4 block text-sm font-medium">
-          Type <code className="rounded bg-background px-1.5 py-0.5 font-mono">{CONFIRM_PHRASE}</code>{" "}
+        <label htmlFor="confirm" className="mt-4 block text-sm font-medium text-ink">
+          Type{" "}
+          <code className="rounded bg-surface-muted px-1.5 py-0.5 font-mono text-xs">
+            {CONFIRM_PHRASE}
+          </code>{" "}
           to confirm
         </label>
-        <input
+        <Input
           id="confirm"
           type="text"
           value={confirmText}
-          onChange={(e) => setConfirmText(e.target.value)}
+          onChange={(event) => setConfirmText(event.target.value)}
           autoComplete="off"
           spellCheck={false}
-          className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none focus:border-danger"
+          className="mt-2 font-mono"
           placeholder={CONFIRM_PHRASE}
         />
         {error && (
-          <p className="mt-3 text-sm text-danger" role="alert">
-            {error}
-          </p>
+          <div className="mt-3">
+            <ErrorNote message={error} />
+          </div>
         )}
         <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={handleDelete}
+          <Button
+            variant="danger"
+            onClick={() => void handleDelete()}
             disabled={confirmText !== CONFIRM_PHRASE}
-            className="rounded-lg bg-danger px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Permanently delete my account
-          </button>
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="rounded-lg border border-border px-4 py-2 text-sm transition-colors hover:bg-background"
-          >
+          </Button>
+          <Button variant="secondary" onClick={handleCancel}>
             Cancel
-          </button>
+          </Button>
         </div>
       </section>
     </div>

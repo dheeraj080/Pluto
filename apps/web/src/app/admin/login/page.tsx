@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GoogleSignInButton } from "@/components/google-sign-in";
+import { AuthShell, AuthCard } from "@/components/auth-shell";
+import { ErrorNote, Skeleton } from "@/components/ui";
 import { api, ApiError, clearSession, getAccessToken, getRefreshToken } from "@/lib/api";
 import type { AdminStats } from "@/lib/types";
 
@@ -54,41 +56,38 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-border p-8">
-        <div className="flex items-center gap-2 font-semibold tracking-tight">
-          <span className="text-accent">◉</span> Pluto <span className="text-muted">Admin</span>
-        </div>
-        <h1 className="mt-5 text-xl font-bold">Sign in</h1>
-        <p className="mt-2 text-sm text-muted">
+    <AuthShell brand="Admin">
+      <AuthCard>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Admin sign-in</h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
           Administrator access requires your e-mail to be listed in the server&apos;s{" "}
-          <code className="rounded bg-background px-1 font-mono text-xs">ADMIN_EMAILS</code>{" "}
+          <code className="rounded bg-surface-muted px-1 font-mono text-xs">ADMIN_EMAILS</code>{" "}
           configuration.
         </p>
 
         <div className="mt-6">
           {checkingSession ? (
-            <p className="text-sm text-muted">Checking existing session…</p>
+            <Skeleton className="h-11 w-full" />
           ) : (
-            <GoogleSignInButton onSignedIn={handleSignedIn} />
+            <GoogleSignInButton onSignedIn={() => void handleSignedIn()} />
           )}
         </div>
 
         {error && (
-          <p className="mt-4 text-sm text-danger" role="alert">
-            {error}
-          </p>
+          <div className="mt-4">
+            <ErrorNote message={error} />
+          </div>
         )}
 
-        <div className="mt-6 flex items-center justify-between text-sm">
-          <Link href="/" className="text-muted underline underline-offset-2 hover:text-foreground">
-            Back to site
+        <div className="mt-6 flex items-center justify-between border-t border-border pt-4 text-sm">
+          <Link href="/" className="text-muted transition-colors hover:text-ink">
+            ← Back to site
           </Link>
-          <Link href="/status" className="text-muted underline underline-offset-2 hover:text-foreground">
+          <Link href="/status" className="text-muted transition-colors hover:text-ink">
             Status
           </Link>
         </div>
-      </div>
-    </div>
+      </AuthCard>
+    </AuthShell>
   );
 }
