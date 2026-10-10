@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AuthNavLink } from "./auth-nav-link";
 
 const NAV = [
   { href: "/expenses", label: "Expenses" },
@@ -43,17 +44,20 @@ export function SiteHeader() {
           <Logo />
           <span>Pluto</span>
         </Link>
-        <nav className="flex items-center gap-4 text-sm text-muted sm:gap-6">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="transition-colors hover:text-foreground"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <div className="flex items-center gap-4 text-sm text-muted sm:gap-6">
+          <nav className="flex items-center gap-4 sm:gap-6">
+            {NAV.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="transition-colors hover:text-foreground"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+          <AuthNavLink />
+        </div>
       </div>
     </header>
   );

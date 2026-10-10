@@ -47,6 +47,37 @@ export class ApiError extends Error {
 let accessToken: string | null = null;
 let refreshPromise: Promise<boolean> | null = null;
 
+/**
+ * Session-presence store for React.
+ *
+ * The persisted refresh token lives in localStorage, which is an external
+ * store — components observe it through `useSyncExternalStore` rather than
+ * reading it in an effect. Every mutation below notifies, so the header flips
+ * between "Sign in" and "My expenses" the moment the session changes.
+ */
+const sessionListeners = new Set<() => void>();
+
+function notifySessionChange(): void {
+  for (const listener of sessionListeners) listener();
+}
+
+export function subscribeSession(listener: () => void): () => void {
+  sessionListeners.add(listener);
+  return () => {
+    sessionListeners.delete(listener);
+  };
+}
+
+/** True when a refresh token is persisted. Optimistic — not a validity check. */
+export function getSessionSnapshot(): boolean {
+  return getRefreshToken() !== null;
+}
+
+/** Prerender has no localStorage, so assume signed out. */
+export function getSessionServerSnapshot(): boolean {
+  return false;
+}
+
 export function getAccessToken(): string | null {
   return accessToken;
 }
@@ -65,6 +96,7 @@ export function saveSession(session: AuthSession): void {
   if (typeof window !== "undefined") {
     window.localStorage.setItem(REFRESH_TOKEN_KEY, session.refreshToken);
   }
+  notifySessionChange();
 }
 
 export function clearSession(): void {
@@ -72,6 +104,7 @@ export function clearSession(): void {
   if (typeof window !== "undefined") {
     window.localStorage.removeItem(REFRESH_TOKEN_KEY);
   }
+  notifySessionChange();
 }
 
 /** True when a persisted refresh token exists (used to offer session restore). */

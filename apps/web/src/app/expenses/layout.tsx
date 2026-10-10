@@ -103,7 +103,7 @@ function ExpensesShell({ children }: { children: React.ReactNode }) {
         </p>
         <div className="mt-6 flex gap-3">
           <Link
-            href="/"
+            href="/login"
             className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
           >
             Go to sign-in

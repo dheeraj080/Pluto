@@ -13,6 +13,7 @@ Companion repository to **`pluto-server`** (the NestJS API).
 | Route | Purpose |
 | :--- | :--- |
 | `/` | Landing page: features, live ECB rates, backup walkthrough, Play Store CTA |
+| `/login` | **Sign-in** — Google Sign-In for any account; redirects to `/expenses` when a session is already valid |
 | `/privacy` | Privacy Policy (drafted from the API's actual data flows — review with counsel) |
 | `/terms` | Terms of Service (draft — governing law placeholder flagged in source) |
 | `/support` | FAQ / support page |
@@ -48,7 +49,10 @@ the session.
 | `/expenses/reports` | Charts: monthly spending trend and category breakdown |
 
 The expenses layout gates every `/expenses/*` route by calling `GET /v1/users/me`
-(any signed-in user, not just admins); a `401` redirects to `/admin/login`.
+(any signed-in user, not just admins). A `401` — after the client's transparent
+refresh replay — clears the session and renders a "Sign-in required" screen that
+links to `/login`. `/login` is the entry point for regular accounts; `/admin/login`
+is separate because it rejects non-admins.
 
 Amounts can be entered in any supported currency. Reports convert to a chosen
 **base currency**, resolved as `?base=` URL override → `localStorage`
@@ -109,6 +113,12 @@ npm run lint    # ESLint (Next 16 + react-hooks strict rules)
   request, responses unwrapped from the server's `{ success, data, timestamp }` envelope.
 - **Google Sign-In** (`src/components/google-sign-in.tsx`): Google Identity Services
   button → ID token → `POST /v1/auth/google` (same endpoint the Android app uses).
+  Mounted at `/login` (any account), `/admin/login` (admins only), and
+  `/delete-account`.
+- **Session state** (`src/lib/api.ts`): the persisted refresh token is exposed to
+  React as an external store (`subscribeSession` / `getSessionSnapshot`, notified by
+  `saveSession` and `clearSession`), so the header's Sign in / Sign out control
+  switches without an effect-driven read of `localStorage`.
 - **Charts** (`recharts`): the expense report charts are the only non-Next/React
   runtime dependency. `Tooltip.formatter` values are normalized before `Number()`
   because Recharts types them as `number | string | Array<…> | undefined`.
