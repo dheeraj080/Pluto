@@ -10,6 +10,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RatesModule } from './modules/rates/rates.module';
 import { BackupsModule } from './modules/backups/backups.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
@@ -33,6 +34,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     UsersModule,
     RatesModule,
     BackupsModule,
+    ExpensesModule,
     AdminModule,
   ],
   providers: [

@@ -19,6 +19,11 @@ enum UserRole {
   ADMIN
 }
 
+enum BudgetPeriod {
+  MONTHLY
+  YEARLY
+}
+
 model User {
   id           String           @id @default(uuid())
   email        String           @unique
@@ -29,8 +34,11 @@ model User {
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
-  backups          Backup[]
-  refreshSessions  RefreshSession[]
+  backups            Backup[]
+  refreshSessions    RefreshSession[]
+  expenseCategories  ExpenseCategory[]
+  expenses           Expense[]
+  budgets            Budget[]
 
   @@map("users")
 }
@@ -115,4 +123,63 @@ model SystemLock {
   updatedAt   DateTime @updatedAt
 
   @@map("system_locks")
+}
+
+model ExpenseCategory {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  color     String   @default("#4f46e5")
+  icon      String?
+  isDefault Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses  Expense[]
+  budgets   Budget[]
+
+  @@unique([userId, name])
+  @@index([userId, sortOrder])
+  @@map("expense_categories")
+}
+
+model Expense {
+  id            String   @id @default(uuid())
+  userId        String
+  categoryId    String
+  amount        Decimal  @db.Decimal(18, 2)
+  currency      String   @db.VarChar(3)
+  description   String?
+  incurredOn    DateTime @db.Date
+  paymentMethod String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      ExpenseCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([userId, incurredOn])
+  @@index([userId, categoryId])
+  @@map("expenses")
+}
+
+model Budget {
+  id         String       @id @default(uuid())
+  userId     String
+  categoryId String?
+  amount     Decimal      @db.Decimal(18, 2)
+  currency   String       @db.VarChar(3)
+  period     BudgetPeriod @default(MONTHLY)
+  startDate  DateTime     @db.Date
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   ExpenseCategory?  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, period])
+  @@index([userId, period])
+  @@map("budgets")
 }

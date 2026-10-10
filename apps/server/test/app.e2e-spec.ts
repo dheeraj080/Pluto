@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
+import { Prisma } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/database/prisma.service';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
@@ -71,6 +72,31 @@ describe('Pluto Server API (e2e)', () => {
       findUnique: jest.fn().mockResolvedValue(null),
       upsert: jest.fn().mockResolvedValue({}),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    expenseCategory: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn(),
+    },
+    expense: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn(),
+      groupBy: jest.fn(),
+    },
+    budget: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
     },
     $transaction: jest.fn().mockImplementation(async (arg) => {
       if (typeof arg === 'function') {
@@ -585,6 +611,406 @@ describe('Pluto Server API (e2e)', () => {
       expect(mockPrismaService.user.delete).toHaveBeenCalledWith({
         where: { id: regularUser.id },
       });
+    });
+  });
+
+  describe('/v1/expenses', () => {
+    let accessToken: string;
+    const testUserId = 'expense-user-uuid-1';
+    // Must be a real UUID: route params go through ParseUUIDPipe.
+    const foodCategoryId = 'cafe0000-0000-4000-8000-000000000001';
+
+    const foodCategory = {
+      id: foodCategoryId,
+      userId: testUserId,
+      name: 'Food & Dining',
+      color: '#f59e0b',
+      icon: 'utensils',
+      isDefault: true,
+      sortOrder: 10,
+      createdAt: new Date('2026-10-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-10-01T00:00:00.000Z'),
+      _count: { expenses: 0 },
+    };
+
+    const expenseRow = {
+      id: 'expense-row-uuid-1',
+      userId: testUserId,
+      categoryId: foodCategoryId,
+      amount: new Prisma.Decimal('12.50'),
+      currency: 'USD',
+      description: 'Groceries',
+      incurredOn: new Date('2026-10-03T00:00:00.000Z'),
+      paymentMethod: 'CARD',
+      createdAt: new Date('2026-10-03T09:00:00.000Z'),
+      updatedAt: new Date('2026-10-03T09:00:00.000Z'),
+      category: { name: 'Food & Dining', color: '#f59e0b' },
+    };
+
+    const auth = () => ({ Authorization: `Bearer ${accessToken}` });
+
+    beforeAll(async () => {
+      // Published snapshot carrying real rates so the conversion path is exercised.
+      mockPrismaService.rateSnapshot.findFirst.mockResolvedValue({
+        id: 'snap-expenses',
+        version: 7,
+        baseCurrency: 'USD',
+        effectiveDate: new Date('2026-10-09'),
+        isPublished: true,
+      });
+      mockPrismaService.rateSnapshot.findUnique.mockResolvedValue({
+        id: 'snap-expenses',
+        version: 7,
+        baseCurrency: 'USD',
+        effectiveDate: new Date('2026-10-09'),
+        fetchedAt: new Date('2026-10-09T04:00:00.000Z'),
+        provider: 'frankfurter',
+        etag: 'etag-expenses',
+        rates: [
+          { quoteCurrency: 'USD', rate: 1 },
+          { quoteCurrency: 'EUR', rate: 0.92 },
+        ],
+      });
+
+      const expenseUser = {
+        id: testUserId,
+        email: 'expenses@example.com',
+        name: 'Expenses User',
+        googleId: 'google-sub-expenses',
+        avatarUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      // auth.service resolves by googleId first, then by email, then by id
+      // (JWT strategy). Covering all three keeps the fallback create path away.
+      mockPrismaService.user.findUnique.mockImplementation(
+        ({ where }: { where: { id?: string; googleId?: string; email?: string } }) =>
+          Promise.resolve(
+            where.id === testUserId ||
+              where.googleId === 'google-sub-expenses' ||
+              where.email === 'expenses@example.com'
+              ? expenseUser
+              : null,
+          ),
+      );
+      mockPrismaService.user.update.mockResolvedValue(expenseUser);
+      mockPrismaService.refreshSession.create.mockResolvedValue({
+        id: 'sess-expenses',
+        userId: testUserId,
+      });
+      mockGoogleAuthService.verifyIdToken.mockResolvedValue({
+        googleId: 'google-sub-expenses',
+        email: 'expenses@example.com',
+        name: 'Expenses User',
+        avatarUrl: null,
+      });
+
+      const response = await request(server)
+        .post('/v1/auth/google')
+        .send({ idToken: 'expenses-e2e-token' })
+        .expect(200);
+      accessToken = response.body.data.accessToken;
+    });
+
+    it('should reject expense routes without a Bearer token (401)', async () => {
+      await request(server).get('/v1/expenses').expect(401);
+      await request(server).get('/v1/expenses/summary').expect(401);
+    });
+
+    it('(GET) /v1/expenses/categories seeds defaults for an empty account', async () => {
+      mockPrismaService.expenseCategory.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([foodCategory]);
+
+      const response = await request(server).get('/v1/expenses/categories').set(auth()).expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(mockPrismaService.expenseCategory.create).toHaveBeenCalledTimes(7);
+      expect(response.body.data).toHaveLength(1);
+      expect(response.body.data[0]).toMatchObject({
+        name: 'Food & Dining',
+        expenseCount: 0,
+      });
+    });
+
+    it('(POST) /v1/expenses should record an expense and serialise Decimal/Date', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(foodCategory);
+      mockPrismaService.expense.create.mockResolvedValue(expenseRow);
+
+      const response = await request(server)
+        .post('/v1/expenses')
+        .set(auth())
+        .send({
+          categoryId: foodCategoryId,
+          amount: 12.5,
+          currency: 'usd',
+          incurredOn: '2026-10-03',
+          description: 'Groceries',
+          paymentMethod: 'CARD',
+        })
+        .expect(201);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.amount).toBe(12.5);
+      expect(response.body.data.incurredOn).toBe('2026-10-03');
+      expect(response.body.data.categoryName).toBe('Food & Dining');
+      expect(mockPrismaService.expense.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ currency: 'USD' }) }),
+      );
+    });
+
+    it('(POST) /v1/expenses should reject an unsupported currency (400)', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(foodCategory);
+      mockPrismaService.expense.create.mockClear();
+
+      const response = await request(server)
+        .post('/v1/expenses')
+        .set(auth())
+        .send({ categoryId: foodCategoryId, amount: 10, currency: 'XYZ', incurredOn: '2026-10-03' })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('Unsupported currency');
+      expect(mockPrismaService.expense.create).not.toHaveBeenCalled();
+    });
+
+    it('(POST) /v1/expenses should reject a non-positive amount (400)', async () => {
+      await request(server)
+        .post('/v1/expenses')
+        .set(auth())
+        .send({ categoryId: foodCategoryId, amount: 0, currency: 'USD', incurredOn: '2026-10-03' })
+        .expect(400);
+    });
+
+    it('(POST) /v1/expenses should 404 for an unknown category', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(null);
+
+      await request(server)
+        .post('/v1/expenses')
+        .set(auth())
+        .send({
+          categoryId: '00000000-0000-4000-8000-000000000000',
+          amount: 10,
+          currency: 'USD',
+          incurredOn: '2026-10-03',
+        })
+        .expect(404);
+    });
+
+    it('(GET) /v1/expenses should return the paginated envelope', async () => {
+      mockPrismaService.expense.findMany.mockResolvedValue([expenseRow]);
+      mockPrismaService.expense.count.mockResolvedValue(1);
+
+      const response = await request(server)
+        .get('/v1/expenses?page=1&limit=10&sort=date_desc')
+        .set(auth())
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body).toHaveProperty('timestamp');
+      expect(response.body.data.items).toHaveLength(1);
+      expect(response.body.data).toMatchObject({ page: 1, limit: 10, total: 1 });
+
+      const where = mockPrismaService.expense.findMany.mock.calls.at(-1)[0].where;
+      expect(where.userId).toBe(testUserId);
+    });
+
+    it("(GET) /v1/expenses/:id should 404 for another user's expense", async () => {
+      mockPrismaService.expense.findFirst.mockResolvedValue(null);
+
+      const response = await request(server)
+        .get('/v1/expenses/00000000-0000-4000-8000-000000000000')
+        .set(auth())
+        .expect(404);
+
+      expect(response.body.success).toBe(false);
+    });
+
+    it('(GET) /v1/expenses/summary should convert into the base currency', async () => {
+      mockPrismaService.expense.groupBy.mockResolvedValue([
+        {
+          categoryId: foodCategoryId,
+          currency: 'USD',
+          _sum: { amount: new Prisma.Decimal('100.00') },
+          _count: { _all: 5 },
+        },
+        {
+          categoryId: foodCategoryId,
+          currency: 'EUR',
+          _sum: { amount: new Prisma.Decimal('92.00') },
+          _count: { _all: 3 },
+        },
+      ]);
+      mockPrismaService.expenseCategory.findMany.mockResolvedValue([
+        { id: foodCategoryId, name: 'Food & Dining', color: '#f59e0b' },
+      ]);
+
+      const response = await request(server)
+        .get('/v1/expenses/summary?from=2026-10-01&to=2026-10-31')
+        .set(auth())
+        .expect(200);
+
+      const data = response.body.data;
+      expect(data.converted).toBe(true);
+      expect(data.baseCurrency).toBe('USD');
+      // 100 USD + 92 EUR (92 / 0.92 = 100 USD) = 200
+      expect(data.total).toBe(200);
+      expect(data.count).toBe(8);
+      expect(data.byCategory[0].total).toBe(200);
+      expect(data.byCategory[0].percentage).toBe(100);
+      expect(data.byCurrency).toEqual([
+        { currency: 'USD', total: 100, count: 5 },
+        { currency: 'EUR', total: 92, count: 3 },
+      ]);
+    });
+
+    it('(GET) /v1/expenses/summary should reject an unsupported base (400)', async () => {
+      const response = await request(server)
+        .get('/v1/expenses/summary?base=XYZ')
+        .set(auth())
+        .expect(400);
+
+      expect(response.body.error).toContain('Unsupported currency');
+    });
+
+    it('(GET) /v1/expenses/trends should return a continuous series', async () => {
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        {
+          amount: new Prisma.Decimal('10.00'),
+          currency: 'USD',
+          incurredOn: new Date('2026-10-05T00:00:00.000Z'),
+        },
+      ]);
+
+      const response = await request(server)
+        .get('/v1/expenses/trends?months=3')
+        .set(auth())
+        .expect(200);
+
+      const data = response.body.data;
+      expect(data.months).toBe(3);
+      expect(data.points).toHaveLength(3);
+      expect(data.converted).toBe(true);
+      expect(data.points.map((p: { total: number }) => typeof p.total)).toEqual([
+        'number',
+        'number',
+        'number',
+      ]);
+      // Continuous: consecutive ascending months with no gaps.
+      const encoded = data.points.map((p: { month: string }) => {
+        const [year, month] = p.month.split('-').map(Number);
+        return year * 12 + month;
+      });
+      expect(encoded[1] - encoded[0]).toBe(1);
+      expect(encoded[2] - encoded[1]).toBe(1);
+    });
+
+    it('(GET) /v1/expenses/trends should cap the window (400)', async () => {
+      await request(server).get('/v1/expenses/trends?months=99').set(auth()).expect(400);
+    });
+
+    it('(POST) /v1/expenses/budgets should create and reject a duplicate', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(foodCategory);
+      mockPrismaService.budget.findFirst.mockResolvedValue(null);
+      mockPrismaService.budget.create.mockResolvedValue({
+        id: 'budget-uuid-1',
+        userId: testUserId,
+        categoryId: foodCategoryId,
+        amount: new Prisma.Decimal('100.00'),
+        currency: 'USD',
+        period: 'MONTHLY',
+        startDate: new Date('2026-10-01T00:00:00.000Z'),
+        createdAt: new Date('2026-10-01T00:00:00.000Z'),
+        category: { name: 'Food & Dining' },
+      });
+
+      const created = await request(server)
+        .post('/v1/expenses/budgets')
+        .set(auth())
+        .send({
+          categoryId: foodCategoryId,
+          amount: 100,
+          currency: 'USD',
+          period: 'MONTHLY',
+          startDate: '2026-10-01',
+        })
+        .expect(201);
+
+      expect(created.body.data.amount).toBe(100);
+      expect(created.body.data.startDate).toBe('2026-10-01');
+
+      mockPrismaService.budget.findFirst.mockResolvedValue({ id: 'budget-uuid-1' });
+      await request(server)
+        .post('/v1/expenses/budgets')
+        .set(auth())
+        .send({
+          categoryId: foodCategoryId,
+          amount: 200,
+          currency: 'USD',
+          period: 'MONTHLY',
+          startDate: '2026-10-01',
+        })
+        .expect(409);
+    });
+
+    it('(GET) /v1/expenses/budgets/status should compare spend to budget', async () => {
+      mockPrismaService.budget.findMany.mockResolvedValue([
+        {
+          id: 'budget-uuid-1',
+          userId: testUserId,
+          categoryId: foodCategoryId,
+          amount: new Prisma.Decimal('100.00'),
+          currency: 'USD',
+          period: 'MONTHLY',
+          startDate: new Date('2026-10-01T00:00:00.000Z'),
+          createdAt: new Date('2026-10-01T00:00:00.000Z'),
+          category: { name: 'Food & Dining', color: '#f59e0b' },
+        },
+      ]);
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        {
+          amount: new Prisma.Decimal('80.00'),
+          currency: 'USD',
+          categoryId: foodCategoryId,
+          incurredOn: new Date('2026-10-05T00:00:00.000Z'),
+        },
+      ]);
+
+      const response = await request(server)
+        .get('/v1/expenses/budgets/status?month=2026-10')
+        .set(auth())
+        .expect(200);
+
+      const item = response.body.data.items[0];
+      expect(response.body.data.month).toBe('2026-10');
+      expect(item).toMatchObject({
+        budgetAmount: 100,
+        spent: 80,
+        remaining: 20,
+        percentage: 80,
+        overBudget: false,
+        applied: true,
+        currency: 'USD',
+      });
+    });
+
+    it('(GET) /v1/expenses/budgets/status should reject a malformed month (400)', async () => {
+      await request(server)
+        .get('/v1/expenses/budgets/status?month=2026-13')
+        .set(auth())
+        .expect(400);
+    });
+
+    it('(DELETE) /v1/expenses/categories/:id should refuse while expenses reference it', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(foodCategory);
+      mockPrismaService.expense.count.mockResolvedValue(2);
+
+      const response = await request(server)
+        .delete(`/v1/expenses/categories/${foodCategoryId}`)
+        .set(auth())
+        .expect(409);
+
+      expect(response.body.error).toContain('expense');
     });
   });
 });

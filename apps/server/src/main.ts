@@ -88,6 +88,7 @@ async function bootstrap(): Promise<void> {
     .addTag('Users', 'User profile management')
     .addTag('Rates', 'Exchange rate queries and synchronization')
     .addTag('Backups', 'Cloud backup upload, download, and metadata')
+    .addTag('Expenses', 'Expense tracking, categories, budgets, and spending reports')
     .addTag('Admin', 'Administrator-only operations (requires ADMIN role)')
     .build();
 
