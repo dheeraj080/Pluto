@@ -1,0 +1,100 @@
+# Pluto Web
+
+> Public website and admin dashboard for the Pluto Android application — compliance pages, marketing site, live status, account deletion flow, and a role-gated operator panel. Built with Next.js 16 (App Router), TypeScript, and Tailwind CSS 4.
+
+Companion repository to **`pluto-server`** (the NestJS API).
+
+---
+
+## Routes
+
+### Public (statically prerendered, SEO-friendly)
+
+| Route | Purpose |
+| :--- | :--- |
+| `/` | Landing page: features, live ECB rates, backup walkthrough, Play Store CTA |
+| `/privacy` | Privacy Policy (drafted from the API's actual data flows — review with counsel) |
+| `/terms` | Terms of Service (draft — governing law placeholder flagged in source) |
+| `/support` | FAQ / support page |
+| `/status` | Live health dashboard (`GET /v1/health` + `GET /v1/rates/latest`, auto-refresh) |
+| `/delete-account` | **Google Play data-deletion URL** — web Google Sign-In → optional backup export → typed confirmation → `DELETE /v1/users/me` |
+| `404` | Not-found page |
+
+### Admin (client-rendered, requires `ADMIN_EMAILS` role)
+
+| Route | Purpose |
+| :--- | :--- |
+| `/admin/login` | Google web sign-in; rejects non-admin accounts |
+| `/admin` | Overview: users, backups, storage, sessions, latest rate snapshot, scheduler locks |
+| `/admin/users` | User list with search + pagination |
+| `/admin/users/[id]` | User detail: revoke sessions, delete backups, delete account |
+| `/admin/backups` | All backups across users, status filter, delete |
+| `/admin/rates` | Rate snapshot history (sync/provider health) |
+| `/admin/system` | API/DB health, environment, scheduler locks |
+
+The admin layout gates every `/admin/*` route (except `/admin/login`) by calling
+`GET /v1/admin/stats`; a `403` renders the "no admin access" screen, a `401` clears
+the session.
+
+---
+
+## Local development
+
+### Prerequisites
+
+- pluto-server running locally (see its README) — default `http://localhost:3000/v1`
+- Node.js 20.19+ / 22+
+
+### Setup
+
+```powershell
+npm install
+Copy-Item .env.example .env.local   # then fill in real values
+npm run dev                          # http://localhost:3001
+```
+
+The dev server intentionally runs on **port 3001** to avoid clashing with pluto-server on 3000.
+
+### Environment variables
+
+| Variable | Description |
+| :--- | :--- |
+| `NEXT_PUBLIC_API_URL` | Base URL of pluto-server including the version prefix (e.g. `http://localhost:3000/v1`) |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth 2.0 **Web** Client ID. Must also be listed in the server's `GOOGLE_ALLOWED_CLIENT_IDS`, and this origin (e.g. `http://localhost:3001`) must be in the client's *Authorized JavaScript origins* |
+| `NEXT_PUBLIC_SITE_URL` | Absolute site URL for metadata/OpenGraph |
+
+### Server-side configuration checklist (pluto-server)
+
+1. `ADMIN_EMAILS="your.email@example.com"` — promotes you to `ADMIN` on sign-in
+2. `GOOGLE_ALLOWED_CLIENT_IDS` — includes the same Web Client ID as above
+3. `CORS_ORIGIN` — includes this site's origin (e.g. `http://localhost:3001`)
+
+---
+
+## Scripts
+
+```powershell
+npm run dev     # dev server on :3001
+npm run build   # production build (static prerender of all public routes)
+npm run start   # serve production build on :3001
+npm run lint    # ESLint (Next 16 + react-hooks strict rules)
+```
+
+## Architecture notes
+
+- **API client** (`src/lib/api.ts`): access token in memory, refresh token in
+  `localStorage`, single-flight rotation on `401` with one replay of the original
+  request, responses unwrapped from the server's `{ success, data, timestamp }` envelope.
+- **Google Sign-In** (`src/components/google-sign-in.tsx`): Google Identity Services
+  button → ID token → `POST /v1/auth/google` (same endpoint the Android app uses).
+- **Legal pages** are drafts derived from the implemented data flows — have counsel
+  review before launch (flagged `DRAFT` in source).
+
+## Launch checklist
+
+- [ ] Replace `support@pluto.app` placeholders in `/privacy`, `/terms`, `/support`
+- [ ] Fill in governing law in `/terms` §11
+- [ ] Replace the Play Store URL in `src/app/(public)/page.tsx`
+- [ ] Real Google Web Client ID + Authorized JavaScript origins
+- [ ] `NEXT_PUBLIC_SITE_URL` for the production domain
+- [ ] Submit `/delete-account` as the data-deletion URL in Google Play Console
