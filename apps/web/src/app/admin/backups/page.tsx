@@ -13,7 +13,7 @@ import {
   PageHeader,
   Pagination,
   Table,
-} from "@/components/admin/ui";
+} from "@/components/ui";
 
 const LIMIT = 20;
 const STATUS_OPTIONS: Array<BackupStatus | ""> = ["", "COMPLETED", "PENDING", "FAILED", "DELETED"];

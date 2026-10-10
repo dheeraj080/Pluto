@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type { AdminRateSnapshot } from "@/lib/types";
-import { Badge, ErrorNote, LoadingNote, PageHeader, Table } from "@/components/admin/ui";
+import { Badge, ErrorNote, LoadingNote, PageHeader, Table } from "@/components/ui";
 
 export default function AdminRatesPage() {
   const [snapshots, setSnapshots] = useState<AdminRateSnapshot[] | null>(null);

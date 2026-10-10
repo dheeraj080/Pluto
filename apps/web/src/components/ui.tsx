@@ -1,6 +1,16 @@
-/** Shared building blocks for admin screens. */
+/**
+ * Shared building blocks for every screen (admin and the signed-in app).
+ *
+ * Deliberately dependency-free: no form/state library, matching the rest of
+ * this codebase where pages own their state with useState/useEffect.
+ */
 
-import type { ReactNode } from "react";
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from "react";
 
 export function PageHeader({
   title,
@@ -116,6 +126,25 @@ export function LoadingNote({ label = "Loading…" }: { label?: string }) {
   return <p className="text-sm text-muted">{label}</p>;
 }
 
+/** Used when a list is loaded and genuinely has nothing in it. */
+export function EmptyState({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-border p-10 text-center">
+      <p className="text-sm font-medium">{title}</p>
+      {description && <p className="mx-auto mt-1 max-w-md text-sm text-muted">{description}</p>}
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
+    </div>
+  );
+}
+
 /** Standard table shell; rows are provided by the caller. */
 export function Table({ headers, children }: { headers: string[]; children: ReactNode }) {
   return (
@@ -162,4 +191,53 @@ export function Pagination({
       </Button>
     </div>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Form controls                                                       */
+/* ------------------------------------------------------------------ */
+
+/** Label + control + optional hint/error, laid out as a form row. */
+export function Field({
+  label,
+  hint,
+  error,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  error?: string;
+  htmlFor?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <label htmlFor={htmlFor} className="block text-sm font-medium">
+        {label}
+      </label>
+      {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
+      <div className="mt-1">{children}</div>
+      {error && (
+        <p className="mt-1 text-xs text-danger" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+const CONTROL =
+  "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm transition placeholder:text-muted/70 focus:border-accent focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
+
+export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={`${CONTROL} ${className ?? ""}`} />;
+}
+
+export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return <select {...props} className={`${CONTROL} ${className ?? ""}`} />;
+}
+
+export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea {...props} className={`${CONTROL} min-h-20 ${className ?? ""}`} />;
 }

@@ -14,7 +14,7 @@ import {
   LoadingNote,
   PageHeader,
   Table,
-} from "@/components/admin/ui";
+} from "@/components/ui";
 
 export default function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();

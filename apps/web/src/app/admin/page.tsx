@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import type { AdminLock, AdminStats } from "@/lib/types";
-import { Card, ErrorNote, LoadingNote, PageHeader, StatCard } from "@/components/admin/ui";
+import { Card, ErrorNote, LoadingNote, PageHeader, StatCard } from "@/components/ui";
 
 export default function AdminOverviewPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);

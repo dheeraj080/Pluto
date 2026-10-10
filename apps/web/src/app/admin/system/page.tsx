@@ -11,7 +11,7 @@ import {
   LoadingNote,
   PageHeader,
   StatCard,
-} from "@/components/admin/ui";
+} from "@/components/ui";
 
 export default function AdminSystemPage() {
   const [health, setHealth] = useState<HealthReport | null>(null);
