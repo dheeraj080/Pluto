@@ -8,7 +8,8 @@
     "dev": {
       "dependsOn": [],
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": ["PORT"]
     },
     "lint": {
       "outputs": []
@@ -17,7 +18,8 @@
       "outputs": []
     },
     "test:e2e": {
-      "outputs": []
+      "outputs": [],
+      "env": ["DATABASE_URL"]
     }
   }
 }
