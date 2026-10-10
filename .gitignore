@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+
+# build outputs
+dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# env (templates like .env.example ARE committed)
+.env
+.env.local
+.env.*.local
+
+# turbo
+.turbo/
+
+# next.js (regenerated)
+next-env.d.ts
+
+# local tooling
+.archify/
+
+# misc
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+# docker bind-mount data
+postgres_data/
