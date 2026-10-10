@@ -17,15 +17,15 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Pluto — exchange rates & secure cloud backups for Android",
+    default: "Pluto — Expenses across every currency",
     template: "%s · Pluto",
   },
   description:
-    "Pluto for Android: daily exchange rates from the European Central Bank and automatic, encrypted cloud backups of your data — secured with Google Sign-In.",
+    "Track spending in any currency and see it in the one that matters to you. ECB-based conversion, budgets, and spending reports — with Google Sign-In.",
   openGraph: {
     title: "Pluto",
     description:
-      "Daily exchange rates and automatic encrypted cloud backups for Android.",
+      "Track spending in any currency and see it in the one that matters to you.",
     url: siteUrl,
     siteName: "Pluto",
     type: "website",

@@ -1,44 +1,176 @@
 @import "tailwindcss";
 
+/*
+ * Pluto design tokens.
+ *
+ * Light-first warm theme with a dark palette for `prefers-color-scheme`.
+ * Semantic CSS variables (swapped in dark mode) feed the Tailwind 4 `@theme`
+ * via `@theme inline`, so every utility resolves the variable at use time.
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
-  --muted: #64748b;
-  --border: #e2e8f0;
-  --accent: #4f46e5;
-  --accent-foreground: #ffffff;
-  --danger: #dc2626;
-  --success: #16a34a;
+  --canvas: #faf9f5;
+  --surface: #ffffff;
+  --surface-muted: #f2f0e9;
+  --ink: #17211b;
+  --muted: #5f6b64;
+  --border: #e6e3da;
+  --border-strong: #cfcbbf;
+
+  --primary: #0e5a41;
+  --primary-hover: #0b4433;
+  --primary-active: #093628;
+  --primary-subtle: #e0efe6;
+  --on-primary: #ffffff;
+
+  --gold: #a87e2b;
+  --gold-subtle: #f7efd9;
+
+  --danger: #bc362a;
+  --danger-hover: #9e2b22;
+  --danger-subtle: #fae5e1;
+
+  --success: #1f7a4d;
+  --success-subtle: #e2f2e8;
+
+  --warning: #b45309;
+  --warning-subtle: #fcf1dc;
+
+  --focus-ring: #0e5a41;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --muted: #a1a1aa;
-    --border: #262626;
-    --accent: #818cf8;
-    --accent-foreground: #0a0a0a;
-    --danger: #f87171;
-    --success: #4ade80;
+    --canvas: #0b110d;
+    --surface: #131b15;
+    --surface-muted: #1b251e;
+    --ink: #e8eee9;
+    --muted: #9ba99f;
+    --border: #28332b;
+    --border-strong: #3a4740;
+
+    --primary: #34a878;
+    --primary-hover: #4cb98b;
+    --primary-active: #2b8f64;
+    --primary-subtle: #13402f;
+    --on-primary: #07130c;
+
+    --gold: #d2a54c;
+    --gold-subtle: #33290f;
+
+    --danger: #e0604e;
+    --danger-hover: #ea7a6a;
+    --danger-subtle: #3a1713;
+
+    --success: #45b67f;
+    --success-subtle: #123029;
+
+    --warning: #e0a346;
+    --warning-subtle: #33260d;
+
+    --focus-ring: #4cb98b;
   }
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--surface);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-foreground: var(--ink);
+  --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-border: var(--border);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
+  --color-border-strong: var(--border-strong);
+
+  --color-accent: var(--primary);
+  --color-accent-foreground: var(--on-primary);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-on-primary: var(--on-primary);
+
+  --color-gold: var(--gold);
+  --color-gold-subtle: var(--gold-subtle);
+
   --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-subtle: var(--danger-subtle);
   --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+
+  /* Chart palette — chosen for separation on both light and dark surfaces. */
+  --color-chart-1: #1f7a4d;
+  --color-chart-2: #b45309;
+  --color-chart-3: #0e7490;
+  --color-chart-4: #a63d2f;
+  --color-chart-5: #4d7c0f;
+  --color-chart-6: #8a6522;
+  --color-chart-7: #1d4ed8;
+  --color-chart-8: #0f766e;
+  --color-chart-9: #be123c;
+  --color-chart-10: #475569;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+@layer base {
+  html {
+    color-scheme: light;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    html {
+      color-scheme: dark;
+    }
+  }
+
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--primary-subtle);
+    color: var(--ink);
+  }
+
+  /* Global keyboard-focus fallback; interactive components may refine it. */
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

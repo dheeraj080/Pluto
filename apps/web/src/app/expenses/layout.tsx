@@ -15,21 +15,19 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api, ApiError, clearSession, getAccessToken, getRefreshToken } from "@/lib/api";
 import type { UserProfile } from "@/lib/types";
+import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { Spinner } from "@/components/ui";
+import { Wordmark } from "@/components/logo";
+import { IconChart, IconHome, IconTag, IconWallet } from "@/components/icons";
 
-const NAV = [
-  { href: "/expenses", label: "Dashboard" },
-  { href: "/expenses/reports", label: "Reports" },
-  { href: "/expenses/budgets", label: "Budgets" },
-  { href: "/expenses/categories", label: "Categories" },
-] as const;
+const NAV: AppNavItem[] = [
+  { href: "/expenses", label: "Dashboard", icon: <IconHome className="h-4.5 w-4.5" /> },
+  { href: "/expenses/reports", label: "Reports", icon: <IconChart className="h-4.5 w-4.5" /> },
+  { href: "/expenses/budgets", label: "Budgets", icon: <IconWallet className="h-4.5 w-4.5" /> },
+  { href: "/expenses/categories", label: "Categories", icon: <IconTag className="h-4.5 w-4.5" /> },
+];
 
 type Gate = "checking" | "ready" | "denied";
-
-function isActive(pathname: string, href: string): boolean {
-  // /expenses/new must not highlight "Dashboard".
-  if (href === "/expenses") return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
 
 export default function ExpensesLayout({ children }: { children: React.ReactNode }) {
   // usePathname is runtime-only during prerender — it must live under Suspense.
@@ -37,7 +35,7 @@ export default function ExpensesLayout({ children }: { children: React.ReactNode
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center px-4">
-          <p className="text-sm text-muted">Loading…</p>
+          <GateSkeleton label="Loading your expenses…" />
         </div>
       }
     >
@@ -86,87 +84,68 @@ function ExpensesShell({ children }: { children: React.ReactNode }) {
   };
 
   if (gate === "checking") {
-    return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <p className="text-sm text-muted">Checking your session…</p>
-      </div>
-    );
+    return <GateSkeleton label="Checking your session…" />;
   }
 
   if (gate === "denied") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
-        <h1 className="text-xl font-bold">Sign-in required</h1>
-        <p className="mt-3 max-w-md text-sm text-muted">
-          Expense tracking is available once you are signed in.
-          {errorMessage && <span className="mt-2 block text-danger">{errorMessage}</span>}
-        </p>
-        <div className="mt-6 flex gap-3">
-          <Link
-            href="/login"
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
-          >
-            Go to sign-in
-          </Link>
-          <Link
-            href="/"
-            className="rounded-lg border border-border px-4 py-2 text-sm transition-colors hover:bg-background"
-          >
-            Back to site
-          </Link>
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-canvas px-4 py-16">
+        <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-8 text-center shadow-[0_1px_2px_rgba(23,33,27,0.04)]">
+          <div className="mx-auto flex w-12 items-center justify-center text-primary">
+            <Wordmark logoClassName="h-7 w-7" />
+          </div>
+          <h1 className="mt-5 text-xl font-semibold tracking-tight text-ink">Sign-in required</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Expense tracking is available once you are signed in.
+          </p>
+          {errorMessage && (
+            <p className="mt-3 rounded-xl bg-danger-subtle px-3 py-2 text-xs font-medium text-danger" role="alert">
+              {errorMessage}
+            </p>
+          )}
+          <div className="mt-6 flex flex-col gap-2.5">
+            <Link
+              href="/login"
+              className="inline-flex h-10 w-full select-none items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-on-primary shadow-[0_1px_2px_rgba(23,33,27,0.18)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Go to sign-in
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex h-10 w-full select-none items-center justify-center rounded-xl border border-border bg-background px-4 text-sm font-medium text-ink transition-colors hover:bg-surface-muted"
+            >
+              Back to site
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      <aside className="border-b border-border bg-background/50 md:w-56 md:shrink-0 md:border-b-0 md:border-r">
-        <div className="flex h-14 items-center gap-2 px-5 font-semibold tracking-tight">
-          <span className="text-accent">◉</span> Pluto <span className="text-muted">Expenses</span>
-        </div>
-        <nav className="flex flex-wrap gap-1 px-3 pb-3 md:flex-col md:pb-6">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`rounded-lg px-3 py-2 text-sm transition-colors ${
-                isActive(pathname, item.href)
-                  ? "bg-accent/10 font-medium text-accent"
-                  : "text-muted hover:bg-background hover:text-foreground"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-          <Link
-            href="/expenses/new"
-            className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
-          >
-            + Add expense
-          </Link>
-          <div className="md:mt-auto" />
-          <Link
-            href="/"
-            className="rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-background hover:text-foreground"
-          >
-            ← View site
-          </Link>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="rounded-lg px-3 py-2 text-left text-sm text-muted transition-colors hover:bg-background hover:text-foreground"
-          >
-            Sign out
-          </button>
-          {user && (
-            <p className="truncate px-3 py-2 text-xs text-muted" title={user.email}>
-              {user.email}
-            </p>
-          )}
-        </nav>
-      </aside>
-      <main className="flex-1 px-4 py-6 md:px-8">{children}</main>
+    <AppShell
+      nav={NAV}
+      pathname={pathname}
+      exactMatch="/expenses"
+      primaryAction={{ href: "/expenses/new", label: "Add expense" }}
+      user={user}
+      onSignOut={handleSignOut}
+    >
+      {children}
+    </AppShell>
+  );
+}
+
+function GateSkeleton({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-canvas px-4">
+      <span className="text-primary">
+        <Wordmark logoClassName="h-7 w-7" />
+      </span>
+      <p className="flex items-center gap-2 text-sm text-muted">
+        <Spinner className="h-3.5 w-3.5 border-[1.5px]" />
+        {label}
+      </p>
     </div>
   );
 }
