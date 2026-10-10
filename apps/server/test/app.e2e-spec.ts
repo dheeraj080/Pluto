@@ -293,6 +293,12 @@ describe('Pluto Server API (e2e)', () => {
       refreshToken = response.body.data.refreshToken;
     });
 
+    it('(POST) /v1/auth/dev-login is disabled (404) unless ENABLE_DEV_AUTH is enabled', async () => {
+      // The suite pins ENABLE_DEV_AUTH=false, so the mock endpoint must be
+      // indistinguishable from a missing route.
+      await request(server).post('/v1/auth/dev-login').send({}).expect(404);
+    });
+
     it('(POST) /v1/auth/refresh should rotate session and reject concurrent reuse', async () => {
       const futureDate = new Date(Date.now() + 10000000);
       mockPrismaService.refreshSession.findUnique.mockResolvedValue({

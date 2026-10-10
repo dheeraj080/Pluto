@@ -11,18 +11,32 @@
  * authenticated route — which also transparently exercises the refresh replay
  * in the API client, so an expired access token with a live refresh token still
  * signs the user straight through.
+ *
+ * When `NEXT_PUBLIC_ENABLE_DEV_AUTH=true` (baked at build time) an additional
+ * mock sign-in panel is shown. It calls `POST /v1/auth/dev-login`, which the
+ * server only serves when its own `ENABLE_DEV_AUTH=true` and `NODE_ENV` is not
+ * production — in production the endpoint returns 404 and the button simply
+ * errors.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GoogleSignInButton } from "@/components/google-sign-in";
-import { api, clearSession, getAccessToken, getRefreshToken } from "@/lib/api";
-import type { UserProfile } from "@/lib/types";
+import { Button, Input } from "@/components/ui";
+import { api, clearSession, getAccessToken, getRefreshToken, saveSession } from "@/lib/api";
+import type { AuthSession, UserProfile } from "@/lib/types";
+
+const DEV_AUTH_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEV_AUTH === "true";
 
 export default function LoginPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Mock sign-in form state; only used when the panel is rendered.
+  const [devEmail, setDevEmail] = useState("");
+  const [devBusy, setDevBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +64,26 @@ export default function LoginPage() {
     };
   }, [router]);
 
+  const handleDevSignIn = async (event: FormEvent) => {
+    event.preventDefault();
+    setDevBusy(true);
+    setError(null);
+    try {
+      const session = await api.post<AuthSession>(
+        "/auth/dev-login",
+        devEmail.trim() ? { email: devEmail.trim() } : {},
+      );
+      saveSession(session);
+      router.replace("/expenses");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Mock sign-in failed. Is ENABLE_DEV_AUTH set?",
+      );
+    } finally {
+      setDevBusy(false);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-md px-4 py-16 sm:py-24">
       <h1 className="text-2xl font-bold tracking-tight">Sign in</h1>
@@ -66,6 +100,39 @@ export default function LoginPage() {
           <GoogleSignInButton onSignedIn={() => router.replace("/expenses")} />
         )}
       </div>
+
+      {DEV_AUTH_ENABLED && (
+        <form
+          onSubmit={(event) => void handleDevSignIn(event)}
+          className="mt-6 rounded-2xl border border-dashed border-border p-6"
+        >
+          <h2 className="text-sm font-semibold">Mock sign-in (development only)</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            Creates or reuses a local account without Google — handy when there is no real
+            OAuth client ID set up. Leave the e-mail empty to use{" "}
+            <code className="rounded bg-background px-1 font-mono text-xs">dev@pluto.local</code>.
+          </p>
+          <div className="mt-4 flex gap-2">
+            <Input
+              type="email"
+              value={devEmail}
+              onChange={(event) => setDevEmail(event.target.value)}
+              placeholder="dev@pluto.local"
+              aria-label="Mock account e-mail"
+              className="min-w-0 flex-1"
+            />
+            <Button type="submit" tone="accent" disabled={devBusy}>
+              {devBusy ? "Signing in…" : "Sign in"}
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {error && (
+        <p className="mt-4 text-sm text-danger" role="alert">
+          {error}
+        </p>
+      )}
 
       <p className="mt-6 text-sm text-muted">
         By signing in you agree to our{" "}

@@ -13,7 +13,7 @@ Companion repository to **`pluto-server`** (the NestJS API).
 | Route | Purpose |
 | :--- | :--- |
 | `/` | Landing page: features, live ECB rates, backup walkthrough, Play Store CTA |
-| `/login` | **Sign-in** — Google Sign-In for any account; redirects to `/expenses` when a session is already valid |
+| `/login` | **Sign-in** — Google Sign-In for any account; redirects to `/expenses` when a session is already valid. With `NEXT_PUBLIC_ENABLE_DEV_AUTH=true` also shows a mock sign-in panel |
 | `/privacy` | Privacy Policy (drafted from the API's actual data flows — review with counsel) |
 | `/terms` | Terms of Service (draft — governing law placeholder flagged in source) |
 | `/support` | FAQ / support page |
@@ -81,12 +81,18 @@ npm run dev                          # http://localhost:3001
 
 The dev server intentionally runs on **port 3001** to avoid clashing with pluto-server on 3000.
 
+**No Google account? Use the mock sign-in.** Set `ENABLE_DEV_AUTH=true` on the server
+and `NEXT_PUBLIC_ENABLE_DEV_AUTH=true` on the web app, then sign in on `/login` — the
+server mints a real session for a synthetic account (`dev@pluto.local` by default)
+without contacting Google. See `POST /v1/auth/dev-login` in the server README.
+
 ### Environment variables
 
 | Variable | Description |
 | :--- | :--- |
 | `NEXT_PUBLIC_API_URL` | Base URL of pluto-server including the version prefix (e.g. `http://localhost:3000/v1`) |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth 2.0 **Web** Client ID. Must also be listed in the server's `GOOGLE_ALLOWED_CLIENT_IDS`, and this origin (e.g. `http://localhost:3001`) must be in the client's *Authorized JavaScript origins* |
+| `NEXT_PUBLIC_ENABLE_DEV_AUTH` | Show the mock sign-in panel on `/login`. Requires the server's `ENABLE_DEV_AUTH=true`. **Never set in production.** |
 | `NEXT_PUBLIC_SITE_URL` | Absolute site URL for metadata/OpenGraph |
 
 ### Server-side configuration checklist (pluto-server)

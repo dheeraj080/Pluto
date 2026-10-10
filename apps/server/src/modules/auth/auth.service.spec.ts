@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { UnauthorizedException } from '@nestjs/common';
+import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { GoogleAuthService } from './services/google-auth.service';
 import { PrismaService } from '../../database/prisma.service';
@@ -269,6 +269,92 @@ describe('AuthService', () => {
       expect(mockPrismaService.user.update).not.toHaveBeenCalledWith(
         expect.objectContaining({ data: { role: 'ADMIN' } }),
       );
+    });
+  });
+
+  describe('dev mock sign-in', () => {
+    async function buildServiceWithConfig(config: Record<string, unknown>): Promise<AuthService> {
+      const module = await Test.createTestingModule({
+        providers: [
+          AuthService,
+          { provide: PrismaService, useValue: mockPrismaService },
+          { provide: JwtService, useValue: mockJwtService },
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn((key: string, defaultValue: unknown) => config[key] ?? defaultValue),
+            },
+          },
+          { provide: GoogleAuthService, useValue: mockGoogleAuthService },
+        ],
+      }).compile();
+      return module.get<AuthService>(AuthService);
+    }
+
+    it('is refused with 404 when disabled, and refused in production even when enabled', async () => {
+      const disabled = await buildServiceWithConfig({ ENABLE_DEV_AUTH: false });
+      await expect(disabled.authenticateDevUser()).rejects.toThrow(NotFoundException);
+
+      // Defense in depth: the flag is meaningless in production.
+      const prod = await buildServiceWithConfig({
+        ENABLE_DEV_AUTH: true,
+        NODE_ENV: 'production',
+      });
+      await expect(prod.authenticateDevUser()).rejects.toThrow(NotFoundException);
+    });
+
+    it('creates a synthetic account (default e-mail) and returns a token pair when enabled', async () => {
+      const service = await buildServiceWithConfig({
+        ENABLE_DEV_AUTH: true,
+        NODE_ENV: 'development',
+      });
+
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.user.create.mockResolvedValue({
+        id: 'dev-user-1',
+        googleId: 'dev:dev@pluto.local',
+        email: 'dev@pluto.local',
+        name: 'dev',
+        avatarUrl: null,
+        role: 'USER',
+        createdAt: new Date(),
+      });
+      mockPrismaService.refreshSession.create.mockResolvedValue({ id: 'session-dev-1' });
+
+      const result = await service.authenticateDevUser();
+
+      expect(mockPrismaService.user.create).toHaveBeenCalledWith({
+        data: {
+          googleId: 'dev:dev@pluto.local',
+          email: 'dev@pluto.local',
+          name: 'dev',
+        },
+      });
+      expect(result.accessToken).toBe('mock-jwt-access-token');
+      expect(result.refreshToken).toBeDefined();
+      expect(result.user.email).toBe('dev@pluto.local');
+    });
+
+    it('reuses an existing account by e-mail and never touches Google', async () => {
+      const service = await buildServiceWithConfig({ ENABLE_DEV_AUTH: true });
+
+      const existingUser = {
+        id: 'dev-user-2',
+        googleId: 'dev:tester@example.com',
+        email: 'tester@example.com',
+        name: 'Tester',
+        avatarUrl: null,
+        role: 'USER',
+        createdAt: new Date(),
+      };
+      mockPrismaService.user.findUnique.mockResolvedValue(existingUser);
+      mockPrismaService.refreshSession.create.mockResolvedValue({ id: 'session-dev-2' });
+
+      const result = await service.authenticateDevUser('tester@example.com');
+
+      expect(mockPrismaService.user.create).not.toHaveBeenCalled();
+      expect(result.user.email).toBe('tester@example.com');
+      expect(mockGoogleAuthService.verifyIdToken).not.toHaveBeenCalled();
     });
   });
 });

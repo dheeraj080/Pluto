@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
@@ -7,6 +7,7 @@ import type { User } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { GoogleAuthService } from './services/google-auth.service';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { DEFAULT_DEV_EMAIL } from './dto/dev-login.dto';
 
 @Injectable()
 export class AuthService {
@@ -14,6 +15,7 @@ export class AuthService {
   private readonly accessTokenTtl: string;
   private readonly refreshTokenTtlDays: number;
   private readonly adminEmails: Set<string>;
+  private readonly devAuthEnabled: boolean;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -29,6 +31,11 @@ export class AuthService {
         .map((email) => email.trim().toLowerCase())
         .filter(Boolean),
     );
+    // Dev mock sign-in is opt-in AND impossible when NODE_ENV=production. The
+    // env schema additionally refuses to boot with the flag set in production.
+    this.devAuthEnabled =
+      this.configService.get<boolean>('ENABLE_DEV_AUTH', false) === true &&
+      this.configService.get<string>('NODE_ENV', 'development') !== 'production';
   }
 
   /**
@@ -106,6 +113,55 @@ export class AuthService {
     }
 
     // Promote to ADMIN if listed in ADMIN_EMAILS (checked on every sign-in)
+    user = await this.applyAdminRole(user);
+
+    return this.createAuthSession(
+      user.id,
+      user.email,
+      user.name,
+      user.avatarUrl,
+      user.createdAt,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  /**
+   * Dev-only: issues a session for a synthetic account without contacting
+   * Google. Guarded by ENABLE_DEV_AUTH (and refused outright in production);
+   * when disabled it throws NotFound so the route looks identical to a
+   * non-existent endpoint.
+   */
+  async authenticateDevUser(
+    email?: string,
+    name?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<AuthResponseDto> {
+    if (!this.devAuthEnabled) {
+      throw new NotFoundException('Not found');
+    }
+
+    const emailAddress = (email ?? DEFAULT_DEV_EMAIL).trim().toLowerCase();
+    const displayName = name?.trim() || emailAddress.split('@')[0];
+
+    let user = await this.prisma.user.findUnique({
+      where: { email: emailAddress },
+    });
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          // Synthetic, clearly-namespaced subject, so a dev account can never
+          // collide with a real Google account that happens to share an e-mail.
+          googleId: `dev:${emailAddress}`,
+          email: emailAddress,
+          name: displayName,
+        },
+      });
+      this.logger.log(`Created dev account ${emailAddress}`);
+    }
+
     user = await this.applyAdminRole(user);
 
     return this.createAuthSession(

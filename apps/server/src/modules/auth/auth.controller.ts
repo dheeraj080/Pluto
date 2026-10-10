@@ -4,6 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { GoogleAuthDto } from './dto/google-auth.dto';
+import { DevLoginDto } from './dto/dev-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { Public } from '../../common/decorators/public.decorator';
@@ -32,6 +33,27 @@ export class AuthController {
     const ipAddress = (req.headers['x-forwarded-for'] as string) || req.ip;
     const userAgent = req.headers['user-agent'];
     return this.authService.authenticateWithGoogle(dto.idToken, ipAddress, userAgent);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Post('dev-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Mock sign-in for local development (ENABLE_DEV_AUTH only)',
+    description:
+      'Creates or reuses a synthetic account and returns the same token pair as the Google flow, so the UI can be exercised without a Google client ID. Only reachable when ENABLE_DEV_AUTH=true and NODE_ENV != production; otherwise it returns 404.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Authentication successful (mock session)',
+    type: AuthResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Dev auth is not enabled' })
+  async devLogin(@Body() dto: DevLoginDto, @Req() req: Request): Promise<AuthResponseDto> {
+    const ipAddress = (req.headers['x-forwarded-for'] as string) || req.ip;
+    const userAgent = req.headers['user-agent'];
+    return this.authService.authenticateDevUser(dto.email, dto.name, ipAddress, userAgent);
   }
 
   @Public()

@@ -24,6 +24,11 @@ export const envSchema = z
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().default(30),
     // Comma-separated list of e-mail addresses promoted to ADMIN on sign-in
     ADMIN_EMAILS: z.string().default(''),
+    // Dev-only mock sign-in (POST /v1/auth/dev-login). Hard-refused in production.
+    ENABLE_DEV_AUTH: z.preprocess(
+      (val) => val === 'true' || val === true || val === '1' || val === 1,
+      z.boolean().default(false),
+    ),
 
     // Rate Limiting (Throttler)
     THROTTLE_TTL: z.coerce.number().default(60),
@@ -91,6 +96,17 @@ export const envSchema = z
           path: ['OBJECT_STORAGE_ACCESS_KEY_ID'],
           message:
             'In production, default minioadmin credentials must not be used for object storage',
+        });
+      }
+
+      // The mock sign-in bypasses Google entirely, so it must never be
+      // reachable in production. Refusing to boot is safer than silently
+      // ignoring the flag.
+      if (data.ENABLE_DEV_AUTH) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['ENABLE_DEV_AUTH'],
+          message: 'ENABLE_DEV_AUTH must not be enabled when NODE_ENV=production',
         });
       }
     }

@@ -243,6 +243,7 @@ All environment variables are validated at startup via Zod in [src/config/env.va
 | `THROTTLE_TTL` | Rate limiter window in seconds | `60` | No |
 | `THROTTLE_LIMIT` | Global maximum requests per window per IP | `100` | No |
 | `ADMIN_EMAILS` | Comma-separated e-mail addresses promoted to the `ADMIN` role on sign-in (grants access to `/v1/admin/*`) | `""` | No |
+| `ENABLE_DEV_AUTH` | Enable the mock `POST /v1/auth/dev-login` endpoint (dev only — refused at boot when `NODE_ENV=production`) | `false` | No |
 
 ---
 
@@ -379,6 +380,27 @@ curl.exe -i -X POST http://localhost:3000/v1/auth/google `
   }
 }
 ```
+
+#### `POST /v1/auth/dev-login`
+**Development only** — passwordless mock sign-in that mints a session without Google.
+Useful for exercising the web app when no real OAuth client ID is configured. Available
+only when `ENABLE_DEV_AUTH=true` **and** `NODE_ENV != production`; the server refuses
+to boot with the flag set in production, and when disabled the route returns `404` so
+it is indistinguishable from a missing endpoint.
+```powershell
+# Creates / reuses the shared dev@pluto.local account
+curl.exe -i -X POST http://localhost:3000/v1/auth/dev-login `
+  -H "Content-Type: application/json" `
+  -d '{}'
+
+# Or sign in as a specific account
+curl.exe -i -X POST http://localhost:3000/v1/auth/dev-login `
+  -H "Content-Type: application/json" `
+  -d '{"email": "tester@example.com", "name": "Tester"}'
+```
+Synthetic accounts are created with a namespaced `googleId` (`dev:<email>`) so they can
+never be mistaken for real Google accounts. The response matches the Google flow exactly
+(access token + one-time refresh token + user), so the web client stores it the same way.
 
 #### `POST /v1/auth/refresh`
 Rotate refresh session. Uses one-time tokens with replay detection: if an already-used refresh token is presented, all user sessions are immediately invalidated.
