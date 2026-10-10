@@ -22,9 +22,9 @@ export default function TermsPage() {
         <section>
           <h2 className="text-xl font-semibold">1. Acceptance of terms</h2>
           <p className="mt-2">
-            These Terms govern your use of the Pluto Android application and related services
-            (the &quot;Service&quot;). By creating an account or using the Service you agree to
-            these Terms and to our{" "}
+            These Terms govern your use of the Pluto expense tracker on the web, the Pluto app
+            for Android, and related services (the &quot;Service&quot;). By creating an account or
+            using the Service you agree to these Terms and to our{" "}
             <a href="/privacy" className="text-accent underline underline-offset-2">
               Privacy Policy
             </a>
@@ -35,10 +35,11 @@ export default function TermsPage() {
         <section>
           <h2 className="text-xl font-semibold">2. The Service</h2>
           <p className="mt-2">
-            Pluto provides exchange-rate reference information and optional cloud backup of your
-            app data. Exchange rates are published by the European Central Bank and are provided
-            for informational purposes only — they are <strong>not financial advice</strong>, and
-            we do not guarantee their accuracy, completeness, or timeliness.
+            Pluto lets you record expenses in the currency you paid and review them in a
+            reporting currency of your choice, using exchange-rate reference information published
+            by the European Central Bank. Rates are provided for informational purposes only —
+            they are <strong>not financial advice</strong>, and we do not guarantee their accuracy,
+            completeness, or timeliness.
           </p>
         </section>
 

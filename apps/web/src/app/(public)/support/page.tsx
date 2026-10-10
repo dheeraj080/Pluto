@@ -3,41 +3,42 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Support",
-  description: "Frequently asked questions about Pluto — sign-in, backups, exchange rates, and privacy.",
+  description:
+    "Frequently asked questions about Pluto — expense tracking, currency conversion, reporting currency, and privacy.",
 };
 
 const FAQ = [
   {
     q: "What is Pluto?",
-    a: "Pluto is an Android app that shows daily exchange rates and keeps automatic, encrypted backups of your data in the cloud. You sign in with your Google account — there is no separate password to create or remember.",
+    a: "Pluto is an expense tracker for people who spend in more than one currency. Record a purchase in the currency you actually paid — CHF, SGD, JPY, whatever — and Pluto converts totals, reports and budgets into the currency you choose to think in. You sign in with your Google account, so there is no separate password to create or remember.",
   },
   {
-    q: "How do I sign in?",
-    a: "Tap Sign in with Google in the app and choose your account. We receive only your email address, name, profile picture, and a Google account identifier — never your Google password.",
+    q: "How do I record an expense?",
+    a: "Sign in and open Add expense. Enter the amount, the currency you paid in, a category, a description and the date. The amount is always stored exactly as you paid it — conversion only happens when you view reports or budgets in your reporting currency.",
   },
   {
-    q: "How do cloud backups work?",
-    a: "Your app database is checkpointed and encrypted on your device, a SHA-256 checksum is computed, and the encrypted file is uploaded directly to object storage through a short-lived signed URL. On completion the server verifies the object and its size. Only your most recent backups are retained — older ones are pruned automatically.",
+    q: "What is my reporting currency?",
+    a: "The currency you see totals in, sometimes called the base currency. You choose it when you set up your account and can change it at any time from the app; your choice is saved on your device. Every total on the dashboard and in reports is converted into it.",
   },
   {
-    q: "How do I restore my data?",
-    a: "Sign in on the new device with the same Google account and download a backup from the in-app restore screen, or from the Delete account page's export step. Download links are single-purpose and expire after a few minutes for safety.",
-  },
-  {
-    q: "How often are exchange rates updated?",
-    a: "Once a day, automatically, shortly after the European Central Bank publishes its reference rates. The app caches rates locally, so previously loaded rates stay available offline.",
+    q: "How is currency conversion done?",
+    a: "Pluto uses daily reference rates from the European Central Bank, refreshed once a day. Rates are consulted at report time, and every converted figure is dated with the rate snapshot it used. When rates are unavailable, reports show your native per-currency totals instead of guessing.",
   },
   {
     q: "Why do your rates differ from my bank's?",
-    a: "Banks and card providers set their own retail rates and margins. Pluto shows the official ECB reference rates — the same numbers used by financial institutions as a reference point.",
+    a: "Banks and card providers set their own retail rates and margins. Pluto shows the official ECB reference rates — the same numbers financial institutions use as a reference point.",
+  },
+  {
+    q: "How do I sign in?",
+    a: "Choose Sign in with Google and pick your account. We receive only your email address, name, profile picture, and a Google account identifier — never your Google password.",
   },
   {
     q: "Is my data safe?",
-    a: "Backups are encrypted on your device before upload, all traffic uses TLS, access tokens are short-lived, and storage objects are reachable only through per-file signed URLs. See the Privacy Policy for the full picture.",
+    a: "All traffic uses TLS, access tokens are short-lived, and refresh tokens rotate one at a time — a reused token revokes every session for your account. Your expense data is used only to run the product: no ads, no ad trackers, no marketing profiles. See the Privacy Policy for the full picture.",
   },
   {
     q: "How do I delete my account?",
-    a: "Open the Delete account page, sign in with Google, optionally download a copy of your backups, and confirm. Your profile, backups, and sessions are erased immediately and permanently.",
+    a: "Open the Delete account page, sign in with Google, optionally download a copy of any cloud backups first, and confirm. Your profile, expenses, backups and sessions are erased immediately and permanently.",
   },
 ] as const;
 

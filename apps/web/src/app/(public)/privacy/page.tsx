@@ -27,11 +27,12 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-xl font-semibold">1. Overview</h2>
           <p className="mt-2">
-            Pluto (&quot;the app&quot;, &quot;we&quot;, &quot;us&quot;) is an Android application that
-            provides exchange-rate information and encrypted cloud backups of your app data. This
-            policy explains what personal information we process, why we process it, how long we
-            keep it, and how to exercise your rights. It applies to our backend services and this
-            website.
+            Pluto (&quot;the service&quot;, &quot;we&quot;, &quot;us&quot;) is an international expense
+            tracker available on the web, alongside the Pluto app for Android. It helps you record
+            spending in any currency and review it in a currency you choose, using reference
+            exchange rates. This policy explains what personal information we process, why we
+            process it, how long we keep it, and how to exercise your rights. It applies to our
+            backend services and this website.
           </p>
         </section>
 
