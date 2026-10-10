@@ -18,5 +18,12 @@
   },
   "engines": {
     "node": ">=20.19"
+  },
+  "allowScripts": {
+    "prisma@6.19.3": true,
+    "unrs-resolver@1.12.2": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "@swc/core@1.16.13": true
   }
 }
