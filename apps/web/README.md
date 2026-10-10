@@ -1,6 +1,6 @@
 # Pluto Web
 
-> Public website and admin dashboard for the Pluto Android application — compliance pages, marketing site, live status, account deletion flow, and a role-gated operator panel. Built with Next.js 16 (App Router), TypeScript, and Tailwind CSS 4.
+> Public website, admin dashboard, and expense tracker for the Pluto Android application — compliance pages, marketing site, live status, account deletion flow, a role-gated operator panel, and multi-currency expense tracking with budgets and reports. Built with Next.js 16 (App Router), TypeScript, and Tailwind CSS 4.
 
 Companion repository to **`pluto-server`** (the NestJS API).
 
@@ -35,6 +35,28 @@ Companion repository to **`pluto-server`** (the NestJS API).
 The admin layout gates every `/admin/*` route (except `/admin/login`) by calling
 `GET /v1/admin/stats`; a `403` renders the "no admin access" screen, a `401` clears
 the session.
+
+### Expenses (client-rendered, requires sign-in)
+
+| Route | Purpose |
+| :--- | :--- |
+| `/expenses` | Dashboard: period summary, monthly trend, filterable + paginated expense list |
+| `/expenses/new` | Record an expense |
+| `/expenses/[id]/edit` | Edit an existing expense |
+| `/expenses/categories` | Manage categories (create, rename, recolour, delete) |
+| `/expenses/budgets` | Manage budgets and see budget-vs-actual for the month |
+| `/expenses/reports` | Charts: monthly spending trend and category breakdown |
+
+The expenses layout gates every `/expenses/*` route by calling `GET /v1/users/me`
+(any signed-in user, not just admins); a `401` redirects to `/admin/login`.
+
+Amounts can be entered in any supported currency. Reports convert to a chosen
+**base currency**, resolved as `?base=` URL override → `localStorage`
+(`pluto.baseCurrency`) → the server's `EXCHANGE_RATE_BASE_CURRENCY` default. The
+base picker is populated from the public `GET /v1/rates/supported-currencies`
+endpoint. When no rate snapshot is available the reports degrade gracefully —
+native per-currency figures still render and the converted totals show as
+unavailable rather than erroring.
 
 ---
 
@@ -87,6 +109,12 @@ npm run lint    # ESLint (Next 16 + react-hooks strict rules)
   request, responses unwrapped from the server's `{ success, data, timestamp }` envelope.
 - **Google Sign-In** (`src/components/google-sign-in.tsx`): Google Identity Services
   button → ID token → `POST /v1/auth/google` (same endpoint the Android app uses).
+- **Charts** (`recharts`): the expense report charts are the only non-Next/React
+  runtime dependency. `Tooltip.formatter` values are normalized before `Number()`
+  because Recharts types them as `number | string | Array<…> | undefined`.
+- **Base currency** (`src/lib/base-currency.ts`): read through `useSyncExternalStore`
+  (a genuine external store) so the value is correct on the first render — no
+  effect-driven refetch and no hydration mismatch from reading `window` during render.
 - **Legal pages** are drafts derived from the implemented data flows — have counsel
   review before launch (flagged `DRAFT` in source).
 

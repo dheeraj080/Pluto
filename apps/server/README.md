@@ -21,6 +21,7 @@
   - [Authentication](#authentication)
   - [User Profile](#user-profile)
   - [Exchange Rates](#exchange-rates)
+  - [Expense Tracker](#expense-tracker)
   - [Cloud Backups](#cloud-backups)
   - [Admin (role-gated)](#admin-role-gated)
 - [Mobile Client Integration Runbook](#mobile-client-integration-runbook)
@@ -127,6 +128,14 @@ pluto-server/
 │   │   │   ├── rates.controller.ts
 │   │   │   ├── rates.scheduler.ts
 │   │   │   └── rates.service.ts
+│   │   ├── expenses/           # Expense tracking: categories, expenses, budgets, reports
+│   │   │   ├── dto/            # Request/response contracts
+│   │   │   ├── currency-converter.service.ts
+│   │   │   ├── expenses.controller.ts
+│   │   │   ├── expenses-reports.service.ts
+│   │   │   ├── expenses.service.ts
+│   │   │   ├── expenses.utils.ts
+│   │   │   └── expenses.module.ts
 │   │   └── backups/            # Cloud backup metadata, S3 presigned URLs, retention pruning
 │   │       ├── storage/        # StorageService (AWS S3 Client)
 │   │       ├── backups.controller.ts
@@ -430,6 +439,198 @@ curl.exe -i http://localhost:3000/v1/rates/latest
 
 # Subsequent fetch returning HTTP 304 Not Modified if unchanged
 curl.exe -i -H 'If-None-Match: "2026-10-09-v1"' http://localhost:3000/v1/rates/latest
+```
+
+---
+
+### Expense Tracker
+
+All `/v1/expenses/*` routes require a valid access token and operate strictly on the caller's own data.
+A cross-account identifier returns `404 Not Found` rather than `403`, so the API never confirms that
+another user's record exists.
+
+Amounts are stored in the currency they were entered in. Report endpoints convert spending into a base
+currency using the latest rate snapshot (see [Exchange Rates](#exchange-rates)); the base resolves from the
+`base` query parameter, falling back to `EXCHANGE_RATE_BASE_CURRENCY`. Only currencies in `SUPPORTED_CURRENCIES`
+are accepted — anything else is a `400`.
+
+Conversion happens against a single snapshot: `amountInBase = amount / rates[C]`, where `rates[base] === 1.0`
+and `rates` comes from one `GET /v1/rates/latest?base=<base>` call. If no snapshot is available the report
+degrades instead of failing — the payload returns `converted: false`, null base-currency totals, and native
+per-currency subtotals remain populated. An *unsupported* base currency is still a `400`, since that is a
+client error rather than a missing-data condition.
+
+#### Categories
+
+A brand-new account is seeded lazily with a default category set on the first `GET /v1/expenses/categories`.
+
+| Method | Path | Purpose |
+| :--- | :--- | :--- |
+| `GET` | `/v1/expenses/categories` | List categories (ordered, with per-category expense counts) |
+| `POST` | `/v1/expenses/categories` | Create a category (`409` on duplicate name) |
+| `PATCH` | `/v1/expenses/categories/:id` | Rename / recolour / reorder |
+| `DELETE` | `/v1/expenses/categories/:id` | Delete (`409` while expenses are still assigned) |
+
+```powershell
+curl.exe -i -H "Authorization: Bearer <accessToken>" http://localhost:3000/v1/expenses/categories
+
+curl.exe -i -X POST http://localhost:3000/v1/expenses/categories `
+  -H "Authorization: Bearer <accessToken>" `
+  -H "Content-Type: application/json" `
+  -d '{ "name": "Groceries", "color": "#f59e0b", "icon": "utensils" }'
+```
+
+#### Expenses
+
+| Method | Path | Purpose |
+| :--- | :--- | :--- |
+| `GET` | `/v1/expenses` | Paginated, filterable list (newest first by default) |
+| `POST` | `/v1/expenses` | Record an expense |
+| `GET` | `/v1/expenses/:id` | Fetch a single expense |
+| `PATCH` | `/v1/expenses/:id` | Update an expense |
+| `DELETE` | `/v1/expenses/:id` | Delete an expense |
+
+`GET /v1/expenses` query parameters: `page` (default 1), `limit` (default 20, max 50), `categoryId`,
+`from` / `to` (inclusive ISO dates), `minAmount` / `maxAmount`, `currency`, `search` (case-insensitive
+over the description), and `sort` (`date_desc` \| `date_asc` \| `amount_desc` \| `amount_asc`).
+
+`POST /v1/expenses` body: `categoryId`, `amount` (> 0), `currency` (supported code), `incurredOn`
+(ISO date), and optional `description` (≤ 280 chars) / `paymentMethod` (≤ 32 chars).
+
+```powershell
+curl.exe -i -X POST http://localhost:3000/v1/expenses `
+  -H "Authorization: Bearer <accessToken>" `
+  -H "Content-Type: application/json" `
+  -d '{
+    "categoryId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "amount": 42.5,
+    "currency": "USD",
+    "incurredOn": "2026-10-10",
+    "description": "Weekly groceries",
+    "paymentMethod": "CARD"
+  }'
+
+curl.exe -i -H "Authorization: Bearer <accessToken>" "http://localhost:3000/v1/expenses?page=1&limit=20&sort=amount_desc&search=grocer"
+```
+
+**Response (200 OK) — list:**
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "9d2c4f1e-…",
+        "categoryId": "f47ac10b-…",
+        "categoryName": "Groceries",
+        "amount": 42.5,
+        "currency": "USD",
+        "incurredOn": "2026-10-10",
+        "description": "Weekly groceries",
+        "paymentMethod": "CARD",
+        "createdAt": "2026-10-10T08:00:00.000Z",
+        "updatedAt": "2026-10-10T08:00:00.000Z"
+      }
+    ],
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  },
+  "timestamp": "2026-10-10T08:00:00.000Z"
+}
+```
+
+#### Budgets
+
+Budgets apply to a single category, or to the whole account when `categoryId` is omitted. Only one budget
+per `(category, period)` pair is allowed; the uniqueness check lives in the service layer because Postgres
+treats `NULL` as distinct in the underlying unique index (so overall budgets would otherwise duplicate).
+
+| Method | Path | Purpose |
+| :--- | :--- | :--- |
+| `GET` | `/v1/expenses/budgets` | List budgets |
+| `POST` | `/v1/expenses/budgets` | Create a budget (`409` on duplicate `(category, period)`) |
+| `PATCH` | `/v1/expenses/budgets/:id` | Update the amount / start date |
+| `DELETE` | `/v1/expenses/budgets/:id` | Delete a budget |
+
+`POST` body: `amount` (> 0), `currency`, optional `categoryId` (omit for an overall budget), optional
+`period` (`MONTHLY` \| `YEARLY`, default `MONTHLY`), optional `startDate` (default today).
+
+```powershell
+curl.exe -i -X POST http://localhost:3000/v1/expenses/budgets `
+  -H "Authorization: Bearer <accessToken>" `
+  -H "Content-Type: application/json" `
+  -d '{ "categoryId": null, "amount": 1000, "currency": "USD", "period": "MONTHLY", "startDate": "2026-10-01" }'
+```
+
+#### Reports
+
+| Method | Path | Query | Purpose |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/v1/expenses/summary` | `from`, `to`, `base` | Period total, average, per-category breakdown, per-currency subtotals |
+| `GET` | `/v1/expenses/trends` | `months` (default 12, max 24), `base` | Continuous monthly totals for charts, empty months included |
+| `GET` | `/v1/expenses/budgets/status` | `month` (`YYYY-MM`), `base` | Every budget compared against actual spend for the month |
+
+`summary` defaults to the first day of the current month through today. `trends` returns months oldest-first
+so a chart can render left to right. `budgets/status` evaluates each budget's own period window (a `YEARLY`
+budget sums the whole year to date), not just the requested month.
+
+```powershell
+curl.exe -i -H "Authorization: Bearer <accessToken>" "http://localhost:3000/v1/expenses/summary?from=2026-10-01&to=2026-10-31&base=USD"
+curl.exe -i -H "Authorization: Bearer <accessToken>" "http://localhost:3000/v1/expenses/trends?months=6&base=EUR"
+curl.exe -i -H "Authorization: Bearer <accessToken>" "http://localhost:3000/v1/expenses/budgets/status?month=2026-10&base=USD"
+```
+
+**Response (200 OK) — summary:**
+```json
+{
+  "success": true,
+  "data": {
+    "from": "2026-10-01",
+    "to": "2026-10-31",
+    "baseCurrency": "USD",
+    "converted": true,
+    "total": 239.13,
+    "average": 47.83,
+    "count": 5,
+    "byCategory": [
+      { "categoryId": "…", "categoryName": "Shopping", "total": 120, "count": 1, "percentage": 50.18 }
+    ],
+    "byCurrency": [
+      { "currency": "USD", "total": 177.5, "count": 3 },
+      { "currency": "EUR", "total": 55, "count": 2 }
+    ]
+  },
+  "timestamp": "2026-10-10T08:00:00.000Z"
+}
+```
+
+**Response (200 OK) — budget status:**
+```json
+{
+  "success": true,
+  "data": {
+    "month": "2026-10",
+    "baseCurrency": "USD",
+    "converted": true,
+    "items": [
+      {
+        "budgetId": "…",
+        "categoryId": null,
+        "categoryName": null,
+        "period": "MONTHLY",
+        "budgetAmount": 1000,
+        "spent": 239.13,
+        "remaining": 760.87,
+        "percentage": 23.91,
+        "overBudget": false,
+        "applied": true
+      }
+    ]
+  },
+  "timestamp": "2026-10-10T08:00:00.000Z"
+}
 ```
 
 ---
