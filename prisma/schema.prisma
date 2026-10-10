@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BackupStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  DELETED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id           String           @id @default(uuid())
+  email        String           @unique
+  googleId     String           @unique
+  name         String?
+  avatarUrl    String?
+  role         UserRole         @default(USER)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  backups          Backup[]
+  refreshSessions  RefreshSession[]
+
+  @@map("users")
+}
+
+model RefreshSession {
+  id           String    @id @default(uuid())
+  userId       String
+  tokenHash    String    @unique
+  userAgent    String?
+  ipAddress    String?
+  isRevoked    Boolean   @default(false)
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@map("refresh_sessions")
+}
+
+model RateSnapshot {
+  id           String         @id @default(uuid())
+  version      Int            @unique @default(autoincrement())
+  baseCurrency String         @default("USD")
+  effectiveDate DateTime       @db.Date
+  fetchedAt    DateTime       @default(now())
+  provider     String
+  etag         String         @unique
+  isPublished  Boolean        @default(false)
+
+  rates        ExchangeRate[]
+
+  @@index([isPublished, fetchedAt])
+  @@index([baseCurrency, isPublished])
+  @@map("rate_snapshots")
+}
+
+model ExchangeRate {
+  id            String       @id @default(uuid())
+  snapshotId    String
+  quoteCurrency String
+  rate          Decimal      @db.Decimal(18, 6)
+
+  snapshot      RateSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@unique([snapshotId, quoteCurrency])
+  @@index([quoteCurrency])
+  @@map("exchange_rates")
+}
+
+model Backup {
+  id             String       @id @default(uuid())
+  userId         String
+  sequenceNumber Int
+  schemaVersion  String
+  appVersion     String
+  storageKey     String       @unique
+  checksumSha256 String
+  fileSizeBytes  BigInt
+  status         BackupStatus @default(PENDING)
+  expiresAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sequenceNumber])
+  @@index([userId, status])
+  @@index([userId, completedAt])
+  @@index([status, expiresAt])
+  @@map("backups")
+}
+
+model SystemLock {
+  lockName    String   @id
+  lockedUntil DateTime
+  lockedBy    String
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_locks")
+}
