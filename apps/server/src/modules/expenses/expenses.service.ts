@@ -244,8 +244,6 @@ export class ExpensesService {
       await this.findOwnedCategory(userId, categoryId, 'Category not found');
     }
 
-    // Postgres treats NULLs as distinct in unique indexes, so the DB cannot
-    // enforce a single overall budget per period. This check can.
     const duplicate = await this.prisma.budget.findFirst({
       where: { userId, categoryId, period },
       include: { category: { select: { name: true } } },

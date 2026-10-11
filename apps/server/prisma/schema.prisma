@@ -183,3 +183,10 @@ model Budget {
   @@index([userId, period])
   @@map("budgets")
 }
+
+model BudgetOverallUnique {
+  userId String
+  period BudgetPeriod
+  @@unique([userId, period], name: "budgets_overall_userId_period_key")
+  @@map("budgets_overall_unique")
+}
