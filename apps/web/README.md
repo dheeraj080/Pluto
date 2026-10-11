@@ -41,12 +41,17 @@ the session.
 
 | Route | Purpose |
 | :--- | :--- |
-| `/expenses` | Dashboard: period summary, monthly trend, filterable + paginated expense list |
+| `/expenses` | Dashboard: period summary with vs-previous delta, top expenses, category breakdown, filterable + paginated list, CSV export |
 | `/expenses/new` | Record an expense |
 | `/expenses/[id]/edit` | Edit an existing expense |
 | `/expenses/categories` | Manage categories (create, rename, recolour, delete) |
 | `/expenses/budgets` | Manage budgets and see budget-vs-actual for the month |
-| `/expenses/reports` | Charts: monthly spending trend and category breakdown |
+| `/expenses/reports` | Charts: monthly spending trend, day-of-week pattern and category breakdown, with click-through and CSV export |
+
+The dashboard and reports pages accept deep links: `/expenses?categoryId=…&from=…&to=…`
+pre-filters the list, which is how selecting a chart element on `/expenses/reports`
+drills into the matching expenses. The "Export CSV" button on either page downloads
+`GET /v1/expenses/export.csv` for the current filters.
 
 The expenses layout gates every `/expenses/*` route by calling `GET /v1/users/me`
 (any signed-in user, not just admins). A `401` — after the client's transparent

@@ -264,6 +264,55 @@ export interface BudgetStatus {
   applied: boolean;
 }
 
+export interface ComparisonDelta {
+  totalAbs: number;
+  totalPct: number;
+  countAbs: number;
+  countPct: number;
+}
+
+export interface ExpenseComparison {
+  baseCurrency: string;
+  converted: boolean;
+  conversionUnavailableReason?: string;
+  current: ExpenseSummary;
+  previous: ExpenseSummary;
+  delta: ComparisonDelta;
+}
+
+export interface TopExpenseItem {
+  id: string;
+  description: string | null;
+  categoryName: string | null;
+  categorySlug: string | null;
+  amountNative: number;
+  currency: string;
+  amount?: number | null;
+  incurredOn: string;
+}
+
+export interface TopExpensesResponse {
+  baseCurrency: string;
+  converted: boolean;
+  conversionUnavailableReason?: string;
+  items: TopExpenseItem[];
+}
+
+export interface DayOfWeekItem {
+  dow: number;
+  label: string;
+  total: number;
+  count: number;
+  average: number;
+}
+
+export interface ByDayOfWeekResponse {
+  baseCurrency: string;
+  converted: boolean;
+  conversionUnavailableReason?: string;
+  items: DayOfWeekItem[];
+}
+
 export interface BudgetStatusResponse {
   baseCurrency: string;
   converted: boolean;

@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Bar,
   BarChart,
@@ -24,9 +25,11 @@ import {
   YAxis,
 } from "recharts";
 import { expensesApi } from "@/lib/expenses";
+import { downloadTextFile } from "@/lib/download";
 import { formatMoney, formatMonth, formatPercent } from "@/lib/format";
-import type { ExpenseSummary, ExpenseTrend } from "@/lib/types";
+import type { ByDayOfWeekResponse, ExpenseSummary, ExpenseTrend } from "@/lib/types";
 import {
+  Button,
   Card,
   EmptyState,
   ErrorNote,
@@ -56,36 +59,83 @@ function toNumber(value: unknown): number {
   return Number(value ?? 0);
 }
 
+/** Inclusive day bounds for a `YYYY-MM` month, for drilling into that month. */
+function monthRangeIso(month: string): { from: string; to: string } {
+  const [year, monthIndex] = month.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, monthIndex, 0)).getUTCDate();
+  return {
+    from: `${month}-01`,
+    to: `${month}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
 export default function ReportsPage() {
   const { currencies, error: setupError } = useExpenseSetup();
   const { base, setBase } = useBaseCurrency();
 
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const router = useRouter();
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [trend, setTrend] = useState<ExpenseTrend | null>(null);
+  const [dow, setDow] = useState<ByDayOfWeekResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [summaryResult, trendResult] = await Promise.all([
+      const [summaryResult, trendResult, dowResult] = await Promise.all([
         expensesApi.getSummary({
           from: from || undefined,
           to: to || undefined,
           base: base ?? undefined,
         }),
         expensesApi.getTrends({ months: TREND_MONTHS, base: base ?? undefined }),
+        expensesApi.getByDayOfWeek({
+          from: from || undefined,
+          to: to || undefined,
+          base: base ?? undefined,
+        }),
       ]);
       setSummary(summaryResult);
       setTrend(trendResult);
+      setDow(dowResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load the report.");
     } finally {
       setLoading(false);
     }
   }, [base, from, to]);
+
+  const exportCsv = useCallback(async () => {
+    setExporting(true);
+    setError(null);
+    try {
+      const csv = await expensesApi.exportCsv({
+        from: from || undefined,
+        to: to || undefined,
+        base: base ?? undefined,
+      });
+      downloadTextFile(`expenses-${from || "all"}_${to || "now"}.csv`, csv);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to export expenses.");
+    } finally {
+      setExporting(false);
+    }
+  }, [base, from, to]);
+
+  const drillDown = useCallback(
+    (params: { categoryId?: string; from?: string; to?: string }) => {
+      const search = new URLSearchParams();
+      if (params.categoryId) search.set("categoryId", params.categoryId);
+      if (params.from) search.set("from", params.from);
+      if (params.to) search.set("to", params.to);
+      router.push(`/expenses?${search.toString()}`);
+    },
+    [router],
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
@@ -98,7 +148,15 @@ export default function ReportsPage() {
   const trendData =
     trend?.points.map((point) => ({
       month: formatMonth(point.month),
+      rawMonth: point.month,
       total: point.total ?? 0,
+    })) ?? [];
+
+  const dowData =
+    dow?.items.map((item) => ({
+      label: item.label,
+      total: item.total,
+      average: item.average,
     })) ?? [];
 
   const pieData =
@@ -106,6 +164,7 @@ export default function ReportsPage() {
       name: entry.categoryName,
       value: entry.total,
       color: entry.color,
+      categoryId: entry.categoryId,
     })) ?? [];
 
   return (
@@ -146,6 +205,15 @@ export default function ReportsPage() {
                 </option>
               ))}
             </Select>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => void exportCsv()}
+              loading={exporting}
+              disabled={!summary || summary.count === 0}
+            >
+              Export CSV
+            </Button>
           </div>
         }
       />
@@ -238,7 +306,40 @@ export default function ReportsPage() {
                         "Spent",
                       ]}
                     />
-                    <Bar dataKey="total" fill="var(--accent)" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="total"
+                      fill="var(--accent)"
+                      radius={[4, 4, 0, 0]}
+                      cursor="pointer"
+                      onClick={(data) => {
+                        const point = data as { rawMonth?: string } | undefined;
+                        if (point?.rawMonth) drillDown(monthRangeIso(point.rawMonth));
+                      }}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            <p className="mt-2 text-xs text-muted">Select a bar to see that month&apos;s expenses.</p>
+          </Card>
+
+          <Card title="Spending by day of week">
+            {dowData.every((entry) => entry.total === 0) ? (
+              <EmptyState title="No day-of-week data" />
+            ) : (
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dowData} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} tickLine={false} />
+                    <YAxis tickFormatter={axisTick} tick={{ fontSize: 11 }} width={44} />
+                    <Tooltip
+                      formatter={(value) => [
+                        formatMoney(toNumber(value), dow?.baseCurrency ?? summary.baseCurrency),
+                        "Spent",
+                      ]}
+                    />
+                    <Bar dataKey="total" fill="var(--color-chart-3)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -261,6 +362,14 @@ export default function ReportsPage() {
                           innerRadius={55}
                           outerRadius={90}
                           paddingAngle={1}
+                          className="cursor-pointer"
+                          onClick={(entry) => {
+                            const point = entry as { payload?: { categoryId?: string } } | null;
+                            const categoryId = point?.payload?.categoryId;
+                            if (categoryId) {
+                              drillDown({ categoryId, from: from || undefined, to: to || undefined });
+                            }
+                          }}
                         >
                           {pieData.map((entry, index) => (
                             <Cell key={`${entry.name}-${index}`} fill={entry.color} />
@@ -282,25 +391,34 @@ export default function ReportsPage() {
                   </div>
                   <ul className="mt-4 space-y-2">
                     {summary.byCategory.map((entry) => (
-                      <li
-                        key={entry.categoryId}
-                        className="flex items-center justify-between gap-3 text-sm"
-                      >
-                        <span className="inline-flex min-w-0 items-center gap-2">
-                          <span
-                            aria-hidden
-                            className="inline-block size-2.5 shrink-0 rounded-full"
-                            style={{ backgroundColor: entry.color }}
-                          />
-                          <span className="truncate">{entry.categoryName}</span>
-                          <span className="shrink-0 text-muted">×{entry.count}</span>
-                        </span>
-                        <span className="shrink-0 tabular-nums">
-                          {formatMoney(entry.total, summary.baseCurrency)}
-                          <span className="ml-2 text-muted">
-                            {formatPercent(entry.percentage)}
+                      <li key={entry.categoryId}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            drillDown({
+                              categoryId: entry.categoryId,
+                              from: from || undefined,
+                              to: to || undefined,
+                            })
+                          }
+                          className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-surface-muted"
+                        >
+                          <span className="inline-flex min-w-0 items-center gap-2">
+                            <span
+                              aria-hidden
+                              className="inline-block size-2.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: entry.color }}
+                            />
+                            <span className="truncate">{entry.categoryName}</span>
+                            <span className="shrink-0 text-muted">×{entry.count}</span>
                           </span>
-                        </span>
+                          <span className="shrink-0 tabular-nums">
+                            {formatMoney(entry.total, summary.baseCurrency)}
+                            <span className="ml-2 text-muted">
+                              {formatPercent(entry.percentage)}
+                            </span>
+                          </span>
+                        </button>
                       </li>
                     ))}
                   </ul>

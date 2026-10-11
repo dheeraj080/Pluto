@@ -109,6 +109,26 @@ export const expensesApi = {
     api.get<ExpenseSummary>(`/expenses/summary${buildQuery(query)}`),
   getTrends: (query: { months?: number; base?: string }) =>
     api.get<ExpenseTrend>(`/expenses/trends${buildQuery(query)}`),
+  getComparison: (query: {
+    currentFrom?: string;
+    currentTo?: string;
+    previousFrom?: string;
+    previousTo?: string;
+    base?: string;
+  }) =>
+    api.get<import("./types").ExpenseComparison>(`/expenses/comparison${buildQuery(query)}`),
+  getTop: (query: { from?: string; to?: string; limit?: number; base?: string }) =>
+    api.get<import("./types").TopExpensesResponse>(`/expenses/top${buildQuery(query)}`),
+  getByDayOfWeek: (query: { from?: string; to?: string; base?: string }) =>
+    api.get<import("./types").ByDayOfWeekResponse>(`/expenses/by-day-of-week${buildQuery(query)}`),
+  exportCsv: (query: {
+    from?: string;
+    to?: string;
+    categoryId?: string;
+    currency?: string;
+    search?: string;
+    base?: string;
+  }) => api.get<string>(`/expenses/export.csv${buildQuery(query)}`, { responseType: "text" }),
 
   /* budgets */
   listBudgets: () => api.get<Budget[]>("/expenses/budgets"),

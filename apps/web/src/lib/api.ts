@@ -170,6 +170,7 @@ function refreshSession(): Promise<boolean> {
 export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
   /** Serialized as JSON; Content-Type is set automatically. */
   body?: unknown;
+  responseType?: "json" | "text" | "blob" | "arraybuffer" | "formdata";
 }
 
 export async function request<T>(
@@ -178,7 +179,9 @@ export async function request<T>(
   retried = false,
 ): Promise<T> {
   const headers = new Headers(options.headers);
-  headers.set("Accept", "application/json");
+  if (options.responseType !== "text" && options.responseType !== "blob" && options.responseType !== "arraybuffer") {
+    headers.set("Accept", "application/json");
+  }
   if (options.body !== undefined && options.body !== null) {
     headers.set("Content-Type", "application/json");
   }
@@ -212,6 +215,10 @@ export async function request<T>(
   }
 
   if (response.status === 204) return undefined as T;
+  if (options.responseType === "text") {
+    const text = await response.text();
+    return text as T;
+  }
   const json = (await response.json()) as Envelope<T>;
   return json.data;
 }

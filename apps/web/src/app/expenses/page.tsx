@@ -20,6 +20,7 @@ import type {
   ExpenseCategory,
   ExpenseSummary,
   Paginated,
+  TopExpenseItem,
 } from "@/lib/types";
 import {
   Badge,
@@ -39,6 +40,7 @@ import {
   TableSkeleton,
 } from "@/components/ui";
 import { ConfirmDialog } from "@/components/dialog";
+import { downloadTextFile } from "@/lib/download";
 import { IconGlobe, IconPlus, IconReceipt, IconSearch } from "@/components/icons";
 import { useBaseCurrency, useExpenseSetup, useRateSnapshot, useReportingSetup } from "./use-expenses";
 
@@ -145,7 +147,9 @@ export default function ExpensesDashboardPage() {
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [prevSummary, setPrevSummary] = useState<ExpenseSummary | null>(null);
   const [page, setPage] = useState<Paginated<Expense> | null>(null);
+  const [topExpenses, setTopExpenses] = useState<TopExpenseItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -165,7 +169,7 @@ export default function ExpensesDashboardPage() {
     setError(null);
     const baseParam = base ?? undefined;
     try {
-      const [summaryResult, listResult, prevResult] = await Promise.all([
+      const [summaryResult, listResult, prevResult, topResult] = await Promise.all([
         expensesApi.getSummary({ from: range.from, to: range.to, base: baseParam }),
         expensesApi.listExpenses({
           page: pageNumber,
@@ -180,14 +184,54 @@ export default function ExpensesDashboardPage() {
         range.comparable
           ? expensesApi.getSummary({ from: range.prevFrom, to: range.prevTo, base: baseParam })
           : Promise.resolve(null),
+        expensesApi.getTop({ from: range.from, to: range.to, limit: 5, base: baseParam }),
       ]);
       setSummary(summaryResult);
       setPage(listResult);
       setPrevSummary(prevResult);
+      setTopExpenses(topResult.items);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load expenses.");
     }
   }, [base, categoryId, currency, pageNumber, range, search, sort]);
+
+  const exportCsv = useCallback(async () => {
+    setExporting(true);
+    setError(null);
+    try {
+      const csv = await expensesApi.exportCsv({
+        from: range.from,
+        to: range.to,
+        categoryId: categoryId || undefined,
+        currency: currency || undefined,
+        search: search || undefined,
+        base: base ?? undefined,
+      });
+      downloadTextFile(`expenses-${range.from}_${range.to}.csv`, csv);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to export expenses.");
+    } finally {
+      setExporting(false);
+    }
+  }, [base, categoryId, currency, range, search]);
+
+  // Deep links from the reports page carry ?categoryId / ?from / ?to so a
+  // chart element can open a pre-filtered transaction list.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      const urlCategory = params.get("categoryId");
+      const urlFrom = params.get("from");
+      const urlTo = params.get("to");
+      if (urlCategory) setCategoryId(urlCategory);
+      if (urlFrom || urlTo) {
+        setPeriod("custom");
+        if (urlFrom) setCustomFrom(urlFrom);
+        if (urlTo) setCustomTo(urlTo);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
@@ -243,7 +287,7 @@ export default function ExpensesDashboardPage() {
             : "Track spending across currencies."
         }
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="base-currency" className="text-sm text-muted">
               Reporting
             </label>
@@ -263,6 +307,15 @@ export default function ExpensesDashboardPage() {
                   </option>
                 ))}
             </Select>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => void exportCsv()}
+              loading={exporting}
+              disabled={!page || page.total === 0}
+            >
+              Export CSV
+            </Button>
           </div>
         }
       />
@@ -396,26 +449,33 @@ export default function ExpensesDashboardPage() {
                 const width = maxCategoryTotal > 0 ? (entry.total / maxCategoryTotal) * 100 : 0;
                 return (
                   <li key={entry.categoryId}>
-                    <div className="flex items-baseline justify-between gap-3 text-sm">
-                      <span className="inline-flex min-w-0 items-center gap-2">
-                        <span
-                          aria-hidden="true"
-                          className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: entry.color }}
+                    <button
+                      type="button"
+                      aria-label={`Filter by ${entry.categoryName}`}
+                      onClick={() => resetPage(setCategoryId)(entry.categoryId)}
+                      className="block w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-muted"
+                    >
+                      <div className="flex items-baseline justify-between gap-3 text-sm">
+                        <span className="inline-flex min-w-0 items-center gap-2">
+                          <span
+                            aria-hidden="true"
+                            className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: entry.color }}
+                          />
+                          <span className="truncate font-medium text-ink">{entry.categoryName}</span>
+                        </span>
+                        <span className="shrink-0 tabular-nums text-ink">
+                          <Money amount={entry.total} currency={summary.baseCurrency} />
+                          <span className="ml-2 text-xs text-muted">{formatPercent(entry.percentage)}</span>
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-muted">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: `${width}%`, backgroundColor: entry.color }}
                         />
-                        <span className="truncate font-medium text-ink">{entry.categoryName}</span>
-                      </span>
-                      <span className="shrink-0 tabular-nums text-ink">
-                        <Money amount={entry.total} currency={summary.baseCurrency} />
-                        <span className="ml-2 text-xs text-muted">{formatPercent(entry.percentage)}</span>
-                      </span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-muted">
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${width}%`, backgroundColor: entry.color }}
-                      />
-                    </div>
+                      </div>
+                    </button>
                   </li>
                 );
               })}
@@ -620,6 +680,41 @@ export default function ExpensesDashboardPage() {
           </>
         )}
       </Card>
+
+      {topExpenses.length > 0 && summary && (
+        <Card title="Top expenses">
+          <ul className="space-y-2.5">
+            {topExpenses.map((item) => (
+              <li key={item.id}>
+                <Link
+                  href={`/expenses/${item.id}`}
+                  className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-surface-muted"
+                >
+                  <span className="min-w-0">
+                    <p className="truncate font-medium text-ink">
+                      {item.description || item.categoryName || "Expense"}
+                    </p>
+                    <p className="text-xs text-muted">
+                      {formatDate(item.incurredOn)}
+                      {item.categoryName ? ` · ${item.categoryName}` : ""}
+                    </p>
+                  </span>
+                  <span className="shrink-0 tabular-nums font-medium text-ink">
+                    <Money
+                      amount={item.amount ?? item.amountNative}
+                      currency={
+                        item.amount !== null && item.amount !== undefined
+                          ? summary.baseCurrency
+                          : item.currency
+                      }
+                    />
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <ConfirmDialog
         open={deleteTarget !== null}
