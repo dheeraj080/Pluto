@@ -17,9 +17,7 @@ export const envSchema = z
 
     // Auth / Google / JWT
     GOOGLE_ALLOWED_CLIENT_IDS: z.string().default(''),
-    JWT_ACCESS_SECRET: z
-      .string()
-      .default('development_jwt_access_secret_min_32_characters_long_12345'),
+    JWT_ACCESS_SECRET: z.string().min(1, 'JWT_ACCESS_SECRET is required'),
     ACCESS_TOKEN_TTL: z.string().default('15m'),
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().default(30),
     // Comma-separated list of e-mail addresses promoted to ADMIN on sign-in

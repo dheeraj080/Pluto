@@ -19,14 +19,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {
+    const jwtSecret = configService.get<string>('JWT_ACCESS_SECRET');
+    if (!jwtSecret || jwtSecret.length === 0) {
+      throw new Error('JWT_ACCESS_SECRET is not configured');
+    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       algorithms: ['HS256'],
-      secretOrKey: configService.get<string>(
-        'JWT_ACCESS_SECRET',
-        'development_jwt_access_secret_min_32_characters_long_12345',
-      ),
+      secretOrKey: jwtSecret,
     });
   }
 

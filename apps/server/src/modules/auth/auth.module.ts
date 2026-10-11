@@ -16,11 +16,12 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const expiresIn = configService.get<string>('ACCESS_TOKEN_TTL', '15m') as StringValue;
+        const jwtSecret = configService.get<string>('JWT_ACCESS_SECRET');
+        if (!jwtSecret || jwtSecret.length === 0) {
+          throw new Error('JWT_ACCESS_SECRET is not configured');
+        }
         return {
-          secret: configService.get<string>(
-            'JWT_ACCESS_SECRET',
-            'development_jwt_access_secret_min_32_characters_long_12345',
-          ),
+          secret: jwtSecret,
           signOptions: {
             expiresIn,
             algorithm: 'HS256',

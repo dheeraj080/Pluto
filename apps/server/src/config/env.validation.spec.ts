@@ -4,6 +4,7 @@ describe('validateEnvironment', () => {
   it('should validate valid environment configuration with defaults', () => {
     const validConfig = {
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
+      JWT_ACCESS_SECRET: 'development_jwt_access_secret_min_32_characters_long_12345',
     };
 
     const result = validateEnvironment(validConfig);
@@ -25,6 +26,7 @@ describe('validateEnvironment', () => {
   it('should coerce PORT string to number and validate range', () => {
     const validConfig = {
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
+      JWT_ACCESS_SECRET: 'development_jwt_access_secret_min_32_characters_long_12345',
       PORT: '8080',
     };
 
@@ -32,7 +34,7 @@ describe('validateEnvironment', () => {
     expect(result.PORT).toBe(8080);
   });
 
-  it('should reject default or weak JWT secrets in production', () => {
+  it('should reject missing JWT secrets in production', () => {
     const prodConfigWithDefaultSecret = {
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
@@ -41,7 +43,20 @@ describe('validateEnvironment', () => {
       OBJECT_STORAGE_SECRET_ACCESS_KEY: 'real-secret-key-123',
     };
 
-    expect(() => validateEnvironment(prodConfigWithDefaultSecret)).toThrow(
+    expect(() => validateEnvironment(prodConfigWithDefaultSecret)).toThrow();
+  });
+
+  it('should reject weak JWT secrets in production', () => {
+    const prodConfigWithWeakSecret = {
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
+      JWT_ACCESS_SECRET: 'short',
+      GOOGLE_ALLOWED_CLIENT_IDS: 'client-id-123.apps.googleusercontent.com',
+      OBJECT_STORAGE_ACCESS_KEY_ID: 'real-access-key',
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: 'real-secret-key-123',
+    };
+
+    expect(() => validateEnvironment(prodConfigWithWeakSecret)).toThrow(
       'JWT_ACCESS_SECRET must be explicitly provided and at least 32 characters long',
     );
   });
