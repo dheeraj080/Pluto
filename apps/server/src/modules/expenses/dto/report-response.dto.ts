@@ -1,6 +1,46 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BudgetPeriod } from '@prisma/client';
 
+/** Whether a conversion used the true transaction-date cycle or a labeled approximation. */
+export type RatePolicy = 'historical' | 'estimate';
+
+/**
+ * Aggregated conversion health of a report payload:
+ * - `converted`            — every line converted
+ * - `partially_converted`  — some lines converted, some could not
+ * - `unavailable`          — nothing could be converted
+ */
+export type ConversionStatus = 'converted' | 'partially_converted' | 'unavailable';
+
+/** Which snapshots/policies actually fed a report, for auditability. */
+export class RateProvenanceDto {
+  @ApiPropertyOptional({ description: 'Earliest snapshot date used', example: '2026-09-30' })
+  earliestRateDate!: string | null;
+
+  @ApiPropertyOptional({ description: 'Latest snapshot date used', example: '2026-10-09' })
+  latestRateDate!: string | null;
+
+  @ApiProperty({
+    description: 'Distinct policies applied; includes unavailable when any line failed',
+    example: ['historical', 'estimate'],
+  })
+  policies!: Array<RatePolicy | 'unavailable'>;
+}
+
+/** Provenance reported per converted line (top expenses, budget items, CSV). */
+export interface ItemConversionProvenance {
+  /** Converted amount in the base currency, or null when unconvertible. */
+  convertedAmount: number | null;
+  /** Base currency the converted amount is expressed in, or null. */
+  convertedCurrency: string | null;
+  /** Actual snapshot date used for the conversion, or null. */
+  rateDate: string | null;
+  /** historical / estimate, or null when unconvertible. */
+  ratePolicy: RatePolicy | null;
+  /** converted when this line could be converted, else unavailable. */
+  conversionStatus: 'converted' | 'unavailable';
+}
+
 export class CategoryBreakdownDto {
   @ApiProperty({ example: 'b2f1c3de-1111-2222-3333-444455556666' })
   categoryId!: string;
@@ -48,6 +88,24 @@ export class ExpenseSummaryDto {
     example: 'exchange rates unreachable',
   })
   conversionUnavailableReason?: string;
+
+  @ApiProperty({
+    description:
+      'Health of this report: converted, partially_converted (some lines failed), or unavailable',
+    enum: ['converted', 'partially_converted', 'unavailable'],
+    example: 'converted',
+  })
+  conversionStatus!: ConversionStatus;
+
+  @ApiProperty({
+    description: 'Native currencies within the range that could not be converted',
+    type: [String],
+    example: ['VND'],
+  })
+  unconvertedCurrencies!: string[];
+
+  @ApiProperty({ type: RateProvenanceDto })
+  rateProvenance!: RateProvenanceDto;
 
   @ApiProperty({ description: 'Inclusive range start', example: '2026-10-01' })
   from!: string;
@@ -104,6 +162,18 @@ export class ExpenseTrendDto {
   @ApiPropertyOptional({ description: 'Why conversion was unavailable', nullable: true })
   conversionUnavailableReason?: string;
 
+  @ApiProperty({
+    enum: ['converted', 'partially_converted', 'unavailable'],
+    example: 'converted',
+  })
+  conversionStatus!: ConversionStatus;
+
+  @ApiProperty({ type: [String], example: ['VND'] })
+  unconvertedCurrencies!: string[];
+
+  @ApiProperty({ type: RateProvenanceDto })
+  rateProvenance!: RateProvenanceDto;
+
   @ApiProperty({ description: 'Number of months returned, oldest first', example: 12 })
   months!: number;
 
@@ -153,6 +223,37 @@ export class BudgetStatusDto {
     example: true,
   })
   applied!: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Budget amount converted into the base currency, null when unconvertible',
+    example: 500,
+    nullable: true,
+  })
+  convertedAmount!: number | null;
+
+  @ApiPropertyOptional({ example: 'USD', nullable: true })
+  convertedCurrency!: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Snapshot date used for the budget amount conversion',
+    example: '2026-10-01',
+    nullable: true,
+  })
+  rateDate!: string | null;
+
+  @ApiPropertyOptional({
+    enum: ['historical', 'estimate'],
+    example: 'historical',
+    nullable: true,
+  })
+  ratePolicy!: RatePolicy | null;
+
+  @ApiProperty({
+    description: 'converted when spend and budget amount both converted, unavailable otherwise',
+    enum: ['converted', 'unavailable'],
+    example: 'converted',
+  })
+  conversionStatus!: 'converted' | 'unavailable';
 }
 
 export class ComparisonDeltaDto {
@@ -178,6 +279,18 @@ export class ExpenseComparisonDto {
 
   @ApiPropertyOptional({ description: 'Why conversion was unavailable', nullable: true })
   conversionUnavailableReason?: string;
+
+  @ApiProperty({
+    enum: ['converted', 'partially_converted', 'unavailable'],
+    example: 'converted',
+  })
+  conversionStatus!: ConversionStatus;
+
+  @ApiProperty({ type: [String] })
+  unconvertedCurrencies!: string[];
+
+  @ApiProperty({ type: RateProvenanceDto })
+  rateProvenance!: RateProvenanceDto;
 
   @ApiProperty({ type: ExpenseSummaryDto })
   current!: ExpenseSummaryDto;
@@ -211,6 +324,36 @@ export class TopExpenseItemDto {
   @ApiPropertyOptional({ description: 'Amount converted to base currency', example: 27.3 })
   amount?: number | null;
 
+  @ApiPropertyOptional({
+    description: 'Converted amount in the base currency (alias of amount)',
+    example: 27.3,
+    nullable: true,
+  })
+  convertedAmount?: number | null;
+
+  @ApiPropertyOptional({ example: 'USD', nullable: true })
+  convertedCurrency?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Snapshot date used for conversion, or null',
+    example: '2026-10-09',
+    nullable: true,
+  })
+  rateDate?: string | null;
+
+  @ApiPropertyOptional({
+    enum: ['historical', 'estimate'],
+    example: 'historical',
+    nullable: true,
+  })
+  ratePolicy?: RatePolicy | null;
+
+  @ApiPropertyOptional({
+    enum: ['converted', 'unavailable'],
+    example: 'converted',
+  })
+  conversionStatus?: 'converted' | 'unavailable';
+
   @ApiProperty({ example: '2026-10-15' })
   incurredOn!: string;
 }
@@ -224,6 +367,18 @@ export class TopExpensesResponseDto {
 
   @ApiPropertyOptional({ description: 'Why conversion was unavailable', nullable: true })
   conversionUnavailableReason?: string;
+
+  @ApiProperty({
+    enum: ['converted', 'partially_converted', 'unavailable'],
+    example: 'converted',
+  })
+  conversionStatus!: ConversionStatus;
+
+  @ApiProperty({ type: [String] })
+  unconvertedCurrencies!: string[];
+
+  @ApiProperty({ type: RateProvenanceDto })
+  rateProvenance!: RateProvenanceDto;
 
   @ApiProperty({ type: [TopExpenseItemDto] })
   items!: TopExpenseItemDto[];
@@ -256,6 +411,18 @@ export class ByDayOfWeekResponseDto {
   @ApiPropertyOptional({ description: 'Why conversion was unavailable', nullable: true })
   conversionUnavailableReason?: string;
 
+  @ApiProperty({
+    enum: ['converted', 'partially_converted', 'unavailable'],
+    example: 'converted',
+  })
+  conversionStatus!: ConversionStatus;
+
+  @ApiProperty({ type: [String] })
+  unconvertedCurrencies!: string[];
+
+  @ApiProperty({ type: RateProvenanceDto })
+  rateProvenance!: RateProvenanceDto;
+
   @ApiProperty({ type: [DayOfWeekItemDto] })
   items!: DayOfWeekItemDto[];
 }
@@ -269,6 +436,18 @@ export class BudgetStatusResponseDto {
 
   @ApiPropertyOptional({ description: 'Why conversion was unavailable', nullable: true })
   conversionUnavailableReason?: string;
+
+  @ApiProperty({
+    enum: ['converted', 'partially_converted', 'unavailable'],
+    example: 'converted',
+  })
+  conversionStatus!: ConversionStatus;
+
+  @ApiProperty({ type: [String] })
+  unconvertedCurrencies!: string[];
+
+  @ApiProperty({ type: RateProvenanceDto })
+  rateProvenance!: RateProvenanceDto;
 
   @ApiProperty({ description: 'Evaluated period, YYYY-MM', example: '2026-10' })
   month!: string;

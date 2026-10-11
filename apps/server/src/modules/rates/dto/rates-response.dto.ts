@@ -75,3 +75,29 @@ export class RateSnapshotVersionDto {
   @ApiProperty({ example: 'W/"rates-v42-20261009"' })
   etag!: string;
 }
+
+/**
+ * One immutable, already-persisted rate snapshot ready for point-in-time
+ * conversion. Reports load the full set covering a date range and resolve the
+ * latest snapshot on-or-before each expense date — never today's rate
+ * silently.
+ */
+export class RateTableDto {
+  @ApiProperty({ example: 42 })
+  version!: number;
+
+  @ApiProperty({ example: 'USD' })
+  baseCurrency!: string;
+
+  @ApiProperty({ example: '2026-10-09', description: 'Provider market date (YYYY-MM-DD)' })
+  effectiveDate!: string;
+
+  @ApiProperty({ example: 'frankfurter' })
+  provider!: string;
+
+  @ApiProperty({
+    description: 'Rates against 1 unit of baseCurrency, serialized as exact decimal strings',
+    example: { USD: '1.000000', EUR: '0.923400' },
+  })
+  rates!: Record<string, string>;
+}

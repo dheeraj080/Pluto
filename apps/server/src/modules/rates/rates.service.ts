@@ -14,6 +14,7 @@ import {
   RateSnapshotResponseDto,
   SupportedCurrencyDto,
   RateSnapshotVersionDto,
+  RateTableDto,
 } from './dto/rates-response.dto';
 
 /**
@@ -271,6 +272,63 @@ export class RatesService {
       const meta = getCurrencyMeta(code);
       return { code, name: meta.name, symbol: meta.symbol };
     });
+  }
+
+  /**
+   * Loads every published snapshot that can resolve a date range, sorted by
+   * effectiveDate ascending. Reports use the latest snapshot on-or-before each
+   * expense date for genuine historical conversion.
+   *
+   * When the whole range predates the first snapshot, the earliest snapshot is
+   * still returned so those expenses resolve as a clearly labeled *estimate*
+   * rather than silently using today's rate. When no snapshot exists at all an
+   * on-demand sync is attempted (coalesced within this instance, and failure
+   * returns an empty list so reports degrade gracefully instead of 500ing).
+   */
+  async getRateTablesForRange(baseCurrency: string, end: Date): Promise<RateTableDto[]> {
+    const base = (baseCurrency || this.defaultBaseCurrency).toUpperCase();
+    if (!this.supportedCurrencies.includes(base)) {
+      throw new BadRequestException(
+        `Unsupported base currency: ${base}. Supported: ${this.supportedCurrencies.join(', ')}`,
+      );
+    }
+
+    const anySnapshot = await this.prisma.rateSnapshot.findFirst({
+      where: { baseCurrency: base, isPublished: true },
+      select: { id: true },
+    });
+    if (!anySnapshot) {
+      try {
+        await this.syncExchangeRates(base);
+      } catch (err) {
+        this.logger.warn(
+          `On-demand rate sync for ${base} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    const snapshots = await this.prisma.rateSnapshot.findMany({
+      where: { baseCurrency: base, isPublished: true, effectiveDate: { lte: end } },
+      orderBy: { effectiveDate: 'asc' },
+      include: { rates: true },
+    });
+
+    if (snapshots.length === 0) {
+      const earliest = await this.prisma.rateSnapshot.findFirst({
+        where: { baseCurrency: base, isPublished: true },
+        orderBy: { effectiveDate: 'asc' },
+        include: { rates: true },
+      });
+      if (earliest) snapshots.push(earliest);
+    }
+
+    return snapshots.map((s) => ({
+      version: s.version,
+      baseCurrency: s.baseCurrency,
+      effectiveDate: s.effectiveDate.toISOString().split('T')[0],
+      provider: s.provider,
+      rates: Object.fromEntries(s.rates.map((r) => [r.quoteCurrency, r.rate.toFixed(6)])),
+    }));
   }
 
   /**

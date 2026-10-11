@@ -48,6 +48,9 @@ export const envSchema = z
         'AUD,BRL,CAD,CHF,CNY,CZK,DKK,EUR,GBP,HKD,HUF,IDR,ILS,INR,ISK,JPY,KRW,MXN,MYR,NOK,NZD,PHP,PLN,RON,SEK,SGD,THB,TRY,USD,ZAR',
       ),
     EXCHANGE_RATE_SCHEDULE: z.string().default('0 4 * * *'), // Default 4 AM UTC daily
+    // Maximum age (in days) of a snapshot before a transaction-date rate is
+    // relabeled from `historical` to a clearly-labeled `estimate`.
+    EXCHANGE_RATE_HISTORICAL_LOOKBACK_DAYS: z.coerce.number().int().min(0).max(365).default(10),
 
     // Object Storage (AWS S3 or S3-compatible like MinIO / LocalStack / Cloudflare R2)
     OBJECT_STORAGE_ENDPOINT: z.string().optional(),

@@ -240,4 +240,80 @@ describe('RatesService', () => {
     expect(served.version).toBe(2);
     expect(served.etag).toBe('W/"rates-USD-2026-10-10-new"');
   });
+
+  it('builds ascending rate tables for a range', async () => {
+    mockPrismaService.rateSnapshot.findFirst.mockResolvedValue({ id: 'snap-any' });
+    mockPrismaService.rateSnapshot.findMany.mockResolvedValue([
+      {
+        id: 's1',
+        version: 1,
+        baseCurrency: 'USD',
+        effectiveDate: new Date('2026-10-01'),
+        provider: 'mock',
+        rates: [
+          { quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') },
+          { quoteCurrency: 'EUR', rate: new Prisma.Decimal('0.910000') },
+        ],
+      },
+      {
+        id: 's2',
+        version: 2,
+        baseCurrency: 'USD',
+        effectiveDate: new Date('2026-10-09'),
+        provider: 'mock',
+        rates: [
+          { quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') },
+          { quoteCurrency: 'EUR', rate: new Prisma.Decimal('0.920000') },
+        ],
+      },
+    ]);
+
+    const tables = await ratesService.getRateTablesForRange('USD', new Date('2026-10-31'));
+
+    expect(tables).toHaveLength(2);
+    expect(tables[0].effectiveDate).toBe('2026-10-01');
+    expect(tables[1].effectiveDate).toBe('2026-10-09');
+    expect(tables[1].rates.EUR).toBe('0.920000');
+  });
+
+  it('returns the earliest snapshot when the whole range predates it', async () => {
+    mockPrismaService.rateSnapshot.findFirst.mockReset();
+    mockPrismaService.rateSnapshot.findMany.mockReset();
+    mockPrismaService.rateSnapshot.findFirst
+      .mockResolvedValueOnce({ id: 'snap-any' }) // existence check
+      .mockResolvedValueOnce({
+        id: 's-earliest',
+        version: 1,
+        baseCurrency: 'USD',
+        effectiveDate: new Date('2026-10-01'),
+        provider: 'mock',
+        rates: [{ quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') }],
+      });
+    mockPrismaService.rateSnapshot.findMany.mockResolvedValue([]);
+
+    const tables = await ratesService.getRateTablesForRange(
+      'USD',
+      new Date('2026-06-30'), // before the first snapshot
+    );
+
+    expect(tables).toHaveLength(1);
+    expect(tables[0].effectiveDate).toBe('2026-10-01');
+    expect(tables[0].rates.USD).toBe('1.000000');
+  });
+
+  it('returns an empty table list when no snapshot can be produced', async () => {
+    mockPrismaService.rateSnapshot.findFirst.mockReset();
+    mockPrismaService.rateSnapshot.findMany.mockReset();
+    mockRateProvider.fetchLatestRates.mockReset();
+    mockPrismaService.rateSnapshot.findFirst
+      .mockResolvedValueOnce(null) // no snapshot exists → on-demand sync runs
+      .mockResolvedValueOnce(null) // sync fails → no prior snapshot to preserve
+      .mockResolvedValue(null); // earliest fallback also finds nothing
+    mockRateProvider.fetchLatestRates.mockRejectedValue(new Error('provider down'));
+    mockPrismaService.rateSnapshot.findMany.mockResolvedValue([]);
+
+    const tables = await ratesService.getRateTablesForRange('USD', new Date('2026-12-31'));
+
+    expect(tables).toEqual([]);
+  });
 });
