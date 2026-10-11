@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { expensesApi } from "@/lib/expenses";
@@ -16,15 +16,15 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { IconArrowLeft, IconEdit, IconTrash } from "@/components/icons";
-import { useBaseCurrency } from "../use-expenses";
+
 import { formatDate } from "@/lib/format";
 import { ConfirmDialog } from "@/components/dialog";
 
 export default function ExpenseDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { base } = useBaseCurrency();
   const id = params?.id;
+  const isFetching = useRef(false);
 
   const [expense, setExpense] = useState<Expense | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +35,7 @@ export default function ExpenseDetailPage() {
   const loadExpense = useCallback(async () => {
     if (!id) return;
     try {
+      isFetching.current = true;
       setLoading(true);
       setError(null);
       const data = await expensesApi.getExpense(id);
@@ -43,12 +44,16 @@ export default function ExpenseDetailPage() {
       const message = e instanceof Error ? e.message : "Failed to load expense";
       setError(message);
     } finally {
+      isFetching.current = false;
       setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
-    void loadExpense();
+    void (async () => {
+      if (isFetching.current) return;
+      await loadExpense();
+    })();
   }, [loadExpense]);
 
   const handleDelete = async () => {
