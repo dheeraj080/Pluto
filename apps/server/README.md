@@ -592,15 +592,28 @@ curl.exe -i -X POST http://localhost:3000/v1/expenses/budgets `
 | :--- | :--- | :--- | :--- |
 | `GET` | `/v1/expenses/summary` | `from`, `to`, `base` | Period total, average, per-category breakdown, per-currency subtotals |
 | `GET` | `/v1/expenses/trends` | `months` (default 12, max 24), `base` | Continuous monthly totals for charts, empty months included |
+| `GET` | `/v1/expenses/comparison` | `currentFrom`, `currentTo`, `previousFrom`, `previousTo`, `base` | Two summaries plus absolute/percentage deltas (period-over-period) |
+| `GET` | `/v1/expenses/top` | `from`, `to`, `limit` (default 10, max 100), `base` | Largest expenses in the range, converted when possible |
+| `GET` | `/v1/expenses/by-day-of-week` | `from`, `to`, `base` | Totals, counts and averages bucketed into Sun–Sat |
+| `GET` | `/v1/expenses/export.csv` | `from`, `to`, `categoryId`, `currency`, `search`, `base` | CSV export of the filtered expenses |
 | `GET` | `/v1/expenses/budgets/status` | `month` (`YYYY-MM`), `base` | Every budget compared against actual spend for the month |
 
 `summary` defaults to the first day of the current month through today. `trends` returns months oldest-first
-so a chart can render left to right. `budgets/status` evaluates each budget's own period window (a `YEARLY`
-budget sums the whole year to date), not just the requested month.
+so a chart can render left to right. `comparison` returns two full `summary` payloads and a `delta` object;
+`top` orders by native amount descending; `by-day-of-week` always returns seven rows (empty days included)
+and is pointless once rate conversion is unavailable, so read the top-level `converted` flag. Every
+conversion-dependent field follows the same rule as the rest of the module: when no rate snapshot exists the
+payload comes back with `converted: false` and null converted figures rather than failing.
+`budgets/status` evaluates each budget's own period window (a `YEARLY` budget sums the whole year to date),
+not just the requested month.
 
 ```powershell
 curl.exe -i -H "Authorization: Bearer <accessToken>" "http://localhost:3000/v1/expenses/summary?from=2026-10-01&to=2026-10-31&base=USD"
 curl.exe -i -H "Authorization: Bearer <accessToken>" "http://localhost:3000/v1/expenses/trends?months=6&base=EUR"
+curl.exe -i -H "Authorization: Bearer <accessToken>" "http://localhost:3000/v1/expenses/comparison?currentFrom=2026-10-01&currentTo=2026-10-31&previousFrom=2026-09-01&previousTo=2026-09-30&base=USD"
+curl.exe -i -H "Authorization: Bearer <accessToken>" "http://localhost:3000/v1/expenses/top?from=2026-10-01&to=2026-10-31&limit=5&base=USD"
+curl.exe -i -H "Authorization: Bearer <accessToken>" "http://localhost:3000/v1/expenses/by-day-of-week?from=2026-10-01&to=2026-10-31&base=USD"
+curl.exe -i -H "Authorization: Bearer <accessToken>" "http://localhost:3000/v1/expenses/export.csv?from=2026-10-01&to=2026-10-31&base=USD" -o expenses.csv
 curl.exe -i -H "Authorization: Bearer <accessToken>" "http://localhost:3000/v1/expenses/budgets/status?month=2026-10&base=USD"
 ```
 

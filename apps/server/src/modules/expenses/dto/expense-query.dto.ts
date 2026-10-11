@@ -245,7 +245,7 @@ export class TopQueryDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  limit: number = 10;
+  limit?: number;
 
   @ApiPropertyOptional({
     description: 'Base currency to convert into',

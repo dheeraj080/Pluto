@@ -219,6 +219,164 @@ describe('ExpensesReportsService', () => {
     });
   });
 
+  describe('getComparison', () => {
+    beforeEach(() => {
+      mockPrismaService.expenseCategory.findMany.mockResolvedValue([
+        { id: 'cat-1', name: 'Food', color: '#f59e0b' },
+      ]);
+    });
+
+    it('computes absolute and percentage deltas between two periods', async () => {
+      mockPrismaService.expense.groupBy
+        .mockResolvedValueOnce([
+          {
+            categoryId: 'cat-1',
+            currency: 'USD',
+            _sum: { amount: new Prisma.Decimal('150.00') },
+            _count: { _all: 3 },
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            categoryId: 'cat-1',
+            currency: 'USD',
+            _sum: { amount: new Prisma.Decimal('100.00') },
+            _count: { _all: 2 },
+          },
+        ]);
+
+      const result = await service.getComparison(USER_A, {
+        currentFrom: '2026-10-01',
+        currentTo: '2026-10-31',
+        previousFrom: '2026-09-01',
+        previousTo: '2026-09-30',
+      });
+
+      expect(result.converted).toBe(true);
+      expect(result.current.total).toBe(150);
+      expect(result.previous.total).toBe(100);
+      expect(result.delta.totalAbs).toBe(50);
+      expect(result.delta.totalPct).toBe(50);
+      expect(result.delta.countAbs).toBe(1);
+      expect(result.delta.countPct).toBe(50);
+    });
+
+    it('degrades gracefully when no rate snapshot is available', async () => {
+      mockConverter.tryGetConverter.mockResolvedValue(null);
+      mockPrismaService.expense.groupBy.mockResolvedValue([]);
+
+      const result = await service.getComparison(USER_A, {});
+
+      expect(result.converted).toBe(false);
+      expect(result.conversionUnavailableReason).toBeTruthy();
+      expect(result.delta.totalPct).toBe(0);
+    });
+  });
+
+  describe('getTopExpenses', () => {
+    it('returns expenses largest first with converted amounts', async () => {
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        {
+          id: 'e1',
+          description: 'Rent',
+          amount: new Prisma.Decimal('1000.00'),
+          currency: 'USD',
+          incurredOn: new Date('2026-10-01T00:00:00.000Z'),
+          category: { name: 'Housing' },
+        },
+        {
+          id: 'e2',
+          description: 'Trip',
+          amount: new Prisma.Decimal('92.00'),
+          currency: 'EUR',
+          incurredOn: new Date('2026-10-02T00:00:00.000Z'),
+          category: { name: 'Travel' },
+        },
+      ]);
+
+      const result = await service.getTopExpenses(USER_A, { limit: 5 });
+
+      expect(result.converted).toBe(true);
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].amountNative).toBe(1000);
+      expect(result.items[1].amount).toBe(100); // 92 EUR -> 100 USD
+      expect(result.items[1].incurredOn).toBe('2026-10-02');
+    });
+
+    it('leaves converted amounts null when rates are unavailable', async () => {
+      mockConverter.tryGetConverter.mockResolvedValue(null);
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        {
+          id: 'e1',
+          description: 'Rent',
+          amount: new Prisma.Decimal('1000.00'),
+          currency: 'USD',
+          incurredOn: new Date('2026-10-01T00:00:00.000Z'),
+          category: null,
+        },
+      ]);
+
+      const result = await service.getTopExpenses(USER_A, {});
+
+      expect(result.converted).toBe(false);
+      expect(result.items[0].amount).toBeNull();
+    });
+  });
+
+  describe('getByDayOfWeek', () => {
+    it('buckets totals into the seven UTC weekdays', async () => {
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        {
+          amount: new Prisma.Decimal('10.00'),
+          currency: 'USD',
+          incurredOn: new Date('2026-10-05T00:00:00.000Z'), // Monday
+        },
+        {
+          amount: new Prisma.Decimal('20.00'),
+          currency: 'USD',
+          incurredOn: new Date('2026-10-06T00:00:00.000Z'), // Tuesday
+        },
+      ]);
+
+      const result = await service.getByDayOfWeek(USER_A, {});
+
+      expect(result.items).toHaveLength(7);
+      const monday = result.items.find((entry) => entry.label === 'Mon');
+      const tuesday = result.items.find((entry) => entry.label === 'Tue');
+      expect(monday?.total).toBe(10);
+      expect(monday?.count).toBe(1);
+      expect(tuesday?.total).toBe(20);
+      expect(result.items.find((entry) => entry.label === 'Sun')?.total).toBe(0);
+    });
+  });
+
+  describe('exportCsv', () => {
+    it('emits a header and one quoted row per expense', async () => {
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        {
+          description: 'Rent, "monthly"',
+          amount: new Prisma.Decimal('1000.00'),
+          currency: 'USD',
+          incurredOn: new Date('2026-10-01T00:00:00.000Z'),
+          category: { name: 'Housing' },
+        },
+      ]);
+
+      const csv = await service.exportCsv(USER_A, {});
+      const [header, row] = csv.split('\n');
+
+      expect(header).toBe(
+        'Date,Description,Category,Amount,Currency,BaseAmount,BaseCurrency,Converted',
+      );
+      expect(row).toContain('2026-10-01');
+      expect(row).toContain('Housing');
+      expect(row).toContain('1000.00,USD');
+      expect(row).toContain('true');
+      // Embedded quotes are doubled per RFC 4180.
+      expect(row).toContain('Rent, ""monthly""');
+    });
+  });
+
   describe('getBudgetStatus', () => {
     const foodCategory = { id: 'cat-1', name: 'Food', color: '#f59e0b' };
 

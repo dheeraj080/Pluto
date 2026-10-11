@@ -21,6 +21,7 @@ import {
   BudgetStatusQueryDto,
   ByDayOfWeekQueryDto,
   ComparisonQueryDto,
+  ExportQueryDto,
   ExpenseQueryDto,
   ReportQueryDto,
   TopQueryDto,
@@ -226,7 +227,10 @@ export class ExpensesController {
     summary: 'Export expenses as CSV',
     description: 'Returns a CSV file of expenses filtered by the provided query parameters.',
   })
-  async exportCsv(@CurrentUser() user: AuthenticatedUser, @Query() query: any): Promise<string> {
+  async exportCsv(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ExportQueryDto,
+  ): Promise<string> {
     const csv = await this.reportsService.exportCsv(user.id, query);
     return csv;
   }

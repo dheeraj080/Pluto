@@ -2,7 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { CurrencyConverter, CurrencyConverterService, round2 } from './currency-converter.service';
-import { BudgetStatusQueryDto, ReportQueryDto, TrendQueryDto } from './dto/expense-query.dto';
+import {
+  BudgetStatusQueryDto,
+  ByDayOfWeekQueryDto,
+  ComparisonQueryDto,
+  ExportQueryDto,
+  ReportQueryDto,
+  TopQueryDto,
+  TrendQueryDto,
+} from './dto/expense-query.dto';
 import {
   BudgetStatusDto,
   BudgetStatusResponseDto,
@@ -322,7 +330,7 @@ export class ExpensesReportsService {
   }
 
   /** Compare two arbitrary periods (e.g. MoM). */
-  async getComparison(userId: string, query: any) {
+  async getComparison(userId: string, query: ComparisonQueryDto) {
     const baseCurrency = this.currencyConverter.resolveBase(query.base);
     const converter = await this.currencyConverter.tryGetConverter(query.base);
 
@@ -384,7 +392,7 @@ export class ExpensesReportsService {
     };
   }
 
-  async getTopExpenses(userId: string, query: any) {
+  async getTopExpenses(userId: string, query: TopQueryDto) {
     const baseCurrency = this.currencyConverter.resolveBase(query.base);
     const converter = await this.currencyConverter.tryGetConverter(query.base);
     const { start, end } = resolveRange(query.from, query.to);
@@ -400,7 +408,7 @@ export class ExpensesReportsService {
       id: e.id,
       description: e.description,
       categoryName: e.category?.name ?? null,
-      categorySlug: (e as any).category?.slug ?? null,
+      categorySlug: null as string | null,
       amountNative: Number(e.amount),
       currency: e.currency,
       amount: converter ? round2(converter.convert(e.amount, e.currency)) : null,
@@ -415,7 +423,7 @@ export class ExpensesReportsService {
     };
   }
 
-  async getByDayOfWeek(userId: string, query: any) {
+  async getByDayOfWeek(userId: string, query: ByDayOfWeekQueryDto) {
     const baseCurrency = this.currencyConverter.resolveBase(query.base);
     const converter = await this.currencyConverter.tryGetConverter(query.base);
     const { start, end } = resolveRange(query.from, query.to);
@@ -460,11 +468,11 @@ export class ExpensesReportsService {
     };
   }
 
-  async exportCsv(userId: string, query: any): Promise<string> {
+  async exportCsv(userId: string, query: ExportQueryDto): Promise<string> {
     const converter = await this.currencyConverter.tryGetConverter(query.base);
     const baseCurrency = this.currencyConverter.resolveBase(query.base);
 
-    const where: any = { userId };
+    const where: Prisma.ExpenseWhereInput = { userId };
     const { start, end } = resolveRange(query.from, query.to);
     where.incurredOn = { gte: start, lte: end };
     if (query.categoryId) where.categoryId = query.categoryId;
