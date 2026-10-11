@@ -7,6 +7,9 @@
  * Spend is converted into the selected base currency server-side; when no rate
  * snapshot is available the server falls back to comparing only spend recorded
  * in the budget's own currency, which is exact for single-currency users.
+ *
+ * Laid out as a bento: the tracking panel and the add form sit side by side on
+ * wide screens and stack on mobile.
  */
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
@@ -16,7 +19,6 @@ import type { BudgetStatus, BudgetStatusResponse } from "@/lib/types";
 import {
   Badge,
   Button,
-  Card,
   EmptyState,
   ErrorNote,
   Field,
@@ -25,6 +27,7 @@ import {
   PageHeader,
   Select,
 } from "@/components/ui";
+import { BentoGrid, BentoTile } from "@/components/bento";
 import { useBaseCurrency, useExpenseSetup } from "../use-expenses";
 import { ConversionNotice } from "../conversion-notice";
 
@@ -154,14 +157,14 @@ export default function BudgetsPage() {
         />
       )}
 
-      {loading && <LoadingNote label="Loading budgets…" />}
-
-      {!loading && status && (
-        <Card title={`Progress — ${month}`}>
-          {status.items.length === 0 ? (
+      <BentoGrid>
+        <BentoTile title={`Progress — ${month}`} className="lg:col-span-7">
+          {loading && !status ? (
+            <LoadingNote label="Loading budgets…" />
+          ) : !status || status.items.length === 0 ? (
             <EmptyState
               title="No budgets yet"
-              description="Add a budget below to start tracking spending against a limit."
+              description="Add a budget to start tracking spending against a limit."
             />
           ) : (
             <ul className="divide-y divide-border">
@@ -171,8 +174,8 @@ export default function BudgetsPage() {
                     <span className="inline-flex items-center gap-2 font-medium">
                       {item.color && (
                         <span
-                          aria-hidden
-                          className="inline-block size-2.5 rounded-full"
+                          aria-hidden="true"
+                          className="inline-block h-2.5 w-2.5 rounded-full"
                           style={{ backgroundColor: item.color }}
                         />
                       )}
@@ -186,9 +189,7 @@ export default function BudgetsPage() {
                       )}
                     </span>
                     <span className="tabular-nums">
-                      <span className="font-medium">
-                        {formatMoney(item.spent, item.currency)}
-                      </span>
+                      <span className="font-medium">{formatMoney(item.spent, item.currency)}</span>
                       <span className="text-muted">
                         {" / "}
                         {formatMoney(item.budgetAmount, item.currency)}
@@ -218,92 +219,92 @@ export default function BudgetsPage() {
               ))}
             </ul>
           )}
-        </Card>
-      )}
+        </BentoTile>
 
-      <Card title="Add budget">
-        <form
-          onSubmit={(event) => void handleCreate(event)}
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          <Field
-            label="Applies to"
-            htmlFor="budget-category"
-            hint="Leave as “All expenses” for an overall budget"
+        <BentoTile title="Add budget" className="lg:col-span-5">
+          <form
+            onSubmit={(event) => void handleCreate(event)}
+            className="grid gap-4 sm:grid-cols-2"
           >
-            <Select
-              id="budget-category"
-              value={categoryId}
-              onChange={(event) => setCategoryId(event.target.value)}
-            >
-              <option value="">All expenses</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
+            <div className="sm:col-span-2">
+              <Field
+                label="Applies to"
+                htmlFor="budget-category"
+                hint="Leave as “All expenses” for an overall budget"
+              >
+                <Select
+                  id="budget-category"
+                  value={categoryId}
+                  onChange={(event) => setCategoryId(event.target.value)}
+                >
+                  <option value="">All expenses</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
 
-          <Field label="Amount" htmlFor="budget-amount">
-            <Input
-              id="budget-amount"
-              type="number"
-              inputMode="decimal"
-              min="0.01"
-              step="0.01"
-              placeholder="0.00"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              required
-            />
-          </Field>
+            <Field label="Amount" htmlFor="budget-amount">
+              <Input
+                id="budget-amount"
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                placeholder="0.00"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                required
+              />
+            </Field>
 
-          <Field label="Currency" htmlFor="budget-currency">
-            <Select
-              id="budget-currency"
-              value={effectiveCurrency}
-              onChange={(event) => setCurrency(event.target.value)}
-              required
-            >
-              {currencies.map((entry) => (
-                <option key={entry.code} value={entry.code}>
-                  {entry.code} — {entry.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
+            <Field label="Currency" htmlFor="budget-currency">
+              <Select
+                id="budget-currency"
+                value={effectiveCurrency}
+                onChange={(event) => setCurrency(event.target.value)}
+                required
+              >
+                {currencies.map((entry) => (
+                  <option key={entry.code} value={entry.code}>
+                    {entry.code} — {entry.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
 
-          <Field label="Period" htmlFor="budget-period">
-            <Select
-              id="budget-period"
-              value={period}
-              onChange={(event) =>
-                setPeriod(event.target.value as "MONTHLY" | "YEARLY")
-              }
-            >
-              <option value="MONTHLY">Monthly</option>
-              <option value="YEARLY">Yearly</option>
-            </Select>
-          </Field>
+            <Field label="Period" htmlFor="budget-period">
+              <Select
+                id="budget-period"
+                value={period}
+                onChange={(event) => setPeriod(event.target.value as "MONTHLY" | "YEARLY")}
+              >
+                <option value="MONTHLY">Monthly</option>
+                <option value="YEARLY">Yearly</option>
+              </Select>
+            </Field>
 
-          <Field label="Starts" htmlFor="budget-start" hint="Spend before this date is not counted">
-            <Input
-              id="budget-start"
-              type="date"
-              value={startDate}
-              onChange={(event) => setStartDate(event.target.value)}
-              required
-            />
-          </Field>
+            <Field label="Starts" htmlFor="budget-start" hint="Spend before this date is not counted">
+              <Input
+                id="budget-start"
+                type="date"
+                value={startDate}
+                onChange={(event) => setStartDate(event.target.value)}
+                required
+              />
+            </Field>
 
-          <div className="flex items-end">
-            <Button type="submit" tone="accent" disabled={saving}>
-              {saving ? "Saving…" : "Add budget"}
-            </Button>
-          </div>
-        </form>
-      </Card>
+            <div className="sm:col-span-2">
+              <Button type="submit" variant="primary" disabled={saving}>
+                {saving ? "Saving…" : "Add budget"}
+              </Button>
+            </div>
+          </form>
+        </BentoTile>
+      </BentoGrid>
     </div>
   );
 }
