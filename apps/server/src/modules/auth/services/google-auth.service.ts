@@ -16,11 +16,17 @@ export class GoogleAuthService {
   private readonly allowedClientIds: string[];
 
   constructor(private readonly configService: ConfigService) {
-    const rawClientIds = this.configService.get<string>('GOOGLE_ALLOWED_CLIENT_IDS', '');
+    const rawClientIds = this.configService.get<string>('GOOGLE_ALLOWED_CLIENT_IDS');
     this.allowedClientIds = rawClientIds
-      .split(',')
-      .map((id) => id.trim())
-      .filter((id) => id.length > 0);
+      ? rawClientIds
+          .split(',')
+          .map((id) => id.trim())
+          .filter((id) => id.length > 0)
+      : [];
+
+    if (this.allowedClientIds.length === 0) {
+      this.logger.warn('No Google OAuth client IDs configured in GOOGLE_ALLOWED_CLIENT_IDS');
+    }
 
     this.client = new OAuth2Client();
   }

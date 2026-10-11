@@ -66,6 +66,7 @@ describe('validateEnvironment', () => {
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
       JWT_ACCESS_SECRET: 'production_super_secure_secret_key_exceeding_32_chars',
+      GOOGLE_ALLOWED_CLIENT_IDS: '',
       OBJECT_STORAGE_ACCESS_KEY_ID: 'real-access-key',
       OBJECT_STORAGE_SECRET_ACCESS_KEY: 'real-secret-key-123',
     };
@@ -73,6 +74,33 @@ describe('validateEnvironment', () => {
     expect(() => validateEnvironment(prodConfigWithoutGoogleClient)).toThrow(
       'GOOGLE_ALLOWED_CLIENT_IDS must be explicitly configured',
     );
+  });
+
+  it('should reject blank entries in GOOGLE_ALLOWED_CLIENT_IDS in production', () => {
+    const prodConfigWithBlankEntries = {
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
+      JWT_ACCESS_SECRET: 'production_super_secure_secret_key_exceeding_32_chars',
+      GOOGLE_ALLOWED_CLIENT_IDS: ' , , ',
+      OBJECT_STORAGE_ACCESS_KEY_ID: 'real-access-key',
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: 'real-secret-key-123',
+    };
+
+    expect(() => validateEnvironment(prodConfigWithBlankEntries)).toThrow();
+  });
+
+  it('should accept multiple valid Google client IDs in production', () => {
+    const validProdConfig = {
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
+      JWT_ACCESS_SECRET: 'production_super_secure_secret_key_exceeding_32_chars',
+      GOOGLE_ALLOWED_CLIENT_IDS: 'client1.apps.googleusercontent.com, client2.apps.googleusercontent.com',
+      OBJECT_STORAGE_ACCESS_KEY_ID: 'prod-s3-key',
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: 'prod-s3-secret',
+    };
+
+    const result = validateEnvironment(validProdConfig);
+    expect(result.NODE_ENV).toBe('production');
   });
 
   it('should accept valid production configuration with strong secrets', () => {

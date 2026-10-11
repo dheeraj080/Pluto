@@ -76,12 +76,16 @@ export const envSchema = z
         });
       }
 
-      if (!data.GOOGLE_ALLOWED_CLIENT_IDS || data.GOOGLE_ALLOWED_CLIENT_IDS.trim().length === 0) {
+      const clientIds = data.GOOGLE_ALLOWED_CLIENT_IDS
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0);
+      if (clientIds.length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['GOOGLE_ALLOWED_CLIENT_IDS'],
           message:
-            'In production, GOOGLE_ALLOWED_CLIENT_IDS must be explicitly configured with at least one client ID',
+            'In production, GOOGLE_ALLOWED_CLIENT_IDS must be explicitly configured with at least one non-empty client ID',
         });
       }
 
