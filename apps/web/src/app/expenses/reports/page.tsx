@@ -237,7 +237,7 @@ export default function ReportsPage() {
       {loading && <LoadingNote label="Building report…" />}
 
       {summary && summaryStatus === "unavailable" && (
-        <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+        <div className="space-y-3 rounded-xl border border-warning/25 bg-warning-subtle px-4 py-3 text-sm text-warning">
           <p>
             Exchange rates are unavailable, so spending cannot be combined across currencies.
             Totals and charts are hidden rather than estimated; per-currency subtotals are listed
@@ -247,7 +247,7 @@ export default function ReportsPage() {
             {summary.byCurrency.map((entry) => (
               <span
                 key={entry.currency}
-                className="rounded-full border border-amber-500/40 px-2 py-0.5 text-xs font-medium"
+                className="rounded-full border border-warning/30 bg-background/40 px-2 py-0.5 text-xs font-medium"
               >
                 {entry.currency} {formatMoney(entry.total, entry.currency)} · {entry.count}
               </span>
