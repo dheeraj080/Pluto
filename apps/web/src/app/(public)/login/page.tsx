@@ -142,7 +142,8 @@ export default function LoginPage() {
             <h2 className="text-sm font-semibold text-ink">Mock sign-in (development only)</h2>
             <p className="mt-1 text-xs leading-relaxed text-muted">
               Creates or reuses a local account without Google — handy when there is no real OAuth
-              client ID set up. Leave the e-mail empty to use{" "}
+              client ID set up. A brand-new account is pre-filled with sample expenses and budgets so
+              the dashboard and reports have data. Leave the e-mail empty to use{" "}
               <code className="rounded bg-background px-1 font-mono text-[11px]">
                 dev@pluto.local
               </code>

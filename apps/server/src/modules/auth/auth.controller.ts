@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Logger, Post, Req } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
@@ -8,11 +8,17 @@ import { DevLoginDto } from './dto/dev-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { DevSeedService } from '../dev/dev-seed.service';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  private readonly logger = new Logger(AuthController.name);
+
+  constructor(
+    private readonly authService: AuthService,
+    private readonly devSeedService: DevSeedService,
+  ) {}
 
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -42,7 +48,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Mock sign-in for local development (ENABLE_DEV_AUTH only)',
     description:
-      'Creates or reuses a synthetic account and returns the same token pair as the Google flow, so the UI can be exercised without a Google client ID. Only reachable when ENABLE_DEV_AUTH=true and NODE_ENV != production; otherwise it returns 404.',
+      'Creates or reuses a synthetic account and returns the same token pair as the Google flow, so the UI can be exercised without a Google client ID. A brand-new account is seeded with sample categories, expenses and budgets so the dashboard and reports have data to show. Only reachable when ENABLE_DEV_AUTH=true and NODE_ENV != production; otherwise it returns 404.',
   })
   @ApiResponse({
     status: 200,
@@ -53,7 +59,25 @@ export class AuthController {
   async devLogin(@Body() dto: DevLoginDto, @Req() req: Request): Promise<AuthResponseDto> {
     const ipAddress = (req.headers['x-forwarded-for'] as string) || req.ip;
     const userAgent = req.headers['user-agent'];
-    return this.authService.authenticateDevUser(dto.email, dto.name, ipAddress, userAgent);
+    const session = await this.authService.authenticateDevUser(
+      dto.email,
+      dto.name,
+      ipAddress,
+      userAgent,
+    );
+    // Idempotent: only an account with no expenses yet gets demo data, so this
+    // is a no-op on every sign-in after the first. Best-effort — a seeding
+    // hiccup must never block an otherwise-successful dev sign-in.
+    try {
+      await this.devSeedService.seedDemoData(session.user.id);
+    } catch (err) {
+      this.logger.warn(
+        `Dev demo seeding failed for ${session.user.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+    return session;
   }
 
   @Public()

@@ -402,6 +402,12 @@ Synthetic accounts are created with a namespaced `googleId` (`dev:<email>`) so t
 never be mistaken for real Google accounts. The response matches the Google flow exactly
 (access token + one-time refresh token + user), so the web client stores it the same way.
 
+A brand-new account is seeded with demo data so the dashboard and reports are not empty:
+the default categories, roughly six months of expenses across the supported currencies, and
+an overall plus a Food monthly budget. Seeding is idempotent and only runs for accounts with
+no expenses, so it is a no-op on subsequent sign-ins. Only currencies present in the current
+rate snapshot are used, so reports never fail to convert the sample rows.
+
 #### `POST /v1/auth/refresh`
 Rotate refresh session. Uses one-time tokens with replay detection: if an already-used refresh token is presented, all user sessions are immediately invalidated.
 ```powershell

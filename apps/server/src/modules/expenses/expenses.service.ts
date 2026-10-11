@@ -14,6 +14,7 @@ import {
   PaginatedExpensesResponseDto,
 } from './dto/expense-response.dto';
 import { formatDate, toUtcDate } from './expenses.utils';
+import { DEFAULT_CATEGORIES } from './expense-defaults';
 
 const CATEGORY_SELECT = { name: true, color: true } as const;
 
@@ -24,23 +25,6 @@ type ExpenseWithCategory = Prisma.ExpenseGetPayload<{
 type CategoryWithCount = Prisma.ExpenseCategoryGetPayload<{
   include: { _count: { select: { expenses: true } } };
 }>;
-
-/**
- * Seeded on first category read so a brand-new account is immediately usable.
- * `isDefault` marks them as safe to re-seed; they can be renamed or deleted
- * like any other category.
- */
-const DEFAULT_CATEGORIES: ReadonlyArray<
-  Omit<Prisma.ExpenseCategoryUncheckedCreateInput, 'userId' | 'createdAt' | 'updatedAt'>
-> = [
-  { name: 'Food & Dining', color: '#f59e0b', icon: 'utensils', isDefault: true, sortOrder: 10 },
-  { name: 'Transport', color: '#3b82f6', icon: 'car', isDefault: true, sortOrder: 20 },
-  { name: 'Shopping', color: '#ec4899', icon: 'bag', isDefault: true, sortOrder: 30 },
-  { name: 'Bills & Utilities', color: '#8b5cf6', icon: 'receipt', isDefault: true, sortOrder: 40 },
-  { name: 'Entertainment', color: '#06b6d4', icon: 'film', isDefault: true, sortOrder: 50 },
-  { name: 'Health', color: '#16a34a', icon: 'heart', isDefault: true, sortOrder: 60 },
-  { name: 'Other', color: '#64748b', icon: 'ellipsis', isDefault: true, sortOrder: 900 },
-];
 
 @Injectable()
 export class ExpensesService {
