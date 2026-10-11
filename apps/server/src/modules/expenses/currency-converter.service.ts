@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
+import { CurrencyService } from '../../common/currency/currency.service';
 import { RatesService } from '../rates/rates.service';
 
 /**
@@ -78,6 +78,50 @@ export class CurrencyConverter {
     const inBase = toDecimal(amount).div(fromRate);
     return Number(inBase.toFixed(2));
   }
+
+  /** The quoted rate (per 1 unit of the snapshot base) for `currency`, or null. */
+  rateOf(currency: string): Prisma.Decimal | null {
+    return this.rates.get(currency.toUpperCase()) ?? null;
+  }
+
+  /**
+   * Converts `amount` from `from` directly into `to` using the standard
+   * shared-base cross-rate formula `amount / rate[from] * rate[to]`, rounded to
+   * 2dp. Same-currency conversion short-circuits without arithmetic.
+   *
+   * @throws BadRequestException when either currency has no rate here.
+   */
+  convertBetween(amount: number | string | Prisma.Decimal, from: string, to: string): number {
+    const source = from.toUpperCase();
+    const target = to.toUpperCase();
+    if (source === target) {
+      return round2(Number(toDecimal(amount).toFixed(2)));
+    }
+
+    const fromRate = this.rates.get(source);
+    const toRate = this.rates.get(target);
+    if (!fromRate || fromRate.isZero() || !toRate || toRate.isZero()) {
+      throw new BadRequestException(
+        `No ${source}->${target} rate is available in snapshot ${this.effectiveDate ?? '(unknown)'} for base ${this.baseCurrency}`,
+      );
+    }
+
+    const converted = toDecimal(amount).div(fromRate).mul(toRate);
+    return Number(converted.toFixed(2));
+  }
+
+  /** Non-throwing variant of {@link convertBetween}; returns null on a missing rate. */
+  convertBetweenOrNull(
+    amount: number | string | Prisma.Decimal,
+    from: string,
+    to: string,
+  ): number | null {
+    try {
+      return this.convertBetween(amount, from, to);
+    } catch {
+      return null;
+    }
+  }
 }
 
 /**
@@ -97,12 +141,10 @@ export class CurrencyConverterService {
 
   constructor(
     private readonly ratesService: RatesService,
-    private readonly configService: ConfigService,
+    private readonly currencyService: CurrencyService,
   ) {
-    this.supported = this.ratesService.getSupportedCurrencies().map((c) => c.code.toUpperCase());
-    this.defaultBase = (
-      this.configService.get<string>('EXCHANGE_RATE_BASE_CURRENCY', 'USD') || 'USD'
-    ).toUpperCase();
+    this.supported = this.currencyService.supportedReportingCurrencies;
+    this.defaultBase = this.currencyService.defaultReportingCurrency;
   }
 
   /** Supported ISO 4217 codes, e.g. `['USD', 'EUR', ...]`. */
@@ -115,18 +157,26 @@ export class CurrencyConverterService {
   }
 
   /**
-   * Normalises and validates a user-supplied currency code.
+   * Normalises and validates a registry-valid ISO 4217 code for *recording*.
+   *
+   * Recording only requires a genuine code — no exchange rate need exist.
+   *
+   * @throws BadRequestException when the code is not a valid ISO 4217 code.
+   */
+  assertValidCode(currency: string): string {
+    return this.currencyService.assertValid(currency);
+  }
+
+  /**
+   * Normalises and validates a reporting-base currency.
+   *
+   * Bases must be in the configured, provider-backed supported set so a report
+   * never silently asks for a currency the rate pipeline cannot quote.
    *
    * @throws BadRequestException when the code is not supported.
    */
   assertSupported(currency: string): string {
-    const code = (currency ?? '').trim().toUpperCase();
-    if (!this.supported.includes(code)) {
-      throw new BadRequestException(
-        `Unsupported currency '${currency}'. Supported currencies: ${this.supported.join(', ')}`,
-      );
-    }
-    return code;
+    return this.currencyService.assertSupportedReporting(currency);
   }
 
   /**

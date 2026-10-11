@@ -83,6 +83,7 @@ describe('ExpensesService', () => {
 
   const mockConverter = {
     assertSupported: jest.fn(),
+    assertValidCode: jest.fn(),
     resolveBase: jest.fn(),
     tryGetConverter: jest.fn(),
   };
@@ -93,6 +94,14 @@ describe('ExpensesService', () => {
       const code = currency.trim().toUpperCase();
       if (!['USD', 'EUR', 'JPY'].includes(code)) {
         throw new Error(`Unsupported currency '${currency}'`);
+      }
+      return code;
+    });
+    // Recording accepts any syntactically plausible code; only invalid shapes throw.
+    mockConverter.assertValidCode.mockImplementation((currency: string) => {
+      const code = currency.trim().toUpperCase();
+      if (!/^[A-Z]{3}$/.test(code)) {
+        throw new Error(`'${currency}' is not a valid ISO 4217 currency code`);
       }
       return code;
     });
@@ -194,10 +203,41 @@ describe('ExpensesService', () => {
         incurredOn: '2026-10-03',
       });
 
-      expect(mockConverter.assertSupported).toHaveBeenCalledWith('eur');
+      expect(mockConverter.assertValidCode).toHaveBeenCalledWith('eur');
       expect(mockPrismaService.expense.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ currency: 'EUR' }) }),
       );
+    });
+
+    it('accepts a valid ISO code the rate provider cannot convert', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(makeCategory());
+      mockPrismaService.expense.create.mockResolvedValue(makeExpense({ currency: 'THB' }));
+
+      const dto = await service.createExpense(USER_A, {
+        categoryId: makeCategory().id,
+        amount: 500,
+        currency: 'THB',
+        incurredOn: '2026-10-03',
+      });
+
+      expect(mockConverter.assertValidCode).toHaveBeenCalledWith('THB');
+      expect(mockPrismaService.expense.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ currency: 'THB' }) }),
+      );
+      expect(dto.currency).toBe('THB');
+    });
+
+    it('rejects a structurally invalid currency code', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(makeCategory());
+
+      await expect(
+        service.createExpense(USER_A, {
+          categoryId: makeCategory().id,
+          amount: 10,
+          currency: 'X', // too short
+          incurredOn: '2026-10-03',
+        }),
+      ).rejects.toThrow(/not a valid ISO 4217/);
     });
 
     it('stores the amount as an exact two-decimal Decimal', async () => {

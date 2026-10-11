@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CurrencyConverter, CurrencyConverterService, round2 } from './currency-converter.service';
+import { CurrencyService } from '../../common/currency/currency.service';
 import { RatesService } from '../rates/rates.service';
 
 const SNAPSHOT = {
@@ -32,6 +33,7 @@ describe('CurrencyConverter', () => {
 
   it('treats same-currency conversion as identity', () => {
     expect(converter.convert(123.45, 'USD')).toBe(123.45);
+    expect(converter.convertBetween(123.45, 'USD', 'USD')).toBe(123.45);
   });
 
   it('converts into the base by dividing by the quoted rate', () => {
@@ -39,6 +41,28 @@ describe('CurrencyConverter', () => {
     expect(converter.convert(92, 'EUR')).toBe(100);
     // 1 USD = 0.78 GBP, so 78 GBP is 100 USD.
     expect(converter.convert(78, 'GBP')).toBe(100);
+  });
+
+  it('cross-converts between two non-base currencies via the shared base', () => {
+    // 1 USD = 0.92 EUR and 1 USD = 0.78 GBP, so 78 GBP = 92 EUR.
+    expect(converter.convertBetween(78, 'GBP', 'EUR')).toBe(92);
+    // Inverse of the above.
+    expect(converter.convertBetween(92, 'EUR', 'GBP')).toBe(78);
+  });
+
+  it('cross-converts from a non-base currency into the base', () => {
+    expect(converter.convertBetween(92, 'EUR', 'USD')).toBe(100);
+  });
+
+  it('rounds cross-converted values to two decimals', () => {
+    // 10 EUR -> base JPY: 10 / 0.92 * 152 = 1652.17...
+    expect(converter.convertBetween(10, 'EUR', 'JPY')).toBe(1652.17);
+  });
+
+  it('convertBetweenOrNull returns null instead of throwing on a missing rate', () => {
+    expect(converter.convertBetweenOrNull(10, 'XYZ', 'USD')).toBeNull();
+    expect(converter.convertBetweenOrNull(10, 'USD', 'XYZ')).toBeNull();
+    expect(converter.convertBetweenOrNull(10, 'USD', 'USD')).toBe(10);
   });
 
   it('is case-insensitive on the source currency', () => {
@@ -59,6 +83,7 @@ describe('CurrencyConverter', () => {
   it('rejects a currency missing from the snapshot', () => {
     expect(() => converter.convert(10, 'XYZ')).toThrow(BadRequestException);
     expect(() => converter.convert(10, 'XYZ')).toThrow(/No XYZ rate/);
+    expect(() => converter.convertBetween(10, 'XYZ', 'USD')).toThrow(/No XYZ->USD rate/);
   });
 
   it('inserts an identity rate when the snapshot omits its own base row', () => {
@@ -90,6 +115,16 @@ describe('CurrencyConverterService', () => {
     get: jest.fn((key: string, defaultValue: unknown) => defaultValue),
   };
 
+  const mockCurrencyService = {
+    supportedReportingCurrencies: ['USD', 'EUR', 'JPY'],
+    defaultReportingCurrency: 'USD',
+    assertValid: jest.fn(),
+    assertSupportedReporting: jest.fn(),
+    isValid: jest.fn(),
+    normalize: jest.fn(),
+    meta: jest.fn((code: string) => ({ name: code, symbol: code, decimals: 2 })),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     // Must be configured before compile(): the service reads these in its constructor.
@@ -99,21 +134,36 @@ describe('CurrencyConverterService', () => {
       { code: 'JPY', name: 'Yen', symbol: '¥' },
     ]);
     mockConfigService.get.mockImplementation((key: string, defaultValue: unknown) => defaultValue);
+    mockCurrencyService.assertValid.mockImplementation((currency: string) => {
+      const code = currency.trim().toUpperCase();
+      if (!['USD', 'EUR', 'JPY', 'THB', 'VND'].includes(code)) {
+        throw new BadRequestException(`'${currency}' is not a valid ISO 4217 currency code`);
+      }
+      return code;
+    });
+    mockCurrencyService.assertSupportedReporting.mockImplementation((currency: string) => {
+      const code = currency.trim().toUpperCase();
+      if (!['USD', 'EUR', 'JPY'].includes(code)) {
+        throw new BadRequestException(`Unsupported reporting currency '${currency}'`);
+      }
+      return code;
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CurrencyConverterService,
         { provide: RatesService, useValue: mockRatesService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: CurrencyService, useValue: mockCurrencyService },
       ],
     }).compile();
 
     service = module.get<CurrencyConverterService>(CurrencyConverterService);
   });
 
-  it('reads the supported currency list from the rates module', () => {
+  it('reads the supported currency list from the currency module', () => {
     expect(
-      new CurrencyConverterService(mockRatesService as never, mockConfigService as never)
+      new CurrencyConverterService(mockRatesService as never, mockCurrencyService as never)
         .supportedCurrencies,
     ).toEqual(['USD', 'EUR', 'JPY']);
   });
@@ -124,7 +174,15 @@ describe('CurrencyConverterService', () => {
 
   it('assertSupported rejects unsupported codes', () => {
     expect(() => service.assertSupported('XYZ')).toThrow(BadRequestException);
-    expect(() => service.assertSupported('XYZ')).toThrow(/Unsupported currency 'XYZ'/);
+    expect(() => service.assertSupported('XYZ')).toThrow(/Unsupported reporting currency 'XYZ'/);
+  });
+
+  it('assertValidCode accepts a valid code the provider cannot convert', () => {
+    expect(service.assertValidCode(' thb ')).toBe('THB');
+  });
+
+  it('assertValidCode rejects a structural non-code', () => {
+    expect(() => service.assertValidCode('XY')).toThrow(BadRequestException);
   });
 
   it('falls back to the configured default base', () => {

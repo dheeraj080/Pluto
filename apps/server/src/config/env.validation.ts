@@ -40,7 +40,13 @@ export const envSchema = z
     EXCHANGE_RATE_API_KEY: z.string().optional().default(''),
     EXCHANGE_RATE_BASE_URL: z.string().default('https://api.frankfurter.dev/v1'),
     EXCHANGE_RATE_BASE_CURRENCY: z.string().default('USD'),
-    SUPPORTED_CURRENCIES: z.string().default('USD,EUR,GBP,INR,JPY,CNY,CAD,AUD,CHF,SGD,NZD'),
+    // The reporting/conversion universe. Must stay within what the selected
+    // provider actually serves (Frankfurter: the ECB reference set below).
+    SUPPORTED_CURRENCIES: z
+      .string()
+      .default(
+        'AUD,BRL,CAD,CHF,CNY,CZK,DKK,EUR,GBP,HKD,HUF,IDR,ILS,INR,ISK,JPY,KRW,MXN,MYR,NOK,NZD,PHP,PLN,RON,SEK,SGD,THB,TRY,USD,ZAR',
+      ),
     EXCHANGE_RATE_SCHEDULE: z.string().default('0 4 * * *'), // Default 4 AM UTC daily
 
     // Object Storage (AWS S3 or S3-compatible like MinIO / LocalStack / Cloudflare R2)

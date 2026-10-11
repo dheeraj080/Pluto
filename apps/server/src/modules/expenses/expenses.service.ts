@@ -111,7 +111,7 @@ export class ExpensesService {
 
   async createExpense(userId: string, dto: CreateExpenseDto): Promise<ExpenseDto> {
     const category = await this.findOwnedCategory(userId, dto.categoryId, 'Category not found');
-    const currency = this.currencyConverter.assertSupported(dto.currency);
+    const currency = this.currencyConverter.assertValidCode(dto.currency);
 
     const created = await this.prisma.expense.create({
       data: {
@@ -173,7 +173,7 @@ export class ExpensesService {
 
     const currency =
       dto.currency !== undefined
-        ? this.currencyConverter.assertSupported(dto.currency)
+        ? this.currencyConverter.assertValidCode(dto.currency)
         : expense.currency;
 
     const updated = await this.prisma.expense.update({
@@ -222,7 +222,7 @@ export class ExpensesService {
   async createBudget(userId: string, dto: CreateBudgetDto): Promise<BudgetDto> {
     const period = dto.period ?? BudgetPeriod.MONTHLY;
     const categoryId = dto.categoryId ?? null;
-    const currency = this.currencyConverter.assertSupported(dto.currency);
+    const currency = this.currencyConverter.assertValidCode(dto.currency);
 
     if (categoryId) {
       await this.findOwnedCategory(userId, categoryId, 'Category not found');

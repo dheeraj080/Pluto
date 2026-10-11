@@ -3,6 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
+import {
+  getCurrencyMeta,
+  isKnownCurrencyCode,
+  normalizeCurrencyCode,
+} from '../../common/currency/currency.registry';
 import { FrankfurterProvider } from './providers/frankfurter.provider';
 import {
   RateSnapshotResponseDto,
@@ -10,19 +15,44 @@ import {
   RateSnapshotVersionDto,
 } from './dto/rates-response.dto';
 
-export const CURRENCY_METADATA: Record<string, { name: string; symbol: string }> = {
-  USD: { name: 'United States Dollar', symbol: '$' },
-  EUR: { name: 'Euro', symbol: '€' },
-  GBP: { name: 'British Pound Sterling', symbol: '£' },
-  INR: { name: 'Indian Rupee', symbol: '₹' },
-  JPY: { name: 'Japanese Yen', symbol: '¥' },
-  CNY: { name: 'Chinese Yuan', symbol: '¥' },
-  CAD: { name: 'Canadian Dollar', symbol: 'CA$' },
-  AUD: { name: 'Australian Dollar', symbol: 'A$' },
-  CHF: { name: 'Swiss Franc', symbol: 'CHF' },
-  SGD: { name: 'Singapore Dollar', symbol: 'S$' },
-  NZD: { name: 'New Zealand Dollar', symbol: 'NZ$' },
-};
+/**
+ * Currencies Frankfurter actually serves (ECB reference rates).
+ *
+ * Recording is not limited to this set — a valid ISO code can always be stored
+ * — but only these codes can be converted, so they are the reporting universe.
+ */
+export const FRANKFURTER_CURRENCIES = [
+  'AUD',
+  'BRL',
+  'CAD',
+  'CHF',
+  'CNY',
+  'CZK',
+  'DKK',
+  'EUR',
+  'GBP',
+  'HKD',
+  'HUF',
+  'IDR',
+  'ILS',
+  'INR',
+  'ISK',
+  'JPY',
+  'KRW',
+  'MXN',
+  'MYR',
+  'NOK',
+  'NZD',
+  'PHP',
+  'PLN',
+  'RON',
+  'SEK',
+  'SGD',
+  'THB',
+  'TRY',
+  'USD',
+  'ZAR',
+] as const;
 
 @Injectable()
 export class RatesService {
@@ -37,16 +67,16 @@ export class RatesService {
   ) {
     const rawCurrencies = this.configService.get<string>(
       'SUPPORTED_CURRENCIES',
-      'USD,EUR,GBP,INR,JPY,CNY,CAD,AUD,CHF,SGD,NZD',
+      'AUD,BRL,CAD,CHF,CNY,CZK,DKK,EUR,GBP,HKD,HUF,IDR,ILS,INR,ISK,JPY,KRW,MXN,MYR,NOK,NZD,PHP,PLN,RON,SEK,SGD,THB,TRY,USD,ZAR',
     );
     this.supportedCurrencies = rawCurrencies
       .split(',')
-      .map((c) => c.trim().toUpperCase())
-      .filter((c) => c.length === 3);
+      .map((c) => normalizeCurrencyCode(c))
+      .filter((code): code is string => code !== null && isKnownCurrencyCode(code));
 
-    this.defaultBaseCurrency = this.configService
-      .get<string>('EXCHANGE_RATE_BASE_CURRENCY', 'USD')
-      .toUpperCase();
+    this.defaultBaseCurrency =
+      normalizeCurrencyCode(this.configService.get<string>('EXCHANGE_RATE_BASE_CURRENCY', 'USD')) ??
+      'USD';
   }
 
   /**
@@ -164,11 +194,10 @@ export class RatesService {
    * Returns supported currency metadata
    */
   getSupportedCurrencies(): SupportedCurrencyDto[] {
-    return this.supportedCurrencies.map((code) => ({
-      code,
-      name: CURRENCY_METADATA[code]?.name || code,
-      symbol: CURRENCY_METADATA[code]?.symbol || code,
-    }));
+    return this.supportedCurrencies.map((code) => {
+      const meta = getCurrencyMeta(code);
+      return { code, name: meta.name, symbol: meta.symbol };
+    });
   }
 
   /**
@@ -238,8 +267,8 @@ export class RatesService {
   }
 
   private validateSnapshotRates(rates: Record<string, number>, baseCurrency: string): void {
-    if (!rates || typeof rates !== 'object') {
-      throw new Error('Rates payload is not a valid object');
+    if (!rates || typeof rates !== 'object' || Object.keys(rates).length === 0) {
+      throw new Error('Rates payload is not a valid non-empty object');
     }
 
     // Base currency rate must be strictly 1.0
@@ -248,12 +277,10 @@ export class RatesService {
       throw new Error(`Base currency ${baseCurrency} rate must be 1.0, got: ${baseRate}`);
     }
 
-    // Check all required currencies are covered and positive finite numbers
-    for (const currency of this.supportedCurrencies) {
-      const val = rates[currency];
-      if (val === undefined || val === null) {
-        throw new Error(`Missing required rate for currency: ${currency}`);
-      }
+    // Every quoted rate must be a positive finite number. Individual currencies
+    // may legitimately be absent — declaring a currency in SUPPORTED_CURRENCIES
+    // does not guarantee the provider returns it every day.
+    for (const [currency, val] of Object.entries(rates)) {
       if (typeof val !== 'number' || !isFinite(val) || val <= 0) {
         throw new Error(`Invalid non-positive finite rate for ${currency}: ${val}`);
       }
