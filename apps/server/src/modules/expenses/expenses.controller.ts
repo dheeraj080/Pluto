@@ -19,8 +19,11 @@ import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import {
   BudgetStatusQueryDto,
+  ByDayOfWeekQueryDto,
+  ComparisonQueryDto,
   ExpenseQueryDto,
   ReportQueryDto,
+  TopQueryDto,
   TrendQueryDto,
 } from './dto/expense-query.dto';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
@@ -179,6 +182,53 @@ export class ExpensesController {
     @Query() query: BudgetStatusQueryDto,
   ): Promise<BudgetStatusResponseDto> {
     return this.reportsService.getBudgetStatus(user.id, query);
+  }
+
+  @Get('comparison')
+  @ApiOperation({
+    summary: 'Compare spending between two periods',
+    description:
+      'Compares current period against previous period with absolute and percentage deltas.',
+  })
+  @ApiResponse({ status: 200, description: 'Period comparison' })
+  @ApiResponse({ status: 400, description: 'Malformed date or unsupported base currency' })
+  async getComparison(@CurrentUser() user: AuthenticatedUser, @Query() query: ComparisonQueryDto) {
+    return this.reportsService.getComparison(user.id, query);
+  }
+
+  @Get('top')
+  @ApiOperation({
+    summary: 'Top N expenses by amount',
+    description: 'Returns largest expenses in the period, optionally converted to base currency.',
+  })
+  @ApiResponse({ status: 200, description: 'Top expenses' })
+  @ApiResponse({ status: 400, description: 'Invalid query parameter' })
+  async getTopExpenses(@CurrentUser() user: AuthenticatedUser, @Query() query: TopQueryDto) {
+    return this.reportsService.getTopExpenses(user.id, query);
+  }
+
+  @Get('by-day-of-week')
+  @ApiOperation({
+    summary: 'Spending aggregated by day of week',
+    description: 'Totals, counts, averages per day of week (Sun-Sat).',
+  })
+  @ApiResponse({ status: 200, description: 'Day of week aggregates' })
+  @ApiResponse({ status: 400, description: 'Invalid query parameter' })
+  async getByDayOfWeek(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ByDayOfWeekQueryDto,
+  ) {
+    return this.reportsService.getByDayOfWeek(user.id, query);
+  }
+
+  @Get('export.csv')
+  @ApiOperation({
+    summary: 'Export expenses as CSV',
+    description: 'Returns a CSV file of expenses filtered by the provided query parameters.',
+  })
+  async exportCsv(@CurrentUser() user: AuthenticatedUser, @Query() query: any): Promise<string> {
+    const csv = await this.reportsService.exportCsv(user.id, query);
+    return csv;
   }
 
   @Patch('budgets/:id')

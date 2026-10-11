@@ -174,3 +174,174 @@ export class BudgetStatusQueryDto {
   @Length(3, 3)
   base?: string;
 }
+
+export class ComparisonQueryDto {
+  @ApiPropertyOptional({
+    description:
+      'Inclusive lower bound for current period; defaults to the first day of the current month',
+    example: '2026-10-01',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'currentFrom must be an ISO date such as YYYY-MM-DD' })
+  currentFrom?: string;
+
+  @ApiPropertyOptional({
+    description: 'Inclusive upper bound for current period; defaults to today',
+    example: '2026-10-31',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'currentTo must be an ISO date such as YYYY-MM-DD' })
+  currentTo?: string;
+
+  @ApiPropertyOptional({
+    description: 'Inclusive lower bound for previous period',
+    example: '2026-09-01',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'previousFrom must be an ISO date such as YYYY-MM-DD' })
+  previousFrom?: string;
+
+  @ApiPropertyOptional({
+    description: 'Inclusive upper bound for previous period',
+    example: '2026-09-30',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'previousTo must be an ISO date such as YYYY-MM-DD' })
+  previousTo?: string;
+
+  @ApiPropertyOptional({
+    description: 'Base currency to convert into',
+    example: 'USD',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  base?: string;
+}
+
+export class TopQueryDto {
+  @ApiPropertyOptional({
+    description:
+      'Inclusive lower bound on incurredOn; defaults to the first day of the current month',
+    example: '2026-10-01',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'from must be an ISO date such as YYYY-MM-DD' })
+  from?: string;
+
+  @ApiPropertyOptional({
+    description: 'Inclusive upper bound on incurredOn; defaults to today',
+    example: '2026-10-31',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'to must be an ISO date such as YYYY-MM-DD' })
+  to?: string;
+
+  @ApiPropertyOptional({ example: 10, default: 10, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit: number = 10;
+
+  @ApiPropertyOptional({
+    description: 'Base currency to convert into',
+    example: 'USD',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  base?: string;
+}
+
+export class ByDayOfWeekQueryDto {
+  @ApiPropertyOptional({
+    description:
+      'Inclusive lower bound on incurredOn; defaults to the first day of the current month',
+    example: '2026-10-01',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'from must be an ISO date such as YYYY-MM-DD' })
+  from?: string;
+
+  @ApiPropertyOptional({
+    description: 'Inclusive upper bound on incurredOn; defaults to today',
+    example: '2026-10-31',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'to must be an ISO date such as YYYY-MM-DD' })
+  to?: string;
+
+  @ApiPropertyOptional({
+    description: 'Base currency to convert into',
+    example: 'USD',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  base?: string;
+}
+
+export class ExportQueryDto {
+  @ApiPropertyOptional({
+    description: 'Inclusive lower bound on incurredOn',
+    example: '2026-10-01',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'from must be an ISO date such as YYYY-MM-DD' })
+  from?: string;
+
+  @ApiPropertyOptional({
+    description: 'Inclusive upper bound on incurredOn',
+    example: '2026-10-31',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'to must be an ISO date such as YYYY-MM-DD' })
+  to?: string;
+
+  @ApiPropertyOptional({
+    description: 'Restrict to a single category',
+    example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+  })
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Restrict to a single currency',
+    example: 'EUR',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  currency?: string;
+
+  @ApiPropertyOptional({
+    description: 'Case-insensitive search over description',
+    example: 'grocer',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Base currency to convert into',
+    example: 'USD',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  base?: string;
+}

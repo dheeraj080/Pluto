@@ -155,6 +155,111 @@ export class BudgetStatusDto {
   applied!: boolean;
 }
 
+export class ComparisonDeltaDto {
+  @ApiProperty({ description: 'Difference in total (current - previous)', example: -12.34 })
+  totalAbs!: number;
+
+  @ApiProperty({ description: 'Percentage change in total', example: -8.5 })
+  totalPct!: number;
+
+  @ApiProperty({ description: 'Difference in count (current - previous)', example: 2 })
+  countAbs!: number;
+
+  @ApiProperty({ description: 'Percentage change in count', example: 15.4 })
+  countPct!: number;
+}
+
+export class ExpenseComparisonDto {
+  @ApiProperty({ example: 'USD' })
+  baseCurrency!: string;
+
+  @ApiProperty({ example: true })
+  converted!: boolean;
+
+  @ApiPropertyOptional({ description: 'Why conversion was unavailable', nullable: true })
+  conversionUnavailableReason?: string;
+
+  @ApiProperty({ type: ExpenseSummaryDto })
+  current!: ExpenseSummaryDto;
+
+  @ApiProperty({ type: ExpenseSummaryDto })
+  previous!: ExpenseSummaryDto;
+
+  @ApiProperty({ type: ComparisonDeltaDto })
+  delta!: ComparisonDeltaDto;
+}
+
+export class TopExpenseItemDto {
+  @ApiProperty({ example: 'e8f7a6b5-cccc-dddd-eeee-ffff00001111' })
+  id!: string;
+
+  @ApiProperty({ example: 'Lunch at cafe', nullable: true })
+  description!: string | null;
+
+  @ApiPropertyOptional({ example: 'Food & Dining', nullable: true })
+  categoryName!: string | null;
+
+  @ApiProperty({ example: 'Food', nullable: true })
+  categorySlug!: string | null;
+
+  @ApiProperty({ example: 25.5 })
+  amountNative!: number;
+
+  @ApiProperty({ example: 'EUR' })
+  currency!: string;
+
+  @ApiPropertyOptional({ description: 'Amount converted to base currency', example: 27.3 })
+  amount?: number | null;
+
+  @ApiProperty({ example: '2026-10-15' })
+  incurredOn!: string;
+}
+
+export class TopExpensesResponseDto {
+  @ApiProperty({ example: 'USD' })
+  baseCurrency!: string;
+
+  @ApiProperty({ example: true })
+  converted!: boolean;
+
+  @ApiPropertyOptional({ description: 'Why conversion was unavailable', nullable: true })
+  conversionUnavailableReason?: string;
+
+  @ApiProperty({ type: [TopExpenseItemDto] })
+  items!: TopExpenseItemDto[];
+}
+
+export class DayOfWeekItemDto {
+  @ApiProperty({ description: '0=Sunday,1=Monday,...,6=Saturday', example: 1 })
+  dow!: number;
+
+  @ApiProperty({ example: 'Mon' })
+  label!: string;
+
+  @ApiProperty({ example: 245.75 })
+  total!: number;
+
+  @ApiProperty({ example: 18 })
+  count!: number;
+
+  @ApiProperty({ example: 13.65 })
+  average!: number;
+}
+
+export class ByDayOfWeekResponseDto {
+  @ApiProperty({ example: 'USD' })
+  baseCurrency!: string;
+
+  @ApiProperty({ example: true })
+  converted!: boolean;
+
+  @ApiPropertyOptional({ description: 'Why conversion was unavailable', nullable: true })
+  conversionUnavailableReason?: string;
+
+  @ApiProperty({ type: [DayOfWeekItemDto] })
+  items!: DayOfWeekItemDto[];
+}
+
 export class BudgetStatusResponseDto {
   @ApiProperty({ example: 'USD' })
   baseCurrency!: string;

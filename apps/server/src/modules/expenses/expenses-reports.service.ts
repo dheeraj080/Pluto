@@ -320,4 +320,195 @@ export class ExpensesReportsService {
       })
       .sort((a, b) => b.total - a.total);
   }
+
+  /** Compare two arbitrary periods (e.g. MoM). */
+  async getComparison(userId: string, query: any) {
+    const baseCurrency = this.currencyConverter.resolveBase(query.base);
+    const converter = await this.currencyConverter.tryGetConverter(query.base);
+
+    // Resolve current and previous ranges
+    const current = resolveRange(query.currentFrom, query.currentTo);
+    const previous = resolveRange(query.previousFrom, query.previousTo);
+
+    const [currentSummary, previousSummary] = await Promise.all([
+      this.getSummary(userId, {
+        from: current.start.toISOString().slice(0, 10),
+        to: current.end.toISOString().slice(0, 10),
+        base: query.base,
+      }),
+      this.getSummary(userId, {
+        from: previous.start.toISOString().slice(0, 10),
+        to: previous.end.toISOString().slice(0, 10),
+        base: query.base,
+      }),
+    ]);
+
+    const delta = this.calculateDelta(currentSummary, previousSummary);
+
+    return {
+      baseCurrency: converter?.baseCurrency ?? baseCurrency,
+      converted: converter !== null,
+      ...(converter ? {} : { conversionUnavailableReason: UNAVAILABLE }),
+      current: currentSummary,
+      previous: previousSummary,
+      delta,
+    };
+  }
+
+  private calculateDelta(current: ExpenseSummaryDto, previous: ExpenseSummaryDto) {
+    const currentTotal = current.total ?? 0;
+    const previousTotal = previous.total ?? 0;
+    const currentCount = current.count;
+    const previousCount = previous.count;
+
+    const totalAbs = round2(currentTotal - previousTotal);
+    const totalPct =
+      previousTotal === 0
+        ? currentTotal === 0
+          ? 0
+          : 100
+        : round2((currentTotal / previousTotal - 1) * 100);
+    const countAbs = currentCount - previousCount;
+    const countPct =
+      previousCount === 0
+        ? currentCount === 0
+          ? 0
+          : 100
+        : round2((currentCount / previousCount - 1) * 100);
+
+    return {
+      totalAbs,
+      totalPct,
+      countAbs,
+      countPct,
+    };
+  }
+
+  async getTopExpenses(userId: string, query: any) {
+    const baseCurrency = this.currencyConverter.resolveBase(query.base);
+    const converter = await this.currencyConverter.tryGetConverter(query.base);
+    const { start, end } = resolveRange(query.from, query.to);
+
+    const expenses = await this.prisma.expense.findMany({
+      where: { userId, incurredOn: { gte: start, lte: end } },
+      include: { category: { select: { name: true } } },
+      orderBy: [{ amount: 'desc' }, { incurredOn: 'desc' }],
+      take: query.limit ?? 10,
+    });
+
+    const items = expenses.map((e) => ({
+      id: e.id,
+      description: e.description,
+      categoryName: e.category?.name ?? null,
+      categorySlug: (e as any).category?.slug ?? null,
+      amountNative: Number(e.amount),
+      currency: e.currency,
+      amount: converter ? round2(converter.convert(e.amount, e.currency)) : null,
+      incurredOn: e.incurredOn.toISOString().slice(0, 10),
+    }));
+
+    return {
+      baseCurrency: converter?.baseCurrency ?? baseCurrency,
+      converted: converter !== null,
+      ...(converter ? {} : { conversionUnavailableReason: UNAVAILABLE }),
+      items,
+    };
+  }
+
+  async getByDayOfWeek(userId: string, query: any) {
+    const baseCurrency = this.currencyConverter.resolveBase(query.base);
+    const converter = await this.currencyConverter.tryGetConverter(query.base);
+    const { start, end } = resolveRange(query.from, query.to);
+
+    const expenses = await this.prisma.expense.findMany({
+      where: { userId, incurredOn: { gte: start, lte: end } },
+      select: { amount: true, currency: true, incurredOn: true },
+    });
+
+    const buckets = new Map<number, { total: number; count: number }>();
+    for (const e of expenses) {
+      const dow = e.incurredOn.getUTCDay(); // 0 Sunday
+      const val = converter ? converter.convert(e.amount, e.currency) : Number(e.amount);
+      const b = buckets.get(dow);
+      if (b) {
+        b.total = round2(b.total + val);
+        b.count += 1;
+      } else {
+        buckets.set(dow, { total: round2(val), count: 1 });
+      }
+    }
+
+    const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const items = [0, 1, 2, 3, 4, 5, 6].map((dow) => {
+      const b = buckets.get(dow);
+      const total = b?.total ?? 0;
+      const count = b?.count ?? 0;
+      return {
+        dow,
+        label: labels[dow],
+        total: round2(total),
+        count,
+        average: count > 0 ? round2(total / count) : 0,
+      };
+    });
+
+    return {
+      baseCurrency: converter?.baseCurrency ?? baseCurrency,
+      converted: converter !== null,
+      ...(converter ? {} : { conversionUnavailableReason: UNAVAILABLE }),
+      items,
+    };
+  }
+
+  async exportCsv(userId: string, query: any): Promise<string> {
+    const converter = await this.currencyConverter.tryGetConverter(query.base);
+    const baseCurrency = this.currencyConverter.resolveBase(query.base);
+
+    const where: any = { userId };
+    const { start, end } = resolveRange(query.from, query.to);
+    where.incurredOn = { gte: start, lte: end };
+    if (query.categoryId) where.categoryId = query.categoryId;
+    if (query.currency) where.currency = query.currency;
+    if (query.search) where.description = { contains: query.search, mode: 'insensitive' };
+
+    const expenses = await this.prisma.expense.findMany({
+      where,
+      include: { category: { select: { name: true } } },
+      orderBy: [{ incurredOn: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    const headers = [
+      'Date',
+      'Description',
+      'Category',
+      'Amount',
+      'Currency',
+      'BaseAmount',
+      'BaseCurrency',
+      'Converted',
+    ];
+    const lines = [headers.join(',')];
+
+    for (const e of expenses) {
+      const date = e.incurredOn.toISOString().slice(0, 10);
+      const description = (e.description ?? '').replace(/"/g, '""');
+      const category = e.category?.name ?? 'Uncategorised';
+      const amount = Number(e.amount).toFixed(2);
+      const currency = e.currency;
+
+      if (converter) {
+        const baseAmount = round2(converter.convert(e.amount, e.currency)).toFixed(2);
+        const base = converter.baseCurrency;
+        lines.push(
+          `"${date}","${description}","${category}",${amount},${currency},${baseAmount},${base},true`,
+        );
+      } else {
+        lines.push(
+          `"${date}","${description}","${category}",${amount},${currency},,${baseCurrency},false`,
+        );
+      }
+    }
+
+    return lines.join('\n');
+  }
 }
