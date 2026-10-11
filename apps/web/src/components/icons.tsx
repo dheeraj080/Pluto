@@ -238,6 +238,16 @@ export function IconChevronDown(props: IconProps) {
   );
 }
 
+export function IconEdit(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3.5 20.5h17" />
+      <path d="M4.5 14.9 15.1 4.3a1 1 0 0 1 1.4 0l3.2 3.2a1 1 0 0 1 0 1.4L9.1 19.5H4.5v-4.6z" />
+      <path d="M12.7 6.7l4.6 4.6" />
+    </Svg>
+  );
+}
+
 export function IconSparkle(props: IconProps) {
   return (
     <Svg {...props}>
