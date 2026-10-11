@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { expensesApi, type ExpenseSort } from "@/lib/expenses";
-import { formatDate, formatPercent } from "@/lib/format";
+import { formatDate, formatMoney, formatPercent } from "@/lib/format";
 import { buildConversionPreview } from "@/lib/convert";
 import type {
   Expense,
@@ -43,6 +43,7 @@ import { ConfirmDialog } from "@/components/dialog";
 import { downloadTextFile } from "@/lib/download";
 import { IconGlobe, IconPlus, IconReceipt, IconSearch } from "@/components/icons";
 import { useBaseCurrency, useExpenseSetup, useRateSnapshot, useReportingSetup } from "./use-expenses";
+import { ConversionNotice } from "./conversion-notice";
 
 const SORTS: { value: ExpenseSort; label: string }[] = [
   { value: "date_desc", label: "Newest first" },
@@ -379,11 +380,12 @@ export default function ExpensesDashboardPage() {
         )}
       </div>
 
-      {summary && !summary.converted && (
-        <div className="rounded-xl border border-warning/25 bg-warning-subtle px-4 py-3 text-sm text-warning">
-          Exchange rates are unavailable, so totals are shown per currency only. Category and
-          combined totals will appear once rates can be fetched again.
-        </div>
+      {summary && (
+        <ConversionNotice
+          status={summary.conversionStatus}
+          unconvertedCurrencies={summary.unconvertedCurrencies}
+          provenance={summary.rateProvenance}
+        />
       )}
 
       {/* Stats */}
@@ -441,7 +443,7 @@ export default function ExpensesDashboardPage() {
       )}
 
       {/* Breakdown */}
-      {summary && summary.converted && summary.count > 0 && (
+      {summary && summary.conversionStatus !== "unavailable" && summary.count > 0 && (
         <div className="grid gap-6 lg:grid-cols-2">
           <Card title="Spending by category">
             <ul className="space-y-3.5">
@@ -698,16 +700,35 @@ export default function ExpensesDashboardPage() {
                       {formatDate(item.incurredOn)}
                       {item.categoryName ? ` · ${item.categoryName}` : ""}
                     </p>
+                    <p className="mt-0.5 flex items-center gap-1.5">
+                      {item.ratePolicy === "estimate" && (
+                        <Badge tone="gold" className="text-[10px]">
+                          estimate
+                        </Badge>
+                      )}
+                      {item.conversionStatus === "unavailable" && (
+                        <Badge tone="warn" className="text-[10px]">
+                          unconverted · {item.currency}
+                        </Badge>
+                      )}
+                    </p>
                   </span>
-                  <span className="shrink-0 tabular-nums font-medium text-ink">
-                    <Money
-                      amount={item.amount ?? item.amountNative}
-                      currency={
-                        item.amount !== null && item.amount !== undefined
-                          ? summary.baseCurrency
-                          : item.currency
-                      }
-                    />
+                  <span className="shrink-0 text-right">
+                    <span className="block tabular-nums font-medium text-ink">
+                      <Money
+                        amount={item.amount ?? item.amountNative}
+                        currency={
+                          item.amount !== null && item.amount !== undefined
+                            ? summary.baseCurrency
+                            : item.currency
+                        }
+                      />
+                    </span>
+                    {item.amount !== null && item.amount !== undefined && item.currency !== summary.baseCurrency && (
+                      <span className="block text-xs text-muted">
+                        {item.currency} {formatMoney(item.amountNative, item.currency)}
+                      </span>
+                    )}
                   </span>
                 </Link>
               </li>

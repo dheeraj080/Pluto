@@ -213,13 +213,30 @@ export interface CurrencyTotal {
   count: number;
 }
 
+export type ConversionStatus = "converted" | "partially_converted" | "unavailable";
+
+/** Which snapshots/policies actually fed a report, for auditability. */
+export interface RateProvenance {
+  /** Earliest snapshot date used, or null when nothing needed a rate. */
+  earliestRateDate: string | null;
+  /** Latest snapshot date used, or null when nothing needed a rate. */
+  latestRateDate: string | null;
+  /** Distinct policies applied; includes "unavailable" when any line failed. */
+  policies: Array<"historical" | "estimate" | "unavailable">;
+}
+
 export interface ExpenseSummary {
   baseCurrency: string;
   /**
-   * False when no rate snapshot was available. `total`, `average` and
-   * `byCategory` are then null/empty and only `byCurrency` carries figures.
+   * False when conversion is incomplete (`partially_converted`) or impossible
+   * (`unavailable`). `total`, `average` and `byCategory` are then null/empty
+   * only when unavailable; see `conversionStatus` for the precise state.
    */
   converted: boolean;
+  conversionStatus: ConversionStatus;
+  /** Native currencies in the range that could not be converted. */
+  unconvertedCurrencies: string[];
+  rateProvenance: RateProvenance;
   conversionUnavailableReason?: string;
   /** Inclusive range start, YYYY-MM-DD. */
   from: string;
@@ -242,6 +259,9 @@ export interface TrendPoint {
 export interface ExpenseTrend {
   baseCurrency: string;
   converted: boolean;
+  conversionStatus: ConversionStatus;
+  unconvertedCurrencies: string[];
+  rateProvenance: RateProvenance;
   conversionUnavailableReason?: string;
   months: number;
   points: TrendPoint[];
@@ -264,6 +284,16 @@ export interface BudgetStatus {
   overBudget: boolean;
   /** False when the budget's start date falls after the evaluated window. */
   applied: boolean;
+  /** Converted budget amount, or null when the budget currency could not convert. */
+  convertedAmount: number | null;
+  /** Base currency used for the converted budget amount, or null. */
+  convertedCurrency: string | null;
+  /** Snapshot date used to price the budget target, or null (base currency). */
+  rateDate: string | null;
+  /** historical / estimate, or null when unconvertible. */
+  ratePolicy: "historical" | "estimate" | null;
+  /** unavailable when some spend or the budget target could not convert. */
+  conversionStatus: "converted" | "unavailable";
 }
 
 export interface ComparisonDelta {
@@ -276,6 +306,9 @@ export interface ComparisonDelta {
 export interface ExpenseComparison {
   baseCurrency: string;
   converted: boolean;
+  conversionStatus: ConversionStatus;
+  unconvertedCurrencies: string[];
+  rateProvenance: RateProvenance;
   conversionUnavailableReason?: string;
   current: ExpenseSummary;
   previous: ExpenseSummary;
@@ -289,13 +322,27 @@ export interface TopExpenseItem {
   categorySlug: string | null;
   amountNative: number;
   currency: string;
+  /** Amount converted to the base currency, or null when unconvertible. */
   amount?: number | null;
+  /** Alias of amount. */
+  convertedAmount?: number | null;
+  /** Base currency used for `amount`, or null when unconvertible. */
+  convertedCurrency?: string | null;
+  /** Snapshot date used for the conversion, or null. */
+  rateDate?: string | null;
+  /** historical / estimate, or null when unconvertible. */
+  ratePolicy?: "historical" | "estimate" | null;
+  /** converted / unavailable for this line. */
+  conversionStatus?: "converted" | "unavailable";
   incurredOn: string;
 }
 
 export interface TopExpensesResponse {
   baseCurrency: string;
   converted: boolean;
+  conversionStatus: ConversionStatus;
+  unconvertedCurrencies: string[];
+  rateProvenance: RateProvenance;
   conversionUnavailableReason?: string;
   items: TopExpenseItem[];
 }
@@ -311,6 +358,9 @@ export interface DayOfWeekItem {
 export interface ByDayOfWeekResponse {
   baseCurrency: string;
   converted: boolean;
+  conversionStatus: ConversionStatus;
+  unconvertedCurrencies: string[];
+  rateProvenance: RateProvenance;
   conversionUnavailableReason?: string;
   items: DayOfWeekItem[];
 }
@@ -318,6 +368,9 @@ export interface ByDayOfWeekResponse {
 export interface BudgetStatusResponse {
   baseCurrency: string;
   converted: boolean;
+  conversionStatus: ConversionStatus;
+  unconvertedCurrencies: string[];
+  rateProvenance: RateProvenance;
   conversionUnavailableReason?: string;
   /** Evaluated period, YYYY-MM. */
   month: string;

@@ -3,10 +3,12 @@
 /**
  * Reports: period summary, monthly trend, and category breakdown.
  *
- * Charts are only rendered when the server was able to convert into a single
- * base currency. When it could not (no rate snapshot) the summary returns null
- * totals, and plotting those as zeroes would invent data — so the charts are
- * replaced by an explanatory banner and the native per-currency subtotals.
+ * Charts are only rendered when the server could convert into the base
+ * currency. When conversion is completely impossible (no rate snapshot) the
+ * summary returns null totals, and plotting those as zeroes would invent data
+ * — so the charts are replaced by an explanatory banner and the native
+ * per-currency subtotals. Partially converted payloads still chart the
+ * converted rows, with a notice naming the excluded currencies.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -40,6 +42,7 @@ import {
   StatCard,
 } from "@/components/ui";
 import { useBaseCurrency, useExpenseSetup } from "../use-expenses";
+import { ConversionNotice } from "../conversion-notice";
 
 /** Months of history drawn alongside the selected summary range. */
 const TREND_MONTHS = 12;
@@ -142,7 +145,18 @@ export default function ReportsPage() {
     return () => clearTimeout(timer);
   }, [load]);
 
-  const converted = summary?.converted === true && trend?.converted === true;
+  const summaryStatus = summary?.conversionStatus;
+  const trendStatus = trend?.conversionStatus;
+  /**
+   * Charts need real totals in both the summary and the trend series. When
+   * either is `unavailable` they have null points and plotting zeroes would
+   * invent data; `partially_converted` still charts the converted rows and
+   * the notice below names the exclusions.
+   */
+  const chartable =
+    Boolean(summary && trend) &&
+    summaryStatus !== "unavailable" &&
+    trendStatus !== "unavailable";
   const topCategory = summary?.byCategory[0];
 
   const trendData =
@@ -222,7 +236,7 @@ export default function ReportsPage() {
       {error && <ErrorNote message={error} />}
       {loading && <LoadingNote label="Building report…" />}
 
-      {summary && !converted && (
+      {summary && summaryStatus === "unavailable" && (
         <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
           <p>
             Exchange rates are unavailable, so spending cannot be combined across currencies.
@@ -242,8 +256,13 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {summary && converted && (
+      {summary && chartable && (
         <>
+          <ConversionNotice
+            status={summaryStatus}
+            unconvertedCurrencies={summary?.unconvertedCurrencies}
+            provenance={summary?.rateProvenance}
+          />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label={`Total (${summary.baseCurrency})`}

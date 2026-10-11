@@ -26,6 +26,7 @@ import {
   Select,
 } from "@/components/ui";
 import { useBaseCurrency, useExpenseSetup } from "../use-expenses";
+import { ConversionNotice } from "../conversion-notice";
 
 /** Visual fill for one budget; clamped so over-budget stops at 100% width. */
 function BudgetBar({ status }: { status: BudgetStatus }) {
@@ -145,11 +146,12 @@ export default function BudgetsPage() {
       {setupError && <ErrorNote message={setupError} />}
       {error && <ErrorNote message={error} />}
 
-      {status && !status.converted && (
-        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-          Exchange rates are unavailable. Spending in other currencies is excluded until rates can
-          be fetched again, so the figures below may under-report.
-        </p>
+      {status && (
+        <ConversionNotice
+          status={status.conversionStatus}
+          unconvertedCurrencies={status.unconvertedCurrencies}
+          provenance={status.rateProvenance}
+        />
       )}
 
       {loading && <LoadingNote label="Loading budgets…" />}
@@ -178,6 +180,10 @@ export default function BudgetsPage() {
                       <span className="text-xs text-muted">{item.period.toLowerCase()}</span>
                       {!item.applied && <Badge tone="warn">not yet active</Badge>}
                       {item.overBudget && <Badge tone="danger">over budget</Badge>}
+                      {item.ratePolicy === "estimate" && <Badge tone="gold">estimated</Badge>}
+                      {item.conversionStatus === "unavailable" && (
+                        <Badge tone="warn">rates unavailable</Badge>
+                      )}
                     </span>
                     <span className="tabular-nums">
                       <span className="font-medium">
