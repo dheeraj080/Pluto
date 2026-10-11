@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
@@ -8,7 +8,8 @@ import {
   isKnownCurrencyCode,
   normalizeCurrencyCode,
 } from '../../common/currency/currency.registry';
-import { FrankfurterProvider } from './providers/frankfurter.provider';
+import { IExchangeRateProvider } from './interfaces/exchange-rate-provider.interface';
+import { EXCHANGE_RATE_PROVIDER } from './providers/provider.token';
 import {
   RateSnapshotResponseDto,
   SupportedCurrencyDto,
@@ -54,16 +55,33 @@ export const FRANKFURTER_CURRENCIES = [
   'ZAR',
 ] as const;
 
+/** How long a served `getLatestRates` response is trusted before re-reading the DB. */
+const SNAPSHOT_CACHE_TTL_MS = 60_000;
+
 @Injectable()
 export class RatesService {
   private readonly logger = new Logger(RatesService.name);
   private readonly supportedCurrencies: string[];
   private readonly defaultBaseCurrency: string;
 
+  /**
+   * In-flight on-demand syncs per base currency. Coalesces concurrent
+   * `getLatestRates` calls that find no snapshot so only one provider request
+   * is issued (single-instance; across instances the scheduler's SystemLock
+   * governs the daily sync).
+   */
+  private readonly inFlightSync = new Map<string, Promise<RateSnapshotResponseDto>>();
+
+  /** Small TTL cache of freshly served snapshots, keyed by base currency. */
+  private readonly snapshotCache = new Map<
+    string,
+    { cachedAt: number; dto: RateSnapshotResponseDto }
+  >();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
-    private readonly frankfurterProvider: FrankfurterProvider,
+    @Inject(EXCHANGE_RATE_PROVIDER) private readonly rateProvider: IExchangeRateProvider,
   ) {
     const rawCurrencies = this.configService.get<string>(
       'SUPPORTED_CURRENCIES',
@@ -89,14 +107,14 @@ export class RatesService {
       throw new BadRequestException(`Base currency ${base} is not in supported currencies list`);
     }
 
+    // A fresh snapshot is about to land; never serve a stale cached response.
+    this.invalidateSnapshot(base);
+
     this.logger.log(`Starting exchange rate sync for base currency: ${base}`);
 
     try {
-      // 1. Fetch from provider
-      const providerData = await this.frankfurterProvider.fetchLatestRates(
-        base,
-        this.supportedCurrencies,
-      );
+      // 1. Fetch from the configured provider (frankfurter | mock)
+      const providerData = await this.rateProvider.fetchLatestRates(base, this.supportedCurrencies);
 
       if (!providerData || !providerData.rates) {
         throw new Error('Exchange rate provider returned empty or invalid rate data');
@@ -150,7 +168,9 @@ export class RatesService {
         `Successfully published rate snapshot v${snapshot.version} for ${base} (${snapshot.effectiveDate.toISOString().split('T')[0]})`,
       );
 
-      return this.formatSnapshotResponse(snapshot.id);
+      const published = await this.formatSnapshotResponse(snapshot.id);
+      this.cacheSnapshot(base, published);
+      return published;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Exchange rate synchronization failed: ${message}`);
@@ -161,7 +181,9 @@ export class RatesService {
         this.logger.warn(
           `Preserving and serving last valid published snapshot v${existing.version}`,
         );
-        return this.formatSnapshotResponse(existing.id);
+        const preserved = await this.formatSnapshotResponse(existing.id);
+        this.cacheSnapshot(base, preserved);
+        return preserved;
       }
 
       throw new Error(`Exchange rate sync failed and no prior snapshot exists: ${message}`);
@@ -169,7 +191,12 @@ export class RatesService {
   }
 
   /**
-   * Retrieves the latest published snapshot for the requested base currency
+   * Retrieves the latest published snapshot for the requested base currency.
+   *
+   * Serves from a short TTL cache when fresh (avoids a DB read on every
+   * expense/report request), falls back to the DB, and only touches the
+   * provider when no snapshot exists at all. Concurrent callers that find no
+   * snapshot share a single in-flight sync.
    */
   async getLatestRates(baseCurrency?: string): Promise<RateSnapshotResponseDto> {
     const base = (baseCurrency || this.defaultBaseCurrency).toUpperCase();
@@ -180,14 +207,60 @@ export class RatesService {
       );
     }
 
+    const cached = this.getCachedSnapshot(base);
+    if (cached) {
+      return cached;
+    }
+
     const latest = await this.findLatestPublishedSnapshot(base);
 
     if (!latest) {
       this.logger.log(`No snapshot found for base ${base}. Triggering on-demand sync...`);
-      return this.syncExchangeRates(base);
+      return this.syncWithCoalescing(base);
     }
 
-    return this.formatSnapshotResponse(latest.id);
+    const dto = await this.formatSnapshotResponse(latest.id);
+    this.cacheSnapshot(base, dto);
+    return dto;
+  }
+
+  /**
+   * Coalesces concurrent on-demand syncs for the same base at the in-process
+   * level. Note this only guards one instance; the scheduler's SystemLock
+   * provides the cross-instance guard for the daily sync.
+   */
+  private syncWithCoalescing(base: string): Promise<RateSnapshotResponseDto> {
+    const inFlight = this.inFlightSync.get(base);
+    if (inFlight) {
+      this.logger.log(`Reusing in-flight on-demand sync for base ${base}`);
+      return inFlight;
+    }
+
+    const sync = this.syncExchangeRates(base).finally(() => {
+      this.inFlightSync.delete(base);
+    });
+    this.inFlightSync.set(base, sync);
+    return sync;
+  }
+
+  private cacheSnapshot(base: string, dto: RateSnapshotResponseDto): void {
+    this.snapshotCache.set(base, { cachedAt: Date.now(), dto });
+  }
+
+  private getCachedSnapshot(base: string): RateSnapshotResponseDto | null {
+    const entry = this.snapshotCache.get(base);
+    if (!entry) {
+      return null;
+    }
+    if (Date.now() - entry.cachedAt > SNAPSHOT_CACHE_TTL_MS) {
+      this.snapshotCache.delete(base);
+      return null;
+    }
+    return entry.dto;
+  }
+
+  private invalidateSnapshot(base: string): void {
+    this.snapshotCache.delete(base);
   }
 
   /**

@@ -76,6 +76,7 @@ model RateSnapshot {
 
   @@index([isPublished, fetchedAt])
   @@index([baseCurrency, isPublished])
+  @@index([baseCurrency, isPublished, effectiveDate])
   @@map("rate_snapshots")
 }
 

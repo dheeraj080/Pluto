@@ -3,8 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RatesService } from './rates.service';
-import { FrankfurterProvider } from './providers/frankfurter.provider';
 import { PrismaService } from '../../database/prisma.service';
+import { EXCHANGE_RATE_PROVIDER } from './providers/provider.token';
 
 describe('RatesService', () => {
   let ratesService: RatesService;
@@ -27,7 +27,7 @@ describe('RatesService', () => {
     }),
   };
 
-  const mockFrankfurterProvider = {
+  const mockRateProvider = {
     fetchLatestRates: jest.fn(),
   };
 
@@ -40,7 +40,7 @@ describe('RatesService', () => {
       providers: [
         RatesService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: FrankfurterProvider, useValue: mockFrankfurterProvider },
+        { provide: EXCHANGE_RATE_PROVIDER, useValue: mockRateProvider },
         { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
@@ -50,7 +50,7 @@ describe('RatesService', () => {
   });
 
   it('should sync, validate, and publish exchange rate snapshot', async () => {
-    mockFrankfurterProvider.fetchLatestRates.mockResolvedValue({
+    mockRateProvider.fetchLatestRates.mockResolvedValue({
       baseCurrency: 'USD',
       effectiveDate: '2026-10-09',
       provider: 'frankfurter',
@@ -103,7 +103,7 @@ describe('RatesService', () => {
   });
 
   it('should preserve and serve last valid snapshot when current provider fetch fails', async () => {
-    mockFrankfurterProvider.fetchLatestRates.mockRejectedValue(
+    mockRateProvider.fetchLatestRates.mockRejectedValue(
       new Error('Provider HTTP 503 Service Unavailable'),
     );
 
@@ -132,5 +132,112 @@ describe('RatesService', () => {
 
   it('should reject unsupported base currency', async () => {
     await expect(ratesService.getLatestRates('XYZ')).rejects.toThrow(BadRequestException);
+  });
+
+  it('coalesces concurrent on-demand syncs so only one provider call is made', async () => {
+    mockRateProvider.fetchLatestRates.mockResolvedValue({
+      baseCurrency: 'USD',
+      effectiveDate: '2026-10-10',
+      provider: 'mock',
+      rates: { USD: 1.0, EUR: 0.93 },
+    });
+    // No snapshot exists yet → both callers share a single on-demand sync.
+    mockPrismaService.rateSnapshot.findFirst.mockResolvedValue(null);
+    mockPrismaService.rateSnapshot.create.mockResolvedValue({
+      id: 'snap-2',
+      version: 2,
+      baseCurrency: 'USD',
+      effectiveDate: new Date('2026-10-10'),
+      provider: 'mock',
+      etag: 'W/"rates-USD-2026-10-10-abc"',
+      isPublished: true,
+    });
+    mockPrismaService.rateSnapshot.findUnique.mockResolvedValue({
+      id: 'snap-2',
+      version: 2,
+      baseCurrency: 'USD',
+      effectiveDate: new Date('2026-10-10'),
+      fetchedAt: new Date(),
+      provider: 'mock',
+      etag: 'W/"rates-USD-2026-10-10-abc"',
+      rates: [{ quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') }],
+    });
+
+    const [first, second] = await Promise.all([
+      ratesService.getLatestRates('USD'),
+      ratesService.getLatestRates('USD'),
+    ]);
+
+    expect(mockRateProvider.fetchLatestRates).toHaveBeenCalledTimes(1);
+    expect(mockPrismaService.exchangeRate.createMany).toHaveBeenCalledTimes(1);
+    expect(first.version).toBe(2);
+    expect(second.version).toBe(2);
+  });
+
+  it('serves a cached snapshot without repeating DB reads', async () => {
+    const snapshot = {
+      id: 'snap-cached',
+      version: 5,
+      baseCurrency: 'USD',
+      effectiveDate: new Date('2026-10-09'),
+      fetchedAt: new Date(),
+      provider: 'frankfurter',
+      etag: 'W/"rates-USD-2026-10-09-cached"',
+      rates: [{ quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') }],
+    };
+    mockPrismaService.rateSnapshot.findFirst.mockResolvedValue(snapshot);
+    mockPrismaService.rateSnapshot.findUnique.mockResolvedValue(snapshot);
+
+    const first = await ratesService.getLatestRates('USD');
+    expect(mockPrismaService.rateSnapshot.findUnique).toHaveBeenCalledTimes(1);
+
+    jest.clearAllMocks();
+    const second = await ratesService.getLatestRates('USD');
+    expect(mockPrismaService.rateSnapshot.findFirst).not.toHaveBeenCalled();
+    expect(mockPrismaService.rateSnapshot.findUnique).not.toHaveBeenCalled();
+    expect(second).toEqual(first);
+  });
+
+  it('replaces the served snapshot after a sync lands (no stale cache)', async () => {
+    const oldSnapshot = {
+      id: 'snap-old',
+      version: 1,
+      baseCurrency: 'USD',
+      effectiveDate: new Date('2026-10-08'),
+      fetchedAt: new Date(),
+      provider: 'frankfurter',
+      etag: 'W/"rates-USD-2026-10-08-old"',
+      rates: [{ quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') }],
+    };
+    mockPrismaService.rateSnapshot.findFirst.mockResolvedValue(oldSnapshot);
+    mockPrismaService.rateSnapshot.findUnique.mockResolvedValue(oldSnapshot);
+    await ratesService.getLatestRates('USD');
+
+    jest.clearAllMocks();
+    mockRateProvider.fetchLatestRates.mockResolvedValue({
+      baseCurrency: 'USD',
+      effectiveDate: '2026-10-10',
+      provider: 'mock',
+      rates: { USD: 1.0 },
+    });
+    const newSnapshot = {
+      id: 'snap-new',
+      version: 2,
+      baseCurrency: 'USD',
+      effectiveDate: new Date('2026-10-10'),
+      fetchedAt: new Date(),
+      provider: 'mock',
+      etag: 'W/"rates-USD-2026-10-10-new"',
+      rates: [{ quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') }],
+    };
+    mockPrismaService.rateSnapshot.create.mockResolvedValue(newSnapshot);
+    mockPrismaService.rateSnapshot.findUnique.mockResolvedValue(newSnapshot);
+
+    const synced = await ratesService.syncExchangeRates('USD');
+    expect(synced.version).toBe(2);
+
+    const served = await ratesService.getLatestRates('USD');
+    expect(served.version).toBe(2);
+    expect(served.etag).toBe('W/"rates-USD-2026-10-10-new"');
   });
 });
