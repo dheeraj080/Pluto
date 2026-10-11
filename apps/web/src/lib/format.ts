@@ -30,6 +30,33 @@ export function formatDate(iso: string | Date): string {
   });
 }
 
+/**
+ * Inclusive range label in UTC, e.g. `1–11 Oct`, `28 Sep – 4 Oct` or a single
+ * day. Anchored to UTC so a `YYYY-MM-DD` bound cannot shift by a timezone.
+ */
+export function formatDateRange(from: string, to: string): string {
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  if (from === to) {
+    return end.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  }
+  const endMonth = end.toLocaleDateString(undefined, { month: "short", timeZone: "UTC" });
+  if (start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth()) {
+    return `${start.getUTCDate()}–${end.getUTCDate()} ${endMonth}`;
+  }
+  const startLabel = start.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+  const endLabel = end.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+  return `${startLabel} – ${endLabel}`;
+}
+
 export function truncate(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }

@@ -15,6 +15,8 @@ import type { UserProfile } from "@/lib/types";
 export interface AppNavItem {
   href: string;
   label: string;
+  /** Optional shorter label for the cramped mobile tab bar. */
+  short?: string;
   icon: ReactNode;
 }
 
@@ -142,7 +144,9 @@ export function AppShell({
         aria-label="Primary"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur md:hidden"
       >
-        <div className="mx-auto grid max-w-md grid-cols-5">
+        <div
+          className={`mx-auto grid max-w-md ${gridColumns(nav.length + (primaryAction ? 1 : 0))}`}
+        >
           {nav.map((item) => {
             const active = isActive(item);
             return (
@@ -157,7 +161,7 @@ export function AppShell({
                 <span aria-hidden="true" className="[&>svg]:h-5 [&>svg]:w-5">
                   {item.icon}
                 </span>
-                {shortLabel(item.label)}
+                {item.short ?? shortLabel(item.label)}
               </Link>
             );
           })}
@@ -182,6 +186,25 @@ function shortLabel(label: string): string {
   if (label.length <= 9) return label;
   // "Categories" → "Cats" style trimming is not friendly; use the first word.
   return label.split(" ")[0];
+}
+
+/**
+ * Maps an item count to a static `grid-cols-*` class. The values must be
+ * literal strings so Tailwind generates them.
+ */
+function gridColumns(count: number): string {
+  switch (count) {
+    case 2:
+      return "grid-cols-2";
+    case 3:
+      return "grid-cols-3";
+    case 4:
+      return "grid-cols-4";
+    case 5:
+      return "grid-cols-5";
+    default:
+      return "grid-cols-6";
+  }
 }
 
 function Avatar({

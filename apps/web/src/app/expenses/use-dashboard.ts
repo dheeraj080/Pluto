@@ -23,6 +23,18 @@ export interface DashboardWindow {
 
 export type DashboardWindows = Record<WindowKind, DashboardWindow>;
 
+/**
+ * Percentage change between the current and previous totals, or null when the
+ * comparison is not meaningful: unconvertible, a missing total, or a previous
+ * total of zero (which would make the ratio unbounded).
+ */
+export function comparisonDeltaPct(comparison: ExpenseComparison): number | null {
+  if (!comparison.converted) return null;
+  const { current, previous } = comparison;
+  if (current.total === null || previous.total === null || previous.total <= 0) return null;
+  return Number.isFinite(comparison.delta.totalPct) ? comparison.delta.totalPct : null;
+}
+
 /** Today / this week / this month, each with its previous-period comparison. */
 export function useDashboardWindows(base: string | null): {
   windows: DashboardWindows | null;

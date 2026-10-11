@@ -135,7 +135,7 @@ export default function ReportsPage() {
       if (params.categoryId) search.set("categoryId", params.categoryId);
       if (params.from) search.set("from", params.from);
       if (params.to) search.set("to", params.to);
-      router.push(`/expenses?${search.toString()}`);
+      router.push(`/expenses/transactions?${search.toString()}`);
     },
     [router],
   );

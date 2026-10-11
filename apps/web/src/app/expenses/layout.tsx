@@ -18,14 +18,20 @@ import type { UserProfile } from "@/lib/types";
 import { AppShell, type AppNavItem } from "@/components/app-shell";
 import { Spinner } from "@/components/ui";
 import { Wordmark } from "@/components/logo";
-import { IconChart, IconHome, IconTag, IconWallet } from "@/components/icons";
+import { IconChart, IconHome, IconReceipt, IconTag, IconWallet } from "@/components/icons";
 import { useBaseCurrencyReconciliation } from "./use-expenses";
 
 const NAV: AppNavItem[] = [
-  { href: "/expenses", label: "Dashboard", icon: <IconHome className="h-4.5 w-4.5" /> },
-  { href: "/expenses/reports", label: "Reports", icon: <IconChart className="h-4.5 w-4.5" /> },
-  { href: "/expenses/budgets", label: "Budgets", icon: <IconWallet className="h-4.5 w-4.5" /> },
-  { href: "/expenses/categories", label: "Categories", icon: <IconTag className="h-4.5 w-4.5" /> },
+  { href: "/expenses", label: "Dashboard", short: "Home", icon: <IconHome className="h-4.5 w-4.5" /> },
+  {
+    href: "/expenses/transactions",
+    label: "Transactions",
+    short: "Activity",
+    icon: <IconReceipt className="h-4.5 w-4.5" />,
+  },
+  { href: "/expenses/reports", label: "Reports", short: "Reports", icon: <IconChart className="h-4.5 w-4.5" /> },
+  { href: "/expenses/budgets", label: "Budgets", short: "Budgets", icon: <IconWallet className="h-4.5 w-4.5" /> },
+  { href: "/expenses/categories", label: "Categories", short: "Tags", icon: <IconTag className="h-4.5 w-4.5" /> },
 ];
 
 type Gate = "checking" | "ready" | "denied";
