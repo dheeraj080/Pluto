@@ -362,18 +362,41 @@ export class AuthService {
   }
 
   private parseTtlToSeconds(ttl: string): number {
-    if (ttl.endsWith('m')) {
-      return parseInt(ttl, 10) * 60;
+    if (!ttl || typeof ttl !== 'string') {
+      throw new Error('TTL must be a non-empty string');
     }
-    if (ttl.endsWith('h')) {
-      return parseInt(ttl, 10) * 3600;
+
+    const trimmed = ttl.trim();
+    if (trimmed.length === 0) {
+      throw new Error('TTL must be a non-empty string');
     }
-    if (ttl.endsWith('d')) {
-      return parseInt(ttl, 10) * 86400;
+
+    // Support formats like '15s', '15m', '2h', '1d'
+    const match = trimmed.match(/^(\d+)([smhd])$/i);
+    if (!match) {
+      throw new Error(
+        `Invalid TTL format: ${ttl}. Expected format like '15m', '1h', '30s', or '1d'`,
+      );
     }
-    if (ttl.endsWith('s')) {
-      return parseInt(ttl, 10);
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2].toLowerCase();
+
+    if (isNaN(value) || value < 0) {
+      throw new Error(`Invalid TTL value: ${ttl}`);
     }
-    return 900;
+
+    switch (unit) {
+      case 's':
+        return value;
+      case 'm':
+        return value * 60;
+      case 'h':
+        return value * 3600;
+      case 'd':
+        return value * 86400;
+      default:
+        throw new Error(`Invalid TTL format: ${ttl}`);
+    }
   }
 }

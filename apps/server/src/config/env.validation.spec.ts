@@ -94,7 +94,8 @@ describe('validateEnvironment', () => {
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
       JWT_ACCESS_SECRET: 'production_super_secure_secret_key_exceeding_32_chars',
-      GOOGLE_ALLOWED_CLIENT_IDS: 'client1.apps.googleusercontent.com, client2.apps.googleusercontent.com',
+      GOOGLE_ALLOWED_CLIENT_IDS:
+        'client1.apps.googleusercontent.com, client2.apps.googleusercontent.com',
       OBJECT_STORAGE_ACCESS_KEY_ID: 'prod-s3-key',
       OBJECT_STORAGE_SECRET_ACCESS_KEY: 'prod-s3-secret',
     };

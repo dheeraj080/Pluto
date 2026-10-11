@@ -76,8 +76,7 @@ export const envSchema = z
         });
       }
 
-      const clientIds = data.GOOGLE_ALLOWED_CLIENT_IDS
-        .split(',')
+      const clientIds = data.GOOGLE_ALLOWED_CLIENT_IDS.split(',')
         .map((id) => id.trim())
         .filter((id) => id.length > 0);
       if (clientIds.length === 0) {

@@ -221,8 +221,15 @@ export class BackupsService {
       `Backup completed successfully: user=${userId}, backupId=${backupId}, seq=#${completedBackup.sequenceNumber}, size=${actualBytes} bytes`,
     );
 
-    // Enforce retention limit for the user
-    await this.pruneUserBackups(userId);
+    // Enforce retention limit for the user (best-effort after successful completion)
+    try {
+      await this.pruneUserBackups(userId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to prune backups after completing backup ${backupId} for user ${userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
 
     return this.toMetadataDto(completedBackup);
   }
@@ -351,15 +358,42 @@ export class BackupsService {
       select: { id: true, storageKey: true, sequenceNumber: true },
     });
 
-    if (completedBackups.length > this.retentionCount) {
-      const backupsToPrune = completedBackups.slice(this.retentionCount);
-      this.logger.log(
-        `Retention policy: Pruning ${backupsToPrune.length} older backups for user ${userId} (retaining latest ${this.retentionCount})`,
-      );
+    if (completedBackups.length <= this.retentionCount) {
+      return;
+    }
 
-      for (const b of backupsToPrune) {
+    const backupsToPrune = completedBackups.slice(this.retentionCount);
+
+    // Safety: Never prune the last valid recovery point if retentionCount is 0 or something unexpected
+    if (backupsToPrune.length >= completedBackups.length && this.retentionCount > 0) {
+      this.logger.warn(
+        `Refusing to prune backups for user ${userId}: would remove all ${completedBackups.length} completed backups while retentionCount=${this.retentionCount}`,
+      );
+      return;
+    }
+
+    // If retentionCount is 0, we still must not delete everything blindly; treat as no-op for safety
+    if (this.retentionCount <= 0) {
+      this.logger.warn(
+        `Retention count is ${this.retentionCount}; refusing to prune any backups for user ${userId} as a safety measure`,
+      );
+      return;
+    }
+
+    this.logger.log(
+      `Retention policy: Pruning ${backupsToPrune.length} older backups for user ${userId} (retaining latest ${this.retentionCount})`,
+    );
+
+    for (const b of backupsToPrune) {
+      try {
         await this.storageService.deleteObject(b.storageKey);
         await this.prisma.backup.delete({ where: { id: b.id } });
+      } catch (error) {
+        this.logger.error(
+          `Failed to delete pruned backup ${b.id} for user ${userId}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+        // Continue with remaining backups rather than failing the entire operation
       }
     }
   }

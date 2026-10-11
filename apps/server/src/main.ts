@@ -45,7 +45,9 @@ async function bootstrap(): Promise<void> {
       .map((o) => o.trim())
       .filter((o) => o.length > 0);
     if (origins.some((o) => o === '*' || o.includes('*'))) {
-      throw new Error('Wildcard CORS origin is not allowed when CORS_ORIGIN contains wildcard patterns');
+      throw new Error(
+        'Wildcard CORS origin is not allowed when CORS_ORIGIN contains wildcard patterns',
+      );
     }
     app.enableCors({
       origin: origins,
