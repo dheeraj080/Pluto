@@ -40,7 +40,7 @@ export class UsersController {
   @Patch('me')
   @ApiOperation({
     summary: 'Update current user profile',
-    description: 'Updates allowed profile fields (name, avatarUrl).',
+    description: 'Updates allowed profile fields (name, avatarUrl, baseCurrency).',
   })
   @ApiResponse({
     status: 200,

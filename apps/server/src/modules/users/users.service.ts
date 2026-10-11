@@ -1,8 +1,18 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { StorageService } from '../backups/storage/storage.service';
+import { CurrencyService } from '../../common/currency/currency.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserProfileDto } from '../auth/dto/auth-response.dto';
+
+const PROFILE_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  avatarUrl: true,
+  baseCurrency: true,
+  createdAt: true,
+} as const;
 
 @Injectable()
 export class UsersService {
@@ -11,6 +21,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    private readonly currencyService: CurrencyService,
   ) {}
 
   /**
@@ -19,13 +30,7 @@ export class UsersService {
   async getProfile(userId: string): Promise<UserProfileDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatarUrl: true,
-        createdAt: true,
-      },
+      select: PROFILE_SELECT,
     });
 
     if (!user) {
@@ -44,14 +49,13 @@ export class UsersService {
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.avatarUrl !== undefined ? { avatarUrl: dto.avatarUrl } : {}),
+        // A reporting base must be convertible, not just registry-valid — a
+        // preference the provider cannot quote would make every report fail.
+        ...(dto.baseCurrency !== undefined
+          ? { baseCurrency: this.currencyService.assertSupportedReporting(dto.baseCurrency) }
+          : {}),
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatarUrl: true,
-        createdAt: true,
-      },
+      select: PROFILE_SELECT,
     });
 
     return user;

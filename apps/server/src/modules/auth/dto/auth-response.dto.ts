@@ -13,6 +13,14 @@ export class UserProfileDto {
   @ApiProperty({ example: 'https://lh3.googleusercontent.com/a/sample', nullable: true })
   avatarUrl!: string | null;
 
+  @ApiProperty({
+    description:
+      "User's preferred reporting currency (ISO 4217). Null lets the server default apply.",
+    example: 'USD',
+    nullable: true,
+  })
+  baseCurrency!: string | null;
+
   @ApiProperty({ example: '2026-10-09T03:45:00.000Z' })
   createdAt!: Date;
 }

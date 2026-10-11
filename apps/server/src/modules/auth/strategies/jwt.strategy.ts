@@ -44,6 +44,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         googleId: true,
         name: true,
         avatarUrl: true,
+        baseCurrency: true,
         role: true,
       },
     });

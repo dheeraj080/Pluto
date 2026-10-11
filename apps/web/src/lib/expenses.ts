@@ -19,6 +19,7 @@ import type {
   Paginated,
   RateSnapshot,
   SupportedCurrency,
+  UserProfile,
 } from "./types";
 
 export type ExpenseSort = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
@@ -146,4 +147,11 @@ export const ratesApi = {
   /** Latest published snapshot, used for display-only conversion previews. */
   getLatest: (base?: string) =>
     api.get<RateSnapshot>(`/rates/latest${buildQuery({ base: base ?? undefined })}`),
+};
+
+/** Current-user profile endpoints (mirrors GET/PATCH /users/me). */
+export const usersApi = {
+  getMe: () => api.get<UserProfile>("/users/me"),
+  updateProfile: (body: { name?: string; avatarUrl?: string; baseCurrency?: string }) =>
+    api.patch<UserProfile>("/users/me", body),
 };

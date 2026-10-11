@@ -5,6 +5,8 @@ export interface UserProfile {
   email: string;
   name: string | null;
   avatarUrl: string | null;
+  /** User's persisted reporting base currency (ISO 4217), null when unset. */
+  baseCurrency: string | null;
   createdAt: string;
 }
 

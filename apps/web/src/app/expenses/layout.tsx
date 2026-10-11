@@ -19,6 +19,7 @@ import { AppShell, type AppNavItem } from "@/components/app-shell";
 import { Spinner } from "@/components/ui";
 import { Wordmark } from "@/components/logo";
 import { IconChart, IconHome, IconTag, IconWallet } from "@/components/icons";
+import { useBaseCurrencyReconciliation } from "./use-expenses";
 
 const NAV: AppNavItem[] = [
   { href: "/expenses", label: "Dashboard", icon: <IconHome className="h-4.5 w-4.5" /> },
@@ -51,6 +52,10 @@ function ExpensesShell({ children }: { children: React.ReactNode }) {
   const [gate, setGate] = useState<Gate>("checking");
   const [errorMessage, setErrorMessage] = useState("");
   const [user, setUser] = useState<UserProfile | null>(null);
+
+  // Once the profile probe resolves, align the persisted base-currency
+  // preference with the server-authoritative value for this account.
+  useBaseCurrencyReconciliation(user);
 
   const verify = useCallback(async () => {
     // No stored credential at all: skip the round trip and go straight to the gate.

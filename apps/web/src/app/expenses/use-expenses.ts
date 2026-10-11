@@ -9,16 +9,18 @@
  */
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { expensesApi, ratesApi } from "@/lib/expenses";
+import { expensesApi, ratesApi, usersApi } from "@/lib/expenses";
+import { hasStoredSession } from "@/lib/api";
 import {
   getBaseCurrency,
   getBaseCurrencyServerSnapshot,
   isOnboardingDismissed,
   markOnboardingDone,
+  readBaseCurrency,
   subscribeBaseCurrency,
   writeBaseCurrency,
 } from "@/lib/base-currency";
-import type { ExpenseCategory, RateSnapshot, SupportedCurrency } from "@/lib/types";
+import type { ExpenseCategory, RateSnapshot, SupportedCurrency, UserProfile } from "@/lib/types";
 
 interface ExpenseSetup {
   categories: ExpenseCategory[];
@@ -86,6 +88,11 @@ interface BaseCurrencyState {
  * Backed by localStorage (`?base=` override first, then the stored preference),
  * read as an external store so the value is already correct on the first
  * render — no effect-driven refetch and no hydration mismatch.
+ *
+ * `setBase` also persists the choice to the server (`PATCH /users/me`) when a
+ * session exists, so a chosen reporting currency follows the user across
+ * devices. The persisted write is fire-and-forget: a failure keeps the local
+ * preference working for this session.
  */
 export function useBaseCurrency(): BaseCurrencyState {
   const base = useSyncExternalStore(
@@ -96,9 +103,61 @@ export function useBaseCurrency(): BaseCurrencyState {
 
   const setBase = useCallback((code: string) => {
     writeBaseCurrency(code);
+    if (hasStoredSession()) {
+      usersApi
+        .updateProfile({ baseCurrency: code })
+        .then((updated) => {
+          // Echo the server-normalized value so the local store mirrors
+          // exactly what was persisted (e.g. casing).
+          if (code !== updated.baseCurrency) {
+            writeBaseCurrency(updated.baseCurrency ?? code);
+          }
+        })
+        .catch(() => {
+          /* Non-fatal: the local preference still applies this session. */
+        });
+    }
   }, []);
 
   return { base, setBase };
+}
+
+/**
+ * Reconciles the persisted base-currency preference with the authenticated
+ * profile once `GET /users/me` has resolved.
+ *
+ * The server value is authoritative after auth:
+ * - a server-set base is written back into localStorage so every screen
+ *   renders consistently (the `?base=` URL override still wins at render time);
+ * - a preference that only exists client-side (e.g. picked during onboarding)
+ *   is pushed to the server exactly once, so it follows the user across
+ *   devices. It is skipped once the server echoes it back;
+ * - an uninitialized client never writes over the server value.
+ */
+export function useBaseCurrencyReconciliation(profile: UserProfile | null): void {
+  useEffect(() => {
+    if (!profile) return;
+    const serverBase = profile.baseCurrency;
+    const localBase = readBaseCurrency();
+
+    if (serverBase) {
+      // Server wins: mirror its value into local storage.
+      if (localBase !== serverBase) writeBaseCurrency(serverBase);
+      return;
+    }
+    if (localBase) {
+      usersApi
+        .updateProfile({ baseCurrency: localBase })
+        .then((updated) => {
+          if (localBase !== updated.baseCurrency) {
+            writeBaseCurrency(updated.baseCurrency ?? localBase);
+          }
+        })
+        .catch(() => {
+          /* Non-fatal: the local preference still works this session. */
+        });
+    }
+  }, [profile]);
 }
 
 /**
