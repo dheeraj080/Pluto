@@ -24,17 +24,13 @@ export default function OpengraphImage() {
           overflow: "hidden",
         }}
       >
-        {/* Soft emerald glow, top-left. */}
+        {/* Soft emerald glow, top-left, full-bleed so no edge shows. */}
         <div
           style={{
             position: "absolute",
-            top: "-260px",
-            left: "-120px",
-            width: "760px",
-            height: "760px",
-            display: "flex",
+            inset: 0,
             background:
-              "radial-gradient(closest-side, rgba(52,211,153,0.28), rgba(52,211,153,0))",
+              "radial-gradient(closest-side at 32% 8%, rgba(52,211,153,0.34), rgba(52,211,153,0.12) 45%, transparent 72%)",
           }}
         />
 
