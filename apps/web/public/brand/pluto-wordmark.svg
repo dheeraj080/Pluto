@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 152 32" width="304" height="64" fill="none" role="img" aria-label="Pluto">
+  <title>Pluto</title>
+  <g transform="translate(4 4)">
+    <g transform="rotate(-24 12 12)">
+      <ellipse cx="12" cy="12" rx="10" ry="4.2" stroke="#0B0C0E" stroke-width="1.4" opacity="0.22"/>
+      <path d="M2.4 10.6 A10 4.2 0 0 1 20.6 10.2" stroke="#10B981" stroke-width="2.1" stroke-linecap="round"/>
+    </g>
+    <circle cx="12" cy="12" r="5.5" fill="#0B0C0E"/>
+    <g transform="rotate(-24 12 12)">
+      <path d="M20.6 13.8 A10 4.2 0 0 1 2.4 10.6" stroke="#10B981" stroke-width="2.1" stroke-linecap="round"/>
+      <polygon points="19.1 11.3 22.6 12 21.5 8.5" fill="#10B981"/>
+    </g>
+  </g>
+  <text x="42" y="22" font-family="'Space Grotesk', ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="600" letter-spacing="-0.5" fill="#0B0C0E">Pluto</text>
+</svg>
