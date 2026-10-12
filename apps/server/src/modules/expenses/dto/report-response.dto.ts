@@ -546,3 +546,70 @@ export class BudgetStatusResponseDto {
   @ApiProperty({ type: [BudgetStatusDto] })
   items!: BudgetStatusDto[];
 }
+
+export class SeriesPointDto {
+  @ApiProperty({
+    description: 'Bucket key: YYYY-MM-DD for day/week (week = Monday), YYYY-MM for month',
+    example: '2026-10-01',
+  })
+  bucket!: string;
+
+  @ApiPropertyOptional({
+    description: 'Bucket total in the base currency; null when nothing in range could convert',
+    example: 42.5,
+    nullable: true,
+  })
+  total!: number | null;
+
+  @ApiProperty({ example: 3 })
+  count!: number;
+
+  @ApiPropertyOptional({
+    description: 'Bucket total in the secondary currency, when one was requested',
+    example: 3527.5,
+    nullable: true,
+  })
+  secondaryTotal?: number | null;
+}
+
+export class ExpenseSeriesDto {
+  @ApiProperty({ example: 'USD' })
+  baseCurrency!: string;
+
+  @ApiPropertyOptional({
+    description: 'Second currency the points are also expressed in, when requested',
+    example: 'INR',
+    nullable: true,
+  })
+  secondaryCurrency?: string | null;
+
+  @ApiProperty({ enum: ['day', 'week', 'month'], example: 'day' })
+  granularity!: 'day' | 'week' | 'month';
+
+  @ApiProperty({ example: '2026-10-01' })
+  from!: string;
+
+  @ApiProperty({ example: '2026-10-31' })
+  to!: string;
+
+  @ApiProperty({ example: true })
+  converted!: boolean;
+
+  @ApiPropertyOptional({ description: 'Why conversion was unavailable', nullable: true })
+  conversionUnavailableReason?: string;
+
+  @ApiProperty({
+    enum: ['converted', 'partially_converted', 'unavailable'],
+    example: 'converted',
+  })
+  conversionStatus!: ConversionStatus;
+
+  @ApiProperty({ type: [String] })
+  unconvertedCurrencies!: string[];
+
+  @ApiProperty({ type: RateProvenanceDto })
+  rateProvenance!: RateProvenanceDto;
+
+  @ApiProperty({ type: [SeriesPointDto] })
+  points!: SeriesPointDto[];
+}

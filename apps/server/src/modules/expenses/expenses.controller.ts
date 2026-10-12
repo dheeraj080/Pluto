@@ -24,6 +24,7 @@ import {
   ExportQueryDto,
   ExpenseQueryDto,
   ReportQueryDto,
+  SeriesQueryDto,
   TopQueryDto,
   TrendQueryDto,
 } from './dto/expense-query.dto';
@@ -39,6 +40,7 @@ import {
   BudgetStatusResponseDto,
   ExpenseSummaryDto,
   ExpenseTrendDto,
+  ExpenseSeriesDto,
 } from './dto/report-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -143,6 +145,24 @@ export class ExpensesController {
     @Query() query: TrendQueryDto,
   ): Promise<ExpenseTrendDto> {
     return this.reportsService.getTrends(user.id, query);
+  }
+
+  @Get('series')
+  @ApiOperation({
+    summary: 'Spending series bucketed by day, week or month',
+    description:
+      'Returns a continuous, zero-filled series across an inclusive range for line charts and sparklines.',
+  })
+  @ApiResponse({ status: 200, description: 'Bucketed spending series', type: ExpenseSeriesDto })
+  @ApiResponse({
+    status: 400,
+    description: 'Unsupported currency, malformed date or range too large',
+  })
+  async getSeries(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: SeriesQueryDto,
+  ): Promise<ExpenseSeriesDto> {
+    return this.reportsService.getSeries(user.id, query);
   }
 
   // ------------------------------------------------------------------ budgets

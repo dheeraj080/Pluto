@@ -78,6 +78,55 @@ export function trailingMonths(count: number, now = new Date()): string[] {
   return keys;
 }
 
+/** Bucket size for the generic spending series. */
+export type SeriesGranularity = 'day' | 'week' | 'month';
+
+/** UTC midnight of the Monday starting the ISO week that contains `date`. */
+export function weekStart(date: Date): Date {
+  const offset = (date.getUTCDay() + 6) % 7; // Mon=0 … Sun=6
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - offset));
+}
+
+/** The bucket key a date belongs to at the requested granularity. */
+export function seriesKey(date: Date, granularity: SeriesGranularity): string {
+  if (granularity === 'month') return monthKey(date);
+  if (granularity === 'week') return formatDate(weekStart(date));
+  return formatDate(date);
+}
+
+/**
+ * Every bucket key in the inclusive `[start, end]` window, oldest first.
+ *
+ * Keeps a chart's axis continuous through days/weeks/months with no spending,
+ * mirroring how `trailingMonths` zero-fills the monthly trend.
+ */
+export function seriesBuckets(granularity: SeriesGranularity, start: Date, end: Date): string[] {
+  const keys: string[] = [];
+
+  if (granularity === 'month') {
+    const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+    const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
+    while (cursor.getTime() <= last.getTime()) {
+      keys.push(monthKey(cursor));
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+    }
+    return keys;
+  }
+
+  const toDay = (value: Date) =>
+    new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+  const first = granularity === 'week' ? weekStart(start) : toDay(start);
+  const last = granularity === 'week' ? weekStart(end) : toDay(end);
+  const step = granularity === 'week' ? 7 : 1;
+
+  const cursor = new Date(first);
+  while (cursor.getTime() <= last.getTime()) {
+    keys.push(formatDate(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + step);
+  }
+  return keys;
+}
+
 /**
  * Resolves a report range, defaulting to the current calendar month through today.
  *

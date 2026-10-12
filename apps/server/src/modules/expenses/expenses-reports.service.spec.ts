@@ -365,6 +365,103 @@ describe('ExpensesReportsService', () => {
     });
   });
 
+  describe('getSeries', () => {
+    it('buckets a day series continuously, zero-filling empty days', async () => {
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        row({
+          amount: new Prisma.Decimal('10.00'),
+          incurredOn: new Date('2026-10-03T00:00:00.000Z'),
+        }),
+        row({
+          amount: new Prisma.Decimal('9.20'),
+          currency: 'EUR',
+          incurredOn: new Date('2026-10-05T00:00:00.000Z'),
+        }),
+      ]);
+
+      const result = await service.getSeries(USER_A, {
+        from: '2026-10-01',
+        to: '2026-10-05',
+        granularity: 'day',
+      });
+
+      expect(result.granularity).toBe('day');
+      expect(result.points.map((p) => p.bucket)).toEqual([
+        '2026-10-01',
+        '2026-10-02',
+        '2026-10-03',
+        '2026-10-04',
+        '2026-10-05',
+      ]);
+      expect(result.points.map((p) => p.total)).toEqual([0, 0, 10, 0, 10]);
+      expect(result.points[2].count).toBe(1);
+    });
+
+    it('groups into Monday-anchored week buckets', async () => {
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        row({
+          amount: new Prisma.Decimal('10.00'),
+          incurredOn: new Date('2026-10-03T00:00:00.000Z'),
+        }),
+      ]);
+
+      const result = await service.getSeries(USER_A, {
+        from: '2026-10-01',
+        to: '2026-10-31',
+        granularity: 'week',
+      });
+
+      expect(result.points.map((p) => p.bucket)).toEqual([
+        '2026-09-28',
+        '2026-10-05',
+        '2026-10-12',
+        '2026-10-19',
+        '2026-10-26',
+      ]);
+      expect(result.points[0].total).toBe(10);
+    });
+
+    it('expresses the series in a secondary currency when requested', async () => {
+      mockRatesService.getRateTablesForRange.mockResolvedValue([
+        {
+          version: 1,
+          baseCurrency: 'USD',
+          effectiveDate: '2026-10-01',
+          provider: 'mock',
+          rates: { USD: '1.000000', EUR: '0.920000', INR: '83.000000' },
+        },
+      ]);
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        row({
+          amount: new Prisma.Decimal('10.00'),
+          incurredOn: new Date('2026-10-03T00:00:00.000Z'),
+        }),
+      ]);
+
+      const result = await service.getSeries(USER_A, {
+        from: '2026-10-01',
+        to: '2026-10-05',
+        granularity: 'day',
+        secondary: 'INR',
+      });
+
+      expect(result.secondaryCurrency).toBe('INR');
+      expect(result.points[2].total).toBe(10);
+      expect(result.points[2].secondaryTotal).toBe(830);
+      expect(result.points[0].secondaryTotal).toBe(0);
+    });
+
+    it('rejects a range that would yield too many buckets', async () => {
+      await expect(
+        service.getSeries(USER_A, {
+          from: '2020-01-01',
+          to: '2026-12-31',
+          granularity: 'day',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('getComparison', () => {
     beforeEach(() => {
       mockPrismaService.expenseCategory.findMany.mockResolvedValue([

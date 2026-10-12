@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
@@ -12,6 +12,7 @@ import {
   ComparisonQueryDto,
   ExportQueryDto,
   ReportQueryDto,
+  SeriesQueryDto,
   TopQueryDto,
   TrendQueryDto,
 } from './dto/expense-query.dto';
@@ -21,9 +22,11 @@ import {
   CategoryBreakdownDto,
   ConversionStatus,
   CurrencyTotalDto,
+  ExpenseSeriesDto,
   ExpenseSummaryDto,
   ExpenseTrendDto,
   RateProvenanceDto,
+  SeriesPointDto,
   TopExpenseItemDto,
   TrendPointDto,
 } from './dto/report-response.dto';
@@ -34,6 +37,8 @@ import {
   normalizeMonth,
   periodWindow,
   resolveRange,
+  seriesBuckets,
+  seriesKey,
   toUtcDate,
   trailingMonths,
 } from './expenses.utils';
@@ -487,6 +492,109 @@ export class ExpensesReportsService {
       rateProvenance,
       ...(secondaryCurrency ? { secondaryCurrency } : {}),
       months: keys.length,
+      points,
+    };
+  }
+
+  /**
+   * Spending bucketed by day, week or month across an inclusive range.
+   *
+   * Powers the dashboard hero line and the analytics sparklines: unlike
+   * {@link getTrends} (fixed trailing months) this follows an arbitrary range
+   * and keeps a continuous, zero-filled axis sized to the granularity.
+   */
+  async getSeries(userId: string, query: SeriesQueryDto): Promise<ExpenseSeriesDto> {
+    const baseCurrency = this.currencyConverter.resolveBase(query.base);
+    const secondaryCurrency = this.resolveSecondary(query.secondary, baseCurrency);
+    const { start, end } = resolveRange(query.from, query.to);
+
+    const buckets = seriesBuckets(query.granularity, start, end);
+    if (buckets.length > 800) {
+      throw new BadRequestException(
+        'Requested range yields too many buckets; narrow the range or use a coarser granularity',
+      );
+    }
+
+    const ctx = await this.buildRateContext(baseCurrency, end);
+
+    const rows = await this.prisma.expense.findMany({
+      where: { userId, incurredOn: { gte: start, lte: end } },
+      select: { amount: true, currency: true, incurredOn: true },
+    });
+
+    const tracker = new ConversionTracker();
+    const acc = new Map<
+      string,
+      {
+        total: number;
+        convertedCount: number;
+        count: number;
+        secondaryTotal: number;
+        secondaryCount: number;
+      }
+    >();
+
+    for (const row of rows) {
+      const res = this.convertAtDate(
+        ctx,
+        row.amount,
+        row.currency,
+        this.parseDateIso(row.incurredOn),
+        secondaryCurrency,
+      );
+      tracker.accumulate(row.currency, res);
+
+      const key = seriesKey(row.incurredOn, query.granularity);
+      const bucket = acc.get(key) ?? {
+        total: 0,
+        convertedCount: 0,
+        count: 0,
+        secondaryTotal: 0,
+        secondaryCount: 0,
+      };
+      bucket.count += 1;
+      if (res.value !== null) {
+        bucket.total = round2(bucket.total + res.value);
+        bucket.convertedCount += 1;
+      }
+      if (res.secondaryValue !== null) {
+        bucket.secondaryTotal = round2(bucket.secondaryTotal + res.secondaryValue);
+        bucket.secondaryCount += 1;
+      }
+      acc.set(key, bucket);
+    }
+
+    const globallyUnavailable = tracker.status() === 'unavailable';
+    const zeroTotal = globallyUnavailable ? null : 0;
+
+    const points: SeriesPointDto[] = buckets.map((bucket) => {
+      const entry = acc.get(bucket);
+      const point: SeriesPointDto = {
+        bucket,
+        total: entry && entry.convertedCount > 0 ? round2(entry.total) : zeroTotal,
+        count: entry?.count ?? 0,
+      };
+      if (secondaryCurrency) {
+        point.secondaryTotal =
+          entry && entry.secondaryCount > 0 ? round2(entry.secondaryTotal) : zeroTotal;
+      }
+      return point;
+    });
+
+    const { converted, conversionStatus, unconvertedCurrencies, rateProvenance } =
+      tracker.toReportFields();
+
+    return {
+      baseCurrency,
+      ...(secondaryCurrency ? { secondaryCurrency } : {}),
+      granularity: query.granularity,
+      from: formatDate(start),
+      to: formatDate(end),
+      converted,
+      ...(conversionStatus === 'unavailable' ? { conversionUnavailableReason: UNAVAILABLE } : {}),
+      conversionStatus,
+      unconvertedCurrencies,
+      rateProvenance,
       points,
     };
   }

@@ -429,3 +429,57 @@ export class ExportQueryDto {
   @Length(3, 3)
   secondary?: string;
 }
+
+export const SERIES_GRANULARITIES = ['day', 'week', 'month'] as const;
+export type SeriesGranularity = (typeof SERIES_GRANULARITIES)[number];
+
+export class SeriesQueryDto {
+  @ApiPropertyOptional({
+    description:
+      'Inclusive lower bound on incurredOn; defaults to the first day of the current month',
+    example: '2026-10-01',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'from must be an ISO date such as YYYY-MM-DD' })
+  from?: string;
+
+  @ApiPropertyOptional({
+    description: 'Inclusive upper bound on incurredOn; defaults to today',
+    example: '2026-10-31',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'to must be an ISO date such as YYYY-MM-DD' })
+  to?: string;
+
+  @ApiPropertyOptional({
+    description: 'Bucket size for the series',
+    enum: SERIES_GRANULARITIES,
+    default: 'day',
+  })
+  @IsOptional()
+  @IsIn(SERIES_GRANULARITIES)
+  granularity: SeriesGranularity = 'day';
+
+  @ApiPropertyOptional({
+    description: 'Base currency to convert into',
+    example: 'USD',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  base?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)',
+    example: 'INR',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  secondary?: string;
+}
