@@ -1,119 +1,79 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { ProductPreview } from "@/components/product-preview";
-import { ConversionExample } from "@/components/conversion-example";
+import { AudienceCards } from "@/components/audience-cards";
+import { ConverterSingle } from "@/components/converter-single";
+import { DashboardMockup } from "@/components/dashboard-mockup";
+import { Faq } from "@/components/faq";
+import { FeaturesBento } from "@/components/feature-snippets";
+import { Reveal } from "@/components/reveal";
 import {
-  IconBolt,
+  IconArrowRight,
   IconCheck,
-  IconChart,
-  IconChevronDown,
-  IconGlobe,
-  IconReceipt,
-  IconSearch,
+  IconGoogle,
+  IconMobile,
+  IconRefresh,
   IconShield,
-  IconSwap,
-  IconTag,
-  IconWallet,
+  IconSun,
+  IconTrash,
 } from "@/components/icons";
 
-/* ------------------------------------------------------------------ */
-/* Copy                                                                */
-/* ------------------------------------------------------------------ */
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
-const PROBLEMS = [
-  {
-    title: "Totals that don't add up",
-    body: "Adding 4,000 ¥ to 62 CHF gives you a number that means nothing until you convert it — at whatever rate you happen to remember.",
-  },
-  {
-    title: "Rates move every day",
-    body: "A rate you looked up last week is already stale. Your spending decisions deserve numbers that are current, not remembered.",
-  },
-  {
-    title: "No single source of truth",
-    body: "Wallet receipts, bank apps and chat messages each tell a different story about what you actually spent abroad.",
-  },
-];
-
-const FEATURES = [
-  {
-    icon: <IconReceipt className="h-5 w-5" />,
-    title: "Record it as you pay",
-    body: "Amount, currency, category, date — one quick form. Each expense stays in the currency you actually paid; it is never quietly rewritten.",
-  },
-  {
-    icon: <IconSwap className="h-5 w-5" />,
-    title: "Conversion that's automatic",
-    body: "Dashboards, reports and budgets convert your totals into your chosen base currency using daily reference rates from the European Central Bank.",
-  },
-  {
-    icon: <IconChart className="h-5 w-5" />,
-    title: "Reports, trends, breakdowns",
-    body: "This month against last, your biggest categories, and the trend over time — charts drawn from your real expenses, not decoration.",
-  },
-  {
-    icon: <IconWallet className="h-5 w-5" />,
-    title: "Budgets that keep you honest",
-    body: "Set a monthly or yearly cap per category — or for everything — and watch each budget track against actual spending.",
-  },
-  {
-    icon: <IconSearch className="h-5 w-5" />,
-    title: "A history you can search",
-    body: "Find any transaction by description, category, currency, date range or amount, and sort the list the way you need to see it.",
-  },
-  {
-    icon: <IconTag className="h-5 w-5" />,
-    title: "Categories that fit your life",
-    body: "Rename and recolour the starter set, add your own, and every report and budget breaks spending down by them.",
-  },
-];
+const TRUST = [
+  { icon: IconGoogle, label: "Google sign-in" },
+  { icon: IconCheck, label: "No card required" },
+  { icon: IconSun, label: "Daily ECB rates" },
+  { icon: IconMobile, label: "Web and mobile" },
+] as const;
 
 const STEPS = [
   {
     n: "01",
     title: "Sign in with Google",
-    body: "No password to create, remember or reset. Your account follows you across sign-in with short-lived, rotating sessions.",
+    body: "No password to create or remember. Sessions are short-lived and rotate.",
   },
   {
     n: "02",
-    title: "Record as you spend",
-    body: "Capture the purchase in the currency you paid — CHF coffee, SGD groceries, ¥ metro passes all sit together, untouched.",
+    title: "Record what you paid",
+    body: "Add each purchase in its own currency. The original amount is never rewritten.",
   },
   {
     n: "03",
-    title: "Review in your currency",
-    body: "Your total, category breakdowns and budgets are converted into your preferred base currency — automatically, every day.",
+    title: "Read it in your currency",
+    body: "Totals, budgets and reports appear in the currency you think in.",
   },
-];
+] as const;
 
-const USE_CASES = [
+const PRIVACY = [
   {
-    title: "International students",
-    body: "Manage a budget in your home currency while rent, tuition and groceries happen abroad — and know exactly what's left at the end of the month.",
-  },
-  {
-    title: "Expats & new residents",
-    body: "Salary in one currency, life in another. Pluto keeps your spending view consistent no matter where the money flows.",
+    icon: IconGoogle,
+    title: "Google-only sign-in",
+    body: "There is no Pluto password to leak, and we never see your Google password.",
   },
   {
-    title: "Frequent travellers",
-    body: "Weeks on the road across several currencies? Record each day in the local currency and review it as one total when you land.",
+    icon: IconShield,
+    title: "No ads, no trackers",
+    body: "Your data runs the product only. No advertising, no ad trackers, no profiles.",
   },
-];
-
-const PRIVACY_POINTS = [
-  "Sign in only with Google — there's no separate password, and we never see your Google password.",
-  "Your expense data is stored securely and used only to run the product: no ads, no ad trackers, no marketing profiles.",
-  "Sessions rotate one at a time, and a reused token revokes every session for your account.",
-  "Delete your account at any time — your profile, expenses, backups and sessions are erased immediately and permanently.",
-];
-
-/* ------------------------------------------------------------------ */
-/* Sections                                                            */
-/* ------------------------------------------------------------------ */
+  {
+    icon: IconRefresh,
+    title: "Rotating sessions",
+    body: "Refresh tokens rotate one at a time; a reused token revokes every session.",
+  },
+  {
+    icon: IconTrash,
+    title: "Immediate deletion",
+    body: "Delete your account and everything in it goes at once, permanently.",
+  },
+] as const;
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">{children}</p>
+    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-strong">
+      {children}
+    </p>
   );
 }
 
@@ -121,29 +81,22 @@ function SectionHeading({
   eyebrow,
   title,
   intro,
+  align = "center",
 }: {
   eyebrow: string;
   title: string;
   intro?: string;
+  align?: "center" | "left";
 }) {
+  const alignment = align === "center" ? "mx-auto max-w-2xl text-center" : "max-w-2xl";
   return (
-    <div className="mx-auto max-w-2xl text-center">
+    <div className={alignment}>
       <Eyebrow>{eyebrow}</Eyebrow>
-      <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">{title}</h2>
+      <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+        {title}
+      </h2>
       {intro && <p className="mt-4 text-base leading-relaxed text-muted">{intro}</p>}
     </div>
-  );
-}
-
-function ArrowLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary-hover"
-    >
-      {children}
-      <IconChevronDown className="h-4 w-4 -rotate-90" />
-    </Link>
   );
 }
 
@@ -154,244 +107,222 @@ export default function HomePage() {
       <section className="relative overflow-hidden">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(14,90,65,0.08),transparent)]"
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[620px] bg-[radial-gradient(70%_60%_at_50%_-8%,var(--glow-strong),transparent_66%)]"
         />
-        <div className="mx-auto w-full max-w-6xl px-4 pb-20 pt-16 sm:px-6 sm:pt-24 lg:px-8">
+        <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-14 sm:px-6 sm:pt-20 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
-            <Eyebrow>International expense tracking</Eyebrow>
-            <h1 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-5xl lg:text-[3.4rem]">
+            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-xs font-medium text-muted">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+              Multi-currency expense tracking
+            </span>
+            <h1 className="mt-6 font-display text-[2.5rem] font-semibold leading-[1.05] tracking-tight text-ink sm:text-5xl lg:text-[3.75rem]">
               Spend in any currency.
-              <br />
-              Understand it in yours.
+              <span className="block text-primary">Understand it in yours.</span>
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted">
-              Pluto records every purchase in the currency you actually paid — then shows your
-              totals in the currency you think in, converted with daily ECB reference rates.
+              Pluto records each purchase in the currency you actually paid, then
+              shows your totals, budgets and trends in the one you think in —
+              converted with daily European Central Bank rates.
             </p>
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3.5">
               <Link
                 href="/login"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-7 text-base font-medium text-on-primary shadow-[0_2px_8px_rgba(14,90,65,0.3)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="inline-flex h-12 items-center justify-center gap-2.5 rounded-xl bg-primary px-6 text-base font-semibold text-on-primary shadow-[0_18px_50px_-18px_rgba(52,211,153,0.7)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
+                <IconGoogle className="h-[18px] w-[18px]" />
                 Start tracking free
               </Link>
               <a
                 href="#how-it-works"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-background px-7 text-base font-medium text-ink transition-colors hover:bg-surface-muted"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-6 text-base font-semibold text-ink transition-colors hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 See how it works
+                <IconArrowRight className="h-[18px] w-[18px] text-muted" />
               </a>
             </div>
             <ul className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted">
-              {["Google Sign-In", "No card required", "Daily ECB reference rates"].map((item) => (
-                <li key={item} className="flex items-center gap-1.5">
-                  <IconCheck className="h-4 w-4 text-primary" />
-                  {item}
-                </li>
-              ))}
+              {TRUST.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.label} className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
           <div className="mx-auto mt-16 max-w-4xl">
-            <ProductPreview />
-          </div>
-        </div>
-      </section>
-
-      {/* ----------------------------- Problem ----------------------------- */}
-      <section className="border-t border-border bg-surface">
-        <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
-          <SectionHeading
-            eyebrow="The problem"
-            title="Cross-border spending is hard to read"
-            intro="When your rent is in one currency, groceries in another and a trip in a third, “how much did I spend?” becomes mental arithmetic on top of a spreadsheet."
-          />
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {PROBLEMS.map((problem) => (
-              <div
-                key={problem.title}
-                className="rounded-2xl border border-border bg-background p-6"
-              >
-                <h3 className="text-base font-semibold text-ink">{problem.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">{problem.body}</p>
-              </div>
-            ))}
+            <DashboardMockup />
           </div>
         </div>
       </section>
 
       {/* ----------------------------- Features ---------------------------- */}
-      <section id="features" className="scroll-mt-20 border-t border-border">
+      <section id="features" className="scroll-mt-24 border-t border-border bg-surface">
         <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
-          <SectionHeading
-            eyebrow="Features"
-            title="Everything you need to see clearly"
-            intro="No forty bloat features. Just the mechanics that make foreign spending legible — and they all work against real data."
-          />
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((feature) => (
-              <div
-                key={feature.title}
-                className="flex flex-col rounded-2xl border border-border bg-background p-6 transition-shadow hover:shadow-[0_8px_30px_-18px_rgba(23,33,27,0.25)]"
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-subtle text-primary">
-                  {feature.icon}
-                </span>
-                <h3 className="mt-4 text-base font-semibold text-ink">{feature.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">{feature.body}</p>
-              </div>
+          <Reveal>
+            <SectionHeading
+              eyebrow="Features"
+              title="Everything you need, and nothing you do not"
+              intro="Just the pieces that make foreign spending readable, working on your real numbers."
+            />
+          </Reveal>
+          <Reveal className="mt-12">
+            <FeaturesBento />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ---------------------------- Who it's for ------------------------- */}
+      <section id="who" className="scroll-mt-24 border-t border-border">
+        <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionHeading
+              eyebrow="Built for people who cross borders"
+              title="Made for life in more than one currency"
+            />
+          </Reveal>
+          <Reveal className="mt-12">
+            <AudienceCards />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* --------------------------- How it works -------------------------- */}
+      <section id="how-it-works" className="scroll-mt-24 border-t border-border bg-surface">
+        <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionHeading
+              eyebrow="How it works"
+              title="Three steps, then it runs itself"
+              intro="Pluto does the converting so you can spend your attention on the month ahead."
+            />
+          </Reveal>
+
+          <ol className="mt-12 grid gap-8 md:grid-cols-3 md:gap-6">
+            {STEPS.map((step, i) => (
+              <Reveal key={step.n} delay={i * 80}>
+                <li className="relative">
+                  <span className="font-display text-sm font-semibold tracking-[0.2em] text-primary tabular-nums">
+                    {step.n}
+                  </span>
+                  <div className="mt-3 h-px w-full bg-border" />
+                  <h3 className="mt-4 font-display text-lg font-semibold tracking-tight text-ink">
+                    {step.title}
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{step.body}</p>
+                </li>
+              </Reveal>
             ))}
-          </div>
+          </ol>
+
+          <Reveal className="mx-auto mt-12 max-w-md">
+            <ConverterSingle />
+          </Reveal>
         </div>
       </section>
 
-      {/* -------------------------- Money example -------------------------- */}
-      <section id="how-it-works" className="scroll-mt-20 border-t border-border bg-surface">
+      {/* ------------------------- Privacy and trust ----------------------- */}
+      <section id="privacy" className="scroll-mt-24 border-t border-border">
         <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
-          <div className="grid items-center gap-12 lg:grid-cols-2">
-            <div>
-              <Eyebrow>Conversion</Eyebrow>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-                One purchase, three currencies, no maths
-              </h2>
-              <p className="mt-4 text-base leading-relaxed text-muted">
-                Here is what it looks like when your spending happens around the world but you
-                think in euros. The rates below are today&apos;s live ECB reference rates; the
-                purchases are illustrative.
-              </p>
-              <ol className="mt-8 space-y-6">
-                {STEPS.map((step) => (
-                  <li key={step.n} className="flex gap-4">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-subtle font-mono text-sm font-semibold text-primary">
-                      {step.n}
-                    </span>
-                    <div>
-                      <h3 className="text-sm font-semibold text-ink">{step.title}</h3>
-                      <p className="mt-1 text-sm leading-relaxed text-muted">{step.body}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-            <div>
-              <ConversionExample />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ----------------------------- Use cases --------------------------- */}
-      <section id="use-cases" className="scroll-mt-20 border-t border-border">
-        <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
-          <SectionHeading
-            eyebrow="Who it's for"
-            title="Made for life that crosses borders"
-            intro="If you live, study or travel in more than one currency, this is built for you — no spreadsheet required."
-          />
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {USE_CASES.map((useCase) => (
-              <div
-                key={useCase.title}
-                className="rounded-2xl border border-border bg-background p-6"
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-subtle text-primary">
-                  <IconGlobe className="h-5 w-5" />
-                </span>
-                <h3 className="mt-4 text-base font-semibold text-ink">{useCase.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">{useCase.body}</p>
+          <Reveal>
+            <div className="rounded-[24px] border border-border bg-surface p-6 sm:p-9">
+              <div className="max-w-2xl">
+                <Eyebrow>Privacy and trust</Eyebrow>
+                <h2 className="mt-3 font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+                  A product you can trust with your money
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed text-muted">
+                  Financial data deserves stronger promises than &ldquo;we care about
+                  privacy&rdquo;. These are the behaviours we can point to.
+                </p>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* ------------------------------ Privacy ---------------------------- */}
-      <section id="privacy" className="scroll-mt-20 border-t border-border bg-surface">
-        <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
-          <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
-            <div>
-              <Eyebrow>Privacy</Eyebrow>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-                A product you can trust with your money
-              </h2>
-              <p className="mt-4 text-base leading-relaxed text-muted">
-                Financial data deserves stronger promises than “we care about privacy.” These are
-                the behaviours we can actually point to:
-              </p>
-              <ul className="mt-8 space-y-4">
-                {PRIVACY_POINTS.map((point) => (
-                  <li key={point} className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-primary">
-                      <IconShield className="h-3.5 w-3.5" />
-                    </span>
-                    <p className="text-sm leading-relaxed text-ink">{point}</p>
-                  </li>
-                ))}
+              <ul className="mt-8 grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                {PRIVACY.map((point) => {
+                  const Icon = point.icon;
+                  return (
+                    <li key={point.title} className="flex gap-3.5">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary">
+                        <Icon className="h-4.5 w-4.5" />
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-semibold text-ink">{point.title}</h3>
+                        <p className="mt-1 text-sm leading-relaxed text-muted">{point.body}</p>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <ArrowLink href="/privacy">Privacy Policy</ArrowLink>
-                <ArrowLink href="/terms">Terms of Service</ArrowLink>
-                <ArrowLink href="/delete-account">Delete your account</ArrowLink>
-              </div>
-            </div>
 
-            <div className="rounded-2xl border border-border bg-background p-8">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-subtle text-primary">
-                  <IconBolt className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-ink">Always-on facts</p>
-                  <p className="text-xs text-muted">Things we can show you working</p>
-                </div>
+              <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 border-t border-border pt-6 text-sm">
+                <Link href="/privacy" className="font-medium text-primary hover:text-primary-hover">
+                  Privacy Policy
+                </Link>
+                <Link href="/terms" className="font-medium text-primary hover:text-primary-hover">
+                  Terms of Service
+                </Link>
+                <Link
+                  href="/delete-account"
+                  className="font-medium text-primary hover:text-primary-hover"
+                >
+                  Delete your account
+                </Link>
               </div>
-              <dl className="mt-6 space-y-5">
-                <div className="flex items-baseline justify-between gap-4 border-b border-border pb-4">
-                  <dt className="text-sm text-muted">Rates updated</dt>
-                  <dd className="text-sm font-semibold tabular-nums text-ink">Daily, from the ECB</dd>
-                </div>
-                <div className="flex items-baseline justify-between gap-4 border-b border-border pb-4">
-                  <dt className="text-sm text-muted">Sign-in methods</dt>
-                  <dd className="text-sm font-semibold text-ink">Google only</dd>
-                </div>
-                <div className="flex items-baseline justify-between gap-4 border-b border-border pb-4">
-                  <dt className="text-sm text-muted">Advertising</dt>
-                  <dd className="text-sm font-semibold text-ink">None</dd>
-                </div>
-                <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-sm text-muted">Account deletion</dt>
-                  <dd className="text-sm font-semibold text-ink">Immediate & permanent</dd>
-                </div>
-              </dl>
             </div>
-          </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* -------------------------------- FAQ ------------------------------ */}
+      <section id="faq" className="scroll-mt-24 border-t border-border bg-surface">
+        <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionHeading
+              eyebrow="FAQ"
+              title="Questions people ask first"
+              intro="Short answers about currencies, rates, privacy and your data."
+            />
+          </Reveal>
+          <Reveal className="mt-12">
+            <Faq />
+          </Reveal>
         </div>
       </section>
 
       {/* ----------------------------- Final CTA --------------------------- */}
       <section className="border-t border-border">
-        <div className="mx-auto w-full max-w-6xl px-4 py-24 text-center sm:px-6 lg:px-8">
-          <h2 className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            Your spending, in one currency — starting now
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted">
-            Sign in with Google and record your first expense in under a minute. Everything else —
-            conversion, totals, reports, budgets — happens for you.
-          </p>
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3.5">
-            <Link
-              href="/login"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-7 text-base font-medium text-on-primary shadow-[0_2px_8px_rgba(14,90,65,0.3)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              Start tracking free
-            </Link>
-            <Link
-              href="/status"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-background px-7 text-base font-medium text-ink transition-colors hover:bg-surface-muted"
-            >
-              View service status
-            </Link>
-          </div>
+        <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
+          <Reveal>
+            <div className="relative overflow-hidden rounded-[24px] border border-primary/25 bg-surface shadow-[0_0_80px_-24px_rgba(52,211,153,0.45)]">
+              <div className="relative overflow-hidden rounded-[23px] px-6 py-14 text-center sm:px-12 sm:py-16">
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 -top-24 h-64 bg-[radial-gradient(50%_70%_at_50%_0%,var(--glow),transparent_70%)]"
+                />
+                <div className="relative">
+                  <h2 className="mx-auto max-w-2xl font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+                    Your spending, in one currency, starting now
+                  </h2>
+                  <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted">
+                    Sign in with Google and record your first expense in under a
+                    minute. Conversion, totals and budgets happen for you.
+                  </p>
+                  <div className="mt-9 flex justify-center">
+                    <Link
+                      href="/login"
+                      className="inline-flex h-12 items-center justify-center gap-2.5 rounded-xl bg-primary px-7 text-base font-semibold text-on-primary shadow-[0_18px_50px_-18px_rgba(52,211,153,0.7)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    >
+                      <IconGoogle className="h-[18px] w-[18px]" />
+                      Start tracking free
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
         </div>
       </section>
     </>
