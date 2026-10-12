@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { expensesApi } from "@/lib/expenses";
 import type { Expense } from "@/lib/types";
 import { ErrorNote, Skeleton } from "@/components/ui";
-import { IconArrowLeft } from "@/components/icons";
+import { AppPageHeader, BackLink } from "@/components/app-page-header";
 import { ExpenseForm } from "../../expense-form";
 import { useExpenseSetup } from "../../use-expenses";
 
@@ -53,16 +52,13 @@ export default function EditExpensePage() {
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/expenses"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-ink"
-      >
-        <IconArrowLeft className="h-4 w-4" />
-        Back to dashboard
-      </Link>
+      <AppPageHeader
+        title="Edit expense"
+        actions={<BackLink href="/expenses">Back to dashboard</BackLink>}
+      />
       {combinedError && <ErrorNote message={combinedError} />}
       {!ready && !combinedError && (
-        <div className="space-y-4 rounded-2xl border border-border bg-background p-6">
+        <div className="space-y-4 rounded-3xl border border-border bg-surface p-6">
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />

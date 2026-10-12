@@ -97,10 +97,10 @@ export function FeaturesBento() {
             </span>
           </div>
           <div className="mt-2 flex items-center gap-2">
-            <span className="rounded-full bg-tint-lilac-bg px-2.5 py-1 text-[11px] font-medium text-tint-lilac-fg">
+            <span className="rounded-full bg-cat-violet/15 px-2.5 py-1 text-[11px] font-medium text-cat-violet">
               Coffee
             </span>
-            <span className="rounded-full bg-tint-teal-bg px-2.5 py-1 text-[11px] font-medium text-tint-teal-fg">
+            <span className="rounded-full bg-cat-mint/15 px-2.5 py-1 text-[11px] font-medium text-cat-mint">
               Food
             </span>
             <span className="ml-auto rounded-lg bg-primary px-3 py-1 text-[11px] font-semibold text-on-primary">
@@ -197,12 +197,12 @@ export function FeaturesBento() {
       >
         <div className="flex flex-wrap gap-2">
           {[
-            { label: "Rent", bg: "bg-tint-indigo-bg", fg: "text-tint-indigo-fg" },
-            { label: "Tuition", bg: "bg-tint-amber-bg", fg: "text-tint-amber-fg" },
-            { label: "Food", bg: "bg-tint-teal-bg", fg: "text-tint-teal-fg" },
-            { label: "Travel", bg: "bg-tint-sky-bg", fg: "text-tint-sky-fg" },
-            { label: "Phone", bg: "bg-tint-rose-bg", fg: "text-tint-rose-fg" },
-            { label: "Fun", bg: "bg-tint-lilac-bg", fg: "text-tint-lilac-fg" },
+            { label: "Rent", bg: "bg-cat-violet/15", fg: "text-cat-violet" },
+            { label: "Tuition", bg: "bg-cat-amber/15", fg: "text-cat-amber" },
+            { label: "Food", bg: "bg-cat-mint/15", fg: "text-cat-mint" },
+            { label: "Travel", bg: "bg-cat-sky/15", fg: "text-cat-sky" },
+            { label: "Phone", bg: "bg-cat-rose/15", fg: "text-cat-rose" },
+            { label: "Fun", bg: "bg-cat-slate/15", fg: "text-cat-slate" },
           ].map((chip) => (
             <span
               key={chip.label}

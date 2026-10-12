@@ -1,22 +1,28 @@
 "use client";
 
 /**
- * Expense detail: a single recorded expense, its native amount and — when the
- * reporting currency differs — the display-only "≈" conversion the rest of the
- * app shows. Edit and delete live here as well.
+ * Expense detail: one recorded expense, read through the Pair.
+ *
+ * The headline is the Base value with the Second beside it; the amount as it
+ * was actually paid stays visible as a small "Paid …" label, never rewritten.
+ * The rate line underneath records which snapshot produced the converted
+ * values, so a figure can always be traced back to its rate.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { expensesApi } from "@/lib/expenses";
 import type { Expense } from "@/lib/types";
-import { Badge, Button, Card, ErrorNote, Money, PageHeader, Skeleton } from "@/components/ui";
-import { IconArrowLeft, IconEdit, IconTrash } from "@/components/icons";
+import { Button, ErrorNote, Skeleton } from "@/components/ui";
+import { AppPageHeader, BackLink, PairSwitcher } from "@/components/app-page-header";
+import { DualAmount } from "@/components/amount";
+import { CategorySwatch } from "@/components/category-swatch";
+import { IconEdit, IconTrash } from "@/components/icons";
 import { formatDate } from "@/lib/format";
-import { buildConversionPreview } from "@/lib/convert";
+import { buildConversionPreview, dualAmounts } from "@/lib/convert";
 import { ConfirmDialog } from "@/components/dialog";
-import { useBaseCurrency, useRateSnapshot } from "../use-expenses";
+import { usePair, useRateSnapshot } from "../use-expenses";
 
 const BACK_HREF = "/expenses/transactions";
 
@@ -25,7 +31,7 @@ export default function ExpenseDetailPage() {
   const router = useRouter();
   const id = params?.id;
 
-  const { base } = useBaseCurrency();
+  const { base, second, swap } = usePair();
   const snapshot = useRateSnapshot();
 
   const [expense, setExpense] = useState<Expense | null>(null);
@@ -67,36 +73,20 @@ export default function ExpenseDetailPage() {
   };
 
   const back = (
-    <Link href={BACK_HREF}>
-      <Button variant="secondary" size="sm">
-        <span className="flex items-center gap-2">
-          <IconArrowLeft className="h-4 w-4" />
-          Back to transactions
-        </span>
-      </Button>
-    </Link>
+    <BackLink href={BACK_HREF}>Back to transactions</BackLink>
   );
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Expense details" description="Loading…" action={back} />
-        <Card>
+        <AppPageHeader title="Expense details" actions={back} />
+        <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
           <div className="space-y-4">
             <Skeleton className="h-8 w-1/3" />
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-6 w-1/2" />
           </div>
-        </Card>
-      </div>
-    );
-  }
-
-  if (error && !expense) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="Expense details" description="Expense could not be loaded" action={back} />
-        <ErrorNote message={error} />
+        </section>
       </div>
     );
   }
@@ -104,55 +94,82 @@ export default function ExpenseDetailPage() {
   if (!expense) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Expense details" description="Expense not found" action={back} />
-        <ErrorNote message="Expense not found" />
+        <AppPageHeader title="Expense details" actions={back} />
+        <ErrorNote message={error ?? "Expense not found"} />
       </div>
     );
   }
 
-  const converted =
+  const pair = dualAmounts(expense.amount, expense.currency, base, second, snapshot);
+  const primaryCurrency = pair.base !== null ? (base ?? expense.currency) : expense.currency;
+  const primaryAmount = pair.base ?? expense.amount;
+  const recorded =
+    expense.currency !== primaryCurrency
+      ? { amount: expense.amount, currency: expense.currency }
+      : null;
+
+  const toBase =
     base && base !== expense.currency
       ? buildConversionPreview(expense.amount, expense.currency, base, snapshot)
+      : null;
+  const baseToSecond =
+    base && second && base !== second
+      ? buildConversionPreview(1, base, second, snapshot)
       : null;
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <AppPageHeader
         title="Expense details"
-        description={formatDate(expense.incurredOn)}
-        action={back}
+        dateRange={<span className="text-sm text-muted">{formatDate(expense.incurredOn)}</span>}
+        pair={<PairSwitcher base={base} second={second} onSwap={swap} />}
+        actions={back}
       />
 
       {error && <ErrorNote message={error} />}
 
-      <Card>
+      <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
         <div className="flex flex-col gap-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="truncate text-xl font-semibold tracking-tight text-ink">
+              <h2 className="truncate font-display text-xl font-semibold tracking-tight text-ink">
                 {expense.description || "Untitled expense"}
               </h2>
               <p className="mt-1.5 inline-flex items-center gap-2 text-sm text-muted">
-                <span
-                  aria-hidden="true"
-                  className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: expense.categoryColor }}
-                />
+                <CategorySwatch color={expense.categoryColor} size={10} />
                 {expense.categoryName}
               </p>
             </div>
-            <Badge tone="neutral">{formatDate(expense.incurredOn)}</Badge>
           </div>
 
-          <div className="rounded-xl border border-border bg-surface-muted/50 px-5 py-4">
+          <div className="rounded-2xl border border-border bg-surface-muted/50 px-5 py-4">
             <p className="text-xs font-medium uppercase tracking-wider text-muted">Amount</p>
-            <p className="mt-1 text-3xl font-semibold tracking-tight text-ink">
-              <Money amount={expense.amount} currency={expense.currency} />
-            </p>
-            {converted && (
-              <p className="mt-1.5 text-sm text-muted">
-                ≈ <Money amount={converted.amount} currency={converted.to} /> at{" "}
-                {converted.rate.toFixed(4)} · {converted.provider} {converted.effectiveDate}
+            <div className="mt-1.5">
+              <DualAmount
+                amount={primaryAmount}
+                currency={primaryCurrency}
+                secondaryAmount={pair.second}
+                secondaryCurrency={pair.second !== null ? second : null}
+                recorded={recorded}
+                size="hero"
+                layout="inline"
+              />
+            </div>
+            {(toBase || baseToSecond) && (
+              <p className="mt-3 text-xs text-muted">
+                {toBase && (
+                  <>
+                    1 {toBase.from} = {toBase.rate.toFixed(4)} {toBase.to} · {toBase.provider}{" "}
+                    {toBase.effectiveDate}
+                  </>
+                )}
+                {toBase && baseToSecond && " · "}
+                {baseToSecond && !toBase && (
+                  <>
+                    1 {baseToSecond.from} = {baseToSecond.rate.toFixed(4)} {baseToSecond.to} ·{" "}
+                    {baseToSecond.provider} {baseToSecond.effectiveDate}
+                  </>
+                )}
               </p>
             )}
           </div>
@@ -163,11 +180,7 @@ export default function ExpenseDetailPage() {
               label="Category"
               value={
                 <span className="inline-flex items-center gap-2">
-                  <span
-                    aria-hidden="true"
-                    className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: expense.categoryColor }}
-                  />
+                  <CategorySwatch color={expense.categoryColor} size={10} />
                   {expense.categoryName}
                 </span>
               }
@@ -176,13 +189,12 @@ export default function ExpenseDetailPage() {
           </dl>
 
           <div className="flex flex-wrap gap-3 border-t border-border pt-5">
-            <Link href={`/expenses/${expense.id}/edit`}>
-              <Button variant="primary">
-                <span className="flex items-center gap-2">
-                  <IconEdit className="h-4 w-4" />
-                  Edit expense
-                </span>
-              </Button>
+            <Link
+              href={`/expenses/${expense.id}/edit`}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary transition-colors duration-150 hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <IconEdit className="h-4 w-4" />
+              Edit expense
             </Link>
             <Button
               variant="danger"
@@ -197,7 +209,7 @@ export default function ExpenseDetailPage() {
             </Button>
           </div>
         </div>
-      </Card>
+      </section>
 
       <ConfirmDialog
         open={confirmOpen}
@@ -218,7 +230,7 @@ export default function ExpenseDetailPage() {
   );
 }
 
-function Meta({ label, value }: { label: string; value: React.ReactNode }) {
+function Meta({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <dt className="text-xs font-medium uppercase tracking-wider text-muted">{label}</dt>

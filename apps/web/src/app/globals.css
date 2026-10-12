@@ -55,24 +55,6 @@
   --warning: #fbbf24;
   --warning-subtle: rgba(251, 191, 36, 0.14);
 
-  /* Soft tints for currency chips and category marks (dark surfaces). */
-  --tint-indigo-bg: rgba(129, 140, 248, 0.16);
-  --tint-indigo-fg: #a5b4fc;
-  --tint-coral-bg: rgba(251, 146, 60, 0.16);
-  --tint-coral-fg: #fdba74;
-  --tint-teal-bg: rgba(45, 212, 191, 0.16);
-  --tint-teal-fg: #5eead4;
-  --tint-sky-bg: rgba(96, 165, 250, 0.16);
-  --tint-sky-fg: #93c5fd;
-  --tint-lilac-bg: rgba(196, 181, 253, 0.16);
-  --tint-lilac-fg: #ddd6fe;
-  --tint-amber-bg: rgba(251, 191, 36, 0.16);
-  --tint-amber-fg: #fcd34d;
-  --tint-rose-bg: rgba(251, 113, 133, 0.16);
-  --tint-rose-fg: #fda4af;
-  --tint-sand-bg: rgba(214, 211, 209, 0.14);
-  --tint-sand-fg: #d6d3d1;
-
   /*
    * Restrained category palette: six muted-but-distinguishable hues, all
    * legible on the graphite surfaces. Category marks, chart series and the
@@ -131,24 +113,6 @@
   --color-success-subtle: var(--success-subtle);
   --color-warning: var(--warning);
   --color-warning-subtle: var(--warning-subtle);
-
-  /* Soft tints for currency chips and category marks. */
-  --color-tint-indigo-bg: var(--tint-indigo-bg);
-  --color-tint-indigo-fg: var(--tint-indigo-fg);
-  --color-tint-coral-bg: var(--tint-coral-bg);
-  --color-tint-coral-fg: var(--tint-coral-fg);
-  --color-tint-teal-bg: var(--tint-teal-bg);
-  --color-tint-teal-fg: var(--tint-teal-fg);
-  --color-tint-sky-bg: var(--tint-sky-bg);
-  --color-tint-sky-fg: var(--tint-sky-fg);
-  --color-tint-lilac-bg: var(--tint-lilac-bg);
-  --color-tint-lilac-fg: var(--tint-lilac-fg);
-  --color-tint-amber-bg: var(--tint-amber-bg);
-  --color-tint-amber-fg: var(--tint-amber-fg);
-  --color-tint-rose-bg: var(--tint-rose-bg);
-  --color-tint-rose-fg: var(--tint-rose-fg);
-  --color-tint-sand-bg: var(--tint-sand-bg);
-  --color-tint-sand-fg: var(--tint-sand-fg);
 
   /* Restrained category palette. */
   --color-cat-mint: var(--cat-mint);

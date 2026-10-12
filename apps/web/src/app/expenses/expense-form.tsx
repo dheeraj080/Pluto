@@ -12,13 +12,13 @@
  */
 
 import { useState, type FormEvent } from "react";
-import { Button, Card, ErrorNote, Field, Input, Select } from "@/components/ui";
+import { Button, ErrorNote, Field, Input, Select } from "@/components/ui";
 import { IconSwap } from "@/components/icons";
 import { expensesApi } from "@/lib/expenses";
-import { buildConversionPreview } from "@/lib/convert";
+import { buildConversionPreview, dualAmounts } from "@/lib/convert";
 import { formatMoney } from "@/lib/format";
 import type { Expense, ExpenseCategory, SupportedCurrency } from "@/lib/types";
-import { useBaseCurrency, useRateSnapshot } from "./use-expenses";
+import { usePair, useRateSnapshot } from "./use-expenses";
 
 /** UTC "today", matching the YYYY-MM-DD the server stores for `incurredOn`. */
 function todayIso(): string {
@@ -40,7 +40,7 @@ export function ExpenseForm({
   onCancel: () => void;
 }) {
   const isEditing = expense !== undefined;
-  const { base } = useBaseCurrency();
+  const { base, second } = usePair();
   const snapshot = useRateSnapshot();
 
   const [categoryId, setCategoryId] = useState(expense?.categoryId ?? "");
@@ -62,10 +62,17 @@ export function ExpenseForm({
   const amountValid = Number.isFinite(amountNumber) && amountNumber > 0;
   const canSubmit = Boolean(effectiveCategoryId && effectiveCurrency && amountValid) && !saving;
 
-  const preview =
-    base && effectiveCurrency && base !== effectiveCurrency && amountValid
-      ? buildConversionPreview(amountNumber, effectiveCurrency, base, snapshot)
-      : null;
+  // The preview is only meaningful when the amount is recorded in a currency
+  // other than the Base — otherwise the recorded amount already is the headline.
+  const showsPreview = Boolean(
+    base && effectiveCurrency && base !== effectiveCurrency && amountValid,
+  );
+  const toBase = showsPreview
+    ? buildConversionPreview(amountNumber, effectiveCurrency, base as string, snapshot)
+    : null;
+  const pair = toBase
+    ? dualAmounts(amountNumber, effectiveCurrency, base, second, snapshot)
+    : null;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -95,14 +102,14 @@ export function ExpenseForm({
 
   if (categories.length === 0) {
     return (
-      <Card>
+      <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
         <ErrorNote message="No categories are available yet. Try reloading the page." />
-      </Card>
+      </section>
     );
   }
 
   return (
-    <Card title={isEditing ? "Edit expense" : "New expense"}>
+    <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
       <form onSubmit={(event) => void handleSubmit(event)} className="space-y-5">
         {error && <ErrorNote message={error} />}
 
@@ -143,16 +150,22 @@ export function ExpenseForm({
               </div>
             </Field>
 
-            {preview && (
+            {toBase && pair && (
               <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border bg-surface-muted/60 px-4 py-3">
-                <span className="inline-flex items-center gap-2 text-sm font-medium text-ink">
+                <span className="inline-flex flex-wrap items-center gap-2 text-sm font-medium text-ink">
                   <IconSwap aria-hidden="true" className="h-4 w-4 text-primary" />
-                  ≈ {formatMoney(preview.amount, preview.to)}
-                  <span className="font-normal text-muted">in {preview.to}</span>
+                  <span className="font-normal text-muted">≈</span>
+                  <span className="tabular-nums">{formatMoney(pair.base ?? 0, toBase.to)}</span>
+                  {pair.second !== null && second && (
+                    <span className="tabular-nums font-normal text-muted">
+                      · {formatMoney(pair.second, second)}
+                    </span>
+                  )}
+                  <span className="font-normal text-muted">in your pair</span>
                 </span>
                 <span className="text-xs text-muted">
-                  1 {preview.from} = {preview.rate.toFixed(4)} {preview.to} ·{" "}
-                  {preview.provider} {preview.effectiveDate}
+                  1 {toBase.from} = {toBase.rate.toFixed(4)} {toBase.to} · {toBase.provider}{" "}
+                  {toBase.effectiveDate}
                 </span>
               </div>
             )}
@@ -213,6 +226,6 @@ export function ExpenseForm({
           </Button>
         </div>
       </form>
-    </Card>
+    </section>
   );
 }
