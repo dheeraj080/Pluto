@@ -59,6 +59,13 @@ export class CategoryBreakdownDto {
 
   @ApiProperty({ description: 'Share of the period total, 0-100', example: 31.4 })
   percentage!: number;
+
+  @ApiPropertyOptional({
+    description: 'Subtotal in the secondary currency, when one was requested',
+    example: 22490,
+    nullable: true,
+  })
+  secondaryTotal?: number | null;
 }
 
 export class CurrencyTotalDto {
@@ -135,6 +142,27 @@ export class ExpenseSummaryDto {
 
   @ApiProperty({ type: [CurrencyTotalDto] })
   byCurrency!: CurrencyTotalDto[];
+
+  @ApiPropertyOptional({
+    description: 'Second currency these figures are also expressed in, when requested',
+    example: 'INR',
+    nullable: true,
+  })
+  secondaryCurrency?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Period total in the secondary currency',
+    example: 44955,
+    nullable: true,
+  })
+  secondaryTotal?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Period average per expense in the secondary currency',
+    example: 1070.36,
+    nullable: true,
+  })
+  secondaryAverage?: number | null;
 }
 
 export class TrendPointDto {
@@ -150,11 +178,25 @@ export class TrendPointDto {
 
   @ApiProperty({ example: 42 })
   count!: number;
+
+  @ApiPropertyOptional({
+    description: 'Month total in the secondary currency, when one was requested',
+    example: 65750,
+    nullable: true,
+  })
+  secondaryTotal?: number | null;
 }
 
 export class ExpenseTrendDto {
   @ApiProperty({ example: 'USD' })
   baseCurrency!: string;
+
+  @ApiPropertyOptional({
+    description: 'Second currency the points are also expressed in, when requested',
+    example: 'INR',
+    nullable: true,
+  })
+  secondaryCurrency?: string | null;
 
   @ApiProperty({ example: true })
   converted!: boolean;
@@ -254,6 +296,27 @@ export class BudgetStatusDto {
     example: 'converted',
   })
   conversionStatus!: 'converted' | 'unavailable';
+
+  @ApiPropertyOptional({
+    description: 'Budgeted amount in the secondary currency, when requested',
+    example: 49900,
+    nullable: true,
+  })
+  secondaryBudgetAmount?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Spent in the secondary currency, when requested',
+    example: 61100,
+    nullable: true,
+  })
+  secondarySpent?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'secondaryBudgetAmount minus secondarySpent, when requested',
+    example: -11200,
+    nullable: true,
+  })
+  secondaryRemaining?: number | null;
 }
 
 export class ComparisonDeltaDto {
@@ -335,6 +398,13 @@ export class TopExpenseItemDto {
   convertedCurrency?: string | null;
 
   @ApiPropertyOptional({
+    description: 'Amount in the requested secondary currency, when one was requested',
+    example: 2450,
+    nullable: true,
+  })
+  amountSecondary?: number | null;
+
+  @ApiPropertyOptional({
     description: 'Snapshot date used for conversion, or null',
     example: '2026-10-09',
     nullable: true,
@@ -399,11 +469,25 @@ export class DayOfWeekItemDto {
 
   @ApiProperty({ example: 13.65 })
   average!: number;
+
+  @ApiPropertyOptional({
+    description: 'Total in the secondary currency, when one was requested',
+    example: 22490,
+    nullable: true,
+  })
+  secondaryTotal?: number | null;
 }
 
 export class ByDayOfWeekResponseDto {
   @ApiProperty({ example: 'USD' })
   baseCurrency!: string;
+
+  @ApiPropertyOptional({
+    description: 'Second currency the items are also expressed in, when requested',
+    example: 'INR',
+    nullable: true,
+  })
+  secondaryCurrency?: string | null;
 
   @ApiProperty({ example: true })
   converted!: boolean;
@@ -430,6 +514,13 @@ export class ByDayOfWeekResponseDto {
 export class BudgetStatusResponseDto {
   @ApiProperty({ example: 'USD' })
   baseCurrency!: string;
+
+  @ApiPropertyOptional({
+    description: 'Second currency the items are also expressed in, when requested',
+    example: 'INR',
+    nullable: true,
+  })
+  secondaryCurrency?: string | null;
 
   @ApiProperty({ example: true })
   converted!: boolean;

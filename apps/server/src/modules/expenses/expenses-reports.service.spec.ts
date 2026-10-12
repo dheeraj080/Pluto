@@ -54,6 +54,7 @@ describe('ExpensesReportsService', () => {
 
   const mockConverter = {
     resolveBase: jest.fn(),
+    assertSupported: jest.fn(),
   };
 
   const mockRatesService = {
@@ -67,6 +68,7 @@ describe('ExpensesReportsService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockConverter.resolveBase.mockImplementation((base?: string) => (base ?? 'USD').toUpperCase());
+    mockConverter.assertSupported.mockImplementation((code: string) => code.toUpperCase());
     mockRatesService.getRateTablesForRange.mockImplementation(() => Promise.resolve(TABLES));
 
     const module: TestingModule = await Test.createTestingModule({
@@ -246,6 +248,56 @@ describe('ExpensesReportsService', () => {
       await expect(service.getSummary(USER_A, { base: 'XYZ' })).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    it('expresses totals in the requested secondary currency from the same snapshot', async () => {
+      mockRatesService.getRateTablesForRange.mockResolvedValue([
+        {
+          version: 1,
+          baseCurrency: 'USD',
+          effectiveDate: '2026-10-01',
+          provider: 'mock',
+          rates: { USD: '1.000000', EUR: '0.920000', INR: '83.000000' },
+        },
+      ]);
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        row({ amount: new Prisma.Decimal('100.00') }),
+        row({ amount: new Prisma.Decimal('92.00'), currency: 'EUR' }),
+        row({ amount: new Prisma.Decimal('50.00'), categoryId: 'cat-2' }),
+      ]);
+
+      const result = await service.getSummary(USER_A, {
+        from: '2026-10-01',
+        to: '2026-10-31',
+        secondary: 'INR',
+      });
+
+      expect(result.secondaryCurrency).toBe('INR');
+      expect(result.secondaryTotal).toBe(20750); // 250 USD * 83
+      const food = result.byCategory.find((c) => c.categoryId === 'cat-1');
+      expect(food?.secondaryTotal).toBe(16600); // 200 USD * 83
+    });
+
+    it('omits secondary fields when no secondary currency is requested', async () => {
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        row({ amount: new Prisma.Decimal('100.00') }),
+      ]);
+
+      const result = await service.getSummary(USER_A, { from: '2026-10-01', to: '2026-10-31' });
+
+      expect(result.secondaryCurrency).toBeUndefined();
+      expect(result.secondaryTotal).toBeUndefined();
+      expect(result.byCategory[0].secondaryTotal).toBeUndefined();
+    });
+
+    it('rejects an unsupported secondary currency', async () => {
+      mockConverter.assertSupported.mockImplementation(() => {
+        throw new BadRequestException("Unsupported currency 'XYZ'");
+      });
+
+      await expect(
+        service.getSummary(USER_A, { from: '2026-10-01', to: '2026-10-31', secondary: 'XYZ' }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

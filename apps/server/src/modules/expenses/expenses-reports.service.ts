@@ -44,8 +44,18 @@ const UNAVAILABLE = 'exchange rate snapshot unavailable';
 interface ConversionResolution {
   convertible: boolean;
   value: number | null;
+  /** Value in the requested secondary currency, or null when none/unavailable. */
+  secondaryValue: number | null;
   rateDate: string | null;
   policy: RatePolicy | null;
+}
+
+/** Per-category accumulator before category metadata is joined in. */
+interface CategoryBucket {
+  value: number;
+  count: number;
+  secondaryValue: number;
+  secondaryCount: number;
 }
 
 /** Aggregates per-report conversion health and provenance. */
@@ -158,14 +168,34 @@ export class ExpensesReportsService {
     amount: Prisma.Decimal,
     currency: string,
     dateIso: string,
+    secondary?: string | null,
   ): ConversionResolution {
     const code = currency.toUpperCase();
+    const sec = secondary ? secondary.toUpperCase() : null;
+    const wantsSecondary = sec !== null && sec !== ctx.base;
+
+    // The base currency is an identity conversion: it never needs a rate, so
+    // the base value (and therefore the base report's provenance) is always
+    // exact. A secondary value still needs the snapshot, but its presence must
+    // not turn an exact base row into an "estimate".
     if (code === ctx.base) {
-      // Identity: the base currency never needs a rate, so it can always be
-      // converted exactly.
+      let secondaryValue: number | null = null;
+      if (wantsSecondary) {
+        const resolvedBase = ctx.resolver.resolve(dateIso);
+        const secRaw = resolvedBase?.table.rates[sec];
+        const baseRaw = resolvedBase?.table.rates[ctx.base];
+        if (secRaw && baseRaw) {
+          const secRate = new Prisma.Decimal(secRaw);
+          const baseRate = new Prisma.Decimal(baseRaw);
+          if (!secRate.isZero() && !baseRate.isZero()) {
+            secondaryValue = Number(amount.div(baseRate).mul(secRate).toFixed(2));
+          }
+        }
+      }
       return {
         convertible: true,
         value: Number(amount.toFixed(2)),
+        secondaryValue,
         rateDate: null,
         policy: 'historical',
       };
@@ -173,31 +203,83 @@ export class ExpensesReportsService {
 
     const resolved = ctx.resolver.resolve(dateIso);
     if (!resolved) {
-      return { convertible: false, value: null, rateDate: null, policy: null };
+      return {
+        convertible: false,
+        value: null,
+        secondaryValue: null,
+        rateDate: null,
+        policy: null,
+      };
     }
 
     const fromRateRaw = resolved.table.rates[code];
     const toRateRaw = resolved.table.rates[ctx.base];
     if (!fromRateRaw || !toRateRaw) {
-      return { convertible: false, value: null, rateDate: null, policy: null };
+      return {
+        convertible: false,
+        value: null,
+        secondaryValue: null,
+        rateDate: null,
+        policy: null,
+      };
     }
 
     try {
       const fromRate = new Prisma.Decimal(fromRateRaw);
       const toRate = new Prisma.Decimal(toRateRaw);
       if (fromRate.isZero() || toRate.isZero()) {
-        return { convertible: false, value: null, rateDate: null, policy: null };
+        return {
+          convertible: false,
+          value: null,
+          secondaryValue: null,
+          rateDate: null,
+          policy: null,
+        };
       }
       const value = Number(amount.div(fromRate).mul(toRate).toFixed(2));
+
+      // The snapshot quotes every supported currency against the base, so the
+      // secondary value is the *same* row at the *same* historical date — not
+      // today's rate applied to a historical total.
+      let secondaryValue: number | null = null;
+      if (wantsSecondary) {
+        const secRaw = resolved.table.rates[sec];
+        if (secRaw) {
+          const secRate = new Prisma.Decimal(secRaw);
+          if (!secRate.isZero()) {
+            secondaryValue = Number(amount.div(fromRate).mul(secRate).toFixed(2));
+          }
+        }
+      }
+
       return {
         convertible: true,
         value,
+        secondaryValue,
         rateDate: resolved.table.effectiveDate,
         policy: resolved.policy,
       };
     } catch {
-      return { convertible: false, value: null, rateDate: null, policy: null };
+      return {
+        convertible: false,
+        value: null,
+        secondaryValue: null,
+        rateDate: null,
+        policy: null,
+      };
     }
+  }
+
+  /**
+   * Resolves the optional secondary currency for a report. Returns null when
+   * none was requested or when it equals the base (showing one currency twice
+   * would be noise). Validates against the supported reporting set so a typo is
+   * a 400 rather than a silently empty series.
+   */
+  private resolveSecondary(secondary: string | undefined, base: string): string | null {
+    if (!secondary) return null;
+    const code = this.currencyConverter.assertSupported(secondary);
+    return code === base ? null : code;
   }
 
   private parseDateIso(value: Date): string {
@@ -211,6 +293,7 @@ export class ExpensesReportsService {
   /** Period totals and a per-category breakdown over an inclusive date range. */
   async getSummary(userId: string, query: ReportQueryDto): Promise<ExpenseSummaryDto> {
     const baseCurrency = this.currencyConverter.resolveBase(query.base);
+    const secondaryCurrency = this.resolveSecondary(query.secondary, baseCurrency);
     const { start, end } = resolveRange(query.from, query.to);
     const ctx = await this.buildRateContext(baseCurrency, end);
 
@@ -220,8 +303,10 @@ export class ExpensesReportsService {
     });
 
     const tracker = new ConversionTracker();
-    const categoryBuckets = new Map<string, { value: number; count: number }>();
+    const categoryBuckets = new Map<string, CategoryBucket>();
     const nativeByCurrency = new Map<string, { total: Prisma.Decimal; count: number }>();
+    let secondarySum = 0;
+    let secondaryCount = 0;
 
     for (const row of rows) {
       const res = this.convertAtDate(
@@ -229,6 +314,7 @@ export class ExpensesReportsService {
         row.amount,
         row.currency,
         this.parseDateIso(row.incurredOn),
+        secondaryCurrency,
       );
       tracker.accumulate(row.currency, res);
 
@@ -238,9 +324,20 @@ export class ExpensesReportsService {
         count: (native?.count ?? 0) + 1,
       });
 
-      const bucket = categoryBuckets.get(row.categoryId) ?? { value: 0, count: 0 };
+      const bucket = categoryBuckets.get(row.categoryId) ?? {
+        value: 0,
+        count: 0,
+        secondaryValue: 0,
+        secondaryCount: 0,
+      };
       bucket.count += 1;
       if (res.value !== null) bucket.value = round2(bucket.value + res.value);
+      if (res.secondaryValue !== null) {
+        bucket.secondaryValue = round2(bucket.secondaryValue + res.secondaryValue);
+        bucket.secondaryCount += 1;
+        secondarySum = round2(secondarySum + res.secondaryValue);
+        secondaryCount += 1;
+      }
       categoryBuckets.set(row.categoryId, bucket);
     }
 
@@ -250,6 +347,15 @@ export class ExpensesReportsService {
     const byCurrency: CurrencyTotalDto[] = [...nativeByCurrency.entries()]
       .map(([currency, v]) => ({ currency, total: Number(v.total.toFixed(2)), count: v.count }))
       .sort((a, b) => b.total - a.total);
+
+    const secondaryFields = secondaryCurrency
+      ? {
+          secondaryCurrency,
+          secondaryTotal: secondaryCount > 0 ? secondarySum : null,
+          secondaryAverage:
+            secondaryCount > 0 && rows.length > 0 ? round2(secondarySum / rows.length) : null,
+        }
+      : {};
 
     // Leave the total null when nothing could be converted — a null total and
     // an empty zero-filled breakdown both say "unavailable" without lying.
@@ -268,10 +374,11 @@ export class ExpensesReportsService {
         average: null,
         byCategory: [],
         byCurrency,
+        ...secondaryFields,
       };
     }
 
-    const byCategory = await this.aggregateByCategory(userId, categoryBuckets);
+    const byCategory = await this.aggregateByCategory(userId, categoryBuckets, secondaryCurrency);
     const total = round2(byCategory.reduce((sum, c) => sum + c.total, 0));
     for (const entry of byCategory) {
       entry.percentage = total > 0 ? round2((entry.total / total) * 100) : 0;
@@ -290,12 +397,14 @@ export class ExpensesReportsService {
       average: rows.length > 0 ? round2(total / rows.length) : 0,
       byCategory,
       byCurrency,
+      ...secondaryFields,
     };
   }
 
   /** Trailing monthly totals for time-series charts, oldest first. */
   async getTrends(userId: string, query: TrendQueryDto): Promise<ExpenseTrendDto> {
     const baseCurrency = this.currencyConverter.resolveBase(query.base);
+    const secondaryCurrency = this.resolveSecondary(query.secondary, baseCurrency);
     const keys = trailingMonths(query.months);
     const start = toUtcDate(`${keys[0]}-01`);
     const end = monthWindow(keys[keys.length - 1]).end;
@@ -307,7 +416,16 @@ export class ExpensesReportsService {
     });
 
     const tracker = new ConversionTracker();
-    const buckets = new Map<string, { total: number; convertedCount: number; count: number }>();
+    const buckets = new Map<
+      string,
+      {
+        total: number;
+        convertedCount: number;
+        count: number;
+        secondaryTotal: number;
+        secondaryCount: number;
+      }
+    >();
 
     for (const row of rows) {
       const res = this.convertAtDate(
@@ -315,15 +433,26 @@ export class ExpensesReportsService {
         row.amount,
         row.currency,
         this.parseDateIso(row.incurredOn),
+        secondaryCurrency,
       );
       tracker.accumulate(row.currency, res);
 
       const key = monthKey(row.incurredOn);
-      const bucket = buckets.get(key) ?? { total: 0, convertedCount: 0, count: 0 };
+      const bucket = buckets.get(key) ?? {
+        total: 0,
+        convertedCount: 0,
+        count: 0,
+        secondaryTotal: 0,
+        secondaryCount: 0,
+      };
       bucket.count += 1;
       if (res.value !== null) {
         bucket.total = round2(bucket.total + res.value);
         bucket.convertedCount += 1;
+      }
+      if (res.secondaryValue !== null) {
+        bucket.secondaryTotal = round2(bucket.secondaryTotal + res.secondaryValue);
+        bucket.secondaryCount += 1;
       }
       buckets.set(key, bucket);
     }
@@ -338,7 +467,12 @@ export class ExpensesReportsService {
       const bucket = buckets.get(month);
       const monthCount = bucket?.count ?? 0;
       const total = bucket && bucket.convertedCount > 0 ? round2(bucket.total) : zeroTotal;
-      return { month, total, count: monthCount };
+      const point: TrendPointDto = { month, total, count: monthCount };
+      if (secondaryCurrency) {
+        point.secondaryTotal =
+          bucket && bucket.secondaryCount > 0 ? round2(bucket.secondaryTotal) : zeroTotal;
+      }
+      return point;
     });
 
     const { converted, conversionStatus, unconvertedCurrencies, rateProvenance } =
@@ -351,6 +485,7 @@ export class ExpensesReportsService {
       conversionStatus,
       unconvertedCurrencies,
       rateProvenance,
+      ...(secondaryCurrency ? { secondaryCurrency } : {}),
       months: keys.length,
       points,
     };
@@ -362,6 +497,7 @@ export class ExpensesReportsService {
     query: BudgetStatusQueryDto,
   ): Promise<BudgetStatusResponseDto> {
     const baseCurrency = this.currencyConverter.resolveBase(query.base);
+    const secondaryCurrency = this.resolveSecondary(query.secondary, baseCurrency);
     const month = normalizeMonth(query.month);
 
     const budgets = await this.prisma.budget.findMany({
@@ -377,6 +513,7 @@ export class ExpensesReportsService {
         conversionStatus: 'converted',
         unconvertedCurrencies: [],
         rateProvenance: { earliestRateDate: null, latestRateDate: null, policies: [] },
+        ...(secondaryCurrency ? { secondaryCurrency } : {}),
         month,
         items: [],
       };
@@ -402,6 +539,8 @@ export class ExpensesReportsService {
 
       const itemTracker = new ConversionTracker();
       let spent = 0;
+      let secondarySpent = 0;
+      let secondarySpentRows = 0;
       if (applied) {
         for (const expense of expenses) {
           if (budget.categoryId && expense.categoryId !== budget.categoryId) continue;
@@ -412,10 +551,15 @@ export class ExpensesReportsService {
             expense.amount,
             expense.currency,
             this.parseDateIso(expense.incurredOn),
+            secondaryCurrency,
           );
           itemTracker.accumulate(expense.currency, res);
           reportTracker.accumulate(expense.currency, res);
           if (res.value !== null) spent = round2(spent + res.value);
+          if (res.secondaryValue !== null) {
+            secondarySpent = round2(secondarySpent + res.secondaryValue);
+            secondarySpentRows += 1;
+          }
         }
       }
 
@@ -426,6 +570,7 @@ export class ExpensesReportsService {
         budget.amount,
         budget.currency,
         this.parseDateIso(effectiveStart),
+        secondaryCurrency,
       );
 
       const budgetConvertible = budgetRes.convertible;
@@ -434,6 +579,17 @@ export class ExpensesReportsService {
 
       const remaining = round2(budgetAmount - spent);
       const percentage = budgetAmount > 0 ? round2((spent / budgetAmount) * 100) : 0;
+
+      const secondaryFields = secondaryCurrency
+        ? {
+            secondaryBudgetAmount: budgetRes.secondaryValue,
+            secondarySpent: secondarySpentRows > 0 ? secondarySpent : null,
+            secondaryRemaining:
+              budgetRes.secondaryValue !== null && secondarySpentRows > 0
+                ? round2(budgetRes.secondaryValue - secondarySpent)
+                : null,
+          }
+        : {};
 
       return {
         budgetId: budget.id,
@@ -454,6 +610,7 @@ export class ExpensesReportsService {
         rateDate: budgetRes.rateDate,
         ratePolicy: budgetRes.policy,
         conversionStatus: budgetConvertible && spentConvertible ? 'converted' : 'unavailable',
+        ...secondaryFields,
       };
     });
 
@@ -467,6 +624,7 @@ export class ExpensesReportsService {
       conversionStatus,
       unconvertedCurrencies,
       rateProvenance,
+      ...(secondaryCurrency ? { secondaryCurrency } : {}),
       month,
       items,
     };
@@ -478,7 +636,8 @@ export class ExpensesReportsService {
    */
   private async aggregateByCategory(
     userId: string,
-    buckets: Map<string, { value: number; count: number }>,
+    buckets: Map<string, CategoryBucket>,
+    secondaryCurrency: string | null = null,
   ): Promise<CategoryBreakdownDto[]> {
     const categoryIds = [...buckets.keys()];
     const categories =
@@ -501,6 +660,9 @@ export class ExpensesReportsService {
           total: round2(v.value),
           count: v.count,
           percentage: 0,
+          ...(secondaryCurrency
+            ? { secondaryTotal: v.secondaryCount > 0 ? round2(v.secondaryValue) : null }
+            : {}),
         };
       })
       .sort((a, b) => b.total - a.total);
@@ -516,11 +678,13 @@ export class ExpensesReportsService {
         from: current.start.toISOString().slice(0, 10),
         to: current.end.toISOString().slice(0, 10),
         base: query.base,
+        secondary: query.secondary,
       }),
       this.getSummary(userId, {
         from: previous.start.toISOString().slice(0, 10),
         to: previous.end.toISOString().slice(0, 10),
         base: query.base,
+        secondary: query.secondary,
       }),
     ]);
 
@@ -623,6 +787,7 @@ export class ExpensesReportsService {
 
   async getTopExpenses(userId: string, query: TopQueryDto) {
     const baseCurrency = this.currencyConverter.resolveBase(query.base);
+    const secondaryCurrency = this.resolveSecondary(query.secondary, baseCurrency);
     const { start, end } = resolveRange(query.from, query.to);
     const ctx = await this.buildRateContext(baseCurrency, end);
 
@@ -635,7 +800,13 @@ export class ExpensesReportsService {
 
     const tracker = new ConversionTracker();
     const items: TopExpenseItemDto[] = expenses.map((e) => {
-      const res = this.convertAtDate(ctx, e.amount, e.currency, this.parseDateIso(e.incurredOn));
+      const res = this.convertAtDate(
+        ctx,
+        e.amount,
+        e.currency,
+        this.parseDateIso(e.incurredOn),
+        secondaryCurrency,
+      );
       tracker.accumulate(e.currency, res);
       const value = res.value !== null ? round2(res.value) : null;
 
@@ -649,6 +820,9 @@ export class ExpensesReportsService {
         amount: value,
         convertedAmount: value,
         convertedCurrency: res.convertible ? baseCurrency : null,
+        ...(secondaryCurrency
+          ? { amountSecondary: res.secondaryValue !== null ? round2(res.secondaryValue) : null }
+          : {}),
         rateDate: res.rateDate,
         ratePolicy: res.policy,
         conversionStatus: res.convertible ? 'converted' : 'unavailable',
@@ -666,12 +840,14 @@ export class ExpensesReportsService {
       conversionStatus,
       unconvertedCurrencies,
       rateProvenance,
+      ...(secondaryCurrency ? { secondaryCurrency } : {}),
       items,
     };
   }
 
   async getByDayOfWeek(userId: string, query: ByDayOfWeekQueryDto) {
     const baseCurrency = this.currencyConverter.resolveBase(query.base);
+    const secondaryCurrency = this.resolveSecondary(query.secondary, baseCurrency);
     const { start, end } = resolveRange(query.from, query.to);
     const ctx = await this.buildRateContext(baseCurrency, end);
 
@@ -681,20 +857,28 @@ export class ExpensesReportsService {
     });
 
     const tracker = new ConversionTracker();
-    const buckets = new Map<number, { total: number; count: number }>();
+    const buckets = new Map<number, { total: number; count: number; secondaryTotal: number }>();
 
     for (const e of expenses) {
-      const res = this.convertAtDate(ctx, e.amount, e.currency, this.parseDateIso(e.incurredOn));
+      const res = this.convertAtDate(
+        ctx,
+        e.amount,
+        e.currency,
+        this.parseDateIso(e.incurredOn),
+        secondaryCurrency,
+      );
       tracker.accumulate(e.currency, res);
 
       const dow = e.incurredOn.getUTCDay(); // 0 Sunday
       const val = res.value !== null ? res.value : 0;
+      const secondaryVal = res.secondaryValue !== null ? res.secondaryValue : 0;
       const b = buckets.get(dow);
       if (b) {
         b.total = round2(b.total + val);
+        b.secondaryTotal = round2(b.secondaryTotal + secondaryVal);
         b.count += 1;
       } else {
-        buckets.set(dow, { total: round2(val), count: 1 });
+        buckets.set(dow, { total: round2(val), count: 1, secondaryTotal: round2(secondaryVal) });
       }
     }
 
@@ -709,6 +893,7 @@ export class ExpensesReportsService {
         total: round2(total),
         count,
         average: count > 0 ? round2(total / count) : 0,
+        ...(secondaryCurrency ? { secondaryTotal: round2(b?.secondaryTotal ?? 0) } : {}),
       };
     });
 
@@ -722,6 +907,7 @@ export class ExpensesReportsService {
       conversionStatus,
       unconvertedCurrencies,
       rateProvenance,
+      ...(secondaryCurrency ? { secondaryCurrency } : {}),
       items,
     };
   }

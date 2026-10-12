@@ -128,6 +128,18 @@ export class ReportQueryDto {
   @IsString()
   @Length(3, 3)
   base?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)',
+    example: 'INR',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  secondary?: string;
 }
 
 export class TrendQueryDto {
@@ -154,6 +166,18 @@ export class TrendQueryDto {
   @IsString()
   @Length(3, 3)
   base?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)',
+    example: 'INR',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  secondary?: string;
 }
 
 export class BudgetStatusQueryDto {
@@ -173,6 +197,18 @@ export class BudgetStatusQueryDto {
   @IsString()
   @Length(3, 3)
   base?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)',
+    example: 'INR',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  secondary?: string;
 }
 
 export class ComparisonQueryDto {
@@ -219,6 +255,18 @@ export class ComparisonQueryDto {
   @IsString()
   @Length(3, 3)
   base?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)',
+    example: 'INR',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  secondary?: string;
 }
 
 export class TopQueryDto {
@@ -257,6 +305,18 @@ export class TopQueryDto {
   @IsString()
   @Length(3, 3)
   base?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)',
+    example: 'INR',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  secondary?: string;
 }
 
 export class ByDayOfWeekQueryDto {
@@ -287,6 +347,18 @@ export class ByDayOfWeekQueryDto {
   @IsString()
   @Length(3, 3)
   base?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)',
+    example: 'INR',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  secondary?: string;
 }
 
 export class ExportQueryDto {
@@ -344,4 +416,16 @@ export class ExportQueryDto {
   @IsString()
   @Length(3, 3)
   base?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)',
+    example: 'INR',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  secondary?: string;
 }
