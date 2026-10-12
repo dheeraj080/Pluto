@@ -1,19 +1,21 @@
 "use client";
 
 /**
- * The dashboard's left column: the most recent transactions, newest first.
+ * The dashboard's recent-transactions card, newest first.
  *
- * Each row shows the native amount as recorded and, when the reporting
- * currency differs, an "≈" converted figure from the public rate snapshot —
- * display-only, exactly like the transactions table.
+ * Each row shows the recorded amount re-expressed in the Pair: Base bold, the
+ * Second smaller and grey, and a quiet "Paid …" label when the expense was
+ * recorded in a third currency. The per-row values come from the public rate
+ * snapshot and are display-only; the server aggregates own every total.
  */
 
 import Link from "next/link";
-import { buildConversionPreview } from "@/lib/convert";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { dualAmounts } from "@/lib/convert";
 import type { Expense, Paginated, RateSnapshot } from "@/lib/types";
-import { BentoTile } from "@/components/bento";
+import { ChartFrame } from "@/components/charts";
 import { EmptyState, Skeleton } from "@/components/ui";
+import { TransactionRow } from "@/components/transaction-row";
 import { IconPlus, IconReceipt } from "@/components/icons";
 
 export function RecentTransactions({
@@ -21,18 +23,44 @@ export function RecentTransactions({
   loading,
   error,
   base,
+  second,
   snapshot,
 }: {
   data: Paginated<Expense> | null;
   loading: boolean;
   error: string | null;
   base: string | null;
+  second: string | null;
   snapshot: RateSnapshot | null;
 }) {
+  const items = data?.items ?? [];
+  const isEmpty = !loading && items.length === 0;
+
   return (
-    <BentoTile
+    <ChartFrame
       title="Recent transactions"
-      className="lg:col-span-5"
+      className="flex flex-col lg:col-span-7"
+      bodyClassName="flex flex-1 flex-col pt-2"
+      loading={loading && !data}
+      skeleton={<RowSkeleton />}
+      empty={
+        isEmpty ? (
+          <EmptyState
+            icon={<IconReceipt className="h-5 w-5" />}
+            title="No expenses yet"
+            description="Record your first expense to start building a picture of where your money goes."
+            action={
+              <Link
+                href="/expenses/new"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
+              >
+                <IconPlus className="h-4 w-4" />
+                Add your first expense
+              </Link>
+            }
+          />
+        ) : undefined
+      }
       action={
         <Link
           href="/expenses/transactions"
@@ -41,80 +69,53 @@ export function RecentTransactions({
           View all →
         </Link>
       }
-      bodyClassName="flex flex-col"
+      footer={error ? <span className="text-danger">{error}</span> : undefined}
     >
-      {loading && !data ? (
-        <div className="space-y-3.5">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="flex items-center gap-3">
-              <Skeleton className="h-2.5 w-2.5 rounded-full" />
-              <div className="flex-1 space-y-1.5">
-                <Skeleton className="h-3.5 w-2/3" />
-                <Skeleton className="h-3 w-1/3" />
-              </div>
-              <Skeleton className="h-4 w-16" />
-            </div>
-          ))}
+      <ul className="flex flex-1 flex-col divide-y divide-border">
+        {items.map((expense) => {
+          const pair = dualAmounts(expense.amount, expense.currency, base, second, snapshot);
+          const primaryCurrency = pair.base !== null ? (base ?? expense.currency) : expense.currency;
+          const primaryAmount = pair.base ?? expense.amount;
+          const secondAmount = pair.second !== null ? pair.second : null;
+          const recorded =
+            expense.currency !== primaryCurrency
+              ? { amount: expense.amount, currency: expense.currency }
+              : null;
+
+          return (
+            <li key={expense.id} className="flex-1">
+              <TransactionRow
+                href={`/expenses/${expense.id}`}
+                color={expense.categoryColor}
+                title={expense.description || expense.categoryName}
+                meta={`${formatDate(expense.incurredOn)} · ${expense.categoryName}`}
+                amount={primaryAmount}
+                currency={primaryCurrency}
+                secondAmount={secondAmount}
+                secondCurrency={secondAmount !== null ? second : null}
+                recorded={recorded}
+              />
+            </li>
+          );
+        })}
+      </ul>
+    </ChartFrame>
+  );
+}
+
+function RowSkeleton() {
+  return (
+    <div className="space-y-1 px-2" aria-busy="true">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="flex items-center gap-3 py-2.5">
+          <Skeleton className="size-2.5 rounded-full" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-3.5 w-2/3" />
+            <Skeleton className="h-3 w-1/3" />
+          </div>
+          <Skeleton className="h-4 w-16" />
         </div>
-      ) : error ? (
-        <p className="text-sm text-danger">{error}</p>
-      ) : !data || data.items.length === 0 ? (
-        <EmptyState
-          icon={<IconReceipt className="h-5 w-5" />}
-          title="No expenses yet"
-          description="Record your first expense to start building a picture of where your money goes."
-          action={
-            <Link
-              href="/expenses/new"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
-            >
-              <IconPlus className="h-4 w-4" />
-              Add expense
-            </Link>
-          }
-        />
-      ) : (
-        <ul className="flex flex-1 flex-col divide-y divide-border">
-          {data.items.map((expense) => {
-            const converted =
-              base && base !== expense.currency && snapshot
-                ? buildConversionPreview(expense.amount, expense.currency, base, snapshot)
-                : null;
-            return (
-              <li key={expense.id} className="flex-1">
-                <Link
-                  href={`/expenses/${expense.id}`}
-                  className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-muted"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: expense.categoryColor }}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-ink">
-                      {expense.description || expense.categoryName}
-                    </span>
-                    <span className="block text-xs text-muted">
-                      {formatDate(expense.incurredOn)} · {expense.categoryName}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-right">
-                    <span className="block text-sm font-medium tabular-nums text-ink">
-                      {formatMoney(expense.amount, expense.currency)}
-                    </span>
-                    {converted && (
-                      <span className="block text-xs text-muted">
-                        ≈ {formatMoney(converted.amount, converted.to)}
-                      </span>
-                    )}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </BentoTile>
+      ))}
+    </div>
   );
 }

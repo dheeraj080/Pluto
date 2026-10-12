@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { expensesApi } from "@/lib/expenses";
 import { windowFor, type DateWindow, type WindowKind } from "@/lib/ranges";
-import type { Expense, ExpenseComparison, Paginated } from "@/lib/types";
+import type { BudgetStatus, Expense, ExpenseComparison, Paginated } from "@/lib/types";
 
 export interface DashboardWindow {
   kind: WindowKind;
@@ -36,7 +36,10 @@ export function comparisonDeltaPct(comparison: ExpenseComparison): number | null
 }
 
 /** Today / this week / this month, each with its previous-period comparison. */
-export function useDashboardWindows(base: string | null): {
+export function useDashboardWindows(
+  base: string | null,
+  second: string | null = null,
+): {
   windows: DashboardWindows | null;
   loading: boolean;
   error: string | null;
@@ -73,6 +76,7 @@ export function useDashboardWindows(base: string | null): {
             previousFrom: range.prevFrom,
             previousTo: range.prevTo,
             base: base ?? undefined,
+            secondary: second ?? undefined,
           })
           .then((comparison) => ({ kind, range, comparison }));
       };
@@ -95,11 +99,56 @@ export function useDashboardWindows(base: string | null): {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [base, nonce, ranges]);
+  }, [base, second, nonce, ranges]);
 
   const reload = useCallback(() => setNonce((value) => value + 1), []);
 
   return { windows, loading, error, reload };
+}
+
+/**
+ * The overall (uncategorised) budget for `month`, if one exists.
+ *
+ * The Balance card is `overall budget − spent`, so only the budget whose
+ * `categoryId` is null is relevant; a null result drives the "Set a budget"
+ * prompt rather than inventing a number.
+ */
+export function useDashboardBudget(
+  base: string | null,
+  second: string | null,
+  month: string,
+): { budget: BudgetStatus | null; loading: boolean; error: string | null } {
+  const [budget, setBudget] = useState<BudgetStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setLoading(true);
+      setError(null);
+      expensesApi
+        .getBudgetStatus({ month, base: base ?? undefined, secondary: second ?? undefined })
+        .then((result) => {
+          if (!cancelled) setBudget(result.items.find((item) => item.categoryId === null) ?? null);
+        })
+        .catch((err: unknown) => {
+          if (!cancelled) {
+            setError(err instanceof Error ? err.message : "Failed to load your budget.");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [base, second, month]);
+
+  return { budget, loading, error };
 }
 
 /** The most recent expenses, newest first, for the dashboard's left column. */

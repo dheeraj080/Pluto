@@ -128,9 +128,12 @@ export function ChartFrame({
   action,
   children,
   table,
+  srTable,
   loading = false,
+  skeleton,
   empty,
   footer,
+  glow = false,
   height = 280,
   className = "",
   bodyClassName = "",
@@ -142,10 +145,19 @@ export function ChartFrame({
   children: ReactNode;
   /** Data-table alternative offered beside the chart. */
   table?: ChartTable;
+  /**
+   * A screen-reader-only table for charts whose visual form is replaced by a
+   * richer card layout (e.g. the dashboard hero) rather than a simple toggle.
+   */
+  srTable?: ChartTable;
   loading?: boolean;
+  /** Custom loading content; defaults to a chart-shaped block. */
+  skeleton?: ReactNode;
   /** Replaces the chart when there is genuinely nothing to plot. */
   empty?: ReactNode;
   footer?: ReactNode;
+  /** Adds the soft emerald glow, reserved for hero cards. */
+  glow?: boolean;
   height?: number;
   className?: string;
   bodyClassName?: string;
@@ -154,8 +166,17 @@ export function ChartFrame({
   const canToggle = Boolean(table) && !loading && !empty;
 
   return (
-    <section className={`rounded-3xl border border-border bg-surface ${className}`}>
-      <header className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5 sm:px-6">
+    <section
+      className={`relative overflow-hidden rounded-3xl border border-border bg-surface ${className}`}
+    >
+      {glow && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-28 left-[12%] h-64 w-64 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, var(--glow-strong), transparent 70%)" }}
+        />
+      )}
+      <header className="relative flex flex-wrap items-start justify-between gap-3 px-5 pt-5 sm:px-6">
         <div className="min-w-0">
           <h2 className="text-sm font-medium text-ink">{title}</h2>
           {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
@@ -174,18 +195,27 @@ export function ChartFrame({
           )}
         </div>
       </header>
-      <div className={`px-2 pb-4 pt-3 sm:px-3 ${bodyClassName}`}>
+      <div className={`relative px-4 pb-5 pt-3 sm:px-5 ${bodyClassName}`}>
         {loading ? (
-          <ChartSkeleton height={height} />
+          skeleton ?? <ChartSkeleton height={height} />
         ) : empty ? (
           empty
         ) : showTable && table ? (
           <ChartDataTable table={table} />
         ) : (
-          children
+          <>
+            {children}
+            {srTable && !showTable && (
+              <div className="sr-only">
+                <ChartDataTable table={srTable} />
+              </div>
+            )}
+          </>
         )}
       </div>
-      {footer && <div className="px-5 pb-5 text-xs leading-relaxed text-muted sm:px-6">{footer}</div>}
+      {footer && (
+        <div className="relative px-5 pb-5 text-xs leading-relaxed text-muted sm:px-6">{footer}</div>
+      )}
     </section>
   );
 }
@@ -222,6 +252,8 @@ export interface TrendSeries {
   /** Thinner, quieter stroke — the second currency. */
   quiet?: boolean;
   dashed?: boolean;
+  /** Set false to hide the per-point dots (busy series). */
+  dots?: boolean;
   /** Render nothing for this series (used by the Both/Base/Second toggle). */
   hidden?: boolean;
 }
@@ -403,7 +435,7 @@ export function TrendLineChart({
               connectNulls: false,
               isAnimationActive: !reduced,
               animationDuration: reduced ? 0 : 700,
-              dot: { r: 2.5, fill: entry.color, strokeWidth: 0 },
+              dot: entry.dots === false ? (false as const) : { r: 2.5, fill: entry.color, strokeWidth: 0 },
               activeDot: { r: 4.5, strokeWidth: 0 },
               onClick: handleClick,
             };
