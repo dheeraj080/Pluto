@@ -14,7 +14,7 @@ import {
   PaginatedExpensesResponseDto,
 } from './dto/expense-response.dto';
 import { formatDate, toUtcDate } from './expenses.utils';
-import { DEFAULT_CATEGORIES } from './expense-defaults';
+import { DEFAULT_CATEGORIES, DEFAULT_CATEGORY_COLOR } from './expense-defaults';
 
 const CATEGORY_SELECT = { name: true, color: true } as const;
 
@@ -55,7 +55,7 @@ export class ExpensesService {
       data: {
         userId,
         name,
-        color: dto.color ?? '#4f46e5',
+        color: dto.color ?? DEFAULT_CATEGORY_COLOR,
         icon: dto.icon,
         isDefault: false,
         sortOrder: 0,

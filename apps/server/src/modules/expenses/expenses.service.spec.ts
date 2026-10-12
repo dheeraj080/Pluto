@@ -171,7 +171,7 @@ describe('ExpensesService', () => {
 
       expect(mockPrismaService.expenseCategory.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ name: 'Travel', color: '#4f46e5', isDefault: false }),
+          data: expect.objectContaining({ name: 'Travel', color: '#34d399', isDefault: false }),
         }),
       );
       expect(result.name).toBe('Travel');

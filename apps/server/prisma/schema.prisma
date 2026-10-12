@@ -131,7 +131,7 @@ model ExpenseCategory {
   id        String   @id @default(uuid())
   userId    String
   name      String
-  color     String   @default("#4f46e5")
+  color     String   @default("#34d399")
   icon      String?
   isDefault Boolean  @default(false)
   sortOrder Int      @default(0)
