@@ -21,6 +21,9 @@ import {
   BudgetStatusDto,
   BudgetStatusResponseDto,
   CategoryBreakdownDto,
+  CategorySeriesItemDto,
+  CategorySeriesPointDto,
+  CategorySeriesResponseDto,
   CategoryTrendPointDto,
   CategoryTrendSeriesDto,
   CategoryTrendsResponseDto,
@@ -57,6 +60,8 @@ interface ConversionResolution {
   secondaryValue: number | null;
   rateDate: string | null;
   policy: RatePolicy | null;
+  /** Multiplier actually applied (converted = amount × rate), or null when unconvertible. */
+  rate?: number | null;
 }
 
 /** Per-category accumulator before category metadata is joined in. */
@@ -207,6 +212,7 @@ export class ExpensesReportsService {
         secondaryValue,
         rateDate: null,
         policy: 'historical',
+        rate: 1,
       };
     }
 
@@ -267,6 +273,7 @@ export class ExpensesReportsService {
         secondaryValue,
         rateDate: resolved.table.effectiveDate,
         policy: resolved.policy,
+        rate: Number(toRateRaw) / Number(fromRateRaw),
       };
     } catch {
       return {
@@ -314,6 +321,10 @@ export class ExpensesReportsService {
     const tracker = new ConversionTracker();
     const categoryBuckets = new Map<string, CategoryBucket>();
     const nativeByCurrency = new Map<string, { total: Prisma.Decimal; count: number }>();
+    const convertedByCurrency = new Map<
+      string,
+      { total: number; secondaryTotal: number; convertedCount: number; secondaryCount: number }
+    >();
     let secondarySum = 0;
     let secondaryCount = 0;
 
@@ -332,6 +343,22 @@ export class ExpensesReportsService {
         total: native ? native.total.add(row.amount) : row.amount,
         count: (native?.count ?? 0) + 1,
       });
+
+      const cv = convertedByCurrency.get(row.currency) ?? {
+        total: 0,
+        secondaryTotal: 0,
+        convertedCount: 0,
+        secondaryCount: 0,
+      };
+      if (res.value !== null) {
+        cv.total = round2(cv.total + res.value);
+        cv.convertedCount += 1;
+      }
+      if (res.secondaryValue !== null) {
+        cv.secondaryTotal = round2(cv.secondaryTotal + res.secondaryValue);
+        cv.secondaryCount += 1;
+      }
+      convertedByCurrency.set(row.currency, cv);
 
       const bucket = categoryBuckets.get(row.categoryId) ?? {
         value: 0,
@@ -354,7 +381,18 @@ export class ExpensesReportsService {
       tracker.toReportFields();
 
     const byCurrency: CurrencyTotalDto[] = [...nativeByCurrency.entries()]
-      .map(([currency, v]) => ({ currency, total: Number(v.total.toFixed(2)), count: v.count }))
+      .map(([currency, v]) => {
+        const conv = convertedByCurrency.get(currency);
+        return {
+          currency,
+          total: Number(v.total.toFixed(2)),
+          count: v.count,
+          convertedTotal: conv && conv.convertedCount > 0 ? round2(conv.total) : null,
+          ...(secondaryCurrency && conv && conv.secondaryCount > 0
+            ? { secondaryTotal: round2(conv.secondaryTotal) }
+            : {}),
+        };
+      })
       .sort((a, b) => b.total - a.total);
 
     const secondaryFields = secondaryCurrency
@@ -732,6 +770,139 @@ export class ExpensesReportsService {
       conversionStatus,
       unconvertedCurrencies,
       rateProvenance,
+      series,
+    };
+  }
+
+  /**
+   * Per-category spending bucketed by day, week or month across an inclusive
+   * range — every category the reader spent in, largest first, each with a
+   * continuous zero-filled series that lines up with the top-level series of
+   * the same range. Feeds the stacked-area "over time" view and the per-row
+   * sparklines, so the five-thousand-foot view and the list can never disagree
+   * about a category's shape.
+   */
+  async getCategorySeries(
+    userId: string,
+    query: SeriesQueryDto,
+  ): Promise<CategorySeriesResponseDto> {
+    const baseCurrency = this.currencyConverter.resolveBase(query.base);
+    const secondaryCurrency = this.resolveSecondary(query.secondary, baseCurrency);
+    const { start, end } = resolveRange(query.from, query.to);
+
+    const buckets = seriesBuckets(query.granularity, start, end);
+    if (buckets.length > 800) {
+      throw new BadRequestException(
+        'Requested range yields too many buckets; narrow the range or use a coarser granularity',
+      );
+    }
+
+    const ctx = await this.buildRateContext(baseCurrency, end);
+
+    const rows = await this.prisma.expense.findMany({
+      where: { userId, incurredOn: { gte: start, lte: end } },
+      select: { amount: true, currency: true, incurredOn: true, categoryId: true },
+    });
+
+    const tracker = new ConversionTracker();
+    const byCategory = new Map<
+      string,
+      Map<
+        string,
+        { total: number; convertedCount: number; secondaryTotal: number; secondaryCount: number }
+      >
+    >();
+    const categoryTotals = new Map<string, number>();
+
+    for (const row of rows) {
+      const res = this.convertAtDate(
+        ctx,
+        row.amount,
+        row.currency,
+        this.parseDateIso(row.incurredOn),
+        secondaryCurrency,
+      );
+      tracker.accumulate(row.currency, res);
+
+      const key = seriesKey(row.incurredOn, query.granularity);
+      let categoryBuckets = byCategory.get(row.categoryId);
+      if (!categoryBuckets) {
+        categoryBuckets = new Map();
+        byCategory.set(row.categoryId, categoryBuckets);
+      }
+      const bucket = categoryBuckets.get(key) ?? {
+        total: 0,
+        convertedCount: 0,
+        secondaryTotal: 0,
+        secondaryCount: 0,
+      };
+      if (res.value !== null) {
+        bucket.total = round2(bucket.total + res.value);
+        bucket.convertedCount += 1;
+        categoryTotals.set(
+          row.categoryId,
+          round2((categoryTotals.get(row.categoryId) ?? 0) + res.value),
+        );
+      }
+      if (res.secondaryValue !== null) {
+        bucket.secondaryTotal = round2(bucket.secondaryTotal + res.secondaryValue);
+        bucket.secondaryCount += 1;
+      }
+      categoryBuckets.set(key, bucket);
+    }
+
+    const topIds = [...categoryTotals.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+
+    const categories =
+      topIds.length > 0
+        ? await this.prisma.expenseCategory.findMany({
+            where: { id: { in: topIds }, userId },
+            select: { id: true, name: true, color: true },
+          })
+        : [];
+    const meta = new Map(categories.map((c) => [c.id, c]));
+
+    const globallyUnavailable = tracker.status() === 'unavailable';
+    const zeroTotal = globallyUnavailable ? null : 0;
+
+    const series: CategorySeriesItemDto[] = topIds.map((categoryId) => {
+      const categoryBuckets = byCategory.get(categoryId);
+      const category = meta.get(categoryId);
+      const points: CategorySeriesPointDto[] = buckets.map((bucket) => {
+        const entry = categoryBuckets?.get(bucket);
+        const point: CategorySeriesPointDto = {
+          bucket,
+          total: entry && entry.convertedCount > 0 ? round2(entry.total) : zeroTotal,
+        };
+        if (secondaryCurrency) {
+          point.secondaryTotal =
+            entry && entry.secondaryCount > 0 ? round2(entry.secondaryTotal) : zeroTotal;
+        }
+        return point;
+      });
+      return {
+        categoryId,
+        categoryName: category?.name ?? 'Uncategorised',
+        color: category?.color ?? '#64748b',
+        points,
+      };
+    });
+
+    const { converted, conversionStatus, unconvertedCurrencies, rateProvenance } =
+      tracker.toReportFields();
+
+    return {
+      baseCurrency,
+      ...(secondaryCurrency ? { secondaryCurrency } : {}),
+      granularity: query.granularity,
+      from: formatDate(start),
+      to: formatDate(end),
+      converted,
+      ...(conversionStatus === 'unavailable' ? { conversionUnavailableReason: UNAVAILABLE } : {}),
+      conversionStatus,
+      unconvertedCurrencies,
+      rateProvenance,
+      buckets,
       series,
     };
   }
@@ -1159,7 +1330,6 @@ export class ExpensesReportsService {
 
   async exportCsv(userId: string, query: ExportQueryDto): Promise<string> {
     const baseCurrency = this.currencyConverter.resolveBase(query.base);
-    const secondaryCurrency = this.resolveSecondary(query.secondary, baseCurrency);
 
     const where: Prisma.ExpenseWhereInput = { userId };
     const { start, end } = resolveRange(query.from, query.to);
@@ -1180,15 +1350,13 @@ export class ExpensesReportsService {
       'Date',
       'Description',
       'Category',
-      'Amount',
-      'Currency',
-      'BaseAmount',
-      'BaseCurrency',
-      'Converted',
-      'RateDate',
-      'RatePolicy',
-      'ConversionStatus',
-      ...(secondaryCurrency ? ['SecondaryAmount', 'SecondaryCurrency'] : []),
+      'Amount Paid',
+      'Currency Paid',
+      'Converted Amount',
+      'Reporting Currency',
+      'Rate Used',
+      'Rate Date',
+      'Estimated',
     ];
     const lines = [headers.join(',')];
 
@@ -1199,19 +1367,15 @@ export class ExpensesReportsService {
       const amount = Number(e.amount).toFixed(2);
       const currency = e.currency;
 
-      const res = this.convertAtDate(ctx, e.amount, currency, date, secondaryCurrency);
-      const baseAmount = res.value !== null ? res.value.toFixed(2) : '';
-      const base = res.convertible ? baseCurrency : '';
+      const res = this.convertAtDate(ctx, e.amount, currency, date);
+      const convertedAmount = res.value !== null ? res.value.toFixed(2) : '';
+      const reportingCurrency = res.convertible ? baseCurrency : '';
+      const rateUsed = res.rate != null ? Number(res.rate.toFixed(6)).toString() : '';
       const rateDate = res.rateDate ?? '';
-      const ratePolicy = res.policy ?? '';
-      const conversionStatus = res.convertible ? 'converted' : 'unavailable';
-      const secondaryAmount = res.secondaryValue !== null ? res.secondaryValue.toFixed(2) : '';
-      const secondaryCells = secondaryCurrency
-        ? `,${secondaryAmount},${res.secondaryValue !== null ? secondaryCurrency : ''}`
-        : '';
+      const estimated = res.policy === 'estimate' ? 'yes' : 'no';
 
       lines.push(
-        `"${date}","${description}","${category}",${amount},${currency},${baseAmount},${base},${res.convertible},${rateDate},${ratePolicy},${conversionStatus}${secondaryCells}`,
+        `"${date}","${description}","${category}",${amount},${currency},${convertedAmount},${reportingCurrency},${rateUsed},${rateDate},${estimated}`,
       );
     }
 

@@ -213,6 +213,10 @@ export interface CurrencyTotal {
   /** Native, unconverted subtotal. */
   total: number;
   count: number;
+  /** Subtotal converted into the base currency; null when the rate was unavailable. */
+  convertedTotal?: number | null;
+  /** Subtotal in the secondary currency, when one was requested. */
+  secondaryTotal?: number | null;
 }
 
 export type ConversionStatus = "converted" | "partially_converted" | "unavailable";
@@ -444,6 +448,39 @@ export interface ExpenseSeriesResponse {
   rateProvenance: RateProvenance;
   conversionUnavailableReason?: string;
   points: SeriesPoint[];
+}
+
+/* ------------------------ Category series ------------------------------- */
+
+export interface CategorySeriesPoint {
+  /** Bucket key: YYYY-MM-DD for day/week (week = Monday), YYYY-MM for month. */
+  bucket: string;
+  total: number | null;
+  secondaryTotal?: number | null;
+}
+
+export interface CategorySeriesItem {
+  categoryId: string;
+  categoryName: string;
+  color: string;
+  points: CategorySeriesPoint[];
+}
+
+export interface CategorySeriesResponse {
+  baseCurrency: string;
+  secondaryCurrency?: string | null;
+  granularity: SeriesGranularity;
+  from: string;
+  to: string;
+  converted: boolean;
+  conversionStatus: ConversionStatus;
+  unconvertedCurrencies: string[];
+  rateProvenance: RateProvenance;
+  conversionUnavailableReason?: string;
+  /** Bucket keys in chart order. */
+  buckets: string[];
+  /** Every category with spend in the range, largest first. */
+  series: CategorySeriesItem[];
 }
 
 /* ------------------------ Category trends ------------------------------- */

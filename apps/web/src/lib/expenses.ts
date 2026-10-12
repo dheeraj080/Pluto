@@ -12,6 +12,7 @@ import type {
   Budget,
   BudgetPeriod,
   BudgetStatusResponse,
+  CategorySeriesResponse,
   CategoryTrendsResponse,
   Expense,
   ExpenseCategory,
@@ -151,6 +152,13 @@ export const expensesApi = {
     base?: string;
     secondary?: string;
   }) => api.get<CategoryTrendsResponse>(`/expenses/category-trends${buildQuery(query)}`),
+  getCategorySeries: (query: {
+    from?: string;
+    to?: string;
+    granularity?: SeriesGranularity;
+    base?: string;
+    secondary?: string;
+  }) => api.get<CategorySeriesResponse>(`/expenses/category-series${buildQuery(query)}`),
   exportCsv: (query: {
     from?: string;
     to?: string;

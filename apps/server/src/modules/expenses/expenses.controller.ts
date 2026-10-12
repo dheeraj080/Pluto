@@ -39,6 +39,7 @@ import {
 } from './dto/expense-response.dto';
 import {
   BudgetStatusResponseDto,
+  CategorySeriesResponseDto,
   CategoryTrendsResponseDto,
   ExpenseSummaryDto,
   ExpenseTrendDto,
@@ -184,6 +185,28 @@ export class ExpensesController {
     @Query() query: CategoryTrendsQueryDto,
   ): Promise<CategoryTrendsResponseDto> {
     return this.reportsService.getCategoryTrends(user.id, query);
+  }
+
+  @Get('category-series')
+  @ApiOperation({
+    summary: 'Per-category spending series over a date range',
+    description:
+      'Returns every category the caller spent in, largest first, each bucketed by day, week or month across an inclusive range. Feeds the stacked-area category view and per-category sparklines.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Per-category bucketed series',
+    type: CategorySeriesResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Unsupported currency, malformed date or range too large',
+  })
+  async getCategorySeries(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: SeriesQueryDto,
+  ): Promise<CategorySeriesResponseDto> {
+    return this.reportsService.getCategorySeries(user.id, query);
   }
 
   // ------------------------------------------------------------------ budgets

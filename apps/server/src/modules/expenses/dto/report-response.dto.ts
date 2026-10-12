@@ -77,6 +77,21 @@ export class CurrencyTotalDto {
 
   @ApiProperty({ example: 18 })
   count!: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Subtotal converted into the base currency at each row\u2019s historical date; null when the rate was unavailable',
+    example: 245.75,
+    nullable: true,
+  })
+  convertedTotal?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Subtotal in the secondary currency, when one was requested',
+    example: 20397.75,
+    nullable: true,
+  })
+  secondaryTotal?: number | null;
 }
 
 export class ExpenseSummaryDto {
@@ -684,4 +699,86 @@ export class CategoryTrendsResponseDto {
 
   @ApiProperty({ type: [CategoryTrendSeriesDto] })
   series!: CategoryTrendSeriesDto[];
+}
+
+export class CategorySeriesPointDto {
+  @ApiProperty({
+    description: 'Bucket key: YYYY-MM-DD for day/week (week = Monday), YYYY-MM for month',
+    example: '2026-10-01',
+  })
+  bucket!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Category total in the base currency for the bucket; null when nothing in range could convert',
+    example: 245.75,
+    nullable: true,
+  })
+  total!: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Category total in the secondary currency, when one was requested',
+    example: 20397.75,
+    nullable: true,
+  })
+  secondaryTotal?: number | null;
+}
+
+export class CategorySeriesItemDto {
+  @ApiProperty({ example: 'b2f1c3de-1111-2222-3333-444455556666' })
+  categoryId!: string;
+
+  @ApiProperty({ example: 'Food & Dining' })
+  categoryName!: string;
+
+  @ApiProperty({ example: '#34d399' })
+  color!: string;
+
+  @ApiProperty({ type: [CategorySeriesPointDto] })
+  points!: CategorySeriesPointDto[];
+}
+
+export class CategorySeriesResponseDto {
+  @ApiProperty({ example: 'USD' })
+  baseCurrency!: string;
+
+  @ApiPropertyOptional({
+    description: 'Second currency the series are also expressed in, when requested',
+    example: 'INR',
+    nullable: true,
+  })
+  secondaryCurrency?: string | null;
+
+  @ApiProperty({ enum: ['day', 'week', 'month'], example: 'day' })
+  granularity!: 'day' | 'week' | 'month';
+
+  @ApiProperty({ example: '2026-10-01' })
+  from!: string;
+
+  @ApiProperty({ example: '2026-10-31' })
+  to!: string;
+
+  @ApiProperty({ example: true })
+  converted!: boolean;
+
+  @ApiPropertyOptional({ description: 'Why conversion was unavailable', nullable: true })
+  conversionUnavailableReason?: string;
+
+  @ApiProperty({
+    enum: ['converted', 'partially_converted', 'unavailable'],
+    example: 'converted',
+  })
+  conversionStatus!: ConversionStatus;
+
+  @ApiProperty({ type: [String] })
+  unconvertedCurrencies!: string[];
+
+  @ApiProperty({ type: RateProvenanceDto })
+  rateProvenance!: RateProvenanceDto;
+
+  @ApiProperty({ type: [String], description: 'Bucket keys in chart order' })
+  buckets!: string[];
+
+  @ApiProperty({ type: [CategorySeriesItemDto] })
+  series!: CategorySeriesItemDto[];
 }

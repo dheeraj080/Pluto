@@ -13,13 +13,16 @@
  * figure in both currencies from one resolved rate snapshot.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { expensesApi } from "@/lib/expenses";
+import { withPrevious, type ReportGranularity } from "@/lib/ranges";
 import type {
   ByDayOfWeekResponse,
+  CategorySeriesResponse,
   Expense,
+  ExpenseComparison,
+  ExpenseSeriesResponse,
   ExpenseSummary,
-  ExpenseTrend,
   Paginated,
 } from "@/lib/types";
 
@@ -49,9 +52,10 @@ export function useReportSummary(params: {
   to?: string;
   base?: string | null;
   secondary?: string | null;
-}): AsyncState<ExpenseSummary> {
+}): AsyncState<ExpenseSummary> & { reload: () => void } {
   const { from, to, base, secondary } = params;
-  const key = keyOf([from, to, base, secondary]);
+  const [nonce, setNonce] = useState(0);
+  const key = keyOf([from, to, base, secondary, nonce]);
   const [state, setState] = useState<KeyedState<ExpenseSummary>>({
     key: null,
     data: null,
@@ -79,41 +83,73 @@ export function useReportSummary(params: {
     };
   }, [key, from, to, base, secondary]);
 
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
   const fresh = state.key === key;
-  return { data: fresh ? state.data : null, loading: !fresh, error: fresh ? state.error : null };
+  return {
+    data: fresh ? state.data : null,
+    loading: !fresh,
+    error: fresh ? state.error : null,
+    reload,
+  };
 }
 
-/** Month-by-month totals for the long trend line. */
-export function useReportTrends(params: {
-  months?: number;
+/**
+ * The window in force paired with the equal-length window immediately before
+ * it, for the KPI row's "vs previous N days" pills. One request, so the current
+ * and previous totals — and the count and average built from them — can never
+ * disagree.
+ */
+export function useReportComparison(params: {
+  from?: string;
+  to?: string;
   base?: string | null;
   secondary?: string | null;
-}): AsyncState<ExpenseTrend> {
-  const { months, base, secondary } = params;
-  const key = keyOf([months, base, secondary]);
-  const [state, setState] = useState<KeyedState<ExpenseTrend>>({
+}): AsyncState<ExpenseComparison> & { reload: () => void } {
+  const { from, to, base, secondary } = params;
+  const window = useMemo(
+    () => (from && to ? withPrevious(from, to) : null),
+    [from, to],
+  );
+  const [nonce, setNonce] = useState(0);
+  const key = keyOf([from, to, base, secondary, nonce]);
+  const [state, setState] = useState<KeyedState<ExpenseComparison>>({
     key: null,
     data: null,
     error: null,
   });
 
   useEffect(() => {
+    if (!window) return;
     let cancelled = false;
     expensesApi
-      .getTrends({ months, base: base ?? undefined, secondary: secondary ?? undefined })
+      .getComparison({
+        currentFrom: window.from,
+        currentTo: window.to,
+        previousFrom: window.prevFrom,
+        previousTo: window.prevTo,
+        base: base ?? undefined,
+        secondary: secondary ?? undefined,
+      })
       .then((data) => {
         if (!cancelled) setState({ key, data, error: null });
       })
       .catch((err: unknown) => {
-        if (!cancelled) setState({ key, data: null, error: message(err, "Failed to load the trend.") });
+        if (!cancelled)
+          setState({ key, data: null, error: message(err, "Failed to load the period comparison.") });
       });
     return () => {
       cancelled = true;
     };
-  }, [key, months, base, secondary]);
+  }, [key, window, base, secondary]);
 
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
   const fresh = state.key === key;
-  return { data: fresh ? state.data : null, loading: !fresh, error: fresh ? state.error : null };
+  return {
+    data: fresh ? state.data : null,
+    loading: Boolean(window) && !fresh,
+    error: fresh ? state.error : null,
+    reload,
+  };
 }
 
 /** Weekday profile for the day-of-week line. */
@@ -122,9 +158,10 @@ export function useReportByDayOfWeek(params: {
   to?: string;
   base?: string | null;
   secondary?: string | null;
-}): AsyncState<ByDayOfWeekResponse> {
+}): AsyncState<ByDayOfWeekResponse> & { reload: () => void } {
   const { from, to, base, secondary } = params;
-  const key = keyOf([from, to, base, secondary]);
+  const [nonce, setNonce] = useState(0);
+  const key = keyOf([from, to, base, secondary, nonce]);
   const [state, setState] = useState<KeyedState<ByDayOfWeekResponse>>({
     key: null,
     data: null,
@@ -152,19 +189,92 @@ export function useReportByDayOfWeek(params: {
     };
   }, [key, from, to, base, secondary]);
 
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
   const fresh = state.key === key;
-  return { data: fresh ? state.data : null, loading: !fresh, error: fresh ? state.error : null };
+  return {
+    data: fresh ? state.data : null,
+    loading: !fresh,
+    error: fresh ? state.error : null,
+    reload,
+  };
 }
 
-/** Expenses in a specific window, for the month drill-down list. */
+export interface ReportSeriesComparison {
+  /** The selected window, bucketed at the requested granularity. */
+  current: ExpenseSeriesResponse | null;
+  /** The equal-length window immediately before it, same buckets. */
+  previous: ExpenseSeriesResponse | null;
+  loading: boolean;
+  error: string | null;
+  reload: () => void;
+}
+
+/**
+ * Two series for the comparison line — the selected window and the one before
+ * it — fetched as a single paired load so the solid and dashed lines can never
+ * belong to different ranges or different rates.
+ */
+export function useReportSeriesComparison(params: {
+  from?: string;
+  to?: string;
+  granularity?: ReportGranularity;
+  base?: string | null;
+  secondary?: string | null;
+}): ReportSeriesComparison {
+  const { from, to, granularity, base, secondary } = params;
+  const window = useMemo(() => (from && to ? withPrevious(from, to) : null), [from, to]);
+  const [nonce, setNonce] = useState(0);
+  const key = keyOf([from, to, granularity, base, secondary, nonce]);
+  const [state, setState] = useState<
+    KeyedState<{ current: ExpenseSeriesResponse; previous: ExpenseSeriesResponse }>
+  >({ key: null, data: null, error: null });
+
+  useEffect(() => {
+    if (!window || !granularity) return;
+    let cancelled = false;
+    const query = {
+      granularity,
+      base: base ?? undefined,
+      secondary: secondary ?? undefined,
+    };
+    Promise.all([
+      expensesApi.getSeries({ ...query, from: window.from, to: window.to }),
+      expensesApi.getSeries({ ...query, from: window.prevFrom, to: window.prevTo }),
+    ])
+      .then(([current, previous]) => {
+        if (!cancelled) setState({ key, data: { current, previous }, error: null });
+      })
+      .catch((err: unknown) => {
+        if (!cancelled)
+          setState({ key, data: null, error: message(err, "Failed to load the spending series.") });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, window, granularity, base, secondary]);
+
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
+  const fresh = state.key === key;
+  return {
+    current: fresh ? (state.data?.current ?? null) : null,
+    previous: fresh ? (state.data?.previous ?? null) : null,
+    loading: Boolean(window && granularity) && !fresh,
+    error: fresh ? state.error : null,
+    reload,
+  };
+}
+
+/** Expenses in a specific window, for the month drill-down list and the category drawer. */
 export function useReportExpenses(params: {
   from?: string;
   to?: string;
+  categoryId?: string;
   limit?: number;
-}): AsyncState<Paginated<Expense>> {
-  const { from, to, limit = 25 } = params;
-  const key = keyOf([from, to, limit]);
-  const enabled = Boolean(from && to);
+}): AsyncState<Paginated<Expense>> & { reload: () => void } {
+  const { from, to, categoryId, limit = 25 } = params;
+  const [nonce, setNonce] = useState(0);
+  const key = keyOf([from, to, categoryId, limit, nonce]);
+  const enabled = Boolean(from && to && categoryId);
   const [state, setState] = useState<KeyedState<Paginated<Expense>>>({
     key: null,
     data: null,
@@ -172,10 +282,10 @@ export function useReportExpenses(params: {
   });
 
   useEffect(() => {
-    if (!from || !to) return;
+    if (!from || !to || !categoryId) return;
     let cancelled = false;
     expensesApi
-      .listExpenses({ page: 1, limit, from, to, sort: "date_desc" })
+      .listExpenses({ page: 1, limit, from, to, categoryId, sort: "date_desc" })
       .then((data) => {
         if (!cancelled) setState({ key, data, error: null });
       })
@@ -186,12 +296,68 @@ export function useReportExpenses(params: {
     return () => {
       cancelled = true;
     };
-  }, [key, from, to, limit]);
+  }, [key, from, to, categoryId, limit]);
 
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
   const fresh = state.key === key;
   return {
     data: fresh ? state.data : null,
     loading: enabled && !fresh,
     error: fresh ? state.error : null,
+    reload,
+  };
+}
+
+/** Per-category series over the same range, for the category section's views. */
+export function useReportCategorySeries(params: {
+  from?: string;
+  to?: string;
+  granularity?: ReportGranularity;
+  base?: string | null;
+  secondary?: string | null;
+}): AsyncState<CategorySeriesResponse> & { reload: () => void } {
+  const { from, to, granularity, base, secondary } = params;
+  const [nonce, setNonce] = useState(0);
+  const key = keyOf([from, to, granularity, base, secondary, nonce]);
+  const [state, setState] = useState<KeyedState<CategorySeriesResponse>>({
+    key: null,
+    data: null,
+    error: null,
+  });
+
+  useEffect(() => {
+    if (!from || !to || !granularity) return;
+    let cancelled = false;
+    expensesApi
+      .getCategorySeries({
+        from,
+        to,
+        granularity,
+        base: base ?? undefined,
+        secondary: secondary ?? undefined,
+      })
+      .then((data) => {
+        if (!cancelled) setState({ key, data, error: null });
+      })
+      .catch((err: unknown) => {
+        if (!cancelled)
+          setState({
+            key,
+            data: null,
+            error: message(err, "Failed to load category trends."),
+          });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, from, to, granularity, base, secondary]);
+
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
+  const fresh = state.key === key;
+  return {
+    data: fresh ? state.data : null,
+    loading: Boolean(from && to && granularity) && !fresh,
+    error: fresh ? state.error : null,
+    reload,
   };
 }

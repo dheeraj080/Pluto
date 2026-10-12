@@ -146,7 +146,7 @@ export function ComparisonCard({
             value={range}
             onChange={(value) => onRangeChange(value as CompareRange)}
           />
-          <div ref={menuRef} className="relative">
+          {/* <div ref={menuRef} className="relative">
             <button
               type="button"
               aria-label="Spending-chart options"
@@ -183,7 +183,7 @@ export function ComparisonCard({
                 )}
               </div>
             )}
-          </div>
+          </div> */}
         </div>
       }
     >

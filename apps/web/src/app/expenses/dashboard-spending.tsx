@@ -109,7 +109,7 @@ export function SpendingCard({
                 />
               )}
             </Stat>
-            <Stat label="Top category">
+            {/* <Stat label="Top category">
               {topCategory ? (
                 <span className="block min-w-0">
                   <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -126,7 +126,7 @@ export function SpendingCard({
               ) : (
                 <span className="text-muted">—</span>
               )}
-            </Stat>
+            </Stat> */}
           </div>
         </>
       )}

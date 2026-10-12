@@ -135,8 +135,8 @@ describe('ExpensesReportsService', () => {
       const result = await service.getSummary(USER_A, { from: '2026-10-01', to: '2026-10-31' });
 
       expect(result.byCurrency).toEqual([
-        { currency: 'USD', total: 150, count: 2 },
-        { currency: 'EUR', total: 92, count: 1 },
+        { currency: 'USD', total: 150, count: 2, convertedTotal: 150 },
+        { currency: 'EUR', total: 92, count: 1, convertedTotal: 100 },
       ]);
       expect(result.baseCurrency).toBe('USD');
     });
@@ -201,7 +201,9 @@ describe('ExpensesReportsService', () => {
       expect(result.average).toBeNull();
       expect(result.byCategory).toEqual([]);
       expect(result.count).toBe(1);
-      expect(result.byCurrency).toEqual([{ currency: 'EUR', total: 92, count: 1 }]);
+      expect(result.byCurrency).toEqual([
+        { currency: 'EUR', total: 92, count: 1, convertedTotal: null },
+      ]);
     });
 
     it('still converts base-currency rows exactly when no snapshots exist', async () => {
@@ -649,7 +651,7 @@ describe('ExpensesReportsService', () => {
   });
 
   describe('exportCsv', () => {
-    it('emits a header and one quoted row per expense with rate provenance', async () => {
+    it('emits a header and one row per expense with the requested columns', async () => {
       mockPrismaService.expense.findMany.mockResolvedValue([
         {
           description: 'Rent, "monthly"',
@@ -671,16 +673,17 @@ describe('ExpensesReportsService', () => {
       const [header, row1, row2] = csv.split('\n');
 
       expect(header).toBe(
-        'Date,Description,Category,Amount,Currency,BaseAmount,BaseCurrency,Converted,RateDate,RatePolicy,ConversionStatus',
+        'Date,Description,Category,Amount Paid,Currency Paid,Converted Amount,Reporting Currency,Rate Used,Rate Date,Estimated',
       );
       expect(row1).toContain('2026-10-01');
       expect(row1).toContain('Rent, ""monthly""');
-      expect(row1).toContain('1000.00,USD,1000.00,USD,true,,historical,converted');
-      // EUR row carries the true snapshot date and an explicit policy.
-      expect(row2).toContain('92.00,EUR,100.00,USD,true,2026-10-01,historical,converted');
+      // A base-currency row is an identity conversion: rate 1, no rate date, not estimated.
+      expect(row1).toContain('1000.00,USD,1000.00,USD,1,,no');
+      // EUR row carries the actual multiplier, the true snapshot date and no estimate.
+      expect(row2).toContain('92.00,EUR,100.00,USD,1.086957,2026-10-01,no');
     });
 
-    it('adds secondary columns when a second currency is requested', async () => {
+    it('keeps the column set fixed when a second currency is requested', async () => {
       mockRatesService.getRateTablesForRange.mockResolvedValue([
         {
           version: 1,
@@ -710,14 +713,12 @@ describe('ExpensesReportsService', () => {
       const csv = await service.exportCsv(USER_A, { secondary: 'INR' });
       const [header, row1, row2] = csv.split('\n');
 
-      expect(header.endsWith('ConversionStatus,SecondaryAmount,SecondaryCurrency')).toBe(true);
-      // A base-currency row needs no rate for the base value, but still gets a
-      // secondary value from the same snapshot: 100 USD * 83.
-      expect(row1).toContain('100.00,USD,100.00,USD,true,,historical,converted,8300.00,INR');
-      // 92 EUR -> 100 USD -> 8300 INR, at the row's own snapshot date.
-      expect(row2).toContain(
-        '92.00,EUR,100.00,USD,true,2026-10-01,historical,converted,8300.00,INR',
+      expect(header).toBe(
+        'Date,Description,Category,Amount Paid,Currency Paid,Converted Amount,Reporting Currency,Rate Used,Rate Date,Estimated',
       );
+      // The secondary currency changes nothing about the exported columns.
+      expect(row1).toContain('100.00,USD,100.00,USD,1,,no');
+      expect(row2).toContain('92.00,EUR,100.00,USD,1.086957,2026-10-01,no');
     });
   });
 
