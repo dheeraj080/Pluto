@@ -161,6 +161,16 @@ export function IconCheck(props: IconProps) {
   );
 }
 
+export function IconInfo(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5" />
+      <path d="M12 7.75h.01" />
+    </Svg>
+  );
+}
+
 export function IconAlert(props: IconProps) {
   return (
     <Svg {...props}>

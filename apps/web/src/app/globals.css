@@ -73,6 +73,21 @@
   --tint-sand-bg: rgba(214, 211, 209, 0.14);
   --tint-sand-fg: #d6d3d1;
 
+  /*
+   * Restrained category palette: six muted-but-distinguishable hues, all
+   * legible on the graphite surfaces. Category marks, chart series and the
+   * multi-line category chart draw from these — never a saturated rainbow.
+   */
+  --cat-mint: #34d399;
+  --cat-sky: #7dd3fc;
+  --cat-amber: #fcd34d;
+  --cat-rose: #fda4af;
+  --cat-violet: #c4b5fd;
+  --cat-slate: #94a3b8;
+
+  /* Second-currency line in dual-series charts: a soft, quiet grey. */
+  --chart-secondary: #cbd5e1;
+
   --focus-ring: #34d399;
 
   /* Radial glow used behind the hero chart and product card. */
@@ -134,6 +149,15 @@
   --color-tint-rose-fg: var(--tint-rose-fg);
   --color-tint-sand-bg: var(--tint-sand-bg);
   --color-tint-sand-fg: var(--tint-sand-fg);
+
+  /* Restrained category palette. */
+  --color-cat-mint: var(--cat-mint);
+  --color-cat-sky: var(--cat-sky);
+  --color-cat-amber: var(--cat-amber);
+  --color-cat-rose: var(--cat-rose);
+  --color-cat-violet: var(--cat-violet);
+  --color-cat-slate: var(--cat-slate);
+  --color-chart-secondary: var(--chart-secondary);
 
   /* Chart palette — distinct, bright hues that read on dark surfaces. */
   --color-chart-1: #34d399;
