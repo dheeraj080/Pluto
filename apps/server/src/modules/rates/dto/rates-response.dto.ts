@@ -101,3 +101,35 @@ export class RateTableDto {
   })
   rates!: Record<string, string>;
 }
+
+/** One dated point on a currency pair's exchange-rate history. */
+export class RateHistoryPointDto {
+  @ApiProperty({ example: '2026-10-09', description: 'Snapshot market date (YYYY-MM-DD)' })
+  date!: string;
+
+  @ApiProperty({
+    example: 89.98,
+    description: 'Units of quoteCurrency per 1 unit of baseCurrency',
+  })
+  rate!: number;
+}
+
+export class RateHistoryResponseDto {
+  @ApiProperty({ example: 'EUR' })
+  baseCurrency!: string;
+
+  @ApiProperty({ example: 'INR' })
+  quoteCurrency!: string;
+
+  @ApiProperty({ example: '2025-10-12', description: 'Inclusive range start (YYYY-MM-DD)' })
+  from!: string;
+
+  @ApiProperty({ example: '2026-10-12', description: 'Inclusive range end (YYYY-MM-DD)' })
+  to!: string;
+
+  @ApiProperty({
+    type: [RateHistoryPointDto],
+    description: 'One point per published snapshot in range, oldest first',
+  })
+  points!: RateHistoryPointDto[];
+}

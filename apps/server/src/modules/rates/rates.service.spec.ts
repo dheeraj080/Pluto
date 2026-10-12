@@ -316,4 +316,86 @@ describe('RatesService', () => {
 
     expect(tables).toEqual([]);
   });
+
+  it('builds ascending rate-history points for a currency pair', async () => {
+    mockPrismaService.rateSnapshot.findFirst.mockResolvedValue({ id: 'snap-any' });
+    mockPrismaService.rateSnapshot.findMany.mockResolvedValue([
+      {
+        id: 'r1',
+        version: 1,
+        baseCurrency: 'EUR',
+        effectiveDate: new Date('2026-10-01'),
+        provider: 'mock',
+        rates: [
+          { quoteCurrency: 'EUR', rate: new Prisma.Decimal('1.000000') },
+          { quoteCurrency: 'INR', rate: new Prisma.Decimal('89.500000') },
+        ],
+      },
+      {
+        id: 'r2',
+        version: 2,
+        baseCurrency: 'EUR',
+        effectiveDate: new Date('2026-10-09'),
+        provider: 'mock',
+        rates: [
+          { quoteCurrency: 'EUR', rate: new Prisma.Decimal('1.000000') },
+          { quoteCurrency: 'INR', rate: new Prisma.Decimal('90.250000') },
+        ],
+      },
+    ]);
+
+    const history = await ratesService.getRateHistory({
+      base: 'EUR',
+      quote: 'INR',
+      from: '2026-10-01',
+      to: '2026-10-31',
+    });
+
+    expect(history.baseCurrency).toBe('EUR');
+    expect(history.quoteCurrency).toBe('INR');
+    expect(history.from).toBe('2026-10-01');
+    expect(history.to).toBe('2026-10-31');
+    expect(history.points).toEqual([
+      { date: '2026-10-01', rate: 89.5 },
+      { date: '2026-10-09', rate: 90.25 },
+    ]);
+  });
+
+  it('skips snapshots that do not quote the requested currency', async () => {
+    mockPrismaService.rateSnapshot.findFirst.mockResolvedValue({ id: 'snap-any' });
+    mockPrismaService.rateSnapshot.findMany.mockResolvedValue([
+      {
+        id: 'r1',
+        version: 1,
+        baseCurrency: 'EUR',
+        effectiveDate: new Date('2026-10-01'),
+        provider: 'mock',
+        rates: [{ quoteCurrency: 'EUR', rate: new Prisma.Decimal('1.000000') }],
+      },
+    ]);
+
+    const history = await ratesService.getRateHistory({ base: 'EUR', quote: 'INR' });
+
+    expect(history.points).toEqual([]);
+  });
+
+  it('rejects an unsupported quote currency in rate history', async () => {
+    await expect(ratesService.getRateHistory({ base: 'EUR', quote: 'XYZ' })).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('defaults the rate-history range to the trailing twelve months', async () => {
+    mockPrismaService.rateSnapshot.findFirst.mockResolvedValue({ id: 'snap-any' });
+    mockPrismaService.rateSnapshot.findMany.mockResolvedValue([]);
+
+    const history = await ratesService.getRateHistory({ base: 'USD', quote: 'EUR' });
+
+    const expectedTo = new Date().toISOString().slice(0, 10);
+    const start = new Date(`${expectedTo}T00:00:00.000Z`);
+    start.setUTCFullYear(start.getUTCFullYear() - 1);
+    expect(history.to).toBe(expectedTo);
+    expect(history.from).toBe(start.toISOString().slice(0, 10));
+    expect(history.points).toEqual([]);
+  });
 });

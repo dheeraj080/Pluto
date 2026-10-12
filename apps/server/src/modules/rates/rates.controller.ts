@@ -3,10 +3,12 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { RatesService } from './rates.service';
 import { LatestRatesQueryDto } from './dto/latest-rates-query.dto';
+import { RateHistoryQueryDto } from './dto/rate-history-query.dto';
 import {
   RateSnapshotResponseDto,
   SupportedCurrencyDto,
   RateSnapshotVersionDto,
+  RateHistoryResponseDto,
 } from './dto/rates-response.dto';
 import { Public } from '../../common/decorators/public.decorator';
 
@@ -65,6 +67,23 @@ export class RatesController {
   })
   getSupportedCurrencies(): SupportedCurrencyDto[] {
     return this.ratesService.getSupportedCurrencies();
+  }
+
+  @Public()
+  @Get('history')
+  @ApiOperation({
+    summary: 'Exchange-rate history between two currencies',
+    description:
+      'Returns one point per published snapshot in the range, oldest first. Defaults to the trailing twelve months when no range is given.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Rate history information',
+    type: RateHistoryResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Unsupported currency or malformed date' })
+  async getRateHistory(@Query() query: RateHistoryQueryDto): Promise<RateHistoryResponseDto> {
+    return this.ratesService.getRateHistory(query);
   }
 
   @Public()

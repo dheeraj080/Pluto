@@ -15,7 +15,10 @@ import {
   SupportedCurrencyDto,
   RateSnapshotVersionDto,
   RateTableDto,
+  RateHistoryPointDto,
+  RateHistoryResponseDto,
 } from './dto/rates-response.dto';
+import { RateHistoryQueryDto } from './dto/rate-history-query.dto';
 
 /**
  * Currencies Frankfurter actually serves (ECB reference rates).
@@ -329,6 +332,92 @@ export class RatesService {
       provider: s.provider,
       rates: Object.fromEntries(s.rates.map((r) => [r.quoteCurrency, r.rate.toFixed(6)])),
     }));
+  }
+
+  /**
+   * Exchange-rate history for a currency pair over a bounded date range: one
+   * point per published snapshot, oldest first. Powers the "Base vs Second"
+   * rate chart and gives the dashboard a genuine historical series rather than
+   * a flat line at today's rate.
+   *
+   * Unlike {@link getRateTablesForRange} this is range-bounded (it does not
+   * fall back to the earliest snapshot when the range is empty) so the chart
+   * never plots a point outside the window the user asked for.
+   */
+  async getRateHistory(query: RateHistoryQueryDto): Promise<RateHistoryResponseDto> {
+    const base = (query.base || this.defaultBaseCurrency).toUpperCase();
+    if (!this.supportedCurrencies.includes(base)) {
+      throw new BadRequestException(
+        `Unsupported base currency: ${base}. Supported: ${this.supportedCurrencies.join(', ')}`,
+      );
+    }
+
+    const quote = query.quote.toUpperCase();
+    if (!this.supportedCurrencies.includes(quote)) {
+      throw new BadRequestException(
+        `Unsupported quote currency: ${quote}. Supported: ${this.supportedCurrencies.join(', ')}`,
+      );
+    }
+
+    const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
+    const to = query.to ? new Date(`${query.to}T00:00:00.000Z`) : today;
+    const from = query.from
+      ? new Date(`${query.from}T00:00:00.000Z`)
+      : (() => {
+          const start = new Date(to);
+          start.setUTCFullYear(start.getUTCFullYear() - 1);
+          return start;
+        })();
+
+    if (from.getTime() > to.getTime()) {
+      throw new BadRequestException('`from` must be on or before `to`');
+    }
+
+    // With no snapshot at all, a rate line is impossible; attempt one sync so a
+    // brand-new deployment is not permanently empty, then degrade to no points.
+    const anySnapshot = await this.prisma.rateSnapshot.findFirst({
+      where: { baseCurrency: base, isPublished: true },
+      select: { id: true },
+    });
+    if (!anySnapshot) {
+      try {
+        await this.syncExchangeRates(base);
+      } catch (err) {
+        this.logger.warn(
+          `On-demand rate sync for ${base} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    const snapshots = await this.prisma.rateSnapshot.findMany({
+      where: {
+        baseCurrency: base,
+        isPublished: true,
+        effectiveDate: { gte: from, lte: to },
+      },
+      orderBy: { effectiveDate: 'asc' },
+      include: { rates: true },
+    });
+
+    const points: RateHistoryPointDto[] = [];
+    for (const snapshot of snapshots) {
+      const baseRate =
+        snapshot.rates.find((r) => r.quoteCurrency === base)?.rate ?? new Prisma.Decimal(1);
+      const quoteRate = snapshot.rates.find((r) => r.quoteCurrency === quote)?.rate;
+      if (!quoteRate || baseRate.isZero()) continue;
+      points.push({
+        date: snapshot.effectiveDate.toISOString().split('T')[0],
+        rate: Number(quoteRate.div(baseRate).toFixed(6)),
+      });
+    }
+
+    return {
+      baseCurrency: base,
+      quoteCurrency: quote,
+      from: from.toISOString().split('T')[0],
+      to: to.toISOString().split('T')[0],
+      points,
+    };
   }
 
   /**
