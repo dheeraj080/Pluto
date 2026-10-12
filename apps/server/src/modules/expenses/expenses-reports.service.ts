@@ -1159,6 +1159,7 @@ export class ExpensesReportsService {
 
   async exportCsv(userId: string, query: ExportQueryDto): Promise<string> {
     const baseCurrency = this.currencyConverter.resolveBase(query.base);
+    const secondaryCurrency = this.resolveSecondary(query.secondary, baseCurrency);
 
     const where: Prisma.ExpenseWhereInput = { userId };
     const { start, end } = resolveRange(query.from, query.to);
@@ -1187,6 +1188,7 @@ export class ExpensesReportsService {
       'RateDate',
       'RatePolicy',
       'ConversionStatus',
+      ...(secondaryCurrency ? ['SecondaryAmount', 'SecondaryCurrency'] : []),
     ];
     const lines = [headers.join(',')];
 
@@ -1197,15 +1199,19 @@ export class ExpensesReportsService {
       const amount = Number(e.amount).toFixed(2);
       const currency = e.currency;
 
-      const res = this.convertAtDate(ctx, e.amount, currency, date);
+      const res = this.convertAtDate(ctx, e.amount, currency, date, secondaryCurrency);
       const baseAmount = res.value !== null ? res.value.toFixed(2) : '';
       const base = res.convertible ? baseCurrency : '';
       const rateDate = res.rateDate ?? '';
       const ratePolicy = res.policy ?? '';
       const conversionStatus = res.convertible ? 'converted' : 'unavailable';
+      const secondaryAmount = res.secondaryValue !== null ? res.secondaryValue.toFixed(2) : '';
+      const secondaryCells = secondaryCurrency
+        ? `,${secondaryAmount},${res.secondaryValue !== null ? secondaryCurrency : ''}`
+        : '';
 
       lines.push(
-        `"${date}","${description}","${category}",${amount},${currency},${baseAmount},${base},${res.convertible},${rateDate},${ratePolicy},${conversionStatus}`,
+        `"${date}","${description}","${category}",${amount},${currency},${baseAmount},${base},${res.convertible},${rateDate},${ratePolicy},${conversionStatus}${secondaryCells}`,
       );
     }
 

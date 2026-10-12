@@ -679,6 +679,46 @@ describe('ExpensesReportsService', () => {
       // EUR row carries the true snapshot date and an explicit policy.
       expect(row2).toContain('92.00,EUR,100.00,USD,true,2026-10-01,historical,converted');
     });
+
+    it('adds secondary columns when a second currency is requested', async () => {
+      mockRatesService.getRateTablesForRange.mockResolvedValue([
+        {
+          version: 1,
+          baseCurrency: 'USD',
+          effectiveDate: '2026-10-01',
+          provider: 'mock',
+          rates: { USD: '1.000000', EUR: '0.920000', INR: '83.000000' },
+        },
+      ]);
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        {
+          description: 'Rent',
+          amount: new Prisma.Decimal('100.00'),
+          currency: 'USD',
+          incurredOn: new Date('2026-10-01T00:00:00.000Z'),
+          category: { name: 'Housing' },
+        },
+        {
+          description: 'Trip',
+          amount: new Prisma.Decimal('92.00'),
+          currency: 'EUR',
+          incurredOn: new Date('2026-10-02T00:00:00.000Z'),
+          category: { name: 'Travel' },
+        },
+      ]);
+
+      const csv = await service.exportCsv(USER_A, { secondary: 'INR' });
+      const [header, row1, row2] = csv.split('\n');
+
+      expect(header.endsWith('ConversionStatus,SecondaryAmount,SecondaryCurrency')).toBe(true);
+      // A base-currency row needs no rate for the base value, but still gets a
+      // secondary value from the same snapshot: 100 USD * 83.
+      expect(row1).toContain('100.00,USD,100.00,USD,true,,historical,converted,8300.00,INR');
+      // 92 EUR -> 100 USD -> 8300 INR, at the row's own snapshot date.
+      expect(row2).toContain(
+        '92.00,EUR,100.00,USD,true,2026-10-01,historical,converted,8300.00,INR',
+      );
+    });
   });
 
   describe('getBudgetStatus', () => {
