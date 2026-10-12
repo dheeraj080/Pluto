@@ -3,73 +3,80 @@
 /*
  * Pluto design tokens.
  *
- * Light-first warm theme with a dark palette for `prefers-color-scheme`.
- * Semantic CSS variables (swapped in dark mode) feed the Tailwind 4 `@theme`
- * via `@theme inline`, so every utility resolves the variable at use time.
+ * A single dark, near-black "graphite" theme. Neutrals are strictly
+ * blue/green-free greys; one bright mint-emerald accent carries key numbers,
+ * active states, primary buttons and chart lines. Semantic CSS variables feed
+ * the Tailwind 4 `@theme` via `@theme inline`, so every utility resolves the
+ * variable at use time.
+ *
+ * Contrast targets WCAG AA: off-white ink on the near-black canvas is ~17:1,
+ * secondary grey ~8:1, emerald ~10:1, and dark ink on a solid emerald surface
+ * ~9:1.
  */
 
 :root {
-  --canvas: #faf9f5;
-  --surface: #ffffff;
-  --surface-muted: #f2f0e9;
-  --ink: #17211b;
-  --muted: #5f6b64;
-  --border: #e6e3da;
-  --border-strong: #cfcbbf;
+  color-scheme: dark;
 
-  --primary: #0e5a41;
-  --primary-hover: #0b4433;
-  --primary-active: #093628;
-  --primary-subtle: #e0efe6;
-  --on-primary: #ffffff;
+  /* Neutral graphite ramp. */
+  --canvas: #0b0c0e;
+  --surface: #131518;
+  --surface-muted: #1b1e22;
+  --ink: #f2f4f5;
+  --muted: #a4abb2;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
 
-  --gold: #a87e2b;
-  --gold-subtle: #f7efd9;
+  /* Mint-emerald accent: the single bright colour in the system. */
+  --primary: #34d399;
+  --primary-hover: #10b981;
+  --primary-active: #059669;
+  --primary-subtle: rgba(52, 211, 153, 0.12);
+  --on-primary: #05130d;
 
-  --danger: #bc362a;
-  --danger-hover: #9e2b22;
-  --danger-subtle: #fae5e1;
+  --accent: #34d399;
+  --accent-hover: #10b981;
+  --accent-strong: #6ee7b7;
+  --accent-subtle: rgba(52, 211, 153, 0.12);
+  --on-accent: #05130d;
 
-  --success: #1f7a4d;
-  --success-subtle: #e2f2e8;
+  --gold: #fbbf24;
+  --gold-subtle: rgba(251, 191, 36, 0.14);
 
-  --warning: #b45309;
-  --warning-subtle: #fcf1dc;
+  --danger: #f87171;
+  --danger-hover: #fca5a5;
+  --danger-solid: #b91c1c;
+  --danger-subtle: rgba(248, 113, 113, 0.14);
+  --on-danger: #2a0808;
 
-  --focus-ring: #0e5a41;
-}
+  --success: #34d399;
+  --success-subtle: rgba(52, 211, 153, 0.12);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --canvas: #0b110d;
-    --surface: #131b15;
-    --surface-muted: #1b251e;
-    --ink: #e8eee9;
-    --muted: #9ba99f;
-    --border: #28332b;
-    --border-strong: #3a4740;
+  --warning: #fbbf24;
+  --warning-subtle: rgba(251, 191, 36, 0.14);
 
-    --primary: #34a878;
-    --primary-hover: #4cb98b;
-    --primary-active: #2b8f64;
-    --primary-subtle: #13402f;
-    --on-primary: #07130c;
+  /* Soft tints for currency chips and category marks (dark surfaces). */
+  --tint-indigo-bg: rgba(129, 140, 248, 0.16);
+  --tint-indigo-fg: #a5b4fc;
+  --tint-coral-bg: rgba(251, 146, 60, 0.16);
+  --tint-coral-fg: #fdba74;
+  --tint-teal-bg: rgba(45, 212, 191, 0.16);
+  --tint-teal-fg: #5eead4;
+  --tint-sky-bg: rgba(96, 165, 250, 0.16);
+  --tint-sky-fg: #93c5fd;
+  --tint-lilac-bg: rgba(196, 181, 253, 0.16);
+  --tint-lilac-fg: #ddd6fe;
+  --tint-amber-bg: rgba(251, 191, 36, 0.16);
+  --tint-amber-fg: #fcd34d;
+  --tint-rose-bg: rgba(251, 113, 133, 0.16);
+  --tint-rose-fg: #fda4af;
+  --tint-sand-bg: rgba(214, 211, 209, 0.14);
+  --tint-sand-fg: #d6d3d1;
 
-    --gold: #d2a54c;
-    --gold-subtle: #33290f;
+  --focus-ring: #34d399;
 
-    --danger: #e0604e;
-    --danger-hover: #ea7a6a;
-    --danger-subtle: #3a1713;
-
-    --success: #45b67f;
-    --success-subtle: #123029;
-
-    --warning: #e0a346;
-    --warning-subtle: #33260d;
-
-    --focus-ring: #4cb98b;
-  }
+  /* Radial glow used behind the hero chart and product card. */
+  --glow: rgba(52, 211, 153, 0.22);
+  --glow-strong: rgba(52, 211, 153, 0.34);
 }
 
 @theme inline {
@@ -83,51 +90,70 @@
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
 
-  --color-accent: var(--primary);
-  --color-accent-foreground: var(--on-primary);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-active: var(--primary-active);
   --color-primary-subtle: var(--primary-subtle);
   --color-on-primary: var(--on-primary);
 
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-on-accent: var(--on-accent);
+
   --color-gold: var(--gold);
   --color-gold-subtle: var(--gold-subtle);
 
   --color-danger: var(--danger);
   --color-danger-hover: var(--danger-hover);
+  --color-danger-solid: var(--danger-solid);
   --color-danger-subtle: var(--danger-subtle);
+  --color-on-danger: var(--on-danger);
   --color-success: var(--success);
   --color-success-subtle: var(--success-subtle);
   --color-warning: var(--warning);
   --color-warning-subtle: var(--warning-subtle);
 
-  /* Chart palette — chosen for separation on both light and dark surfaces. */
-  --color-chart-1: #1f7a4d;
-  --color-chart-2: #b45309;
-  --color-chart-3: #0e7490;
-  --color-chart-4: #a63d2f;
-  --color-chart-5: #4d7c0f;
-  --color-chart-6: #8a6522;
-  --color-chart-7: #1d4ed8;
-  --color-chart-8: #0f766e;
-  --color-chart-9: #be123c;
-  --color-chart-10: #475569;
+  /* Soft tints for currency chips and category marks. */
+  --color-tint-indigo-bg: var(--tint-indigo-bg);
+  --color-tint-indigo-fg: var(--tint-indigo-fg);
+  --color-tint-coral-bg: var(--tint-coral-bg);
+  --color-tint-coral-fg: var(--tint-coral-fg);
+  --color-tint-teal-bg: var(--tint-teal-bg);
+  --color-tint-teal-fg: var(--tint-teal-fg);
+  --color-tint-sky-bg: var(--tint-sky-bg);
+  --color-tint-sky-fg: var(--tint-sky-fg);
+  --color-tint-lilac-bg: var(--tint-lilac-bg);
+  --color-tint-lilac-fg: var(--tint-lilac-fg);
+  --color-tint-amber-bg: var(--tint-amber-bg);
+  --color-tint-amber-fg: var(--tint-amber-fg);
+  --color-tint-rose-bg: var(--tint-rose-bg);
+  --color-tint-rose-fg: var(--tint-rose-fg);
+  --color-tint-sand-bg: var(--tint-sand-bg);
+  --color-tint-sand-fg: var(--tint-sand-fg);
 
-  --font-sans: var(--font-geist-sans);
+  /* Chart palette — distinct, bright hues that read on dark surfaces. */
+  --color-chart-1: #34d399;
+  --color-chart-2: #60a5fa;
+  --color-chart-3: #a78bfa;
+  --color-chart-4: #fbbf24;
+  --color-chart-5: #f472b6;
+  --color-chart-6: #22d3ee;
+  --color-chart-7: #fb923c;
+  --color-chart-8: #4ade80;
+  --color-chart-9: #facc15;
+  --color-chart-10: #94a3b8;
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-bricolage);
   --font-mono: var(--font-geist-mono);
 }
 
 @layer base {
   html {
-    color-scheme: light;
+    color-scheme: dark;
     scroll-behavior: smooth;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    html {
-      color-scheme: dark;
-    }
   }
 
   body {
@@ -138,8 +164,14 @@
     text-rendering: optimizeLegibility;
   }
 
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
   ::selection {
-    background: var(--primary-subtle);
+    background: rgba(52, 211, 153, 0.3);
     color: var(--ink);
   }
 
@@ -161,6 +193,46 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+/*
+ * Scroll-reveal: elements start slightly offset and settle when
+ * `data-reveal` is set to `shown` by the observer in `reveal.tsx`. The
+ * reduced-motion override above collapses the transition to imperceptible.
+ */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.6s ease-out,
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+[data-reveal="shown"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Without scripting the observer never runs — keep content visible. */
+@media (scripting: none) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Hero chart line draw-in. The path is authored with `pathLength="1"` so the
+ * dash maths stay resolution-independent; `--draw` is animated from 1 → 0.
+ */
+@keyframes chart-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
   }
 }
 
