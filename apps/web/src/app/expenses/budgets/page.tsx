@@ -4,47 +4,136 @@
  * Budgets: set per-category or whole-account limits and see how the current
  * month is tracking against them.
  *
- * Spend is converted into the selected base currency server-side; when no rate
- * snapshot is available the server falls back to comparing only spend recorded
- * in the budget's own currency, which is exact for single-currency users.
+ * Every figure is shown in the Pair: the spend as a Base value with the Second
+ * beside it, and the limit underneath in both. Progress is a thin mint line
+ * that turns soft amber when a budget is exceeded — never red, because going
+ * over a budget is information, not an error.
  *
- * Laid out as a bento: the tracking panel and the add form sit side by side on
- * wide screens and stack on mobile.
+ * Spend is converted into the Base server-side; when no rate snapshot is
+ * available the server compares only same-currency spend and flags it.
  */
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { expensesApi } from "@/lib/expenses";
-import { currentMonth, formatMoney, formatPercent } from "@/lib/format";
+import { currentMonth, formatMoney, formatMonth, formatPercent } from "@/lib/format";
 import type { BudgetStatus, BudgetStatusResponse } from "@/lib/types";
 import {
-  Badge,
   Button,
   EmptyState,
   ErrorNote,
   Field,
   Input,
-  LoadingNote,
-  PageHeader,
   Select,
+  Skeleton,
 } from "@/components/ui";
-import { BentoGrid, BentoTile } from "@/components/bento";
-import { useBaseCurrency, useExpenseSetup } from "../use-expenses";
-import { ConversionNotice } from "../conversion-notice";
+import { AppPageHeader, PairSwitcher } from "@/components/app-page-header";
+import { DualAmount } from "@/components/amount";
+import { CategorySwatch } from "@/components/category-swatch";
+import { useExpenseSetup, usePair } from "../use-expenses";
+import { ConversionAlert, ConversionPill } from "../conversion-notice";
 
-/** Visual fill for one budget; clamped so over-budget stops at 100% width. */
-function BudgetBar({ status }: { status: BudgetStatus }) {
-  const width = Math.min(100, Math.max(0, status.percentage));
-  const tone = status.overBudget ? "bg-danger" : status.percentage >= 80 ? "bg-amber-500" : "bg-success";
+/** A quiet status tag; amber for the states worth noticing, grey otherwise. */
+function Tag({ tone = "neutral", children }: { tone?: "neutral" | "warn"; children: ReactNode }) {
+  const tones = {
+    neutral: "border-border bg-surface-muted text-muted",
+    warn: "border-warning/25 bg-warning-subtle text-warning",
+  } as const;
   return (
-    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-border">
-      <div className={`h-full rounded-full ${tone}`} style={{ width: `${width}%` }} />
-    </div>
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${tones[tone]}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function BudgetRow({
+  item,
+  baseCurrency,
+  secondCurrency,
+  onRemove,
+}: {
+  item: BudgetStatus;
+  baseCurrency: string;
+  secondCurrency: string | null;
+  onRemove: () => void;
+}) {
+  const secondSpent = item.secondarySpent ?? null;
+  const secondLimit = item.secondaryBudgetAmount ?? null;
+  const secondRemaining = item.secondaryRemaining ?? null;
+  const width = Math.min(100, Math.max(0, item.percentage));
+  const over = item.overBudget;
+
+  return (
+    <li className="py-4 first:pt-0 last:pb-0">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="flex flex-wrap items-center gap-2">
+            {item.color && <CategorySwatch color={item.color} size={9} />}
+            <span className="text-sm font-medium text-ink">
+              {item.categoryName ?? "All expenses"}
+            </span>
+            <span className="text-xs text-muted">
+              {item.period === "MONTHLY" ? "monthly" : "yearly"}
+            </span>
+            {!item.applied && <Tag>not yet active</Tag>}
+            {over && <Tag tone="warn">over budget</Tag>}
+            {item.ratePolicy === "estimate" && <Tag>estimated</Tag>}
+            {item.conversionStatus === "unavailable" && <Tag tone="warn">rates unavailable</Tag>}
+          </span>
+          <p className="mt-1 text-xs text-muted">
+            <span className="tabular-nums text-ink">
+              {formatMoney(Math.abs(item.remaining), baseCurrency)}
+            </span>
+            {secondRemaining !== null && secondCurrency && (
+              <span className="tabular-nums"> · {formatMoney(Math.abs(secondRemaining), secondCurrency)}</span>
+            )}{" "}
+            {over ? "over" : "left"} · {formatPercent(item.percentage)} used
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <DualAmount
+            amount={item.spent}
+            currency={baseCurrency}
+            secondaryAmount={secondSpent}
+            secondaryCurrency={secondSpent !== null ? secondCurrency : null}
+            size="sm"
+            layout="stack"
+            align="right"
+          />
+          <p className="mt-0.5 text-xs tabular-nums text-muted">
+            of {formatMoney(item.budgetAmount, baseCurrency)}
+            {secondLimit !== null && secondCurrency
+              ? ` · ${formatMoney(secondLimit, secondCurrency)}`
+              : ""}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-muted">
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${width}%`,
+            backgroundColor: over ? "var(--warning)" : "var(--primary)",
+          }}
+        />
+      </div>
+      <div className="mt-2 flex justify-end">
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-xs font-medium text-muted underline-offset-2 transition-colors hover:text-danger hover:underline"
+        >
+          Remove
+        </button>
+      </div>
+    </li>
   );
 }
 
 export default function BudgetsPage() {
   const { categories, currencies, error: setupError, reloadCategories } = useExpenseSetup();
-  const { base, setBase } = useBaseCurrency();
+  const { base, second, swap } = usePair();
 
   const [month, setMonth] = useState(currentMonth());
   const [status, setStatus] = useState<BudgetStatusResponse | null>(null);
@@ -63,13 +152,19 @@ export default function BudgetsPage() {
     try {
       // The status payload already carries each budget's id, so the separate
       // budget list is not needed to render or delete from this screen.
-      setStatus(await expensesApi.getBudgetStatus({ month, base: base ?? undefined }));
+      setStatus(
+        await expensesApi.getBudgetStatus({
+          month,
+          base: base ?? undefined,
+          secondary: second ?? undefined,
+        }),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load budgets.");
     } finally {
       setLoading(false);
     }
-  }, [base, month]);
+  }, [base, second, month]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
@@ -79,6 +174,8 @@ export default function BudgetsPage() {
   // An empty selection means "not chosen yet": fall back to the first loaded
   // option rather than syncing it in an effect.
   const effectiveCurrency = currency || currencies[0]?.code || "";
+  const baseCurrency = status?.baseCurrency ?? base ?? "USD";
+  const secondCurrency = status?.secondaryCurrency ?? second;
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault();
@@ -115,116 +212,80 @@ export default function BudgetsPage() {
     }
   };
 
+  const items = status?.items ?? [];
+
   return (
     <div className="space-y-6">
-      <PageHeader
+      <AppPageHeader
         title="Budgets"
-        description="Set a monthly or yearly limit per category, or one overall limit."
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="month"
-              aria-label="Month to evaluate"
-              value={month}
-              onChange={(event) => setMonth(event.target.value)}
-              className="w-40"
-            />
-            <Select
-              aria-label="Base currency"
-              value={base ?? ""}
-              onChange={(event) => setBase(event.target.value)}
-              className="w-28"
-            >
-              <option value="">Default</option>
-              {currencies.map((entry) => (
-                <option key={entry.code} value={entry.code}>
-                  {entry.code}
-                </option>
-              ))}
-            </Select>
-          </div>
+        dateRange={
+          <Input
+            type="month"
+            aria-label="Month to evaluate"
+            value={month}
+            onChange={(event) => setMonth(event.target.value)}
+            className="h-9 w-40"
+          />
         }
+        info={status ? <ConversionPill provenance={status.rateProvenance} /> : undefined}
+        pair={<PairSwitcher base={base} second={second} onSwap={swap} />}
       />
 
       {setupError && <ErrorNote message={setupError} />}
       {error && <ErrorNote message={error} />}
-
       {status && (
-        <ConversionNotice
+        <ConversionAlert
           status={status.conversionStatus}
           unconvertedCurrencies={status.unconvertedCurrencies}
-          provenance={status.rateProvenance}
         />
       )}
 
-      <BentoGrid>
-        <BentoTile title={`Progress — ${month}`} className="lg:col-span-7">
-          {loading && !status ? (
-            <LoadingNote label="Loading budgets…" />
-          ) : !status || status.items.length === 0 ? (
-            <EmptyState
-              title="No budgets yet"
-              description="Add a budget to start tracking spending against a limit."
-            />
-          ) : (
-            <ul className="divide-y divide-border">
-              {status.items.map((item) => (
-                <li key={item.budgetId} className="py-4 first:pt-0 last:pb-0">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="inline-flex items-center gap-2 font-medium">
-                      {item.color && (
-                        <span
-                          aria-hidden="true"
-                          className="inline-block h-2.5 w-2.5 rounded-full"
-                          style={{ backgroundColor: item.color }}
-                        />
-                      )}
-                      {item.categoryName ?? "All expenses"}
-                      <span className="text-xs text-muted">{item.period.toLowerCase()}</span>
-                      {!item.applied && <Badge tone="warn">not yet active</Badge>}
-                      {item.overBudget && <Badge tone="danger">over budget</Badge>}
-                      {item.ratePolicy === "estimate" && <Badge tone="gold">estimated</Badge>}
-                      {item.conversionStatus === "unavailable" && (
-                        <Badge tone="warn">rates unavailable</Badge>
-                      )}
-                    </span>
-                    <span className="tabular-nums">
-                      <span className="font-medium">{formatMoney(item.spent, item.currency)}</span>
-                      <span className="text-muted">
-                        {" / "}
-                        {formatMoney(item.budgetAmount, item.currency)}
-                      </span>
-                    </span>
-                  </div>
-                  <BudgetBar status={item} />
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <span className={item.remaining < 0 ? "text-danger" : "text-muted"}>
-                      {item.remaining < 0
-                        ? `${formatMoney(Math.abs(item.remaining), item.currency)} over`
-                        : `${formatMoney(item.remaining, item.currency)} left`}
-                      {" · "}
-                      {formatPercent(item.percentage)} used
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void handleDelete(item.budgetId, item.categoryName ?? "all expenses")
-                      }
-                      className="text-sm text-danger underline-offset-2 hover:underline"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </BentoTile>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <section className="rounded-3xl border border-border bg-surface lg:col-span-7">
+          <div className="px-5 pt-5 sm:px-6">
+            <h2 className="text-sm font-medium text-ink">Progress</h2>
+            <p className="mt-0.5 text-xs text-muted">{formatMonth(month)}</p>
+          </div>
+          <div className="px-4 pb-5 pt-4 sm:px-5">
+            {loading && !status ? (
+              <div className="space-y-3" aria-busy="true">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Skeleton key={index} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : items.length === 0 ? (
+              <EmptyState
+                title="No budgets yet"
+                description="Add a budget to start tracking spending against a limit."
+              />
+            ) : (
+              <ul className="divide-y divide-border">
+                {items.map((item) => (
+                  <BudgetRow
+                    key={item.budgetId}
+                    item={item}
+                    baseCurrency={baseCurrency}
+                    secondCurrency={secondCurrency}
+                    onRemove={() =>
+                      void handleDelete(item.budgetId, item.categoryName ?? "all expenses")
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
 
-        <BentoTile title="Add budget" className="lg:col-span-5">
+        <section className="rounded-3xl border border-border bg-surface lg:col-span-5">
+          <div className="px-5 pt-5 sm:px-6">
+            <h2 className="text-sm font-medium text-ink">Add budget</h2>
+            <p className="mt-0.5 text-xs text-muted">
+              A limit per category, or one overall limit.
+            </p>
+          </div>
           <form
             onSubmit={(event) => void handleCreate(event)}
-            className="grid gap-4 sm:grid-cols-2"
+            className="grid gap-4 px-5 pb-5 pt-4 sm:grid-cols-2 sm:px-6"
           >
             <div className="sm:col-span-2">
               <Field
@@ -303,8 +364,8 @@ export default function BudgetsPage() {
               </Button>
             </div>
           </form>
-        </BentoTile>
-      </BentoGrid>
+        </section>
+      </div>
     </div>
   );
 }

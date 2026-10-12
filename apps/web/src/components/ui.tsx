@@ -60,7 +60,7 @@ export function Card({
 }) {
   return (
     <section
-      className={`rounded-2xl border border-border bg-background shadow-[0_1px_2px_rgba(23,33,27,0.04)] ${className}`}
+      className={`rounded-3xl border border-border bg-surface ${className}`}
     >
       {title && (
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5 sm:px-6">
@@ -148,9 +148,9 @@ export type ButtonSize = "sm" | "md" | "lg";
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    "bg-primary text-on-primary shadow-[0_1px_2px_rgba(23,33,27,0.18)] hover:bg-primary-hover active:bg-primary-active",
+    "bg-primary text-on-primary shadow-[0_6px_20px_-10px_rgba(52,211,153,0.7)] hover:bg-primary-hover active:bg-primary-active",
   secondary:
-    "border border-border bg-background text-ink hover:bg-surface-muted hover:border-border-strong",
+    "border border-border bg-surface-muted text-ink hover:border-border-strong hover:bg-surface",
   ghost: "text-muted hover:bg-surface-muted hover:text-ink",
   danger: "bg-danger-solid text-white shadow-[0_1px_2px_rgba(0,0,0,0.4)] hover:bg-danger-solid-hover",
 };
@@ -472,7 +472,7 @@ export function Field({
 }
 
 const CONTROL =
-  "w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-ink shadow-[0_1px_2px_rgba(23,33,27,0.04)] transition placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50";
+  "w-full rounded-xl border border-border bg-surface-muted px-3.5 py-2.5 text-sm text-ink transition placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50";
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${CONTROL} ${className ?? ""}`} />;
