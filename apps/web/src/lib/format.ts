@@ -65,10 +65,14 @@ export function truncate(value: string, max: number): string {
  * Formats an amount with its ISO 4217 currency. `Intl` supplies the correct
  * symbol and decimal rules per currency (JPY for instance renders without
  * cents); the fallback keeps an unknown code from blanking the UI.
+ *
+ * Pass an explicit `locale` for content that is server-rendered (for example
+ * the landing-page mockups): the runtime locale differs between Node and the
+ * browser, which would otherwise cause a hydration mismatch.
  */
-export function formatMoney(amount: number, currency: string): string {
+export function formatMoney(amount: number, currency: string, locale?: string): string {
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
       maximumFractionDigits: 2,

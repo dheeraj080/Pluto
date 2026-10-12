@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Logo } from "./logo";
+import { WordmarkLockup } from "./logo";
 
 // Evaluated once at module load (build time) — stable across prerender passes,
 // unlike calling new Date() inside the component render.
@@ -11,8 +11,8 @@ const COLUMNS = [
     links: [
       { href: "/#features", label: "Features" },
       { href: "/#how-it-works", label: "How it works" },
+      { href: "/#who", label: "Who it's for" },
       { href: "/login", label: "Sign in" },
-      { href: "/status", label: "Service status" },
     ],
   },
   {
@@ -20,7 +20,7 @@ const COLUMNS = [
     links: [
       { href: "/support", label: "Help & FAQ" },
       { href: "/delete-account", label: "Delete account" },
-      { href: "/admin", label: "Admin" },
+      { href: "/status", label: "Service status" },
     ],
   },
   {
@@ -35,15 +35,15 @@ const COLUMNS = [
 export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-surface">
-      <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <Link href="/" className="inline-flex items-center gap-2 text-ink transition-opacity hover:opacity-80">
-              <Logo />
-              <span className="font-semibold tracking-tight">Pluto</span>
+            <Link href="/" className="inline-flex text-ink transition-opacity hover:opacity-80">
+              <WordmarkLockup markClassName="h-8 w-8" textClassName="text-xl" />
             </Link>
-            <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
-              Track expenses in any currency and see them in the one that matters to you.
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">
+              Track expenses in any currency and see them in the one that matters
+              to you. Web and mobile.
             </p>
           </div>
           {COLUMNS.map((column) => (

@@ -111,7 +111,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
         <div className="mt-6 flex gap-3">
           <Link
             href="/admin/login"
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-opacity hover:opacity-90"
           >
             {reason === "forbidden" ? "Sign in with another account" : "Go to sign-in"}
           </Link>
@@ -148,7 +148,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
               href={item.href}
               className={`rounded-lg px-3 py-2 text-sm transition-colors ${
                 isActive(pathname, item.href)
-                  ? "bg-accent/10 font-medium text-accent"
+                  ? "bg-primary/10 font-medium text-primary"
                   : "text-muted hover:bg-background hover:text-foreground"
               }`}
             >

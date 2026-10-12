@@ -170,7 +170,7 @@ export function AppShell({
               href={primaryAction.href}
               className="flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium text-primary"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary shadow-[0_2px_6px_rgba(14,90,65,0.35)] transition-colors hover:bg-primary-hover">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary shadow-[0_2px_10px_rgba(52,211,153,0.45)] transition-colors hover:bg-primary-hover">
                 <IconPlus className="h-4 w-4" />
               </span>
               Add

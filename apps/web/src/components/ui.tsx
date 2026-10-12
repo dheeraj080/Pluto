@@ -4,9 +4,9 @@
  * Deliberately dependency-free: no form/state library, matching the rest of
  * this codebase where pages own their state with useState/useEffect.
  *
- * Design language: warm surfaces, forest-green primary, hairline borders,
- * tabular numerals for every money figure, visible focus rings, restrained
- * motion (respected via the global reduced-motion override).
+ * Design language: near-black graphite surfaces, a single mint-emerald accent,
+ * hairline borders, tabular numerals for every money figure, visible focus
+ * rings, restrained motion (respected via the global reduced-motion override).
  */
 
 import type {
@@ -152,7 +152,7 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   secondary:
     "border border-border bg-background text-ink hover:bg-surface-muted hover:border-border-strong",
   ghost: "text-muted hover:bg-surface-muted hover:text-ink",
-  danger: "bg-danger text-white shadow-[0_1px_2px_rgba(23,33,27,0.18)] hover:bg-danger-hover",
+  danger: "bg-danger-solid text-white shadow-[0_1px_2px_rgba(0,0,0,0.4)] hover:bg-danger-solid-hover",
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {

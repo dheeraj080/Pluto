@@ -60,7 +60,7 @@ export default function AdminRatesPage() {
             <tr key={snapshot.version} className="hover:bg-background/60">
               <td className="px-4 py-3 font-mono font-medium">
                 v{snapshot.version}
-                {index === 0 && <span className="ml-2 text-xs text-accent">latest</span>}
+                {index === 0 && <span className="ml-2 text-xs text-accent-strong">latest</span>}
               </td>
               <td className="px-4 py-3 font-mono">{snapshot.baseCurrency}</td>
               <td className="px-4 py-3 font-mono">{snapshot.effectiveDate.slice(0, 10)}</td>

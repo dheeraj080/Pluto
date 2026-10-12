@@ -77,7 +77,7 @@ export default function AdminBackupsPage() {
               setPage(1);
               setStatus(e.target.value as BackupStatus | "");
             }}
-            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-accent"
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-primary"
           >
             {STATUS_OPTIONS.map((option) => (
               <option key={option || "all"} value={option}>
@@ -106,7 +106,7 @@ export default function AdminBackupsPage() {
                 <td className="px-4 py-3">
                   <Link
                     href={`/admin/users/${backup.userId}`}
-                    className="text-accent underline-offset-2 hover:underline"
+                    className="text-primary underline-offset-2 hover:underline"
                   >
                     {backup.userEmail}
                   </Link>

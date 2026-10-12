@@ -25,7 +25,7 @@ export default function TermsPage() {
             These Terms govern your use of the Pluto expense tracker on the web, the Pluto app
             for Android, and related services (the &quot;Service&quot;). By creating an account or
             using the Service you agree to these Terms and to our{" "}
-            <a href="/privacy" className="text-accent underline underline-offset-2">
+            <a href="/privacy" className="text-primary underline underline-offset-2">
               Privacy Policy
             </a>
             . If you do not agree, do not use the Service.
@@ -56,7 +56,7 @@ export default function TermsPage() {
             </li>
             <li>
               You may delete your account at any time via{" "}
-              <a href="/delete-account" className="text-accent underline underline-offset-2">
+              <a href="/delete-account" className="text-primary underline underline-offset-2">
                 Delete account
               </a>
               ; deletion is permanent and irreversible.
@@ -156,7 +156,7 @@ export default function TermsPage() {
           </p>
           <p className="mt-2">
             Questions:{" "}
-            <a href="mailto:support@pluto.app" className="text-accent underline underline-offset-2">
+            <a href="mailto:support@pluto.app" className="text-primary underline underline-offset-2">
               support@pluto.app
             </a>
             .

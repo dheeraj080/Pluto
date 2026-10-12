@@ -60,7 +60,7 @@ export default function AdminUsersPage() {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search e-mail or name…"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
         />
         <button
           type="submit"
@@ -88,7 +88,7 @@ export default function AdminUsersPage() {
                 <td className="px-4 py-3">
                   <Link
                     href={`/admin/users/${user.id}`}
-                    className="font-medium text-accent underline-offset-2 hover:underline"
+                    className="font-medium text-primary underline-offset-2 hover:underline"
                   >
                     {user.email}
                   </Link>

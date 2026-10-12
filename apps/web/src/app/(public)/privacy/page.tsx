@@ -173,7 +173,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Erase</strong> — permanently delete your account, backups, and sessions at{" "}
-              <a href="/delete-account" className="text-accent underline underline-offset-2">
+              <a href="/delete-account" className="text-primary underline underline-offset-2">
                 Delete account
               </a>
               .
@@ -213,7 +213,7 @@ export default function PrivacyPage() {
           </p>
           <p className="mt-2">
             Questions about this policy or your data:{" "}
-            <a href="mailto:support@pluto.app" className="text-accent underline underline-offset-2">
+            <a href="mailto:support@pluto.app" className="text-primary underline underline-offset-2">
               support@pluto.app
             </a>
             .

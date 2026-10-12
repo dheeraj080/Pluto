@@ -15,7 +15,7 @@ export function AuthShell({ children, brand }: { children: ReactNode; brand?: st
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-canvas">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(50%_100%_at_50%_0%,rgba(14,90,65,0.10),transparent)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(50%_100%_at_50%_0%,var(--glow),transparent)]"
       />
       <header className="relative z-10 flex items-center justify-between px-6 py-5">
         <Link href="/" className="text-ink transition-opacity hover:opacity-80">

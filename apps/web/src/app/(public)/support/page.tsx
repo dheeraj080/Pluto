@@ -48,7 +48,7 @@ export default function SupportPage() {
       <h1 className="text-3xl font-bold tracking-tight">Support</h1>
       <p className="mt-2 text-muted">
         Answers to the most common questions. Still stuck? Contact us at{" "}
-        <a href="mailto:support@pluto.app" className="text-accent underline underline-offset-2">
+        <a href="mailto:support@pluto.app" className="text-primary underline underline-offset-2">
           support@pluto.app
         </a>
         .
