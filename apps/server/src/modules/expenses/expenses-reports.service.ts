@@ -9,6 +9,7 @@ import { RatePolicy, RateResolver } from './rate-resolver';
 import {
   BudgetStatusQueryDto,
   ByDayOfWeekQueryDto,
+  CategoryTrendsQueryDto,
   ComparisonQueryDto,
   ExportQueryDto,
   ReportQueryDto,
@@ -20,6 +21,9 @@ import {
   BudgetStatusDto,
   BudgetStatusResponseDto,
   CategoryBreakdownDto,
+  CategoryTrendPointDto,
+  CategoryTrendSeriesDto,
+  CategoryTrendsResponseDto,
   ConversionStatus,
   CurrencyTotalDto,
   ExpenseSeriesDto,
@@ -596,6 +600,139 @@ export class ExpensesReportsService {
       unconvertedCurrencies,
       rateProvenance,
       points,
+    };
+  }
+
+  /**
+   * Monthly totals for the top-N categories by total spend, oldest first.
+   * Feeds the multi-line "by category" report chart, keeping the month axis
+   * continuous per category so each line spans the full window.
+   */
+  async getCategoryTrends(
+    userId: string,
+    query: CategoryTrendsQueryDto,
+  ): Promise<CategoryTrendsResponseDto> {
+    const baseCurrency = this.currencyConverter.resolveBase(query.base);
+    const secondaryCurrency = this.resolveSecondary(query.secondary, baseCurrency);
+    const keys = trailingMonths(query.months);
+    const start = toUtcDate(`${keys[0]}-01`);
+    const end = monthWindow(keys[keys.length - 1]).end;
+    const ctx = await this.buildRateContext(baseCurrency, end);
+
+    const rows = await this.prisma.expense.findMany({
+      where: { userId, incurredOn: { gte: start, lte: end } },
+      select: { amount: true, currency: true, incurredOn: true, categoryId: true },
+    });
+
+    const tracker = new ConversionTracker();
+    const byCategory = new Map<
+      string,
+      Map<
+        string,
+        {
+          total: number;
+          convertedCount: number;
+          count: number;
+          secondaryTotal: number;
+          secondaryCount: number;
+        }
+      >
+    >();
+    const categoryTotals = new Map<string, number>();
+
+    for (const row of rows) {
+      const res = this.convertAtDate(
+        ctx,
+        row.amount,
+        row.currency,
+        this.parseDateIso(row.incurredOn),
+        secondaryCurrency,
+      );
+      tracker.accumulate(row.currency, res);
+
+      const month = monthKey(row.incurredOn);
+      let months = byCategory.get(row.categoryId);
+      if (!months) {
+        months = new Map();
+        byCategory.set(row.categoryId, months);
+      }
+      const bucket = months.get(month) ?? {
+        total: 0,
+        convertedCount: 0,
+        count: 0,
+        secondaryTotal: 0,
+        secondaryCount: 0,
+      };
+      bucket.count += 1;
+      if (res.value !== null) {
+        bucket.total = round2(bucket.total + res.value);
+        bucket.convertedCount += 1;
+        categoryTotals.set(
+          row.categoryId,
+          round2((categoryTotals.get(row.categoryId) ?? 0) + res.value),
+        );
+      }
+      if (res.secondaryValue !== null) {
+        bucket.secondaryTotal = round2(bucket.secondaryTotal + res.secondaryValue);
+        bucket.secondaryCount += 1;
+      }
+      months.set(month, bucket);
+    }
+
+    const topIds = [...categoryTotals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, query.top)
+      .map(([id]) => id);
+
+    const categories =
+      topIds.length > 0
+        ? await this.prisma.expenseCategory.findMany({
+            where: { id: { in: topIds }, userId },
+            select: { id: true, name: true, color: true },
+          })
+        : [];
+    const meta = new Map(categories.map((c) => [c.id, c]));
+
+    const globallyUnavailable = tracker.status() === 'unavailable';
+    const zeroTotal = globallyUnavailable ? null : 0;
+
+    const series: CategoryTrendSeriesDto[] = topIds.map((categoryId) => {
+      const months = byCategory.get(categoryId);
+      const category = meta.get(categoryId);
+      const points: CategoryTrendPointDto[] = keys.map((month) => {
+        const bucket = months?.get(month);
+        const point: CategoryTrendPointDto = {
+          month,
+          total: bucket && bucket.convertedCount > 0 ? round2(bucket.total) : zeroTotal,
+        };
+        if (secondaryCurrency) {
+          point.secondaryTotal =
+            bucket && bucket.secondaryCount > 0 ? round2(bucket.secondaryTotal) : zeroTotal;
+        }
+        return point;
+      });
+      return {
+        categoryId,
+        categoryName: category?.name ?? 'Uncategorised',
+        color: category?.color ?? '#64748b',
+        points,
+      };
+    });
+
+    const { converted, conversionStatus, unconvertedCurrencies, rateProvenance } =
+      tracker.toReportFields();
+
+    return {
+      baseCurrency,
+      ...(secondaryCurrency ? { secondaryCurrency } : {}),
+      months: keys.length,
+      top: query.top,
+      converted,
+      ...(conversionStatus === 'unavailable' ? { conversionUnavailableReason: UNAVAILABLE } : {}),
+      conversionStatus,
+      unconvertedCurrencies,
+      rateProvenance,
+      series,
     };
   }
 

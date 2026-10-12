@@ -613,3 +613,75 @@ export class ExpenseSeriesDto {
   @ApiProperty({ type: [SeriesPointDto] })
   points!: SeriesPointDto[];
 }
+
+export class CategoryTrendPointDto {
+  @ApiProperty({ example: '2026-10' })
+  month!: string;
+
+  @ApiPropertyOptional({
+    description: 'Category total in the base currency for the month',
+    example: 245.75,
+    nullable: true,
+  })
+  total!: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Category total in the secondary currency, when one was requested',
+    example: 20397.75,
+    nullable: true,
+  })
+  secondaryTotal?: number | null;
+}
+
+export class CategoryTrendSeriesDto {
+  @ApiProperty({ example: 'b2f1c3de-1111-2222-3333-444455556666' })
+  categoryId!: string;
+
+  @ApiProperty({ example: 'Food & Dining' })
+  categoryName!: string;
+
+  @ApiProperty({ example: '#34d399' })
+  color!: string;
+
+  @ApiProperty({ type: [CategoryTrendPointDto] })
+  points!: CategoryTrendPointDto[];
+}
+
+export class CategoryTrendsResponseDto {
+  @ApiProperty({ example: 'USD' })
+  baseCurrency!: string;
+
+  @ApiPropertyOptional({
+    description: 'Second currency the series are also expressed in, when requested',
+    example: 'INR',
+    nullable: true,
+  })
+  secondaryCurrency?: string | null;
+
+  @ApiProperty({ description: 'Number of months returned', example: 12 })
+  months!: number;
+
+  @ApiProperty({ description: 'Number of top categories returned', example: 5 })
+  top!: number;
+
+  @ApiProperty({ example: true })
+  converted!: boolean;
+
+  @ApiPropertyOptional({ description: 'Why conversion was unavailable', nullable: true })
+  conversionUnavailableReason?: string;
+
+  @ApiProperty({
+    enum: ['converted', 'partially_converted', 'unavailable'],
+    example: 'converted',
+  })
+  conversionStatus!: ConversionStatus;
+
+  @ApiProperty({ type: [String] })
+  unconvertedCurrencies!: string[];
+
+  @ApiProperty({ type: RateProvenanceDto })
+  rateProvenance!: RateProvenanceDto;
+
+  @ApiProperty({ type: [CategoryTrendSeriesDto] })
+  series!: CategoryTrendSeriesDto[];
+}

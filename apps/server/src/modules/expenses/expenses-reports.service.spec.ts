@@ -462,6 +462,50 @@ describe('ExpensesReportsService', () => {
     });
   });
 
+  describe('getCategoryTrends', () => {
+    it('returns monthly series for the top categories only', async () => {
+      const months = trailingMonths(3);
+      const [prev, current] = [months[1], months[2]];
+
+      mockPrismaService.expenseCategory.findMany.mockResolvedValue([
+        categoryRow('cat-1', 'Food', '#34d399'),
+        categoryRow('cat-2', 'Transport', '#7dd3fc'),
+      ]);
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        row({
+          amount: new Prisma.Decimal('100.00'),
+          categoryId: 'cat-1',
+          incurredOn: new Date(`${current}-05T00:00:00.000Z`),
+        }),
+        row({
+          amount: new Prisma.Decimal('50.00'),
+          categoryId: 'cat-1',
+          incurredOn: new Date(`${prev}-05T00:00:00.000Z`),
+        }),
+        row({
+          amount: new Prisma.Decimal('20.00'),
+          categoryId: 'cat-2',
+          incurredOn: new Date(`${current}-06T00:00:00.000Z`),
+        }),
+        row({
+          amount: new Prisma.Decimal('5.00'),
+          categoryId: 'cat-3',
+          incurredOn: new Date(`${current}-07T00:00:00.000Z`),
+        }),
+      ]);
+
+      const result = await service.getCategoryTrends(USER_A, { months: 3, top: 2 });
+
+      expect(result.months).toBe(3);
+      expect(result.series.map((s) => s.categoryId)).toEqual(['cat-1', 'cat-2']);
+      const food = result.series[0];
+      expect(food.categoryName).toBe('Food');
+      expect(food.points.map((p) => p.month)).toEqual(months);
+      expect(food.points.map((p) => p.total)).toEqual([0, 50, 100]);
+      expect(result.series[1].points.map((p) => p.total)).toEqual([0, 0, 20]);
+    });
+  });
+
   describe('getComparison', () => {
     beforeEach(() => {
       mockPrismaService.expenseCategory.findMany.mockResolvedValue([

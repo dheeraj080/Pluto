@@ -430,6 +430,57 @@ export class ExportQueryDto {
   secondary?: string;
 }
 
+export class CategoryTrendsQueryDto {
+  @ApiPropertyOptional({
+    description: 'Number of trailing months to return',
+    example: 12,
+    default: 12,
+    maximum: 24,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(24)
+  months: number = 12;
+
+  @ApiPropertyOptional({
+    description: 'How many top categories (by total spend) to return',
+    example: 5,
+    default: 5,
+    maximum: 12,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  top: number = 5;
+
+  @ApiPropertyOptional({
+    description: 'Base currency to convert into',
+    example: 'USD',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  base?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)',
+    example: 'INR',
+    minLength: 3,
+    maxLength: 3,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  secondary?: string;
+}
+
 export const SERIES_GRANULARITIES = ['day', 'week', 'month'] as const;
 export type SeriesGranularity = (typeof SERIES_GRANULARITIES)[number];
 

@@ -20,6 +20,7 @@ import { UpdateExpenseDto } from './dto/update-expense.dto';
 import {
   BudgetStatusQueryDto,
   ByDayOfWeekQueryDto,
+  CategoryTrendsQueryDto,
   ComparisonQueryDto,
   ExportQueryDto,
   ExpenseQueryDto,
@@ -38,6 +39,7 @@ import {
 } from './dto/expense-response.dto';
 import {
   BudgetStatusResponseDto,
+  CategoryTrendsResponseDto,
   ExpenseSummaryDto,
   ExpenseTrendDto,
   ExpenseSeriesDto,
@@ -163,6 +165,25 @@ export class ExpensesController {
     @Query() query: SeriesQueryDto,
   ): Promise<ExpenseSeriesDto> {
     return this.reportsService.getSeries(user.id, query);
+  }
+
+  @Get('category-trends')
+  @ApiOperation({
+    summary: 'Monthly totals for the top categories',
+    description:
+      'Returns per-category monthly series for the top-N categories by total spend, oldest first.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Per-category monthly series',
+    type: CategoryTrendsResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Unsupported currency' })
+  async getCategoryTrends(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: CategoryTrendsQueryDto,
+  ): Promise<CategoryTrendsResponseDto> {
+    return this.reportsService.getCategoryTrends(user.id, query);
   }
 
   // ------------------------------------------------------------------ budgets
