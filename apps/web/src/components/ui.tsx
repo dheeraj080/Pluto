@@ -366,7 +366,7 @@ export function SegmentedControl({
   className?: string;
 }) {
   return (
-    <div role="group" aria-label={label} className={`inline-flex rounded-xl border border-border bg-surface-muted p-0.5 ${className}`}>
+    <div role="group" aria-label={label} className={`inline-flex rounded-xl border border-border bg-background p-0.5 ${className}`}>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -375,8 +375,8 @@ export function SegmentedControl({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(option.value)}
-            className={`h-8 rounded-[10px] px-3.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
-              active ? "bg-background text-ink shadow-[0_1px_2px_rgba(23,33,27,0.08)]" : "text-muted hover:text-ink"
+            className={`h-8 rounded-[10px] px-3.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+              active ? "bg-surface-muted font-semibold text-ink" : "text-muted hover:text-ink"
             }`}
           >
             {option.label}
