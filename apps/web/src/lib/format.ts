@@ -105,3 +105,48 @@ export function formatMonth(month: string): string {
 export function currentMonth(): string {
   return new Date().toISOString().slice(0, 7);
 }
+
+/**
+ * Range label that stays unambiguous across months and years, e.g.
+ * `1–12 Oct 2026`, `28 Sep – 4 Oct 2026` or `Nov 2025 – Oct 2026`.
+ * Anchored to UTC so a `YYYY-MM-DD` bound cannot shift by a timezone.
+ */
+export function formatRangeLabel(from: string, to: string): string {
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  const startMonth = start.toLocaleDateString(undefined, { month: "short", timeZone: "UTC" });
+  const endMonth = end.toLocaleDateString(undefined, { month: "short", timeZone: "UTC" });
+  const startYear = start.getUTCFullYear();
+  const endYear = end.getUTCFullYear();
+
+  if (from === to) return `${start.getUTCDate()} ${startMonth} ${startYear}`;
+  if (startYear === endYear && start.getUTCMonth() === end.getUTCMonth()) {
+    return `${start.getUTCDate()}–${end.getUTCDate()} ${endMonth} ${endYear}`;
+  }
+  if (startYear === endYear) {
+    return `${start.getUTCDate()} ${startMonth} – ${end.getUTCDate()} ${endMonth} ${endYear}`;
+  }
+  return `${startMonth} ${startYear} – ${endMonth} ${endYear}`;
+}
+
+/** Short "as of" date, e.g. `9 Oct` (with the year only when it is not this one). */
+export function formatAsOf(iso: string, now: Date = new Date()): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  const sameYear = date.getUTCFullYear() === now.getUTCFullYear();
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    ...(sameYear ? {} : { year: "numeric" }),
+    timeZone: "UTC",
+  });
+}
+
+/** Compact short date for a bucket key (day or month), e.g. `12 Oct` / `Oct 2026`. */
+export function formatBucket(bucket: string): string {
+  if (bucket.length === 7) return formatMonth(bucket);
+  return new Date(`${bucket}T00:00:00Z`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}

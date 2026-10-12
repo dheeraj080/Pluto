@@ -13,7 +13,7 @@
 
 import { formatMoney } from "@/lib/format";
 
-export type AmountSize = "hero" | "lg" | "md" | "sm";
+export type AmountSize = "display" | "hero" | "kpi" | "lg" | "md" | "sm";
 
 export interface DualAmountProps {
   /** Amount in the primary (large) currency. */
@@ -34,21 +34,27 @@ export interface DualAmountProps {
 }
 
 const PRIMARY_SIZE: Record<AmountSize, string> = {
+  display: "text-[2.75rem] font-light leading-none tracking-tight",
   hero: "text-4xl font-light tracking-tight md:text-5xl",
+  kpi: "text-[1.75rem] font-light leading-none tracking-tight",
   lg: "text-2xl font-semibold tracking-tight",
   md: "text-base font-semibold",
   sm: "text-sm font-semibold",
 };
 
 const SECONDARY_SIZE: Record<AmountSize, string> = {
+  display: "text-lg",
   hero: "text-lg md:text-xl",
+  kpi: "text-sm",
   lg: "text-sm",
   md: "text-xs",
   sm: "text-xs",
 };
 
 const RECORDED_SIZE: Record<AmountSize, string> = {
+  display: "text-sm",
   hero: "text-sm",
+  kpi: "text-xs",
   lg: "text-xs",
   md: "text-xs",
   sm: "text-[11px]",

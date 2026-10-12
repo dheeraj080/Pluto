@@ -1,8 +1,59 @@
 "use client";
 
 import { formatDate } from "@/lib/format";
+import { rateBetween } from "@/lib/convert";
 import { InfoPill } from "@/components/pill";
-import type { ConversionStatus, RateProvenance } from "@/lib/types";
+import type { ConversionStatus, RateProvenance, RateSnapshot } from "@/lib/types";
+
+/**
+ * The compact "Rates as of …" pill in the dashboard header.
+ *
+ * Shows the latest published snapshot date on the pill and, on click, the rate
+ * for the current pair plus its source — so the number behind every converted
+ * figure is one tap away without a banner.
+ */
+export function RateAsOfPill({
+  snapshot,
+  base,
+  second,
+  provenance,
+}: {
+  snapshot: RateSnapshot | null;
+  base: string | null;
+  second: string | null;
+  provenance?: RateProvenance | null;
+}) {
+  if (!snapshot) return null;
+  const rate = base && second ? rateBetween(base, second, snapshot.rates) : null;
+  const estimated = provenance?.policies?.includes("estimate");
+
+  return (
+    <InfoPill
+      label={`Rates as of ${formatDate(snapshot.effectiveDate)}`}
+      title="Published exchange rates"
+    >
+      {rate != null && base && second ? (
+        <p>
+          1 {base} = <span className="tabular-nums">{formatRate(rate)}</span> {second}.
+        </p>
+      ) : (
+        <p>The latest published rate snapshot.</p>
+      )}
+      <p className="mt-1.5">
+        Source: {snapshot.provider} · {formatDate(snapshot.effectiveDate)}.
+      </p>
+      {estimated && (
+        <p className="mt-1.5">
+          Some figures use the closest published snapshot instead of the exact transaction date.
+        </p>
+      )}
+    </InfoPill>
+  );
+}
+
+function formatRate(value: number): string {
+  return value.toFixed(value >= 100 ? 2 : 4);
+}
 
 /**
  * The quiet rate note that sits beside the date range.

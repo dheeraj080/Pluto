@@ -61,6 +61,7 @@ export function InfoPill({
   label,
   title,
   children,
+  tone = "neutral",
   className = "",
 }: {
   /** Compact text shown on the pill itself. */
@@ -68,6 +69,8 @@ export function InfoPill({
   /** Optional heading inside the popover. */
   title?: string;
   children: ReactNode;
+  /** `warning` tints the pill amber — e.g. whenever figures include estimates. */
+  tone?: "neutral" | "warning";
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -90,6 +93,11 @@ export function InfoPill({
     };
   }, [open]);
 
+  const toneClass =
+    tone === "warning"
+      ? "border-warning/30 bg-warning-subtle text-warning hover:border-warning/50"
+      : "border-border bg-surface-muted text-muted hover:border-border-strong hover:text-ink";
+
   return (
     <span ref={ref} className={`relative inline-flex ${className}`}>
       <button
@@ -97,9 +105,12 @@ export function InfoPill({
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-muted px-2.5 py-1 text-xs font-medium text-muted transition-colors duration-150 hover:border-border-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${toneClass}`}
       >
-        <IconInfo aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+        <IconInfo
+          aria-hidden="true"
+          className={`h-3.5 w-3.5 ${tone === "warning" ? "text-warning" : "text-primary"}`}
+        />
         <span className="tabular-nums">{label}</span>
       </button>
       {open && (

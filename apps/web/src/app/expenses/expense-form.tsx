@@ -110,7 +110,8 @@ export function ExpenseForm({
 
   return (
     <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
-      <form onSubmit={(event) => void handleSubmit(event)} className="space-y-5">
+      <h2 className="text-sm font-medium text-ink">{isEditing ? "Edit expense" : "New expense"}</h2>
+      <form onSubmit={(event) => void handleSubmit(event)} className="mt-4 space-y-5">
         {error && <ErrorNote message={error} />}
 
         <div className="grid gap-4 sm:grid-cols-2">

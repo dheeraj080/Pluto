@@ -349,9 +349,11 @@ export function useSeries(params: {
   granularity?: SeriesGranularity;
   base?: string | null;
   secondary?: string | null;
+  /** Bumping this forces a refetch with identical bounds (a card-level retry). */
+  refreshKey?: number;
 }): AsyncState<ExpenseSeriesResponse> {
-  const { from, to, granularity, base, secondary } = params;
-  const key = asyncKey([from, to, granularity, base, secondary]);
+  const { from, to, granularity, base, secondary, refreshKey } = params;
+  const key = asyncKey([from, to, granularity, base, secondary, refreshKey]);
   const [state, setState] = useState<KeyedState<ExpenseSeriesResponse>>({
     key: null,
     data: null,
@@ -382,7 +384,7 @@ export function useSeries(params: {
     return () => {
       cancelled = true;
     };
-  }, [key, from, to, granularity, base, secondary]);
+  }, [key, from, to, granularity, base, secondary, refreshKey]);
 
   const fresh = state.key === key;
   return { data: fresh ? state.data : null, loading: !fresh, error: fresh ? state.error : null };

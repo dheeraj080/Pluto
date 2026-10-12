@@ -9,7 +9,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { IconArrowLeft, IconSwap } from "./icons";
+import { IconSwap } from "./icons";
 
 export function AppPageHeader({
   title,
@@ -45,22 +45,6 @@ export function AppPageHeader({
         {actions}
       </div>
     </header>
-  );
-}
-
-/**
- * The standard "back" affordance for a detail or form screen, sized to sit in
- * the header's action slot.
- */
-export function BackLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-surface-muted px-3.5 text-sm font-medium text-ink transition-colors duration-150 hover:border-border-strong hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-    >
-      <IconArrowLeft className="h-4 w-4" />
-      {children}
-    </Link>
   );
 }
 

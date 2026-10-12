@@ -134,6 +134,17 @@ export function IconMenu(props: IconProps) {
   );
 }
 
+/** Vertical ellipsis — the overflow-menu affordance. */
+export function IconDots(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="5.5" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="18.5" r="1.15" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
 export function IconClose(props: IconProps) {
   return (
     <Svg {...props}>

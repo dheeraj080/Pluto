@@ -1,22 +1,28 @@
 "use client";
 
 /**
- * The dashboard's recent-transactions card, newest first.
+ * The dashboard's recent-transactions card: the last few things bought.
  *
- * Each row shows the recorded amount re-expressed in the Pair: Base bold, the
- * Second smaller and grey, and a quiet "Paid …" label when the expense was
- * recorded in a third currency. The per-row values come from the public rate
- * snapshot and are display-only; the server aggregates own every total.
+ * At most six rows, no inner scroll. Each row shows exactly the Pair — the
+ * amount in the primary currency with the second-currency value in small grey
+ * beneath it. The currency the expense was actually paid in never appears on
+ * the row; it is revealed, together with the rate used and its date, on hover
+ * or focus. When the month leaned on an estimated rate, one amber pill in the
+ * header says so instead of tagging each row.
  */
 
 import Link from "next/link";
 import { formatDate } from "@/lib/format";
-import { dualAmounts } from "@/lib/convert";
+import { buildConversionPreview, dualAmounts } from "@/lib/convert";
 import type { Expense, Paginated, RateSnapshot } from "@/lib/types";
 import { ChartFrame } from "@/components/charts";
 import { EmptyState, Skeleton } from "@/components/ui";
 import { TransactionRow } from "@/components/transaction-row";
+import { InfoPill } from "@/components/pill";
 import { IconPlus, IconReceipt } from "@/components/icons";
+import { CardError } from "./dashboard-error";
+
+const MAX_ROWS = 6;
 
 export function RecentTransactions({
   data,
@@ -25,6 +31,8 @@ export function RecentTransactions({
   base,
   second,
   snapshot,
+  estimated,
+  onRetry,
 }: {
   data: Paginated<Expense> | null;
   loading: boolean;
@@ -32,17 +40,33 @@ export function RecentTransactions({
   base: string | null;
   second: string | null;
   snapshot: RateSnapshot | null;
+  /** True when any figure in the month used an estimated rate. */
+  estimated: boolean;
+  onRetry: () => void;
 }) {
-  const items = data?.items ?? [];
-  const isEmpty = !loading && items.length === 0;
+  const items = (data?.items ?? []).slice(0, MAX_ROWS);
+  const isEmpty = !loading && !error && items.length === 0;
 
   return (
     <ChartFrame
+      compact
+      clip={false}
       title="Recent transactions"
-      className="flex flex-col lg:col-span-7"
-      bodyClassName="flex flex-1 flex-col pt-2"
+      className="order-4"
       loading={loading && !data}
       skeleton={<RowSkeleton />}
+      action={
+        estimated ? (
+          <InfoPill
+            tone="warning"
+            label="Includes estimated rates"
+            title="Some rates are estimates"
+          >
+            A few transactions were converted using the closest published rate
+            because their exact rate snapshot was unavailable.
+          </InfoPill>
+        ) : undefined
+      }
       empty={
         isEmpty ? (
           <EmptyState
@@ -61,52 +85,70 @@ export function RecentTransactions({
           />
         ) : undefined
       }
-      action={
+      footer={
         <Link
           href="/expenses/transactions"
-          className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+          className="font-medium text-primary underline-offset-2 hover:underline"
         >
-          View all →
+          View all transactions
         </Link>
       }
-      footer={error ? <span className="text-danger">{error}</span> : undefined}
     >
-      <ul className="flex flex-1 flex-col divide-y divide-border">
-        {items.map((expense) => {
-          const pair = dualAmounts(expense.amount, expense.currency, base, second, snapshot);
-          const primaryCurrency = pair.base !== null ? (base ?? expense.currency) : expense.currency;
-          const primaryAmount = pair.base ?? expense.amount;
-          const secondAmount = pair.second !== null ? pair.second : null;
-          const recorded =
-            expense.currency !== primaryCurrency
-              ? { amount: expense.amount, currency: expense.currency }
+      {error && !data ? (
+        <CardError message={error} onRetry={onRetry} />
+      ) : (
+        <ul className="divide-y divide-border">
+          {items.map((expense) => {
+            const pair = dualAmounts(expense.amount, expense.currency, base, second, snapshot);
+            const primaryCurrency = pair.base !== null ? (base ?? expense.currency) : expense.currency;
+            const primaryAmount = pair.base ?? expense.amount;
+            const paid =
+              expense.currency !== primaryCurrency
+                ? { amount: expense.amount, currency: expense.currency }
+                : null;
+            const secondary =
+              pair.second != null && second ? { amount: pair.second, currency: second } : null;
+            const conversion = paid
+              ? buildConversionPreview(expense.amount, expense.currency, primaryCurrency, snapshot)
               : null;
 
-          return (
-            <li key={expense.id} className="flex-1">
+            return (
               <TransactionRow
+                key={expense.id}
                 href={`/expenses/${expense.id}`}
                 color={expense.categoryColor}
                 title={expense.description || expense.categoryName}
-                meta={`${formatDate(expense.incurredOn)} · ${expense.categoryName}`}
+                meta={`${expense.categoryName} · ${formatDate(expense.incurredOn)}`}
                 amount={primaryAmount}
                 currency={primaryCurrency}
-                secondAmount={secondAmount}
-                secondCurrency={secondAmount !== null ? second : null}
-                recorded={recorded}
+                paid={paid}
+                secondary={secondary}
+                beneath="secondary"
+                rate={
+                  conversion
+                    ? {
+                        from: conversion.from,
+                        to: conversion.to,
+                        value: conversion.rate,
+                        date: formatDate(conversion.effectiveDate),
+                        provider: conversion.provider,
+                      }
+                    : null
+                }
+                estimated={estimated && paid !== null}
               />
-            </li>
-          );
-        })}
-      </ul>
+            );
+          })}
+        </ul>
+      )}
     </ChartFrame>
   );
 }
 
 function RowSkeleton() {
   return (
-    <div className="space-y-1 px-2" aria-busy="true">
-      {Array.from({ length: 6 }).map((_, index) => (
+    <div className="space-y-1" aria-busy="true">
+      {Array.from({ length: MAX_ROWS }).map((_, index) => (
         <div key={index} className="flex items-center gap-3 py-2.5">
           <Skeleton className="size-2.5 rounded-full" />
           <div className="flex-1 space-y-1.5">

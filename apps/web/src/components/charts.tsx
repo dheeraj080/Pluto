@@ -134,9 +134,14 @@ export function ChartFrame({
   empty,
   footer,
   glow = false,
+  compact = false,
+  clip = true,
   height = 280,
   className = "",
   bodyClassName = "",
+  hideTableToggle = false,
+  showTable,
+  onShowTableChange,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
@@ -158,16 +163,37 @@ export function ChartFrame({
   footer?: ReactNode;
   /** Adds the soft emerald glow, reserved for hero cards. */
   glow?: boolean;
+  /**
+   * Tighter padding and a small uppercase section label, for the dashboard's
+   * compact grid. The default is the roomier report-card treatment.
+   */
+  compact?: boolean;
+  /** Set false when a child (e.g. a hover tooltip) must escape the card edges. */
+  clip?: boolean;
   height?: number;
   className?: string;
   bodyClassName?: string;
+  /** Hide the built-in "Table/Chart" pill; the table is then controlled by the caller. */
+  hideTableToggle?: boolean;
+  /** Controlled table visibility (overrides the internal toggle when provided). */
+  showTable?: boolean;
+  /** Called when the caller's table toggle or the built-in pill flips the view. */
+  onShowTableChange?: (show: boolean) => void;
 }) {
-  const [showTable, setShowTable] = useState(false);
-  const canToggle = Boolean(table) && !loading && !empty;
+  const [internalShowTable, setInternalShowTable] = useState(false);
+  const tableVisible = showTable ?? internalShowTable;
+  const toggleTable = () => {
+    const next = !tableVisible;
+    if (onShowTableChange) onShowTableChange(next);
+    else setInternalShowTable(next);
+  };
+  const canToggle = Boolean(table) && !loading && !empty && !hideTableToggle;
 
   return (
     <section
-      className={`relative overflow-hidden rounded-3xl border border-border bg-surface ${className}`}
+      className={`relative border border-border bg-surface ${
+        clip ? "overflow-hidden" : ""
+      } ${compact ? "rounded-[20px]" : "rounded-3xl"} ${className}`}
     >
       {glow && (
         <div
@@ -176,9 +202,21 @@ export function ChartFrame({
           style={{ background: "radial-gradient(circle, var(--glow-strong), transparent 70%)" }}
         />
       )}
-      <header className="relative flex flex-wrap items-start justify-between gap-3 px-5 pt-5 sm:px-6">
+      <header
+        className={`relative flex flex-wrap items-start justify-between gap-3 ${
+          compact ? "px-5 pt-4" : "px-5 pt-5 sm:px-6"
+        }`}
+      >
         <div className="min-w-0">
-          <h2 className="text-sm font-medium text-ink">{title}</h2>
+          <h2
+            className={
+              compact
+                ? "text-xs font-medium uppercase tracking-wider text-muted"
+                : "text-sm font-medium text-ink"
+            }
+          >
+            {title}
+          </h2>
           {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -186,26 +224,30 @@ export function ChartFrame({
           {canToggle && (
             <button
               type="button"
-              aria-pressed={showTable}
-              onClick={() => setShowTable((value) => !value)}
+              aria-pressed={tableVisible}
+              onClick={toggleTable}
               className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted transition-colors duration-150 hover:border-border-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              {showTable ? "Chart" : "Table"}
+              {tableVisible ? "Chart" : "Table"}
             </button>
           )}
         </div>
       </header>
-      <div className={`relative px-4 pb-5 pt-3 sm:px-5 ${bodyClassName}`}>
+      <div
+        className={`relative ${
+          compact ? "px-5 pb-5 pt-3" : "px-4 pb-5 pt-3 sm:px-5"
+        } ${bodyClassName}`}
+      >
         {loading ? (
           skeleton ?? <ChartSkeleton height={height} />
         ) : empty ? (
           empty
-        ) : showTable && table ? (
+        ) : tableVisible && table ? (
           <ChartDataTable table={table} />
         ) : (
           <>
             {children}
-            {srTable && !showTable && (
+            {srTable && !tableVisible && (
               <div className="sr-only">
                 <ChartDataTable table={srTable} />
               </div>
@@ -214,7 +256,13 @@ export function ChartFrame({
         )}
       </div>
       {footer && (
-        <div className="relative px-5 pb-5 text-xs leading-relaxed text-muted sm:px-6">{footer}</div>
+        <div
+          className={`relative text-xs leading-relaxed text-muted ${
+            compact ? "px-5 pb-4" : "px-5 pb-5 sm:px-6"
+          }`}
+        >
+          {footer}
+        </div>
       )}
     </section>
   );
@@ -461,6 +509,288 @@ export function TrendLineChart({
               stroke="var(--canvas)"
               strokeWidth={2}
             />
+          )}
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Comparison chart                                                    */
+/* ------------------------------------------------------------------ */
+
+export interface ComparisonRow {
+  /** Bucket key: `YYYY-MM-DD` for day buckets, `YYYY-MM` for months. */
+  key: string;
+  current: number | null;
+  previous: number | null;
+  currentSecond?: number | null;
+  previousSecond?: number | null;
+}
+
+function ComparisonTooltip({
+  active,
+  payload,
+  label,
+  headingFormatter,
+  currentLabel,
+  previousLabel,
+  formatPrimary,
+  formatSecondary,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: ComparisonRow }>;
+  label?: string | number;
+  headingFormatter: (key: string) => string;
+  currentLabel: string;
+  previousLabel: string;
+  formatPrimary: (value: number) => string;
+  formatSecondary: (value: number) => string;
+}) {
+  const row = payload?.[0]?.payload;
+  if (!active || !row) return null;
+
+  const heading = headingFormatter(String(label ?? row.key));
+  const diff =
+    row.current == null && row.previous == null
+      ? null
+      : (row.current ?? 0) - (row.previous ?? 0);
+  const diffSecond =
+    row.currentSecond != null && row.previousSecond != null
+      ? row.currentSecond - row.previousSecond
+      : null;
+
+  const signed = (value: number) => `${value > 0 ? "+" : ""}${formatPrimary(value)}`;
+
+  return (
+    <div className="min-w-[12rem] rounded-xl border border-border bg-surface px-3 py-2 shadow-2xl">
+      <p className="mb-1.5 text-xs font-medium text-ink">{heading}</p>
+      <ul className="space-y-1">
+        <TooltipRow
+          dot="var(--primary)"
+          label={currentLabel}
+          value={row.current == null ? "—" : formatPrimary(row.current)}
+          secondary={row.currentSecond == null ? null : formatSecondary(row.currentSecond)}
+        />
+        <TooltipRow
+          dot="var(--chart-secondary)"
+          label={previousLabel}
+          value={row.previous == null ? "—" : formatPrimary(row.previous)}
+          secondary={row.previousSecond == null ? null : formatSecondary(row.previousSecond)}
+        />
+        <TooltipRow
+          dot="transparent"
+          label="Difference"
+          value={diff == null ? "—" : signed(diff)}
+          secondary={diffSecond == null ? null : signed(diffSecond)}
+          strong
+        />
+      </ul>
+    </div>
+  );
+}
+
+function TooltipRow({
+  dot,
+  label,
+  value,
+  secondary,
+  strong = false,
+}: {
+  dot: string;
+  label: string;
+  value: string;
+  secondary: string | null;
+  strong?: boolean;
+}) {
+  return (
+    <li className="flex items-start justify-between gap-4 text-xs">
+      <span className="inline-flex min-w-0 items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className="mt-1 inline-block size-2 shrink-0 rounded-full"
+          style={{ backgroundColor: dot }}
+        />
+        <span className={strong ? "text-ink" : "truncate text-muted"}>{label}</span>
+      </span>
+      <span className="text-right">
+        <span className={`block tabular-nums ${strong ? "font-semibold text-ink" : "font-medium text-ink"}`}>
+          {value}
+        </span>
+        {secondary && <span className="block text-[11px] tabular-nums text-muted">{secondary}</span>}
+      </span>
+    </li>
+  );
+}
+
+/**
+ * The "this period vs the last one" chart: two cumulative lines, one per
+ * window, sharing the left axis. The second-currency axis is opt-in because
+ * plotting the same data twice is noisy — when it is on, the same two series
+ * are mirrored on the right in a quieter grey.
+ */
+export function ComparisonChart({
+  data,
+  currentLabel,
+  previousLabel,
+  formatPrimary,
+  formatSecondary,
+  xTickFormatter,
+  xHeadingFormatter,
+  showSecondAxis = false,
+  height = 200,
+  leftTickFormatter,
+  rightTickFormatter,
+  leftDomain,
+  latestPoint = null,
+  className = "",
+}: {
+  data: ComparisonRow[];
+  currentLabel: string;
+  previousLabel: string;
+  formatPrimary: (value: number) => string;
+  formatSecondary: (value: number) => string;
+  xTickFormatter: (key: string) => string;
+  xHeadingFormatter: (key: string) => string;
+  showSecondAxis?: boolean;
+  height?: number;
+  leftTickFormatter?: (value: number) => string;
+  rightTickFormatter?: (value: number) => string;
+  /** Explicit left-axis bounds (e.g. data maximum plus headroom); `[0, "auto"]` when omitted. */
+  leftDomain?: [number, number | "auto"];
+  /** A dot drawn on the latest point of the current series. */
+  latestPoint?: { x: string; y: number } | null;
+  className?: string;
+}) {
+  const reduced = usePrefersReducedMotion();
+  const rawId = useId();
+  const gradientId = `cmp-${rawId.replace(/[^a-zA-Z0-9]/g, "")}`;
+  const showRight = showSecondAxis && data.some((row) => row.currentSecond != null);
+
+  return (
+    <div className={className} style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={data} margin={{ top: 8, right: showRight ? 0 : 8, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.34} />
+              <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} stroke={GRID} />
+          <XAxis
+            dataKey="key"
+            tick={TICK}
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            minTickGap={24}
+            interval="preserveStartEnd"
+            tickFormatter={xTickFormatter}
+          />
+          <YAxis
+            yAxisId="left"
+            tick={TICK}
+            tickLine={false}
+            axisLine={false}
+            width={44}
+            domain={leftDomain ?? [0, "auto"]}
+            tickFormatter={leftTickFormatter}
+          />
+          {showRight && (
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              tick={TICK}
+              tickLine={false}
+              axisLine={false}
+              width={48}
+              domain={[0, "auto"]}
+              tickFormatter={rightTickFormatter}
+            />
+          )}
+          <Tooltip
+            cursor={CURSOR}
+            isAnimationActive={false}
+            content={
+              <ComparisonTooltip
+                headingFormatter={xHeadingFormatter}
+                currentLabel={currentLabel}
+                previousLabel={previousLabel}
+                formatPrimary={formatPrimary}
+                formatSecondary={formatSecondary}
+              />
+            }
+          />
+          <Area
+            yAxisId="left"
+            type="monotone"
+            dataKey="current"
+            name={currentLabel}
+            stroke="var(--primary)"
+            strokeWidth={2.25}
+            fill={`url(#${gradientId})`}
+            fillOpacity={1}
+            dot={false}
+            activeDot={{ r: 4.5, strokeWidth: 0 }}
+            connectNulls={true}
+            isAnimationActive={!reduced}
+            animationDuration={reduced ? 0 : 700}
+          />
+          <Line
+            yAxisId="left"
+            type="monotone"
+            dataKey="previous"
+            name={previousLabel}
+            stroke="var(--chart-secondary)"
+            strokeWidth={1.75}
+            strokeDasharray="5 4"
+            dot={false}
+            activeDot={{ r: 4, strokeWidth: 0 }}
+            connectNulls={true}
+            isAnimationActive={!reduced}
+            animationDuration={reduced ? 0 : 700}
+          />
+          {latestPoint && (
+            <ReferenceDot
+              x={latestPoint.x}
+              y={latestPoint.y}
+              yAxisId="left"
+              r={4.5}
+              fill="var(--primary)"
+              stroke="var(--canvas)"
+              strokeWidth={2}
+            />
+          )}
+          {showRight && (
+            <>
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="currentSecond"
+                name={`${currentLabel} (second)`}
+                stroke="var(--muted)"
+                strokeWidth={1.25}
+                strokeOpacity={0.7}
+                dot={false}
+                connectNulls={true}
+                isAnimationActive={false}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="previousSecond"
+                name={`${previousLabel} (second)`}
+                stroke="var(--muted)"
+                strokeWidth={1.25}
+                strokeOpacity={0.45}
+                strokeDasharray="5 4"
+                dot={false}
+                connectNulls={true}
+                isAnimationActive={false}
+              />
+            </>
           )}
         </ComposedChart>
       </ResponsiveContainer>

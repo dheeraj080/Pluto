@@ -166,9 +166,16 @@ export function AppShell({
         aria-label="Primary"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur md:hidden"
       >
-        <div
-          className={`mx-auto grid max-w-md ${gridColumns(nav.length + (primaryAction ? 1 : 0))}`}
-        >
+        {primaryAction && (
+          <Link
+            href={primaryAction.href}
+            aria-label={primaryAction.label}
+            className="absolute bottom-full left-1/2 mb-3 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-on-primary shadow-[0_4px_18px_rgba(52,211,153,0.5)] transition-colors duration-150 hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <IconPlus className="h-5 w-5" />
+          </Link>
+        )}
+        <div className={`mx-auto grid max-w-md ${gridColumns(nav.length)}`}>
           {nav.map((item) => {
             const active = isActive(item);
             return (
@@ -187,17 +194,6 @@ export function AppShell({
               </Link>
             );
           })}
-          {primaryAction && (
-            <Link
-              href={primaryAction.href}
-              className="flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium text-primary"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary shadow-[0_2px_10px_rgba(52,211,153,0.45)] transition-colors hover:bg-primary-hover">
-                <IconPlus className="h-4 w-4" />
-              </span>
-              Add
-            </Link>
-          )}
         </div>
       </nav>
     </div>

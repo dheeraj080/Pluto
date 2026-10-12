@@ -15,10 +15,10 @@ import Link from "next/link";
 import { expensesApi } from "@/lib/expenses";
 import type { Expense } from "@/lib/types";
 import { Button, ErrorNote, Skeleton } from "@/components/ui";
-import { AppPageHeader, BackLink, PairSwitcher } from "@/components/app-page-header";
+import { AppPageHeader, PairSwitcher } from "@/components/app-page-header";
 import { DualAmount } from "@/components/amount";
 import { CategorySwatch } from "@/components/category-swatch";
-import { IconEdit, IconTrash } from "@/components/icons";
+import { IconArrowLeft, IconEdit, IconTrash } from "@/components/icons";
 import { formatDate } from "@/lib/format";
 import { buildConversionPreview, dualAmounts } from "@/lib/convert";
 import { ConfirmDialog } from "@/components/dialog";
@@ -73,7 +73,13 @@ export default function ExpenseDetailPage() {
   };
 
   const back = (
-    <BackLink href={BACK_HREF}>Back to transactions</BackLink>
+    <Link
+      href={BACK_HREF}
+      className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-surface-muted px-3.5 text-sm font-medium text-ink transition-colors duration-150 hover:border-border-strong hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      <IconArrowLeft className="h-4 w-4" />
+      Back to transactions
+    </Link>
   );
 
   if (loading) {

@@ -464,6 +464,7 @@ export interface CategoryTrendSeries {
 export interface CategoryTrendsResponse {
   baseCurrency: string;
   secondaryCurrency?: string | null;
+  /** Number of months returned. */
   months: number;
   top: number;
   converted: boolean;
