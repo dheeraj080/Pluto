@@ -204,6 +204,8 @@ export interface CategoryBreakdown {
   count: number;
   /** Share of the period total, 0-100. */
   percentage: number;
+  /** Subtotal in the secondary currency, when one was requested. */
+  secondaryTotal?: number | null;
 }
 
 export interface CurrencyTotal {
@@ -247,6 +249,12 @@ export interface ExpenseSummary {
   average: number | null;
   byCategory: CategoryBreakdown[];
   byCurrency: CurrencyTotal[];
+  /** Second currency these figures are also expressed in, when requested. */
+  secondaryCurrency?: string | null;
+  /** Period total in the secondary currency. */
+  secondaryTotal?: number | null;
+  /** Period average in the secondary currency. */
+  secondaryAverage?: number | null;
 }
 
 export interface TrendPoint {
@@ -254,6 +262,8 @@ export interface TrendPoint {
   month: string;
   total: number | null;
   count: number;
+  /** Month total in the secondary currency, when one was requested. */
+  secondaryTotal?: number | null;
 }
 
 export interface ExpenseTrend {
@@ -263,6 +273,8 @@ export interface ExpenseTrend {
   unconvertedCurrencies: string[];
   rateProvenance: RateProvenance;
   conversionUnavailableReason?: string;
+  /** Second currency the points are also expressed in, when requested. */
+  secondaryCurrency?: string | null;
   months: number;
   points: TrendPoint[];
 }
@@ -294,6 +306,12 @@ export interface BudgetStatus {
   ratePolicy: "historical" | "estimate" | null;
   /** unavailable when some spend or the budget target could not convert. */
   conversionStatus: "converted" | "unavailable";
+  /** Budgeted amount in the secondary currency, when requested. */
+  secondaryBudgetAmount?: number | null;
+  /** Spent in the secondary currency, when requested. */
+  secondarySpent?: number | null;
+  /** secondaryBudgetAmount minus secondarySpent, when requested. */
+  secondaryRemaining?: number | null;
 }
 
 export interface ComparisonDelta {
@@ -328,6 +346,8 @@ export interface TopExpenseItem {
   convertedAmount?: number | null;
   /** Base currency used for `amount`, or null when unconvertible. */
   convertedCurrency?: string | null;
+  /** Amount in the requested secondary currency, when one was requested. */
+  amountSecondary?: number | null;
   /** Snapshot date used for the conversion, or null. */
   rateDate?: string | null;
   /** historical / estimate, or null when unconvertible. */
@@ -353,6 +373,8 @@ export interface DayOfWeekItem {
   total: number;
   count: number;
   average: number;
+  /** Total in the secondary currency, when one was requested. */
+  secondaryTotal?: number | null;
 }
 
 export interface ByDayOfWeekResponse {
@@ -362,6 +384,8 @@ export interface ByDayOfWeekResponse {
   unconvertedCurrencies: string[];
   rateProvenance: RateProvenance;
   conversionUnavailableReason?: string;
+  /** Second currency the items are also expressed in, when requested. */
+  secondaryCurrency?: string | null;
   items: DayOfWeekItem[];
 }
 
@@ -372,7 +396,80 @@ export interface BudgetStatusResponse {
   unconvertedCurrencies: string[];
   rateProvenance: RateProvenance;
   conversionUnavailableReason?: string;
+  /** Second currency the items are also expressed in, when requested. */
+  secondaryCurrency?: string | null;
   /** Evaluated period, YYYY-MM. */
   month: string;
   items: BudgetStatus[];
+}
+
+/* --------------------------- Rate history ------------------------------- */
+
+export interface RateHistoryPoint {
+  /** Snapshot market date, YYYY-MM-DD. */
+  date: string;
+  /** Units of quoteCurrency per 1 unit of baseCurrency. */
+  rate: number;
+}
+
+export interface RateHistoryResponse {
+  baseCurrency: string;
+  quoteCurrency: string;
+  from: string;
+  to: string;
+  points: RateHistoryPoint[];
+}
+
+/* ------------------------ Spending series ------------------------------- */
+
+export type SeriesGranularity = "day" | "week" | "month";
+
+export interface SeriesPoint {
+  /** Bucket key: YYYY-MM-DD for day/week (week = Monday), YYYY-MM for month. */
+  bucket: string;
+  total: number | null;
+  count: number;
+  secondaryTotal?: number | null;
+}
+
+export interface ExpenseSeriesResponse {
+  baseCurrency: string;
+  secondaryCurrency?: string | null;
+  granularity: SeriesGranularity;
+  from: string;
+  to: string;
+  converted: boolean;
+  conversionStatus: ConversionStatus;
+  unconvertedCurrencies: string[];
+  rateProvenance: RateProvenance;
+  conversionUnavailableReason?: string;
+  points: SeriesPoint[];
+}
+
+/* ------------------------ Category trends ------------------------------- */
+
+export interface CategoryTrendPoint {
+  month: string;
+  total: number | null;
+  secondaryTotal?: number | null;
+}
+
+export interface CategoryTrendSeries {
+  categoryId: string;
+  categoryName: string;
+  color: string;
+  points: CategoryTrendPoint[];
+}
+
+export interface CategoryTrendsResponse {
+  baseCurrency: string;
+  secondaryCurrency?: string | null;
+  months: number;
+  top: number;
+  converted: boolean;
+  conversionStatus: ConversionStatus;
+  unconvertedCurrencies: string[];
+  rateProvenance: RateProvenance;
+  conversionUnavailableReason?: string;
+  series: CategoryTrendSeries[];
 }

@@ -12,12 +12,16 @@ import type {
   Budget,
   BudgetPeriod,
   BudgetStatusResponse,
+  CategoryTrendsResponse,
   Expense,
   ExpenseCategory,
+  ExpenseSeriesResponse,
   ExpenseSummary,
   ExpenseTrend,
   Paginated,
+  RateHistoryResponse,
   RateSnapshot,
+  SeriesGranularity,
   SupportedCurrency,
   UserProfile,
 } from "./types";
@@ -106,9 +110,9 @@ export const expensesApi = {
   deleteExpense: (id: string) => api.delete<Ack>(`/expenses/${id}`),
 
   /* reports */
-  getSummary: (query: { from?: string; to?: string; base?: string }) =>
+  getSummary: (query: { from?: string; to?: string; base?: string; secondary?: string }) =>
     api.get<ExpenseSummary>(`/expenses/summary${buildQuery(query)}`),
-  getTrends: (query: { months?: number; base?: string }) =>
+  getTrends: (query: { months?: number; base?: string; secondary?: string }) =>
     api.get<ExpenseTrend>(`/expenses/trends${buildQuery(query)}`),
   getComparison: (query: {
     currentFrom?: string;
@@ -116,12 +120,37 @@ export const expensesApi = {
     previousFrom?: string;
     previousTo?: string;
     base?: string;
+    secondary?: string;
   }) =>
     api.get<import("./types").ExpenseComparison>(`/expenses/comparison${buildQuery(query)}`),
-  getTop: (query: { from?: string; to?: string; limit?: number; base?: string }) =>
+  getTop: (query: {
+    from?: string;
+    to?: string;
+    limit?: number;
+    base?: string;
+    secondary?: string;
+  }) =>
     api.get<import("./types").TopExpensesResponse>(`/expenses/top${buildQuery(query)}`),
-  getByDayOfWeek: (query: { from?: string; to?: string; base?: string }) =>
+  getByDayOfWeek: (query: {
+    from?: string;
+    to?: string;
+    base?: string;
+    secondary?: string;
+  }) =>
     api.get<import("./types").ByDayOfWeekResponse>(`/expenses/by-day-of-week${buildQuery(query)}`),
+  getSeries: (query: {
+    from?: string;
+    to?: string;
+    granularity?: SeriesGranularity;
+    base?: string;
+    secondary?: string;
+  }) => api.get<ExpenseSeriesResponse>(`/expenses/series${buildQuery(query)}`),
+  getCategoryTrends: (query: {
+    months?: number;
+    top?: number;
+    base?: string;
+    secondary?: string;
+  }) => api.get<CategoryTrendsResponse>(`/expenses/category-trends${buildQuery(query)}`),
   exportCsv: (query: {
     from?: string;
     to?: string;
@@ -129,6 +158,7 @@ export const expensesApi = {
     currency?: string;
     search?: string;
     base?: string;
+    secondary?: string;
   }) => api.get<string>(`/expenses/export.csv${buildQuery(query)}`, { responseType: "text" }),
 
   /* budgets */
@@ -137,7 +167,7 @@ export const expensesApi = {
   updateBudget: (id: string, body: { amount: number; startDate?: string }) =>
     api.patch<Budget>(`/expenses/budgets/${id}`, body),
   deleteBudget: (id: string) => api.delete<Ack>(`/expenses/budgets/${id}`),
-  getBudgetStatus: (query: { month?: string; base?: string }) =>
+  getBudgetStatus: (query: { month?: string; base?: string; secondary?: string }) =>
     api.get<BudgetStatusResponse>(`/expenses/budgets/status${buildQuery(query)}`),
 };
 
@@ -147,6 +177,9 @@ export const ratesApi = {
   /** Latest published snapshot, used for display-only conversion previews. */
   getLatest: (base?: string) =>
     api.get<RateSnapshot>(`/rates/latest${buildQuery({ base: base ?? undefined })}`),
+  /** Exchange-rate history for a pair, oldest first. */
+  getHistory: (query: { base?: string; quote: string; from?: string; to?: string }) =>
+    api.get<RateHistoryResponse>(`/rates/history${buildQuery(query)}`),
 };
 
 /** Current-user profile endpoints (mirrors GET/PATCH /users/me). */

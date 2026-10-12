@@ -1,8 +1,14 @@
 /**
- * Base-currency preference for expense reports and budget status.
+ * Currency preferences for the expense screens — collectively "the Pair".
  *
- * Resolution order at the call site is: explicit `?base=` URL override →
- * this persisted preference → the server's configured default
+ * Two values are persisted in localStorage:
+ * - the **base** currency (`pluto.baseCurrency`), which reports are aggregated
+ *   in and which is mirrored to the user record via `PATCH /users/me`, and
+ * - the **second** currency (`pluto.secondaryCurrency`), a display companion
+ *   that re-expresses every figure, persisted client-side only.
+ *
+ * Resolution order at the call site is: explicit `?base=` URL override → this
+ * persisted preference → the server's configured default
  * (`EXCHANGE_RATE_BASE_CURRENCY`). Keeping it in localStorage rather than the
  * user record avoids a migration and lets a user switch reporting currency
  * without a round trip.
@@ -15,6 +21,7 @@
  */
 
 const STORAGE_KEY = "pluto.baseCurrency";
+const SECONDARY_KEY = "pluto.secondaryCurrency";
 const ONBOARDED_KEY = "pluto.onboarded";
 
 type Listener = () => void;
@@ -61,6 +68,33 @@ export function writeBaseCurrency(code: string | null): void {
 
 /** Server snapshot: no `window` during prerender, so fall back to the default. */
 export function getBaseCurrencyServerSnapshot(): null {
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Secondary currency (the other half of the Pair)                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Reads the persisted secondary currency, or null when the user has not set a
+ * second currency yet. A null second currency means "show one currency only",
+ * which is the correct default for someone who never crosses borders.
+ */
+export function readSecondaryCurrency(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(SECONDARY_KEY)?.toUpperCase() ?? null;
+}
+
+/** Persists the secondary currency and notifies every subscribed screen. */
+export function writeSecondaryCurrency(code: string | null): void {
+  if (typeof window === "undefined") return;
+  if (code) window.localStorage.setItem(SECONDARY_KEY, code.toUpperCase());
+  else window.localStorage.removeItem(SECONDARY_KEY);
+  notify();
+}
+
+/** Server snapshot: no `window` during prerender. */
+export function getSecondaryCurrencyServerSnapshot(): null {
   return null;
 }
 
