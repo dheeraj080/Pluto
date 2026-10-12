@@ -216,16 +216,17 @@ export function useBaseCurrencyReconciliation(profile: UserProfile | null): void
 /**
  * Latest public rate snapshot, for display-only conversion previews.
  *
- * Loaded once per screen; failure is non-fatal (the preview simply stays
- * hidden), so errors are swallowed intentionally.
+ * Loaded once per screen (or per base, when one is passed); failure is
+ * non-fatal (the preview simply stays hidden), so errors are swallowed
+ * intentionally.
  */
-export function useRateSnapshot(): RateSnapshot | null {
+export function useRateSnapshot(base?: string): RateSnapshot | null {
   const [snapshot, setSnapshot] = useState<RateSnapshot | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     ratesApi
-      .getLatest()
+      .getLatest(base)
       .then((data) => {
         if (!cancelled) setSnapshot(data);
       })
@@ -235,7 +236,7 @@ export function useRateSnapshot(): RateSnapshot | null {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [base]);
 
   return snapshot;
 }

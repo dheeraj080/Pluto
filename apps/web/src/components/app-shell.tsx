@@ -8,8 +8,8 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Wordmark } from "./logo";
-import { IconLogOut, IconPlus } from "./icons";
+import { PlutoMark, Wordmark } from "./logo";
+import { IconGlobe, IconLogOut, IconPlus, IconSettings } from "./icons";
 import type { UserProfile } from "@/lib/types";
 
 export interface AppNavItem {
@@ -47,56 +47,77 @@ export function AppShell({
   return (
     <div className="min-h-dvh bg-canvas md:flex">
       {/* ------------------------- Desktop sidebar ------------------------- */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-border bg-background md:flex">
-        <div className="flex h-16 items-center border-b border-border px-5">
-          <Link href="/" className="text-ink transition-opacity hover:opacity-80">
-            <Wordmark />
+      {/* Icon rail from `md`, full labels and the wordmark from `lg`. */}
+      <aside className="sticky top-0 hidden h-dvh w-[4.75rem] shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-60">
+        <div className="flex h-16 items-center border-b border-border px-2 lg:px-5">
+          <Link
+            href="/"
+            aria-label="Pluto home"
+            className="mx-auto text-ink transition-opacity hover:opacity-80 lg:mx-0"
+          >
+            <PlutoMark className="h-7 w-7 lg:hidden" />
+            <Wordmark className="hidden lg:inline-flex" />
           </Link>
         </div>
 
-        <div className="px-3 pt-4">
+        <div className="px-2 pt-4 lg:px-3">
           {primaryAction && (
             <Link
               href={primaryAction.href}
-              className="inline-flex h-10 w-full select-none items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary shadow-[0_1px_2px_rgba(23,33,27,0.18)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              title={primaryAction.label}
+              className="inline-flex h-10 w-full select-none items-center justify-center gap-2 rounded-xl bg-primary text-sm font-medium text-on-primary shadow-[0_6px_20px_-8px_rgba(52,211,153,0.6)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:px-4"
             >
-              <IconPlus className="h-4 w-4" />
-              {primaryAction.label}
+              <IconPlus className="h-4 w-4 shrink-0" />
+              <span className="hidden lg:inline">{primaryAction.label}</span>
             </Link>
           )}
         </div>
 
-        <nav aria-label="Primary" className="flex-1 space-y-0.5 px-3 py-4">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive(item) ? "page" : undefined}
-              className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                isActive(item)
-                  ? "bg-primary-subtle text-primary"
-                  : "text-muted hover:bg-surface-muted hover:text-ink"
-              }`}
-            >
-              <span aria-hidden="true" className="shrink-0">
-                {item.icon}
-              </span>
-              {item.label}
-            </Link>
-          ))}
+        <nav aria-label="Primary" className="flex-1 space-y-1 px-2 py-4 lg:px-3">
+          {nav.map((item) => {
+            const active = isActive(item);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={item.label}
+                aria-current={active ? "page" : undefined}
+                className={`flex items-center justify-center gap-2.5 rounded-xl px-2 py-2.5 text-sm font-medium transition-colors duration-150 lg:justify-start lg:px-3 ${
+                  active
+                    ? "bg-primary-subtle text-primary shadow-[0_0_0_1px_rgba(52,211,153,0.16),0_10px_26px_-14px_rgba(52,211,153,0.8)]"
+                    : "text-muted hover:bg-surface-muted hover:text-ink"
+                }`}
+              >
+                <span aria-hidden="true" className="shrink-0">
+                  {item.icon}
+                </span>
+                <span className="hidden lg:inline">{item.label}</span>
+              </Link>
+            );
+          })}
         </nav>
 
-        <div className="border-t border-border p-3">
+        <div className="border-t border-border p-2 lg:p-3">
+          <Link
+            href="/expenses/settings"
+            title="Settings"
+            className="flex items-center justify-center gap-2.5 rounded-xl px-2 py-2 text-sm text-muted transition-colors hover:bg-surface-muted hover:text-ink lg:justify-start lg:px-3"
+          >
+            <IconSettings className="h-4.5 w-4.5 shrink-0" />
+            <span className="hidden lg:inline">Settings</span>
+          </Link>
           <Link
             href="/"
-            className="mb-1 flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-muted hover:text-ink"
+            title="View site"
+            className="flex items-center justify-center gap-2.5 rounded-xl px-2 py-2 text-sm text-muted transition-colors hover:bg-surface-muted hover:text-ink lg:justify-start lg:px-3"
           >
-            ← View site
+            <IconGlobe className="h-4.5 w-4.5 shrink-0" />
+            <span className="hidden lg:inline">View site</span>
           </Link>
           {user && (
-            <div className="flex items-center gap-2.5 rounded-xl px-3 py-2">
+            <div className="flex items-center justify-center gap-2.5 rounded-xl px-2 py-2 lg:justify-start lg:px-3">
               <Avatar user={user} className="h-7 w-7 text-xs" />
-              <div className="min-w-0">
+              <div className="hidden min-w-0 lg:block">
                 <p className="truncate text-sm font-medium text-ink">
                   {user.name ?? "Pluto user"}
                 </p>
@@ -107,10 +128,11 @@ export function AppShell({
           <button
             type="button"
             onClick={onSignOut}
-            className="mt-1 flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm text-muted transition-colors hover:bg-surface-muted hover:text-ink"
+            title="Sign out"
+            className="mt-1 flex w-full items-center justify-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm text-muted transition-colors hover:bg-surface-muted hover:text-ink lg:justify-start lg:px-3"
           >
-            <IconLogOut className="h-4 w-4 shrink-0" />
-            Sign out
+            <IconLogOut className="h-4.5 w-4.5 shrink-0" />
+            <span className="hidden lg:inline">Sign out</span>
           </button>
         </div>
       </aside>
@@ -118,7 +140,7 @@ export function AppShell({
       {/* --------------------------- Content ------------------------------- */}
       <div className="min-w-0 flex-1">
         {/* Mobile top bar */}
-        <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background/85 px-4 backdrop-blur md:hidden">
+        <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-surface/85 px-4 backdrop-blur md:hidden">
           <Link href="/" className="text-ink transition-opacity hover:opacity-80">
             <Wordmark />
           </Link>
@@ -142,7 +164,7 @@ export function AppShell({
       {/* ------------------------- Mobile bottom nav ----------------------- */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur md:hidden"
       >
         <div
           className={`mx-auto grid max-w-md ${gridColumns(nav.length + (primaryAction ? 1 : 0))}`}
