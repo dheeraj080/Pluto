@@ -146,8 +146,7 @@ export function ExpenseForm({
                 <Select
                   aria-label="Currency you paid in"
                   value={effectiveCurrency}
-                  onChange={(event) => setCurrency(event.target.value)}
-                  required
+                  onChange={setCurrency}
                   className="w-40 shrink-0"
                 >
                   {currencies.map((entry) => (
@@ -184,8 +183,7 @@ export function ExpenseForm({
             <Select
               id="expense-category"
               value={effectiveCategoryId}
-              onChange={(event) => setCategoryId(event.target.value)}
-              required
+              onChange={setCategoryId}
             >
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>

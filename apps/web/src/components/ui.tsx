@@ -9,15 +9,24 @@
  * rings, restrained motion (respected via the global reduced-motion override).
  */
 
-import type {
-  ButtonHTMLAttributes,
-  InputHTMLAttributes,
-  ReactNode,
-  SelectHTMLAttributes,
-  TextareaHTMLAttributes,
+import {
+  Children,
+  isValidElement,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type OptionHTMLAttributes,
+  type ReactNode,
+  type TextareaHTMLAttributes,
 } from "react";
+import { createPortal } from "react-dom";
 import { formatMoney } from "@/lib/format";
-import { IconChevronDown, IconSparkle } from "./icons";
+import { IconCheck, IconChevronDown, IconSparkle } from "./icons";
 
 /* ------------------------------------------------------------------ */
 /* Text & layout                                                       */
@@ -478,14 +487,258 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return <input {...props} className={`${CONTROL} ${className ?? ""}`} />;
 }
 
-export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+interface SelectOption {
+  value: string;
+  label: string;
+  disabled?: boolean;
+}
+
+/** Recursively flattens an `<option>`'s children into plain text. */
+function optionText(node: ReactNode): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(optionText).join("");
+  if (isValidElement<{ children?: ReactNode }>(node)) return optionText(node.props.children);
+  return "";
+}
+
+/** Reads the `<option>` children a caller passes, exactly like a native select. */
+function readOptions(children: ReactNode): SelectOption[] {
+  const options: SelectOption[] = [];
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child) || child.type !== "option") return;
+    const props = child.props as OptionHTMLAttributes<HTMLOptionElement>;
+    if (typeof props.value !== "string") return;
+    options.push({
+      value: props.value,
+      label: optionText(props.children).replace(/\s+/g, " ").trim(),
+      disabled: props.disabled,
+    });
+  });
+  return options;
+}
+
+/**
+ * Dropdown replacement for a native `<select>`, matching the app's form
+ * controls and the Account-menu popover.
+ *
+ * A button trigger opens a floating listbox rendered in a portal, so tall
+ * menus are never clipped by a scrollable parent (the Add-expense drawer, the
+ * Filters row, …) and can flip above the trigger near the viewport bottom.
+ * Options come from plain `<option>` children; `onChange` receives the chosen
+ * string value directly. Arrow keys navigate, Enter selects, Esc and outside
+ * clicks close, and focus returns to the trigger.
+ */
+export function Select({
+  className,
+  children,
+  value,
+  onChange,
+  disabled,
+  id,
+  "aria-label": ariaLabel,
+}: {
+  className?: string;
+  children: ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  id?: string;
+  "aria-label"?: string;
+}) {
+  const options = useMemo(() => readOptions(children), [children]);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; bottom: number; left: number; width: number } | null>(null);
+  const [openUp, setOpenUp] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const menuId = useId();
+
+  const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value));
+  const selected = options[selectedIndex] ?? null;
+
+  // Close on outside clicks; the floating menu lives in a portal, so include it.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [open]);
+
+  // Measure the trigger and flip the menu above it when there is no room below.
+  useEffect(() => {
+    if (!open) return undefined;
+    const trigger = triggerRef.current;
+    if (!trigger) return undefined;
+    const rect = trigger.getBoundingClientRect();
+    const estimate = options.length * 36 + 40;
+    setOpenUp(window.innerHeight - rect.bottom < estimate);
+    setPos({ top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width });
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open, options.length]);
+
+  // Give the selected option (or the first enabled one) focus when it opens.
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => {
+      let target = options.findIndex((option) => !option.disabled);
+      if (options[selectedIndex] && !options[selectedIndex].disabled) target = selectedIndex;
+      optionRefs.current[target]?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open, options, selectedIndex, pos]);
+
+  const choose = (value: string) => {
+    onChange(value);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const step = (from: number, dir: 1 | -1) => {
+    const n = options.length;
+    for (let i = 1; i <= n; i += 1) {
+      const index = (from + dir * i + n) % n;
+      if (!options[index].disabled) {
+        optionRefs.current[index]?.focus();
+        return;
+      }
+    }
+  };
+
+  const onTriggerKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setOpen(true);
+    } else if (event.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
+  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const current = optionRefs.current.findIndex((el) => el === document.activeElement);
+    const last = options.length - 1;
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        step(current < 0 ? last : current, 1);
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        step(current < 0 ? 0 : current, -1);
+        break;
+      case "Home":
+        event.preventDefault();
+        step(-1, 1);
+        break;
+      case "End":
+        event.preventDefault();
+        step(last + 1, -1);
+        break;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        if (current >= 0 && !options[current].disabled) choose(options[current].value);
+        break;
+      case "Escape":
+        event.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+        break;
+      case "Tab":
+        setOpen(false);
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
-    <div className={`relative ${className ?? ""}`}>
-      <select {...props} className={`${CONTROL} appearance-none pr-9`} />
-      <IconChevronDown
-        aria-hidden="true"
-        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
-      />
+    <div ref={rootRef} className={`relative ${className ?? ""}`}>
+      <button
+        ref={triggerRef}
+        type="button"
+        id={id}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        aria-label={ariaLabel}
+        onClick={() => {
+          if (!disabled) setOpen((value) => !value);
+        }}
+        onKeyDown={onTriggerKeyDown}
+        className={`flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-surface-muted py-2.5 pl-3.5 pr-2.5 text-sm text-ink transition focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50 ${
+          open ? "border-primary" : "focus:border-primary"
+        }`}
+      >
+        <span className="min-w-0 flex-1 truncate">{selected ? selected.label : "Select…"}</span>
+        <IconChevronDown
+          aria-hidden="true"
+          className={`h-4 w-4 shrink-0 text-muted transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            id={menuId}
+            role="listbox"
+            aria-label={ariaLabel}
+            onKeyDown={onMenuKeyDown}
+            className="fixed z-[70] min-w-40 rounded-xl border border-border bg-surface p-1.5 shadow-2xl animate-[dialog-in_160ms_ease-out]"
+            style={
+              openUp
+                ? { top: pos.top - 6, left: pos.left, width: pos.width }
+                : { top: pos.bottom + 6, left: pos.left, width: pos.width }
+            }
+          >
+            <ul className="max-h-[min(20rem,60vh)] overflow-y-auto">
+              {options.map((option, index) => {
+                const active = option.value === value;
+                return (
+                  <li key={option.value}>
+                    <button
+                      ref={(element) => {
+                        optionRefs.current[index] = element;
+                      }}
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      disabled={option.disabled}
+                      tabIndex={-1}
+                      onClick={() => {
+                        if (!option.disabled) choose(option.value);
+                      }}
+                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-45 ${
+                        active
+                          ? "bg-surface-muted font-medium text-ink"
+                          : "text-muted hover:bg-surface-muted hover:text-ink"
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      {active && <IconCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

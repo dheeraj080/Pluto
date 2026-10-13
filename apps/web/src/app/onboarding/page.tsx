@@ -135,7 +135,7 @@ export default function OnboardingPage() {
                 <Select
                   id="all-currencies"
                   value={selected}
-                  onChange={(event) => setSelected(event.target.value)}
+                  onChange={setSelected}
                 >
                   {currencies.map((currency) => (
                     <option key={currency.code} value={currency.code}>

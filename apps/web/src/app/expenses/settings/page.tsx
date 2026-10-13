@@ -54,8 +54,8 @@ export default function SettingsPage() {
             <Select
               id="setting-base"
               value={base ?? ""}
-              onChange={(event) => {
-                if (event.target.value) setBase(event.target.value);
+              onChange={(value) => {
+                if (value) setBase(value);
               }}
             >
               <option value="">Server default</option>
@@ -85,7 +85,7 @@ export default function SettingsPage() {
             <Select
               id="setting-second"
               value={second ?? ""}
-              onChange={(event) => setSecond(event.target.value)}
+              onChange={setSecond}
             >
               <option value="">None</option>
               {sorted

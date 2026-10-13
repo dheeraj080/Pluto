@@ -12,6 +12,7 @@ import {
   LoadingNote,
   PageHeader,
   Pagination,
+  Select,
   Table,
 } from "@/components/ui";
 
@@ -71,20 +72,21 @@ export default function AdminBackupsPage() {
         title="Backups"
         description="Every backup across all users, newest first."
         action={
-          <select
+          <Select
             value={status}
-            onChange={(e) => {
+            onChange={(value) => {
               setPage(1);
-              setStatus(e.target.value as BackupStatus | "");
+              setStatus(value as BackupStatus | "");
             }}
-            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-primary"
+            aria-label="Filter backups by status"
+            className="w-44"
           >
             {STATUS_OPTIONS.map((option) => (
               <option key={option || "all"} value={option}>
                 {option || "All statuses"}
               </option>
             ))}
-          </select>
+          </Select>
         }
       />
 

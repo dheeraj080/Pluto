@@ -329,7 +329,7 @@ export default function TransactionsPage() {
             <Select
               aria-label="Filter by category"
               value={categoryId}
-              onChange={(event) => resetPage(setCategoryId)(event.target.value)}
+              onChange={(value) => resetPage(setCategoryId)(value)}
             >
               <option value="">All categories</option>
               {categories.map((category: ExpenseCategory) => (
@@ -341,7 +341,7 @@ export default function TransactionsPage() {
             <Select
               aria-label="Filter by currency"
               value={currency}
-              onChange={(event) => resetPage(setCurrency)(event.target.value)}
+              onChange={(value) => resetPage(setCurrency)(value)}
             >
               <option value="">All currencies</option>
               {currencies.map((entry) => (
@@ -353,7 +353,7 @@ export default function TransactionsPage() {
             <Select
               aria-label="Sort order"
               value={sort}
-              onChange={(event) => resetPage(setSort)(event.target.value as ExpenseSort)}
+              onChange={(value) => resetPage(setSort)(value as ExpenseSort)}
             >
               {SORTS.map((option) => (
                 <option key={option.value} value={option.value}>

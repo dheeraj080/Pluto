@@ -296,7 +296,7 @@ export default function BudgetsPage() {
                 <Select
                   id="budget-category"
                   value={categoryId}
-                  onChange={(event) => setCategoryId(event.target.value)}
+                  onChange={setCategoryId}
                 >
                   <option value="">All expenses</option>
                   {categories.map((category) => (
@@ -326,8 +326,7 @@ export default function BudgetsPage() {
               <Select
                 id="budget-currency"
                 value={effectiveCurrency}
-                onChange={(event) => setCurrency(event.target.value)}
-                required
+                onChange={setCurrency}
               >
                 {currencies.map((entry) => (
                   <option key={entry.code} value={entry.code}>
@@ -341,7 +340,7 @@ export default function BudgetsPage() {
               <Select
                 id="budget-period"
                 value={period}
-                onChange={(event) => setPeriod(event.target.value as "MONTHLY" | "YEARLY")}
+                onChange={(value) => setPeriod(value as "MONTHLY" | "YEARLY")}
               >
                 <option value="MONTHLY">Monthly</option>
                 <option value="YEARLY">Yearly</option>
