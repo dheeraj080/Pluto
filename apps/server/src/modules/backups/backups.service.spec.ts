@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { ForbiddenException, PayloadTooLargeException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  PayloadTooLargeException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { BackupStatus } from '@prisma/client';
 import { BackupsService } from './backups.service';
 import { StorageService } from './storage/storage.service';
@@ -28,6 +32,7 @@ describe('BackupsService', () => {
   };
 
   const mockStorageService = {
+    isEnabled: jest.fn().mockReturnValue(true),
     generatePresignedUploadUrl: jest.fn().mockResolvedValue('https://s3.local/upload-url'),
     generatePresignedDownloadUrl: jest.fn().mockResolvedValue('https://s3.local/download-url'),
     headObject: jest.fn(),
@@ -257,5 +262,26 @@ describe('BackupsService', () => {
 
     expect(mockStorageService.deleteObject).toHaveBeenCalledWith('key-1');
     expect(mockPrismaService.backup.delete).toHaveBeenCalledWith({ where: { id: 'b-1' } });
+  });
+
+  it('should reject storage-dependent operations with 503 when object storage is disabled', async () => {
+    mockStorageService.isEnabled.mockReturnValue(false);
+
+    await expect(
+      backupsService.initiateBackup('user-1', {
+        schemaVersion: '1.0.0',
+        appVersion: '2.0.0',
+        expectedSizeBytes: 1024,
+        checksumSha256: 'a'.repeat(64),
+      }),
+    ).rejects.toThrow(ServiceUnavailableException);
+
+    await expect(backupsService.completeBackup('user-1', 'backup-uuid-1')).rejects.toThrow(
+      ServiceUnavailableException,
+    );
+
+    // No orphaned PENDING row may be allocated while storage is unavailable.
+    expect(mockPrismaService.backup.create).not.toHaveBeenCalled();
+    expect(mockStorageService.generatePresignedUploadUrl).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
   PayloadTooLargeException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BackupStatus } from '@prisma/client';
@@ -44,9 +45,26 @@ export class BackupsService {
   }
 
   /**
+   * Guards the backup lifecycle when object storage is not wired up. Listing
+   * stays available (it only reads database rows) so clients can still see that
+   * nothing is stored, while every storage-dependent operation fails cleanly.
+   */
+  private assertStorageEnabled(): void {
+    if (!this.storageService.isEnabled()) {
+      throw new ServiceUnavailableException(
+        'Cloud backups are unavailable: object storage is not configured on this deployment',
+      );
+    }
+  }
+
+  /**
    * Initiates a pending backup session and issues a short-lived presigned upload URL
    */
   async initiateBackup(userId: string, dto: InitiateBackupDto): Promise<InitiateBackupResponseDto> {
+    // Checked before allocating a sequence number so a disabled deployment does
+    // not accumulate orphaned PENDING rows.
+    this.assertStorageEnabled();
+
     if (dto.expectedSizeBytes > this.maxSizeBytes) {
       throw new PayloadTooLargeException(
         `Backup file size (${dto.expectedSizeBytes} bytes) exceeds the maximum allowed limit of ${this.maxSizeBytes} bytes`,
@@ -119,6 +137,8 @@ export class BackupsService {
    * Verifies uploaded content in object storage and finalizes snapshot
    */
   async completeBackup(userId: string, backupId: string): Promise<BackupMetadataDto> {
+    this.assertStorageEnabled();
+
     const backup = await this.prisma.backup.findUnique({
       where: { id: backupId },
     });
@@ -275,6 +295,8 @@ export class BackupsService {
    * Generates a short-lived download URL for an owned completed backup
    */
   async getDownloadUrl(userId: string, backupId: string): Promise<DownloadBackupResponseDto> {
+    this.assertStorageEnabled();
+
     const backup = await this.prisma.backup.findUnique({
       where: { id: backupId },
     });
@@ -315,6 +337,8 @@ export class BackupsService {
     userId: string,
     backupId: string,
   ): Promise<{ success: boolean; message: string }> {
+    this.assertStorageEnabled();
+
     const backup = await this.prisma.backup.findUnique({
       where: { id: backupId },
     });

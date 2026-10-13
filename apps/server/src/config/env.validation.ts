@@ -53,6 +53,12 @@ export const envSchema = z
     EXCHANGE_RATE_HISTORICAL_LOOKBACK_DAYS: z.coerce.number().int().min(0).max(365).default(10),
 
     // Object Storage (AWS S3 or S3-compatible like MinIO / LocalStack / Cloudflare R2)
+    // When false the server still boots and every non-storage feature works; the
+    // backup endpoints report 503 Service Unavailable instead of failing obscurely.
+    OBJECT_STORAGE_ENABLED: z.preprocess(
+      (val) => val === 'true' || val === true || val === '1' || val === 1,
+      z.boolean().default(true),
+    ),
     OBJECT_STORAGE_ENDPOINT: z.string().optional(),
     OBJECT_STORAGE_REGION: z.string().default('us-east-1'),
     OBJECT_STORAGE_BUCKET: z.string().default('pluto-backups'),
@@ -97,9 +103,13 @@ export const envSchema = z
         });
       }
 
+      // Only enforce real credentials when storage is actually in use: a
+      // deployment that has not wired up a bucket runs with
+      // OBJECT_STORAGE_ENABLED=false and leaves the placeholders in place.
       if (
-        data.OBJECT_STORAGE_ACCESS_KEY_ID === 'minioadmin' ||
-        data.OBJECT_STORAGE_SECRET_ACCESS_KEY === 'minioadmin'
+        data.OBJECT_STORAGE_ENABLED &&
+        (data.OBJECT_STORAGE_ACCESS_KEY_ID === 'minioadmin' ||
+          data.OBJECT_STORAGE_SECRET_ACCESS_KEY === 'minioadmin')
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

@@ -117,4 +117,35 @@ describe('validateEnvironment', () => {
     const result = validateEnvironment(validProdConfig);
     expect(result.NODE_ENV).toBe('production');
   });
+
+  it('should allow placeholder storage credentials in production when object storage is disabled', () => {
+    const prodConfigWithoutStorage = {
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
+      JWT_ACCESS_SECRET: 'production_super_secure_secret_key_exceeding_32_chars',
+      GOOGLE_ALLOWED_CLIENT_IDS: 'valid-client-id.apps.googleusercontent.com',
+      OBJECT_STORAGE_ENABLED: 'false',
+      OBJECT_STORAGE_ACCESS_KEY_ID: 'minioadmin',
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: 'minioadmin',
+    };
+
+    const result = validateEnvironment(prodConfigWithoutStorage);
+    expect(result.OBJECT_STORAGE_ENABLED).toBe(false);
+  });
+
+  it('should still reject minioadmin credentials in production when object storage is enabled', () => {
+    const prodConfigWithDefaultStorage = {
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
+      JWT_ACCESS_SECRET: 'production_super_secure_secret_key_exceeding_32_chars',
+      GOOGLE_ALLOWED_CLIENT_IDS: 'valid-client-id.apps.googleusercontent.com',
+      OBJECT_STORAGE_ENABLED: 'true',
+      OBJECT_STORAGE_ACCESS_KEY_ID: 'minioadmin',
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: 'minioadmin',
+    };
+
+    expect(() => validateEnvironment(prodConfigWithDefaultStorage)).toThrow(
+      'default minioadmin credentials must not be used',
+    );
+  });
 });

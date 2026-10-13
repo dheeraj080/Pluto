@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -45,6 +45,23 @@ export class StorageService {
   }
 
   /**
+   * Whether object storage is wired up on this deployment. When false the app
+   * still boots and all non-storage features work; read/write storage
+   * operations raise 503 and destructive ones become no-ops.
+   */
+  isEnabled(): boolean {
+    return this.configService.get<boolean>('OBJECT_STORAGE_ENABLED', true);
+  }
+
+  private assertEnabled(): void {
+    if (!this.isEnabled()) {
+      throw new ServiceUnavailableException(
+        'Object storage is not configured on this deployment (OBJECT_STORAGE_ENABLED=false)',
+      );
+    }
+  }
+
+  /**
    * Generates a short-lived presigned upload URL for direct S3 upload
    */
   async generatePresignedUploadUrl(
@@ -52,6 +69,8 @@ export class StorageService {
     ttlSeconds: number = 900,
     contentType: string = 'application/octet-stream',
   ): Promise<string> {
+    this.assertEnabled();
+
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
       Key: storageKey,
@@ -68,6 +87,8 @@ export class StorageService {
     storageKey: string,
     ttlSeconds: number = 900,
   ): Promise<string> {
+    this.assertEnabled();
+
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: storageKey,
@@ -80,6 +101,8 @@ export class StorageService {
    * Inspects metadata of an object in storage
    */
   async headObject(storageKey: string): Promise<{ contentLength: number; eTag?: string } | null> {
+    this.assertEnabled();
+
     try {
       const command = new HeadObjectCommand({
         Bucket: this.bucketName,
@@ -110,6 +133,8 @@ export class StorageService {
     storageKey: string,
     expectedChecksumSha256: string,
   ): Promise<{ matches: boolean; actualChecksumSha256: string; actualBytes: number }> {
+    this.assertEnabled();
+
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: storageKey,
@@ -142,6 +167,8 @@ export class StorageService {
    * Copies an object within the storage bucket (e.g. promoting from staging to completed)
    */
   async copyObject(sourceKey: string, destinationKey: string): Promise<void> {
+    this.assertEnabled();
+
     const command = new CopyObjectCommand({
       Bucket: this.bucketName,
       CopySource: `${this.bucketName}/${sourceKey}`,
@@ -154,6 +181,13 @@ export class StorageService {
    * Deletes a single object from storage. Propagates errors so caller can handle storage failures.
    */
   async deleteObject(storageKey: string): Promise<void> {
+    // Nothing was ever written while storage is disabled, so there is nothing to
+    // delete; never block callers (account deletion, retention pruning) on it.
+    if (!this.isEnabled()) {
+      this.logger.debug(`Skipping storage delete for ${storageKey}: object storage is disabled`);
+      return;
+    }
+
     try {
       const command = new DeleteObjectCommand({
         Bucket: this.bucketName,
@@ -173,6 +207,13 @@ export class StorageService {
    */
   async deleteObjects(storageKeys: string[]): Promise<void> {
     if (storageKeys.length === 0) return;
+
+    if (!this.isEnabled()) {
+      this.logger.debug(
+        `Skipping batch storage delete of ${storageKeys.length} object(s): object storage is disabled`,
+      );
+      return;
+    }
 
     try {
       const command = new DeleteObjectsCommand({
