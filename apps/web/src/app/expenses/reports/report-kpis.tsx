@@ -11,8 +11,8 @@
  *
  * Layout: a horizontal scroller on phones (cards keep a fixed width and snap),
  * a 2-up grid on tablets and a 4-up grid on desktop. Each tile is only as tall
- * as its content needs, with the label and change pill on the top line and the
- * figure beneath.
+ * as its content needs, with the label and change pill on the top line, the
+ * figure beneath it, and the comparison caption on its own line at the bottom.
  */
 
 import type { ReactNode } from "react";
@@ -85,7 +85,7 @@ export function ReportKpis({
       </div>
       {failed && error && <InlineError message={error} onRetry={onRetry} />}
 
-      <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
+      <div className="-mx-1 flex snap-x snap-mandatory gap-5 overflow-x-auto px-1 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
         <KpiCard
           label="Total spent"
           caption={caption}
@@ -198,19 +198,21 @@ function KpiCard({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-[96px] w-[17rem] shrink-0 snap-start flex-col justify-between gap-3 rounded-[20px] border border-border bg-surface p-5 sm:w-auto">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-muted">{label}</p>
+    <div className="flex min-h-[112px] w-[17rem] shrink-0 snap-start flex-col gap-4 rounded-[20px] border border-border bg-surface p-6 sm:w-auto">
+      <div className="flex items-center justify-between gap-3">
+        <p className="min-w-0 truncate text-[11px] font-medium uppercase tracking-wider text-muted">
+          {label}
+        </p>
         {!placeholder && !failed && percent != null && (
-          <span className="flex shrink-0 flex-col items-end text-right">
-            <ChangePill percent={percent} />
-            <span className="mt-0.5 text-[11px] leading-none text-muted">{caption}</span>
-          </span>
+          <ChangePill percent={percent} className="shrink-0" />
         )}
       </div>
       <div className="min-w-0">
         {failed ? <Dash /> : placeholder ? <Skeleton className="h-7 w-24" /> : children}
       </div>
+      {!placeholder && !failed && percent != null && (
+        <p className="text-[11px] leading-none text-muted">{caption}</p>
+      )}
     </div>
   );
 }
