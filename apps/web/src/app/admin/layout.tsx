@@ -156,12 +156,6 @@ function AdminShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
           <div className="md:mt-auto" />
-          <Link
-            href="/"
-            className="rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-background hover:text-foreground"
-          >
-            ← View site
-          </Link>
           <button
             type="button"
             onClick={handleSignOut}

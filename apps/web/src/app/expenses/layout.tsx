@@ -138,7 +138,6 @@ function ExpensesShell({ children }: { children: React.ReactNode }) {
       nav={NAV}
       pathname={pathname}
       exactMatch="/expenses"
-      primaryAction={{ href: "/expenses/new", label: "Add expense" }}
       user={user}
       onSignOut={handleSignOut}
     >

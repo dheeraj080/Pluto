@@ -2,14 +2,13 @@
 
 /**
  * Authenticated application shell: desktop sidebar, mobile top bar and bottom
- * tab bar, with a prominent primary action. Used by the expenses app and the
- * admin area; the caller owns the session gate.
+ * tab bar. Used by the expenses app; the caller owns the session gate.
  */
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { PlutoMark, Wordmark } from "./logo";
-import { IconGlobe, IconLogOut, IconPlus, IconSettings } from "./icons";
+import { IconLogOut, IconSettings } from "./icons";
 import type { UserProfile } from "@/lib/types";
 
 export interface AppNavItem {
@@ -24,7 +23,6 @@ export function AppShell({
   nav,
   pathname,
   exactMatch,
-  primaryAction,
   user,
   onSignOut,
   children,
@@ -34,7 +32,6 @@ export function AppShell({
   pathname: string;
   /** Href that should match exactly (usually the dashboard), e.g. "/expenses". */
   exactMatch: string;
-  primaryAction?: { href: string; label: string };
   user: UserProfile | null;
   onSignOut: () => void;
   children: ReactNode;
@@ -60,19 +57,6 @@ export function AppShell({
           </Link>
         </div>
 
-        <div className="px-2 pt-4 lg:px-3">
-          {primaryAction && (
-            <Link
-              href={primaryAction.href}
-              title={primaryAction.label}
-              className="inline-flex h-10 w-full select-none items-center justify-center gap-2 rounded-xl bg-primary text-sm font-medium text-on-primary shadow-[0_6px_20px_-8px_rgba(52,211,153,0.6)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:px-4"
-            >
-              <IconPlus className="h-4 w-4 shrink-0" />
-              <span className="hidden lg:inline">{primaryAction.label}</span>
-            </Link>
-          )}
-        </div>
-
         <nav aria-label="Primary" className="flex-1 space-y-1 px-2 py-4 lg:px-3">
           {nav.map((item) => {
             const active = isActive(item);
@@ -84,7 +68,7 @@ export function AppShell({
                 aria-current={active ? "page" : undefined}
                 className={`flex items-center justify-center gap-2.5 rounded-xl px-2 py-2.5 text-sm font-medium transition-colors duration-150 lg:justify-start lg:px-3 ${
                   active
-                    ? "bg-primary-subtle text-primary shadow-[0_0_0_1px_rgba(52,211,153,0.16),0_10px_26px_-14px_rgba(52,211,153,0.8)]"
+                    ? "bg-primary-subtle text-primary"
                     : "text-muted hover:bg-surface-muted hover:text-ink"
                 }`}
               >
@@ -97,43 +81,8 @@ export function AppShell({
           })}
         </nav>
 
-        <div className="border-t border-border p-2 lg:p-3">
-          <Link
-            href="/expenses/settings"
-            title="Settings"
-            className="flex items-center justify-center gap-2.5 rounded-xl px-2 py-2 text-sm text-muted transition-colors hover:bg-surface-muted hover:text-ink lg:justify-start lg:px-3"
-          >
-            <IconSettings className="h-4.5 w-4.5 shrink-0" />
-            <span className="hidden lg:inline">Settings</span>
-          </Link>
-          <Link
-            href="/"
-            title="View site"
-            className="flex items-center justify-center gap-2.5 rounded-xl px-2 py-2 text-sm text-muted transition-colors hover:bg-surface-muted hover:text-ink lg:justify-start lg:px-3"
-          >
-            <IconGlobe className="h-4.5 w-4.5 shrink-0" />
-            <span className="hidden lg:inline">View site</span>
-          </Link>
-          {user && (
-            <div className="flex items-center justify-center gap-2.5 rounded-xl px-2 py-2 lg:justify-start lg:px-3">
-              <Avatar user={user} className="h-7 w-7 text-xs" />
-              <div className="hidden min-w-0 lg:block">
-                <p className="truncate text-sm font-medium text-ink">
-                  {user.name ?? "Pluto user"}
-                </p>
-                <p className="truncate text-xs text-muted">{user.email}</p>
-              </div>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={onSignOut}
-            title="Sign out"
-            className="mt-1 flex w-full items-center justify-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm text-muted transition-colors hover:bg-surface-muted hover:text-ink lg:justify-start lg:px-3"
-          >
-            <IconLogOut className="h-4.5 w-4.5 shrink-0" />
-            <span className="hidden lg:inline">Sign out</span>
-          </button>
+        <div className="relative border-t border-border p-2 lg:p-3">
+          <AccountMenu user={user} onSignOut={onSignOut} />
         </div>
       </aside>
 
@@ -166,15 +115,6 @@ export function AppShell({
         aria-label="Primary"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur md:hidden"
       >
-        {primaryAction && (
-          <Link
-            href={primaryAction.href}
-            aria-label={primaryAction.label}
-            className="absolute bottom-full left-1/2 mb-3 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-on-primary shadow-[0_4px_18px_rgba(52,211,153,0.5)] transition-colors duration-150 hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            <IconPlus className="h-5 w-5" />
-          </Link>
-        )}
         <div className={`mx-auto grid max-w-md ${gridColumns(nav.length)}`}>
           {nav.map((item) => {
             const active = isActive(item);
@@ -223,6 +163,91 @@ function gridColumns(count: number): string {
     default:
       return "grid-cols-6";
   }
+}
+
+/**
+ * The account row at the bottom of the sidebar. A single row shows the avatar
+ * and name/email; clicking it opens a small menu with Settings and Sign out,
+ * so Settings lives inside the account rather than as its own link.
+ */
+function AccountMenu({
+  user,
+  onSignOut,
+}: {
+  user: UserProfile | null;
+  onSignOut: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuId = useId();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        title="Account"
+        className={`flex w-full items-center justify-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-surface-muted lg:justify-start lg:px-3 ${
+          open ? "bg-surface-muted" : ""
+        }`}
+      >
+        <Avatar user={user ?? { name: null, email: "", avatarUrl: null }} className="h-7 w-7 shrink-0 text-xs" />
+        <span className="hidden min-w-0 flex-1 text-left lg:block">
+          <span className="block truncate text-sm font-medium text-ink">
+            {user?.name ?? "Pluto user"}
+          </span>
+          {user?.email && <span className="block truncate text-xs text-muted">{user.email}</span>}
+        </span>
+      </button>
+
+      {open && (
+        <div
+          id={menuId}
+          role="menu"
+          aria-label="Account"
+          className="absolute bottom-full left-0 z-50 mb-2 w-56 rounded-xl border border-border bg-surface p-1.5 shadow-2xl"
+        >
+          <Link
+            href="/expenses/settings"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface-muted"
+          >
+            <IconSettings className="h-4 w-4 shrink-0 text-muted" />
+            <span className="truncate">Settings</span>
+          </Link>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={onSignOut}
+            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-ink transition-colors hover:bg-surface-muted"
+          >
+            <IconLogOut className="h-4 w-4 shrink-0 text-muted" />
+            <span className="truncate">Sign out</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function Avatar({
