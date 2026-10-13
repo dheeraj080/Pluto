@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * The category section: a donut (with a stacked-area "over time" alternative)
- * on the left, and the ranked category list on the right, over a single
- * 12-column grid.
+ * The category block: one card, split by a hairline — a donut (with a
+ * stacked-area "over time" alternative) on the left and the ranked category
+ * list on the right.
  *
  * Left, 4 columns — "Share | Over time":
  *  - Share: a donut of every category, ranked, in a muted palette, with the
@@ -15,11 +15,10 @@
  *    category; clicking it again shows everything.
  *
  * Right, 8 columns — the ranked list, one compact ~52px line per category:
- * colour dot, name, grey count, a 60px sparkline over the same buckets as the
- * stacked area, a thin progress bar, the share, and the amounts (primary bold,
- * secondary beneath). The "Total" footer row is the sum of the rows and equals
- * the Total KPI. Clicking a row opens a side drawer of that category's
- * expenses, two values per row.
+ * name, grey count, a thin progress bar, the share, and the amounts (primary
+ * bold, secondary beneath). The "Total" footer row is the sum of the rows.
+ * Clicking a row opens a side drawer of that category's expenses, two values
+ * per row.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -83,56 +82,6 @@ interface DonutSlice {
 function fmt(value: number | null | undefined, code: string | null): string {
   if (value == null || !code) return "—";
   return formatMoney(value, code);
-}
-
-/** A tiny sparkline: one category's bucket totals over the range, flat when empty. */
-function Sparkline({
-  values,
-  color,
-  width = 60,
-  height = 22,
-}: {
-  values: number[];
-  color: string;
-  width?: number;
-  height?: number;
-}) {
-  if (values.length === 0) {
-    return <svg width={width} height={height} aria-hidden="true" className="shrink-0" />;
-  }
-  const max = Math.max(...values);
-  const min = Math.min(...values, 0);
-  const range = max - min || 1;
-  const step = values.length > 1 ? width / (values.length - 1) : 0;
-  const points = values
-    .map(
-      (value, index) =>
-        `${index === 0 ? "M" : "L"}${(index * step).toFixed(1)},${(
-          height -
-          2 -
-          ((value - min) / range) * (height - 5)
-        ).toFixed(1)}`,
-    )
-    .join(" ");
-  return (
-    <svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      aria-hidden="true"
-      className="shrink-0"
-    >
-      <path
-        d={points}
-        fill="none"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity={0.85}
-      />
-    </svg>
-  );
 }
 
 function DonutTooltip({
@@ -284,7 +233,6 @@ export function ReportCategories({
 
   const seriesItems = categorySeries.data?.series ?? [];
   const buckets = categorySeries.data?.buckets ?? [];
-  const pointsById = new Map(seriesItems.map((item) => [item.categoryId, item.points.map((point) => point.total ?? 0)]));
 
   const hasSpending = categories.some((entry) => entry.total > 0);
   const isEmpty = categories.length === 0 || !hasSpending;
@@ -367,27 +315,28 @@ export function ReportCategories({
   const drawerCategory = categories.find((entry) => entry.categoryId === drawerId) ?? null;
 
   return (
-    <div className={`grid grid-cols-1 gap-5 lg:grid-cols-12 ${className}`}>
-      {/* ----------------------------- Left: donut / stacked area ------------------------ */}
-      <section className="lg:col-span-4">
-        <ReportCard
-          title="By category"
-          subtitle={`${rangeLabel} · ${view === "share" ? "share of spending" : "over time"}`}
-          action={
-            <SegmentedControl
-              label="Category view"
-              options={VIEW_OPTIONS}
-              value={view}
-              onChange={(value) => setView(value as CategoryView)}
-            />
-          }
-          table={view === "share" ? shareTable : overTimeTable}
-          loading={sectionLoading}
-          skeleton={<Skeleton className="h-[240px]" />}
-          error={sectionError}
-          onRetry={retryAll}
-          empty={isEmpty ? emptyNode : undefined}
-        >
+    <div className={className}>
+      {/* ------------------ One card: chart + ranked list, split by a hairline ------------------ */}
+      <ReportCard
+        title="Categories"
+        subtitle={rangeLabel}
+        action={
+          <SegmentedControl
+            label="Category view"
+            options={VIEW_OPTIONS}
+            value={view}
+            onChange={(value) => setView(value as CategoryView)}
+          />
+        }
+        table={view === "share" ? shareTable : overTimeTable}
+        loading={sectionLoading}
+        skeleton={<Skeleton className="h-96" />}
+        error={sectionError}
+        onRetry={retryAll}
+        empty={isEmpty ? emptyNode : undefined}
+      >
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-0">
+          <div className="lg:col-span-4">
           {view === "share" ? (
             <div className="relative" style={{ height: 250 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -528,21 +477,10 @@ export function ReportCategories({
               </div>
             </>
           )}
-        </ReportCard>
-      </section>
+        </div>
 
-      {/* ----------------------------- Right: ranked list ------------------------------ */}
-      <section className="lg:col-span-8">
-        <ReportCard
-          title="Categories"
-          subtitle={`${rangeLabel} · ranked`}
-          loading={sectionLoading}
-          skeleton={<Skeleton className="h-72" />}
-          error={sectionError}
-          onRetry={retryAll}
-          empty={isEmpty ? emptyNode : undefined}
-        >
-          <ul className="divide-y divide-border">
+          <div className="min-w-0 border-border border-t pt-6 lg:col-span-8 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+            <ul className="divide-y divide-border">
             {categories.map((entry) => {
               const rowColor = paletteFor(entry.categoryId);
               const dimmed = hoveredId !== null && hoveredId !== entry.categoryId;
@@ -566,19 +504,11 @@ export function ReportCategories({
                     style={{ minHeight: 52 }}
                   >
                     <span className="flex items-center gap-2 py-2.5 md:py-2">
-                      <span
-                        aria-hidden="true"
-                        className="size-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: rowColor }}
-                      />
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink md:w-28 md:flex-none">
                         {entry.categoryName}
                       </span>
                       <span className="hidden shrink-0 text-[11px] tabular-nums text-muted md:inline">
                         {entry.count} {entry.count === 1 ? "expense" : "expenses"}
-                      </span>
-                      <span className="hidden shrink-0 md:block">
-                        <Sparkline values={pointsById.get(entry.categoryId) ?? []} color={rowColor} />
                       </span>
                       <span
                         aria-hidden="true"
@@ -607,7 +537,6 @@ export function ReportCategories({
                       <span className="shrink-0 text-[11px] tabular-nums text-muted">
                         {entry.count} {entry.count === 1 ? "expense" : "expenses"}
                       </span>
-                      <Sparkline values={pointsById.get(entry.categoryId) ?? []} color={rowColor} />
                       <span
                         aria-hidden="true"
                         className="h-1 min-w-8 flex-1 overflow-hidden rounded-full bg-surface-muted"
@@ -628,10 +557,7 @@ export function ReportCategories({
           </ul>
           {categories.length > 0 && (
             <div className="mt-2 flex items-center justify-between gap-3 border-t border-border-strong pt-3">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-ink">Total</p>
-                <p className="text-[11px] text-muted">Sum of rows — equals the Total KPI.</p>
-              </div>
+              <p className="text-sm font-semibold text-ink">Total</p>
               <DualAmount
                 amount={total ?? 0}
                 currency={base ?? "USD"}
@@ -643,8 +569,9 @@ export function ReportCategories({
               />
             </div>
           )}
-        </ReportCard>
-      </section>
+        </div>
+        </div>
+      </ReportCard>
 
       {drawerCategory && (
         <CategoryDrawer
