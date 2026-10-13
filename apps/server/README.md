@@ -230,7 +230,7 @@ All environment variables are validated at startup via Zod in [src/config/env.va
 | `JWT_SECRET` | Secret key for signing access tokens (min 32 chars in production) | — | **Yes** |
 | `JWT_ACCESS_TOKEN_TTL` | Access token lifetime (e.g. `15m`, `1h`) | `15m` | No |
 | `JWT_REFRESH_TOKEN_TTL_DAYS` | Refresh token session lifetime in days | `30` | No |
-| `GOOGLE_CLIENT_IDS` | Comma-separated list of permitted Google OAuth Client IDs (Android, Web) | `test-client-id.apps.googleusercontent.com` | **Yes** |
+| `GOOGLE_ALLOWED_CLIENT_IDS` | Comma-separated list of permitted Google OAuth Client IDs (Android, iOS, Web) | `test-client-id.apps.googleusercontent.com` | **Yes** |
 | `S3_ENDPOINT` | Custom endpoint for MinIO / LocalStack (empty for AWS S3) | `http://localhost:9000` | No |
 | `S3_REGION` | S3 Region | `us-east-1` | **Yes** |
 | `S3_BUCKET_NAME` | S3 bucket for storing mobile backups | `pluto-backups` | **Yes** |
@@ -260,7 +260,7 @@ To configure Google Sign-In for the Android mobile application:
    - **Web Application Client ID**: Used by the backend to verify the ID tokens issued to the Android app.
 6. Copy the **Web Client ID** and set it in your `.env`:
    ```dotenv
-   GOOGLE_CLIENT_IDS="your-web-client-id.apps.googleusercontent.com,your-android-client-id.apps.googleusercontent.com"
+   GOOGLE_ALLOWED_CLIENT_IDS="your-web-client-id.apps.googleusercontent.com,your-android-client-id.apps.googleusercontent.com,your-ios-client-id.apps.googleusercontent.com"
    ```
 
 ### 2. S3 / MinIO Object Storage

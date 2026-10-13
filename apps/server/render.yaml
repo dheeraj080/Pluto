@@ -1,78 +1,90 @@
 ###############################################################################
-# Render Blueprint – pluto-server (staging)
+# Render Blueprint -- pluto-server (free plan)
 #
 # Docs: https://render.com/docs/blueprint-spec
 #
-# Pre-deploy command runs `prisma migrate deploy` ONCE (Render guarantees this
-# runs serially before traffic is shifted) — safe for multi-replica deployments.
-# Application instances start only after the pre-deploy job succeeds.
+# This is an npm-workspaces monorepo, so the service builds from the REPO ROOT
+# (no rootDir) using the native Node runtime. `npm run <script> -w pluto-server`
+# runs each workspace script with the workspace as its working directory, so the
+# Prisma schema and lockfile are always resolved correctly.
+#
+# Why the commands look like this:
+#   * Free web services do NOT support pre-deploy commands, so
+#     `prisma migrate deploy` is folded into the start command instead.
+#   * The build command must install its own dependencies; Render does not run
+#     an implicit `npm install` when a build command is provided.
+#
+# Set the Blueprint Path to `apps/server/render.yaml` when creating the
+# Blueprint in the Render dashboard -- this file is not at the repo root.
 ###############################################################################
 
 services:
   - type: web
-    name: pluto-server-staging
-    runtime: docker
-    # Build from the repo root using the existing multi-stage Dockerfile.
-    dockerfilePath: ./Dockerfile
-    # Render injects $PORT automatically; the app now binds to 0.0.0.0:$PORT.
-    # EXPOSE 3000 in the Dockerfile is informational only on Render.
+    name: pluto-server
+    runtime: node
+    plan: free
+    region: oregon # Change to the region closest to your database / users.
 
-    region: oregon           # Change to the region closest to your DB / users.
-    plan: starter            # Upgrade to standard for auto-scaling.
+    buildCommand: >-
+      npm ci --include=dev &&
+      npm run prisma:generate -w pluto-server &&
+      npm run build -w pluto-server
 
-    # ---------------------------------------------------------------------------
-    # Pre-deploy command
-    # Runs ONCE per deployment, before any replica starts, under the same image.
-    # Uses the npm script alias so the exact prisma binary path is always correct.
-    # ---------------------------------------------------------------------------
-    preDeployCommand: "npm run prisma:migrate:deploy"
+    # Free plan has no pre-deploy hook: migrate, then boot. Migrations are
+    # idempotent and the free plan runs a single instance, so this is safe.
+    startCommand: >-
+      npm run prisma:migrate:deploy -w pluto-server &&
+      node apps/server/dist/main.js
 
-    # ---------------------------------------------------------------------------
-    # Health-check
-    # Render will wait until this path returns 2xx before marking the deploy live.
-    # ---------------------------------------------------------------------------
+    # Render waits for a 2xx here before routing traffic. The health endpoint
+    # only probes Postgres, so it is unaffected by storage being disabled.
     healthCheckPath: /v1/health
 
-    # ---------------------------------------------------------------------------
-    # Environment variables
-    # Set secret values in the Render dashboard (Environment tab) or via the
-    # Render CLI. Only non-secret defaults are listed here; secrets are omitted
-    # intentionally -- never commit real credentials to this file.
-    # ---------------------------------------------------------------------------
     envVars:
-      # -- Server ---------------------------------------------------------------
+      # -- Server -------------------------------------------------------------
       - key: NODE_ENV
         value: production
-      # PORT is injected by Render automatically -- do NOT set it here.
 
+      # Pin the runtime; the repo requires Node >= 20.19.
+      - key: NODE_VERSION
+        value: "24"
+
+      # Render injects PORT automatically -- do NOT set it here.
       - key: API_PREFIX
         value: v1
-
-      - key: CORS_ORIGIN
-        value: "*"
 
       - key: TRUST_PROXY
         value: "true"
 
-      # -- Database -------------------------------------------------------------
-      # Set DATABASE_URL in the Render dashboard -- do NOT commit credentials.
+      # Tighten this to your web app's origin once it is deployed.
+      - key: CORS_ORIGIN
+        value: "*"
+
+      # -- Database -----------------------------------------------------------
+      # Prefer a card-free external Postgres (e.g. Neon): free Render Postgres
+      # databases are deleted 30 days after creation.
       - key: DATABASE_URL
         sync: false
 
-      # -- Auth / JWT -----------------------------------------------------------
+      # -- Auth / JWT ---------------------------------------------------------
+      # Must be at least 32 characters; the server refuses to boot otherwise.
       - key: JWT_ACCESS_SECRET
         sync: false
 
       - key: ACCESS_TOKEN_TTL
-        value: "15m"
+        value: 15m
 
       - key: REFRESH_TOKEN_TTL_DAYS
         value: "30"
 
+      # At least one non-empty client ID is required in production.
       - key: GOOGLE_ALLOWED_CLIENT_IDS
         sync: false
 
-      # -- Rate Limiting --------------------------------------------------------
+      - key: ADMIN_EMAILS
+        sync: false
+
+      # -- Rate limiting ------------------------------------------------------
       - key: THROTTLE_TTL
         value: "60"
 
@@ -82,45 +94,50 @@ services:
       - key: AUTH_THROTTLE_LIMIT
         value: "20"
 
-      # -- Exchange Rates -------------------------------------------------------
+      # -- Exchange rates -----------------------------------------------------
       - key: EXCHANGE_RATE_PROVIDER
-        value: "frankfurter"
-
-      - key: EXCHANGE_RATE_API_KEY
-        value: ""
+        value: frankfurter
 
       - key: EXCHANGE_RATE_BASE_URL
-        value: "https://api.frankfurter.dev/v1"
+        value: https://api.frankfurter.dev/v1
 
       - key: EXCHANGE_RATE_BASE_CURRENCY
-        value: "USD"
-
-      - key: SUPPORTED_CURRENCIES
-        value: "USD,EUR,GBP,INR,JPY,CNY,CAD,AUD,CHF,SGD,NZD"
+        value: USD
 
       - key: EXCHANGE_RATE_SCHEDULE
         value: "0 4 * * *"
 
-      # -- Object Storage -------------------------------------------------------
-      - key: OBJECT_STORAGE_ENDPOINT
-        sync: false
-
-      - key: OBJECT_STORAGE_REGION
-        value: "us-east-1"
-
-      - key: OBJECT_STORAGE_BUCKET
-        sync: false
-
-      - key: OBJECT_STORAGE_ACCESS_KEY_ID
-        sync: false
-
-      - key: OBJECT_STORAGE_SECRET_ACCESS_KEY
-        sync: false
-
-      - key: OBJECT_STORAGE_FORCE_PATH_STYLE
+      # -- Object storage -----------------------------------------------------
+      # Starts DISABLED: no credit card required, and the API boots with every
+      # feature except /v1/backups/* (which returns 503 instead of failing with
+      # storage errors). To turn backups on for free:
+      #   1. Create an account + bucket at Filebase (free 5 GB, no credit card).
+      #   2. Set OBJECT_STORAGE_BUCKET to that bucket name.
+      #   3. Paste the Filebase access key + secret.
+      #   4. Set OBJECT_STORAGE_ENABLED to "true".
+      # The bucket must exist already -- the application never creates it.
+      - key: OBJECT_STORAGE_ENABLED
         value: "false"
 
-      # -- Backup Quotas --------------------------------------------------------
+      - key: OBJECT_STORAGE_ENDPOINT
+        value: https://s3.filebase.io
+
+      - key: OBJECT_STORAGE_REGION
+        value: auto
+
+      - key: OBJECT_STORAGE_BUCKET
+        value: pluto-backups
+
+      - key: OBJECT_STORAGE_ACCESS_KEY_ID
+        value: unconfigured
+
+      - key: OBJECT_STORAGE_SECRET_ACCESS_KEY
+        value: unconfigured
+
+      - key: OBJECT_STORAGE_FORCE_PATH_STYLE
+        value: "true"
+
+      # -- Backup quotas ------------------------------------------------------
       - key: BACKUP_MAX_SIZE_BYTES
         value: "52428800"
 
