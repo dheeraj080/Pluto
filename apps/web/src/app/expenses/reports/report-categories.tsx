@@ -420,22 +420,26 @@ export function ReportCategories({
                   <Tooltip
                     cursor={false}
                     isAnimationActive={false}
+                    wrapperStyle={{ zIndex: 10 }}
                     content={<DonutTooltip base={base} second={second} />}
                   />
                 </PieChart>
               </ResponsiveContainer>
               {total != null && base && (
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-                  <DualAmount
-                    amount={total}
-                    currency={base}
-                    secondaryAmount={secondaryTotal}
-                    secondaryCurrency={second}
-                    size="kpi"
-                    layout="stack"
-                  />
-                  <span className="text-[11px] tabular-nums text-muted">
-                    {count} {count === 1 ? "expense" : "expenses"}
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="relative">
+                    <DualAmount
+                      amount={total}
+                      currency={base}
+                      secondaryAmount={secondaryTotal}
+                      secondaryCurrency={second}
+                      size="kpi"
+                      layout="stack"
+                      align="center"
+                    />
+                    <span className="absolute left-1/2 top-full -translate-x-1/2 whitespace-nowrap text-[11px] tabular-nums text-muted">
+                      {count} {count === 1 ? "expense" : "expenses"}
+                    </span>
                   </span>
                 </div>
               )}

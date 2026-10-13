@@ -27,7 +27,7 @@ export interface DualAmountProps {
   size?: AmountSize;
   /** `inline` puts the Second value beside the Base; `stack` puts it below. */
   layout?: "inline" | "stack";
-  align?: "left" | "right";
+  align?: "left" | "center" | "right";
   /** Explicit locale for server-rendered figures; omit in client screens. */
   locale?: string;
   className?: string;
@@ -79,7 +79,11 @@ export function DualAmount({
   return (
     <span
       className={`inline-flex flex-col ${
-        align === "right" ? "items-end text-right" : "items-start"
+        align === "right"
+          ? "items-end text-right"
+          : align === "center"
+            ? "items-center text-center"
+            : "items-start"
       } ${className}`}
     >
       <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
