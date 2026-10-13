@@ -88,7 +88,7 @@ export function SpendingCard({
               )}
 
               <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                {delta !== null && <ChangePill percent={delta} caption="vs same days last month" />}
+                {delta !== null && <ChangePill percent={delta} caption="vs last month" />}
               </div>
             </div>
           </div>
