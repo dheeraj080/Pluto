@@ -40,6 +40,7 @@ import { CategorySwatch } from "@/components/category-swatch";
 import { downloadTextFile } from "@/lib/download";
 import { IconPlus, IconReceipt, IconSearch } from "@/components/icons";
 import { useExpenseSetup, usePair, useRateSnapshot } from "../use-expenses";
+import { AddExpenseDrawer } from "../add-expense-drawer";
 import { ConversionAlert, ConversionPill } from "../conversion-notice";
 
 const SORTS: { value: ExpenseSort; label: string }[] = [
@@ -82,6 +83,7 @@ export default function TransactionsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
 
   const range = useMemo(
     () => periodRange(period as Period, customFrom, customTo),
@@ -267,13 +269,10 @@ export default function TransactionsPage() {
         pair={<PairSwitcher base={base} second={second} onSwap={swap} />}
         actions={
           <>
-            <Link
-              href="/expenses/new"
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary transition-colors duration-150 hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
+            <Button variant="primary" onClick={() => setShowAdd(true)}>
               <IconPlus className="h-4 w-4" />
               Add expense
-            </Link>
+            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -417,13 +416,10 @@ export default function TransactionsPage() {
                   title="No expenses yet"
                   description="Record your first expense to start building a picture of where your money goes."
                   action={
-                    <Link
-                      href="/expenses/new"
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
-                    >
+                    <Button variant="primary" onClick={() => setShowAdd(true)}>
                       <IconPlus className="h-4 w-4" />
                       Add your first expense
-                    </Link>
+                    </Button>
                   }
                 />
               )
@@ -655,6 +651,16 @@ export default function TransactionsPage() {
         onConfirm={() => void confirmDelete()}
         onClose={() => setDeleteTarget(null)}
       />
+
+      {showAdd && (
+        <AddExpenseDrawer
+          onClose={() => setShowAdd(false)}
+          onSaved={() => {
+            setShowAdd(false);
+            void load();
+          }}
+        />
+      )}
     </div>
   );
 }

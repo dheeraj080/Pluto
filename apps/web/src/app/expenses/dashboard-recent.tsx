@@ -16,7 +16,7 @@ import { formatDate } from "@/lib/format";
 import { buildConversionPreview, dualAmounts } from "@/lib/convert";
 import type { Expense, Paginated, RateSnapshot } from "@/lib/types";
 import { ChartFrame } from "@/components/charts";
-import { EmptyState, Skeleton } from "@/components/ui";
+import { Button, EmptyState, Skeleton } from "@/components/ui";
 import { TransactionRow } from "@/components/transaction-row";
 import { InfoPill } from "@/components/pill";
 import { IconPlus, IconReceipt } from "@/components/icons";
@@ -33,6 +33,7 @@ export function RecentTransactions({
   snapshot,
   estimated,
   onRetry,
+  onAddExpense,
 }: {
   data: Paginated<Expense> | null;
   loading: boolean;
@@ -43,6 +44,8 @@ export function RecentTransactions({
   /** True when any figure in the month used an estimated rate. */
   estimated: boolean;
   onRetry: () => void;
+  /** When set, the empty-state CTA opens the in-page Add-expense drawer instead of /expenses/new. */
+  onAddExpense?: () => void;
 }) {
   const items = (data?.items ?? []).slice(0, MAX_ROWS);
   const isEmpty = !loading && !error && items.length === 0;
@@ -74,13 +77,20 @@ export function RecentTransactions({
             title="No expenses yet"
             description="Record your first expense to start building a picture of where your money goes."
             action={
-              <Link
-                href="/expenses/new"
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
-              >
-                <IconPlus className="h-4 w-4" />
-                Add your first expense
-              </Link>
+              onAddExpense ? (
+                <Button variant="primary" onClick={onAddExpense}>
+                  <IconPlus className="h-4 w-4" />
+                  Add your first expense
+                </Button>
+              ) : (
+                <Link
+                  href="/expenses/new"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
+                >
+                  <IconPlus className="h-4 w-4" />
+                  Add your first expense
+                </Link>
+              )
             }
           />
         ) : undefined

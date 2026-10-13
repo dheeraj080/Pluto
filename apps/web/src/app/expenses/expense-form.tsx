@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * Create/edit form shared by /expenses/new and /expenses/[id]/edit.
+ * Create/edit form shared by /expenses/new, /expenses/[id]/edit and the
+ * in-page Add-expense drawer.
  *
  * Option lists arrive asynchronously from the parent, so sensible defaults are
  * derived during render (not synced in an effect) — otherwise the selects would
@@ -31,6 +32,7 @@ export function ExpenseForm({
   currencies,
   onSaved,
   onCancel,
+  variant = "card",
 }: {
   /** Present when editing; absent when creating. */
   expense?: Expense;
@@ -38,6 +40,8 @@ export function ExpenseForm({
   currencies: SupportedCurrency[];
   onSaved: () => void;
   onCancel: () => void;
+  /** "card" is the standalone page shell; "panel" drops it for drawers/modals. */
+  variant?: "card" | "panel";
 }) {
   const isEditing = expense !== undefined;
   const { base, second } = usePair();
@@ -100,19 +104,23 @@ export function ExpenseForm({
     }
   };
 
+  // No categories is a fatal state for a form: there is nothing to pick.
+  const emptyNotice = (
+    <ErrorNote message="No categories are available yet. Try reloading the page." />
+  );
   if (categories.length === 0) {
-    return (
+    return variant === "panel" ? (
+      emptyNotice
+    ) : (
       <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
-        <ErrorNote message="No categories are available yet. Try reloading the page." />
+        {emptyNotice}
       </section>
     );
   }
 
-  return (
-    <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
-      <h2 className="text-sm font-medium text-ink">{isEditing ? "Edit expense" : "New expense"}</h2>
-      <form onSubmit={(event) => void handleSubmit(event)} className="mt-4 space-y-5">
-        {error && <ErrorNote message={error} />}
+  const form = (
+    <form onSubmit={(event) => void handleSubmit(event)} className="mt-4 space-y-5">
+      {error && <ErrorNote message={error} />}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -226,7 +234,15 @@ export function ExpenseForm({
             Cancel
           </Button>
         </div>
-      </form>
+    </form>
+  );
+
+  if (variant === "panel") return form;
+
+  return (
+    <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
+      <h2 className="text-sm font-medium text-ink">{isEditing ? "Edit expense" : "New expense"}</h2>
+      {form}
     </section>
   );
 }

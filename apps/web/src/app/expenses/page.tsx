@@ -18,13 +18,13 @@
  */
 
 import { useState } from "react";
-import Link from "next/link";
 import { isoDaysAgo, todayIso, type CompareRange } from "@/lib/ranges";
 import { formatDateRange } from "@/lib/format";
 import { Button, EmptyState } from "@/components/ui";
 import { AppPageHeader, PairSwitcher } from "@/components/app-page-header";
 import { IconCalendar, IconPlus, IconReceipt, IconRefresh } from "@/components/icons";
 import { usePair, useRateHistory, useRateSnapshot } from "./use-expenses";
+import { AddExpenseDrawer } from "./add-expense-drawer";
 import {
   comparisonDeltaPct,
   useComparisonSeries,
@@ -59,6 +59,7 @@ export default function ExpensesDashboardPage() {
 
   const [compareRange, setCompareRange] = useState<CompareRange>("month");
   const [seriesNonce, setSeriesNonce] = useState(0);
+  const [showAdd, setShowAdd] = useState(false);
   const comparisonSeries = useComparisonSeries(compareRange, base, second, seriesNonce);
 
   const rateHistory = useRateHistory({
@@ -110,13 +111,10 @@ export default function ExpensesDashboardPage() {
         pair={<PairSwitcher base={base} second={second} onSwap={swap} />}
         actions={
           <>
-            <Link
-              href="/expenses/new"
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary shadow-[0_6px_20px_-10px_rgba(52,211,153,0.7)] transition-colors duration-150 hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
+            <Button variant="primary" onClick={() => setShowAdd(true)}>
               <IconPlus className="h-4 w-4" />
               Add expense
-            </Link>
+            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -145,13 +143,10 @@ export default function ExpensesDashboardPage() {
             title="Add your first expense"
             description="Once you record a purchase, this dashboard shows what you spent, how it compares with last month, and where the money went."
             action={
-              <Link
-                href="/expenses/new"
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
-              >
+              <Button variant="primary" onClick={() => setShowAdd(true)}>
                 <IconPlus className="h-4 w-4" />
                 Add your first expense
-              </Link>
+              </Button>
             }
           />
         </section>
@@ -188,6 +183,7 @@ export default function ExpensesDashboardPage() {
               snapshot={snapshot}
               estimated={estimated}
               onRetry={recent.reload}
+              onAddExpense={() => setShowAdd(true)}
             />
           </div>
 
@@ -218,6 +214,16 @@ export default function ExpensesDashboardPage() {
             />
           </div>
         </div>
+      )}
+
+      {showAdd && (
+        <AddExpenseDrawer
+          onClose={() => setShowAdd(false)}
+          onSaved={() => {
+            setShowAdd(false);
+            refresh();
+          }}
+        />
       )}
     </div>
   );
