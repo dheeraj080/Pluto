@@ -80,7 +80,7 @@ Routes live in `src/app` (Expo Router, typed routes enabled):
 
 | Route | Screen |
 | :--- | :--- |
-| `(tabs)/index` | Overview — month summary, 5 most recent expenses |
+| `(tabs)/index` | Dashboard — spending, budget, comparison, recent, categories, rate |
 | `(tabs)/transactions` | Activity — full list, search, sort, category filter, infinite scroll |
 | `(tabs)/budgets` | Budgets — per-category and whole-account limits, month by month |
 | `(tabs)/categories` | Categories — create, rename, recolour, delete |
@@ -89,9 +89,10 @@ Routes live in `src/app` (Expo Router, typed routes enabled):
 | `expense/[id]/index` | Detail, with edit and delete |
 | `expense/[id]/edit` | Edit |
 
-Reports is the one web surface still missing a tab; its loaders
+Reports is the one web surface still missing a tab. Its loaders
 (`src/hooks/use-reports.ts`) and date helpers (`src/lib/ranges.ts`) are in place,
-and the screen arrives with the `react-native-svg` charts.
+and the charts it needs now exist in `src/components/charts.tsx`, so the screen
+is the remaining piece rather than the foundation.
 
 `(tabs)/_layout.tsx` guards the whole shell: `loading` shows a spinner and
 `signed-out` redirects to `/sign-in`, so no tab ever mounts and fires an
@@ -99,20 +100,46 @@ authenticated request before the session is restored.
 
 Data access is TanStack Query. Hooks in `src/hooks` own every request
 (`use-expenses` — list and summary, `use-expense`, `use-expense-mutations`,
-`use-categories` + `use-category-mutations`, `use-currencies`, `use-user`);
+`use-categories` + `use-category-mutations`, `use-currencies`, `use-user`,
+`use-budgets`, `use-pair`, `use-rates`, `use-dashboard`, `use-reports`);
 screens never call `fetch` directly. Query keys and the filter/sort vocabulary
 are in `src/lib/query-keys.ts`.
+
+The dashboard's month comparison has its own key namespace
+(`queryKeys.dashboard.comparison`) even though it takes the same parameters as
+the reports one: it pairs month-to-date with *the same days of last month*,
+while a report range pairs with the trailing window of equal length. Same
+parameters, different requests — sharing a cache entry would serve the wrong
+figures.
 
 A category write invalidates both the `categories` and the `expenses`
 namespaces, because a rename or a recolour changes the label and dot on every
 cached expense row — not just the category list.
 
 Shared UI lives in `src/components/ui`: `Card`/`StatCard`, `Button`, `Chip`,
-`TextField`, `Badge`, `AppPageHeader`, and the `Spinner`/`ErrorNote`/`Skeleton`/
-`EmptyState` family. Screens compose those rather than hand-rolling styles, so a
-change to the design language is one edit, not twenty.
+`TextField`, `Badge`, `ChangePill`, `ConversionNote`, `AppPageHeader`, and the
+`Spinner`/`ErrorNote`/`Skeleton`/`EmptyState` family. Screens compose those
+rather than hand-rolling styles, so a change to the design language is one edit,
+not twenty.
 
-Two things are deliberate and easy to "fix" by mistake:
+Dashboard cards share one frame (`src/components/dashboard/card.tsx`, ported
+from the web's `ChartFrame`) so the six read as a single surface, and the
+cross-currency display (`src/components/amount.tsx`) is the same
+Base-plus-Second pairing the web uses.
+
+Charts are drawn directly with `react-native-svg` in `src/components/charts.tsx`
+rather than through a charting library. Recharts cannot run without a DOM, and
+adding a React Native chart library for two line shapes would mean another
+native dependency and another dev-client rebuild. Two deliberate differences
+from the web:
+
+- **No hover tooltip.** There is no pointer on a touch screen, so the figures a
+  tooltip would reveal are stated in the card body instead of hiding behind a
+  gesture nobody can perform.
+- **No `Table` toggle** on the dashboard comparison card. The web passes
+  `hideTableToggle` there too, so the two agree.
+
+Three things are deliberate and easy to "fix" by mistake:
 
 - `src/lib/routes.ts` casts a few hrefs. Typed routes derive their union from
   *file paths*, so `expense/[id]/index.tsx` generates `/expense/[id]/index`
@@ -122,6 +149,9 @@ Two things are deliberate and easy to "fix" by mistake:
   `src/components/icons.tsx` and `src/components/logo.tsx`, ported glyph-for-glyph
   from the web app. There is no icon font: every glyph takes an explicit `size`
   and `color`, because React Native has neither `currentColor` nor CSS sizing.
+- Progress bars (`BudgetCard`, `TopCategoriesCard`) are **two flex children**
+  rather than a percentage width. React Native's `DimensionValue` will not
+  accept a computed percentage string, and the ratio is what matters anyway.
 
 ## Design system
 
@@ -155,10 +185,32 @@ npm run assets:brand   # writes assets/images/*.png from the brand geometry
 the web's `lib/brand-mark.ts`, so the launcher icon, the splash and the in-app
 `PlutoMark` cannot drift apart.
 
-`src/constants/theme.ts`, `src/components/themed-text.tsx` and
-`src/components/themed-view.tsx` are **dead code left over from the migration**:
-every screen now imports `@/theme` and the `src/components/ui` primitives
-directly. They are harmless but should be deleted.
+`scripts/generate-brand-assets.mjs` rasterises the same planet-and-orbit mark as
+the web's `lib/brand-mark.ts`, so the launcher icon, the splash and the in-app
+`PlutoMark` cannot drift apart.
+
+## Dashboard
+
+`src/app/(tabs)/index.tsx` answers six questions in order, and the order is the
+web's own phone order — it is what the web's 12-column grid collapses to below
+the `lg` breakpoint:
+
+| Card | Question |
+| :--- | :--- |
+| `dashboard/spending-card` | how much have I spent this month? |
+| `dashboard/budget-card` | am I on budget, and how much per day? |
+| `dashboard/comparison-card` | faster or slower than last month? |
+| `dashboard/recent-card` | what did I buy recently? |
+| `dashboard/top-categories-card` | where is the money going? |
+| `dashboard/rate-card` | what is today's rate, and what is X worth? |
+
+A brand-new account gets one friendly empty card instead of a grid of empty
+charts. Each card owns its own loading, error and retry state, so one failed
+request degrades one card rather than the page.
+
+The month comparison is **month-to-date against the same days of last month**,
+never a partial month against a whole one; that pairing lives in
+`monthToDate()` in `src/lib/ranges.ts`.
 
 ## Monorepo notes
 

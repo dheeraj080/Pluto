@@ -1,122 +1,256 @@
+/**
+ * The expense dashboard.
+ *
+ * Built to answer six questions in about five seconds, in one column:
+ *
+ *  1. how much have I spent this month?          — the spending card
+ *  2. am I on budget, and how much per day?      — the budget card
+ *  3. faster or slower than last month?          — the comparison card
+ *  4. what did I buy recently?                   — the recent card
+ *  5. where is the money going?                  — the top-categories card
+ *  6. what is today's rate, and what is X worth? — the rate & converter card
+ *
+ * The web lays these out in a 12-column grid whose `order-*` classes collapse to
+ * exactly this sequence below the `lg` breakpoint, so the order is the web's own
+ * phone order rather than a new decision.
+ *
+ * Every converted figure comes from the server aggregates; the per-row previews
+ * are display-only, and a window that cannot be converted reads "—" rather than
+ * zero.
+ */
+
+import { useCallback, useState } from 'react';
 import { router } from 'expo-router';
-import { useCallback } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { ExpenseRow } from '@/components/expense-row';
-import { IconPlus } from '@/components/icons';
-import { Wordmark } from '@/components/logo';
-import { SummaryCard } from '@/components/summary-card';
+import { BudgetCard } from '@/components/dashboard/budget-card';
+import { ComparisonCard } from '@/components/dashboard/comparison-card';
+import { RateCard } from '@/components/dashboard/rate-card';
+import { RecentCard } from '@/components/dashboard/recent-card';
+import { SpendingCard } from '@/components/dashboard/spending-card';
+import { TopCategoriesCard } from '@/components/dashboard/top-categories-card';
 import { Button } from '@/components/ui/button';
-import { Divider } from '@/components/ui/divider';
-import { EmptyState, ErrorNote, Spinner } from '@/components/ui/feedback';
-import { layout, spacing, text } from '@/theme';
-import { useExpenseList, useExpenseSummary } from '@/hooks/use-expenses';
-import { useSession } from '@/hooks/use-session';
+import { Card } from '@/components/ui/card';
+import { ConversionNote } from '@/components/ui/conversion-note';
+import { EmptyState } from '@/components/ui/feedback';
+import { AppPageHeader } from '@/components/ui/page-header';
+import { IconCalendar, IconPlus, IconRefresh } from '@/components/icons';
+import { borderWidth, controlHeight, layout, radius, spacing, text } from '@/theme';
+import { useBudgetStatus } from '@/hooks/use-budgets';
+import { comparisonDeltaPct, useComparisonSeries, useMonthComparison } from '@/hooks/use-dashboard';
+import { useExpenseList } from '@/hooks/use-expenses';
+import { usePair } from '@/hooks/use-pair';
+import { useRateHistory, useRateSnapshot } from '@/hooks/use-rates';
 import { useTheme } from '@/hooks/use-theme';
-import { errorMessage } from '@/lib/errors';
-import { expenseHref } from '@/lib/routes';
+import { formatDateRange, todayIso } from '@/lib/format';
+import { isoDaysAgo, type CompareRange } from '@/lib/ranges';
 
-/** Enough to recognise the month at a glance; the full list is one tap away. */
-const RECENT_COUNT = 5;
+/** Enough history for the rate line to say something; below this it is hidden. */
+const RATE_HISTORY_DAYS = 30;
 
-export default function OverviewScreen() {
-  const { user } = useSession();
+export default function DashboardScreen() {
   const theme = useTheme();
-  const list = useExpenseList({ sort: 'date_desc' });
-  const summary = useExpenseSummary({});
+  const { base, second } = usePair();
 
-  const refreshing = list.isRefetching || summary.isRefetching;
-  const error = list.error ?? summary.error;
+  const month = useMonthComparison(base, second);
+  const budgetStatus = useBudgetStatus({
+    month: month.window.from.slice(0, 7),
+    base: base ?? undefined,
+    secondary: second ?? undefined,
+  });
+  const recent = useExpenseList({ sort: 'date_desc' });
+
+  const [range, setRange] = useState<CompareRange>('month');
+  const comparisonSeries = useComparisonSeries(range, base, second);
+
+  const snapshot = useRateSnapshot(base);
+  const history = useRateHistory({
+    base,
+    quote: second,
+    from: isoDaysAgo(RATE_HISTORY_DAYS - 1),
+    to: todayIso(),
+  });
+
+  const comparison = month.comparison;
+  const summary = comparison?.current ?? null;
+  // `base` is null only until a profile exists; the server's echoed currency is
+  // the honest fallback, so no figure is ever shown in an invented currency.
+  const baseCurrency = base ?? summary?.baseCurrency ?? snapshot.data?.baseCurrency ?? null;
+  const delta = comparisonDeltaPct(comparison);
+  const estimated = comparison?.rateProvenance?.policies?.includes('estimate') ?? false;
+
+  // The overall budget is the one with no category; per-category limits live on
+  // the Budgets screen.
+  const budget = budgetStatus.data?.items.find((item) => item.categoryId == null) ?? null;
+
+  const refreshing =
+    month.loading || budgetStatus.isPending || recent.isRefetching || comparisonSeries.loading;
 
   const onRefresh = useCallback(() => {
-    void list.refetch();
-    void summary.refetch();
-  }, [list, summary]);
+    month.refetch();
+    void budgetStatus.refetch();
+    void recent.refetch();
+    comparisonSeries.refetch();
+    void history.refetch();
+  }, [month, budgetStatus, recent, comparisonSeries, history]);
+
+  // A brand-new account sees one friendly card, never a grid of empty charts.
+  const isEmpty =
+    !month.loading && summary !== null && summary.count === 0 && recent.items.length === 0;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.canvas }]}>
-      <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
-        <Wordmark size={26} />
-        <Text numberOfLines={1} style={[text.caption, styles.greeting, { color: theme.muted }]}>
-          {user?.name ?? user?.email ?? ''}
-        </Text>
-      </View>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.canvas }]}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={theme.accent}
+          colors={[theme.accent]}
+        />
+      }
+    >
+      <AppPageHeader
+        title="Dashboard"
+        subtitle="Where your money went this month."
+      >
+        <View style={[styles.dateChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+          <IconCalendar size={14} color={theme.muted} />
+          <Text style={[text.captionMedium, { color: theme.muted }]}>
+            {formatDateRange(month.window.from, month.window.to)}
+          </Text>
+        </View>
 
-      <FlatList
-        data={list.items.slice(0, RECENT_COUNT)}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.content}
-        ItemSeparatorComponent={Divider}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        renderItem={({ item }) => (
-          <Pressable onPress={() => router.push(expenseHref(item.id))}>
-            <ExpenseRow expense={item} />
-          </Pressable>
-        )}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <SummaryCard summary={summary.data ?? null} loading={summary.isPending} />
+        <Button
+          label="Add expense"
+          icon={(color) => <IconPlus size={16} color={color} />}
+          onPress={() => router.push('/expense/new')}
+        />
 
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Refresh"
+          onPress={onRefresh}
+          disabled={refreshing}
+          style={({ pressed }) => [
+            styles.refresh,
+            {
+              backgroundColor: theme.surfaceMuted,
+              borderColor: theme.border,
+              opacity: refreshing ? 0.45 : pressed ? 0.7 : 1,
+            },
+          ]}
+        >
+          <IconRefresh size={16} color={theme.ink} />
+        </Pressable>
+      </AppPageHeader>
+
+      {comparison ? (
+        <ConversionNote
+          status={comparison.conversionStatus}
+          unconvertedCurrencies={comparison.unconvertedCurrencies}
+        />
+      ) : null}
+
+      {isEmpty ? (
+        <Card>
+          <EmptyState
+            title="Add your first expense"
+            message="Once you record a purchase, this dashboard shows what you spent, how it compares with last month, and where the money went."
+          >
             <Button
-              label="Add expense"
-              icon={(color) => <IconPlus size={18} color={color} />}
+              label="Add your first expense"
+              icon={(color) => <IconPlus size={16} color={color} />}
               onPress={() => router.push('/expense/new')}
             />
+          </EmptyState>
+        </Card>
+      ) : (
+        <View style={styles.cards}>
+          <SpendingCard
+            summary={summary}
+            second={second}
+            delta={delta}
+            loading={month.loading}
+            error={month.error}
+            onRetry={month.refetch}
+          />
 
-            <View style={styles.sectionRow}>
-              <Text style={[text.overline, { color: theme.muted }]}>RECENT</Text>
-              {list.total > 0 ? (
-                <Pressable hitSlop={8} onPress={() => router.push('/transactions')}>
-                  <Text style={[text.link, { color: theme.primary }]}>
-                    See all {list.total}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </View>
-        }
-        ListEmptyComponent={
-          list.isPending ? (
-            <Spinner size="large" style={styles.placeholder} />
-          ) : error ? (
-            <ErrorNote message={errorMessage(error) ?? 'Could not load expenses.'} />
-          ) : (
-            <EmptyState
-              title="No expenses yet"
-              message="Add your first expense to see it here."
-            />
-          )
-        }
-      />
-    </View>
+          <BudgetCard
+            budget={budget}
+            window={month.window}
+            second={second}
+            loading={budgetStatus.isPending}
+            error={budgetStatus.isError ? 'Failed to load your budget.' : null}
+            onRetry={() => void budgetStatus.refetch()}
+          />
+
+          <ComparisonCard
+            rows={comparisonSeries.rows}
+            range={range}
+            onRangeChange={setRange}
+            base={baseCurrency ?? ''}
+            loading={comparisonSeries.loading}
+            error={comparisonSeries.error}
+            onRetry={comparisonSeries.refetch}
+          />
+
+          <RecentCard
+            items={recent.items}
+            loading={recent.isPending}
+            error={recent.error ? 'Failed to load recent expenses.' : null}
+            base={baseCurrency}
+            second={second}
+            snapshot={snapshot.data ?? null}
+            estimated={estimated}
+            onRetry={() => void recent.refetch()}
+          />
+
+          <TopCategoriesCard
+            entries={summary?.byCategory ?? []}
+            base={baseCurrency ?? ''}
+            second={second}
+            snapshot={snapshot.data ?? null}
+            loading={month.loading}
+          />
+
+          <RateCard
+            snapshot={snapshot.data ?? null}
+            base={baseCurrency}
+            second={second}
+            history={history.data ?? null}
+            loading={history.isPending}
+          />
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: layout.gutter,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-  },
-  greeting: { flex: 1, textAlign: 'right' },
   content: {
     padding: layout.gutter,
     paddingBottom: layout.tabBarInset + spacing.xl,
-  },
-  header: {
     gap: spacing.lg,
-    paddingBottom: spacing.md,
   },
-  sectionRow: {
+  cards: { gap: spacing.lg },
+  dateChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: spacing.xs,
+    height: controlHeight.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: borderWidth.hairline,
   },
-  placeholder: { marginTop: spacing.xxl },
+  refresh: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: controlHeight.sm,
+    height: controlHeight.sm,
+    borderRadius: radius.pill,
+    borderWidth: borderWidth.hairline,
+  },
 });

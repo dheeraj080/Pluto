@@ -130,6 +130,59 @@ export function windowFor(kind: WindowKind, now: Date = new Date()): DateWindow 
   }
 }
 
+/** Shape check for the API's date parameters. */
+export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export type CompareRange = 'month' | '3m' | '12m';
+
+export interface CompareWindows {
+  current: { from: string; to: string };
+  previous: { from: string; to: string };
+  /** Bucket size the series endpoint should use for both windows. */
+  granularity: 'day' | 'month';
+}
+
+/**
+ * The two windows behind the dashboard's "this period vs the last one" chart.
+ *
+ * - `month`: day buckets, this month-to-date against the *same days* last month
+ *   (never a partial month against a whole one).
+ * - `3m`: day buckets over the trailing three months against the three before.
+ * - `12m`: month buckets over the trailing twelve months against the twelve
+ *   before, which keeps the point count readable without thinning ticks.
+ */
+export function compareWindows(range: CompareRange, now: Date = new Date()): CompareWindows {
+  const today = todayIso(now);
+
+  if (range === 'month') {
+    const window = monthToDate(now);
+    return {
+      current: { from: window.from, to: window.to },
+      previous: { from: window.prevFrom, to: window.prevTo },
+      granularity: 'day',
+    };
+  }
+
+  if (range === '3m') {
+    const from = monthStartIso(2, now);
+    const length = diffDays(from, today) + 1;
+    const prevTo = addDaysIso(from, -1);
+    const prevFrom = addDaysIso(prevTo, -(length - 1));
+    return {
+      current: { from, to: today },
+      previous: { from: prevFrom, to: prevTo },
+      granularity: 'day',
+    };
+  }
+
+  const from = monthStartIso(11, now);
+  return {
+    current: { from, to: today },
+    previous: { from: monthStartIso(23, now), to: addDaysIso(from, -1) },
+    granularity: 'month',
+  };
+}
+
 export type Period = 'month' | '30d' | 'year' | 'all' | 'custom';
 
 export interface Range extends DateWindow {

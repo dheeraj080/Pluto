@@ -73,6 +73,50 @@ export function currentMonth(): string {
   return new Date().toISOString().slice(0, 7);
 }
 
+/**
+ * `2026-10-09` → `9 Oct` (or `9 Oct 2025` when that is not the current year),
+ * for "as of" labels on a rate snapshot.
+ *
+ * Anchored to UTC like `formatMonth`: a snapshot's `effectiveDate` is a market
+ * date, so it must be read back in the zone it was published in.
+ */
+export function formatAsOf(iso: string, now: Date = new Date()): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return iso;
+
+  const sameYear = date.getUTCFullYear() === now.getUTCFullYear();
+  return new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' }),
+    timeZone: 'UTC',
+  }).format(date);
+}
+
+/**
+ * `2026-10-01` and `2026-10-14` → `1 - 14 Oct`; a cross-month or cross-year
+ * range spells both ends out. Used by the dashboard's date-range chip.
+ */
+export function formatDateRange(from: string, to: string): string {
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return `${from} - ${to}`;
+
+  const day: Intl.DateTimeFormatOptions = { day: 'numeric', timeZone: 'UTC' };
+  const dayMonth: Intl.DateTimeFormatOptions = {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  };
+
+  if (from === to) return new Intl.DateTimeFormat(undefined, dayMonth).format(end);
+  if (start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth()) {
+    const month = new Intl.DateTimeFormat(undefined, { month: 'short', timeZone: 'UTC' }).format(end);
+    return `${new Intl.DateTimeFormat(undefined, day).format(start)} - ${new Intl.DateTimeFormat(undefined, day).format(end)} ${month}`;
+  }
+  return `${new Intl.DateTimeFormat(undefined, dayMonth).format(start)} - ${new Intl.DateTimeFormat(undefined, dayMonth).format(end)}`;
+}
+
 /** `0.5` → `0.5%`, `12` → `12%` — only adds a decimal when there is one. */
 export function formatPercent(value: number): string {
   return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;

@@ -56,6 +56,20 @@ export type ReportSeriesParams = ReportQueryParams & {
 };
 
 /**
+ * Filters for `GET /rates/history`.
+ *
+ * A type alias, like `ReportQueryParams`, so it is assignable to the API
+ * client's query record; `quote` is optional so the key can be built before a
+ * second currency is chosen (the query stays disabled until one is).
+ */
+export type RateHistoryParams = {
+  base?: string;
+  quote?: string;
+  from?: string;
+  to?: string;
+};
+
+/**
  * Builds the query object for `GET /expenses`.
  *
  * Absent filters are omitted rather than sent as empty strings: the server
@@ -104,5 +118,22 @@ export const queryKeys = {
     byDayOfWeek: (params: ReportQueryParams) => ['reports', 'by-day-of-week', params] as const,
     series: (params: ReportSeriesParams) => ['reports', 'series', params] as const,
     categorySeries: (params: ReportSeriesParams) => ['reports', 'category-series', params] as const,
+  },
+  /**
+   * Keys the dashboard owns.
+   *
+   * Deliberately separate from `reports.comparison`: both compare two windows,
+   * but the dashboard pairs month-to-date with *the same days of last month*
+   * while a report range pairs with the trailing window of equal length. Same
+   * parameters, different requests — so they must not share a cache entry.
+   */
+  dashboard: {
+    all: ['dashboard'] as const,
+    comparison: (params: ReportQueryParams) => ['dashboard', 'comparison', params] as const,
+  },
+  rates: {
+    all: ['rates'] as const,
+    latest: (base?: string) => ['rates', 'latest', base ?? null] as const,
+    history: (params: RateHistoryParams) => ['rates', 'history', params] as const,
   },
 };

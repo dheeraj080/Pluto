@@ -44,11 +44,20 @@ export interface ByDayOfWeekResponse {
   items: DayOfWeekItem[];
 }
 
+/** How far the selected window moved against the one before it. */
+export interface ComparisonDelta {
+  totalAbs: number;
+  totalPct: number;
+  countAbs: number;
+  countPct: number;
+}
+
 /**
  * The selected window against the equal-length one before it.
  *
- * One request carries both summaries, so a "vs previous" delta can never be
- * computed from two responses that disagree about the rate snapshot.
+ * One request carries both summaries and the delta between them, so a "vs
+ * previous" figure can never be computed from two responses that disagree about
+ * the rate snapshot.
  */
 export interface ExpenseComparison {
   baseCurrency: string;
@@ -59,4 +68,5 @@ export interface ExpenseComparison {
   conversionUnavailableReason?: string;
   current: ExpenseSummary;
   previous: ExpenseSummary;
+  delta: ComparisonDelta;
 }
