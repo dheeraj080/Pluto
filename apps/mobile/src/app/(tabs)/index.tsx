@@ -2,11 +2,12 @@ import { router } from 'expo-router';
 import { useCallback } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ExpenseRow, ExpenseRowDivider } from '@/components/expense-row';
+import { ExpenseRow } from '@/components/expense-row';
 import { IconPlus } from '@/components/icons';
 import { Wordmark } from '@/components/logo';
 import { SummaryCard } from '@/components/summary-card';
 import { Button } from '@/components/ui/button';
+import { Divider } from '@/components/ui/divider';
 import { EmptyState, ErrorNote, Spinner } from '@/components/ui/feedback';
 import { layout, spacing, text } from '@/theme';
 import { useExpenseList, useExpenseSummary } from '@/hooks/use-expenses';
@@ -45,7 +46,7 @@ export default function OverviewScreen() {
         data={list.items.slice(0, RECENT_COUNT)}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
-        ItemSeparatorComponent={ExpenseRowDivider}
+        ItemSeparatorComponent={Divider}
         refreshing={refreshing}
         onRefresh={onRefresh}
         renderItem={({ item }) => (

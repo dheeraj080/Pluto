@@ -1,24 +1,19 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ExpenseForm, type ExpenseDraft } from '@/components/expense-form';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { Spacing } from '@/constants/theme';
+import { ErrorNote, Spinner } from '@/components/ui/feedback';
+import { layout, spacing } from '@/theme';
 import { useExpense } from '@/hooks/use-expense';
 import { useUpdateExpense } from '@/hooks/use-expense-mutations';
+import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/errors';
 
 export default function EditExpenseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const theme = useTheme();
   const expense = useExpense(id);
   const update = useUpdateExpense();
 
@@ -32,27 +27,25 @@ export default function EditExpenseScreen() {
 
   if (expense.isPending) {
     return (
-      <ThemedView style={styles.centered}>
-        <ActivityIndicator />
-      </ThemedView>
+      <View style={[styles.centered, { backgroundColor: theme.canvas }]}>
+        <Spinner size="large" />
+      </View>
     );
   }
 
   if (!expense.data) {
     return (
-      <ThemedView style={styles.centered}>
-        <ThemedText themeColor="textSecondary">
-          {errorMessage(expense.error) ?? 'Expense not found.'}
-        </ThemedText>
+      <View style={[styles.centered, { backgroundColor: theme.canvas }]}>
+        <ErrorNote message={errorMessage(expense.error) ?? 'Expense not found.'} />
         <Button label="Retry" variant="secondary" onPress={() => void expense.refetch()} />
-      </ThemedView>
+      </View>
     );
   }
 
   const item = expense.data;
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -79,12 +72,18 @@ export default function EditExpenseScreen() {
           />
         </ScrollView>
       </KeyboardAvoidingView>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three },
-  content: { padding: Spacing.three, paddingBottom: Spacing.six },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    padding: layout.gutter,
+  },
+  content: { padding: layout.gutter, paddingBottom: spacing.huge },
 });

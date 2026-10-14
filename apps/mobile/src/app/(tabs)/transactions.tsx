@@ -2,8 +2,9 @@ import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { ExpenseRow, ExpenseRowDivider } from '@/components/expense-row';
+import { ExpenseRow } from '@/components/expense-row';
 import { Chip } from '@/components/ui/chip';
+import { Divider } from '@/components/ui/divider';
 import { EmptyState, ErrorNote, Spinner } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
 import { TextField } from '@/components/ui/text-field';
@@ -63,7 +64,7 @@ export default function ActivityScreen() {
         data={list.items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
-        ItemSeparatorComponent={ExpenseRowDivider}
+        ItemSeparatorComponent={Divider}
         renderItem={({ item }) => (
           <Pressable onPress={() => router.push(expenseHref(item.id))}>
             <ExpenseRow expense={item} />

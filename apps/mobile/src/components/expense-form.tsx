@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
+import { ErrorNote, Spinner } from '@/components/ui/feedback';
 import { TextField } from '@/components/ui/text-field';
-import { Spacing } from '@/constants/theme';
+import { spacing, text } from '@/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { useSupportedCurrencies } from '@/hooks/use-currencies';
+import { useTheme } from '@/hooks/use-theme';
 import { isValidIsoDate, parseAmount, todayIso } from '@/lib/format';
 
 /** Validated values, ready to be sent as a create/update payload. */
@@ -31,6 +32,13 @@ export interface ExpenseFormInitial {
 
 const PAYMENT_METHODS = ['CARD', 'CASH', 'UPI', 'OTHER'];
 
+/**
+ * The create/edit form.
+ *
+ * Group labels reuse `TextField`'s label treatment (`text-sm font-medium` in
+ * ink) rather than the uppercase card-title style, so a chip group and a text
+ * field read as the same kind of thing.
+ */
 export function ExpenseForm({
   initial,
   submitLabel,
@@ -47,6 +55,7 @@ export function ExpenseForm({
   submitError?: string | null;
   defaultCurrency?: string;
 }) {
+  const theme = useTheme();
   const categories = useCategories();
   const currencies = useSupportedCurrencies();
 
@@ -103,12 +112,10 @@ export function ExpenseForm({
       />
 
       <View style={styles.group}>
-        <ThemedText type="smallBold" themeColor="textSecondary">
-          Currency
-        </ThemedText>
+        <Text style={[text.bodyMedium, { color: theme.ink }]}>Currency</Text>
 
         {currencies.isPending ? (
-          <ActivityIndicator style={styles.inlineSpinner} />
+          <Spinner style={styles.spinner} />
         ) : currencies.data && currencies.data.length > 0 ? (
           <ScrollView
             horizontal
@@ -137,17 +144,13 @@ export function ExpenseForm({
         )}
       </View>
 
-      <View style={styles.field}>
-        <ThemedText type="smallBold" themeColor="textSecondary">
-          Category
-        </ThemedText>
+      <View style={styles.group}>
+        <Text style={[text.bodyMedium, { color: theme.ink }]}>Category</Text>
 
         {categories.isPending ? (
-          <ActivityIndicator style={styles.spinner} />
+          <Spinner style={styles.spinner} />
         ) : categories.isError ? (
-          <ThemedText type="small" themeColor="danger">
-            Could not load categories. Pull to refresh and try again.
-          </ThemedText>
+          <ErrorNote message="Could not load categories. Pull to refresh and try again." />
         ) : (
           <View style={styles.wrapRow}>
             {(categories.data ?? []).map((category) => (
@@ -163,9 +166,7 @@ export function ExpenseForm({
         )}
 
         {errors.categoryId ? (
-          <ThemedText type="small" themeColor="danger">
-            {errors.categoryId}
-          </ThemedText>
+          <Text style={[text.captionMedium, { color: theme.danger }]}>{errors.categoryId}</Text>
         ) : null}
       </View>
 
@@ -187,10 +188,8 @@ export function ExpenseForm({
         maxLength={280}
       />
 
-      <View style={styles.field}>
-        <ThemedText type="smallBold" themeColor="textSecondary">
-          Payment method
-        </ThemedText>
+      <View style={styles.group}>
+        <Text style={[text.bodyMedium, { color: theme.ink }]}>Payment method</Text>
         <View style={styles.wrapRow}>
           {PAYMENT_METHODS.map((method) => (
             <Chip
@@ -204,11 +203,7 @@ export function ExpenseForm({
         </View>
       </View>
 
-      {submitError ? (
-        <ThemedText type="small" themeColor="danger">
-          {submitError}
-        </ThemedText>
-      ) : null}
+      {submitError ? <ErrorNote message={submitError} /> : null}
 
       <Button label={submitLabel} onPress={handleSubmit} busy={busy} />
     </View>
@@ -216,11 +211,9 @@ export function ExpenseForm({
 }
 
 const styles = StyleSheet.create({
-  form: { gap: Spacing.four },
-  field: { gap: Spacing.one },
-  group: { gap: Spacing.two },
-  chipRow: { gap: Spacing.two, paddingRight: Spacing.four },
-  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  form: { gap: spacing.xl },
+  group: { gap: spacing.sm },
+  chipRow: { gap: spacing.sm, paddingRight: spacing.lg },
+  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   spinner: { alignSelf: 'flex-start' },
-  inlineSpinner: { alignSelf: 'flex-start' },
 });

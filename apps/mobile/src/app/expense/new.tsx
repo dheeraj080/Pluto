@@ -1,16 +1,17 @@
 import { router } from 'expo-router';
 import { useCallback } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ExpenseForm, type ExpenseDraft } from '@/components/expense-form';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { layout, spacing } from '@/theme';
 import { useCreateExpense } from '@/hooks/use-expense-mutations';
 import { useSession } from '@/hooks/use-session';
+import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/errors';
 
 export default function NewExpenseScreen() {
   const { user } = useSession();
+  const theme = useTheme();
   const create = useCreateExpense();
 
   const onSubmit = useCallback(
@@ -22,7 +23,7 @@ export default function NewExpenseScreen() {
   );
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -41,11 +42,11 @@ export default function NewExpenseScreen() {
           />
         </ScrollView>
       </KeyboardAvoidingView>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: Spacing.three, paddingBottom: Spacing.six },
+  content: { padding: layout.gutter, paddingBottom: spacing.huge },
 });

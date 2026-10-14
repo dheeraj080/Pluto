@@ -7,13 +7,13 @@
  * of rows lines up.
  *
  * The row carries no background or border of its own — lists separate rows with
- * `ExpenseRowDivider` so the first and last rows sit flush inside their card.
+ * the `Divider` component so the first and last rows sit flush inside their card.
  */
 
 import { StyleSheet, Text, View } from 'react-native';
 import type { Schemas } from '@pluto/api-client';
 
-import { borderWidth, spacing, text } from '@/theme';
+import { spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate, formatMoney } from '@/lib/format';
 
@@ -45,13 +45,6 @@ export function ExpenseRow({ expense }: { expense: Schemas['ExpenseDto'] }) {
       </Text>
     </View>
   );
-}
-
-/** Hairline separator for a list of `ExpenseRow`s. */
-export function ExpenseRowDivider() {
-  const theme = useTheme();
-
-  return <View style={{ height: borderWidth.hairline, backgroundColor: theme.border }} />;
 }
 
 const styles = StyleSheet.create({

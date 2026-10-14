@@ -1,19 +1,22 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { Spacing } from '@/constants/theme';
+import { Card } from '@/components/ui/card';
+import { Divider } from '@/components/ui/divider';
+import { ErrorNote, Spinner } from '@/components/ui/feedback';
+import { layout, radius, spacing, text } from '@/theme';
 import { useExpense } from '@/hooks/use-expense';
 import { useDeleteExpense } from '@/hooks/use-expense-mutations';
+import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/errors';
 import { formatDate, formatMoney } from '@/lib/format';
 import { editExpenseHref } from '@/lib/routes';
 
 export default function ExpenseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const theme = useTheme();
   const expense = useExpense(id);
   const remove = useDeleteExpense();
 
@@ -38,73 +41,96 @@ export default function ExpenseDetailScreen() {
 
   if (expense.isPending) {
     return (
-      <ThemedView style={styles.centered}>
-        <ActivityIndicator />
-      </ThemedView>
+      <View style={[styles.centered, { backgroundColor: theme.canvas }]}>
+        <Spinner size="large" />
+      </View>
     );
   }
 
   if (!expense.data) {
     return (
-      <ThemedView style={styles.centered}>
-        <ThemedText themeColor="textSecondary">
-          {errorMessage(expense.error) ?? 'Expense not found.'}
-        </ThemedText>
+      <View style={[styles.centered, { backgroundColor: theme.canvas }]}>
+        <ErrorNote message={errorMessage(expense.error) ?? 'Expense not found.'} />
         <Button label="Retry" variant="secondary" onPress={() => void expense.refetch()} />
-      </ThemedView>
+      </View>
     );
   }
 
   const item = expense.data;
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.amountBlock}>
-          <View style={[styles.dot, { backgroundColor: item.categoryColor }]} />
-          <ThemedText type="subtitle">{formatMoney(item.amount, item.currency)}</ThemedText>
-        </View>
+        <Card>
+          <View style={styles.categoryRow}>
+            <View style={[styles.dot, { backgroundColor: item.categoryColor }]} />
+            <Text numberOfLines={1} style={[text.overline, styles.categoryName, { color: theme.muted }]}>
+              {item.categoryName}
+            </Text>
+          </View>
 
-        <View style={styles.card}>
+          <Text numberOfLines={1} style={[text.amountHero, { color: theme.ink }]}>
+            {formatMoney(item.amount, item.currency)}
+          </Text>
+
+          <Text style={[text.caption, { color: theme.muted }]}>{formatDate(item.incurredOn)}</Text>
+        </Card>
+
+        {/* Padding lives on each row so the dividers can run edge to edge. */}
+        <Card style={styles.details}>
           <DetailRow label="Category" value={item.categoryName} />
+          <Divider />
           <DetailRow label="Date" value={formatDate(item.incurredOn)} />
+          <Divider />
           <DetailRow label="Payment method" value={item.paymentMethod ?? '—'} />
-          <DetailRow label="Description" value={item.description ?? '—'} />
+          <Divider />
+          <DetailRow label="Description" value={item.description?.trim() || '—'} />
+        </Card>
+
+        {remove.isError ? <ErrorNote message={errorMessage(remove.error) ?? 'Could not delete.'} /> : null}
+
+        <View style={styles.actions}>
+          <Button label="Edit" onPress={() => router.push(editExpenseHref(item.id))} />
+          <Button label="Delete" variant="danger" onPress={onDelete} busy={remove.isPending} />
         </View>
-
-        {remove.isError ? (
-          <ThemedText type="small" themeColor="danger">
-            {errorMessage(remove.error)}
-          </ThemedText>
-        ) : null}
-
-        <Button label="Edit" onPress={() => router.push(editExpenseHref(item.id))} />
-        <Button label="Delete" variant="danger" onPress={onDelete} busy={remove.isPending} />
       </ScrollView>
-    </ThemedView>
+    </View>
   );
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const theme = useTheme();
+
   return (
     <View style={styles.detailRow}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-      <ThemedText type="smallBold" style={styles.detailValue}>
-        {value}
-      </ThemedText>
+      <Text style={[text.caption, { color: theme.muted }]}>{label}</Text>
+      <Text style={[text.bodyMedium, styles.detailValue, { color: theme.ink }]}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: Spacing.three, gap: Spacing.three },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three },
-  amountBlock: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  dot: { width: 12, height: 12, borderRadius: 6 },
-  card: { gap: Spacing.three },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.three },
+  content: { padding: layout.gutter, gap: spacing.lg, paddingBottom: spacing.xxxl },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    padding: layout.gutter,
+  },
+  categoryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  categoryName: { flex: 1 },
+  dot: { width: 10, height: 10, borderRadius: radius.pill },
+  details: { padding: 0, gap: 0 },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
   detailValue: { flex: 1, textAlign: 'right' },
+  actions: { gap: spacing.md },
 });

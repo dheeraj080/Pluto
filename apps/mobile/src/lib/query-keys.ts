@@ -56,6 +56,7 @@ export const queryKeys = {
   },
   categories: {
     all: ['categories'] as const,
+    list: () => ['categories', 'list'] as const,
   },
   currencies: {
     all: ['currencies'] as const,

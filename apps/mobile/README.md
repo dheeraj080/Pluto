@@ -82,6 +82,7 @@ Routes live in `src/app` (Expo Router, typed routes enabled):
 | :--- | :--- |
 | `(tabs)/index` | Overview — month summary, 5 most recent expenses |
 | `(tabs)/transactions` | Activity — full list, search, sort, category filter, infinite scroll |
+| `(tabs)/categories` | Categories — create, rename, recolour, delete |
 | `(tabs)/settings` | Profile, base currency, sign out |
 | `expense/new` | Create (modal) |
 | `expense/[id]/index` | Detail, with edit and delete |
@@ -93,9 +94,13 @@ authenticated request before the session is restored.
 
 Data access is TanStack Query. Hooks in `src/hooks` own every request
 (`use-expenses` — list and summary, `use-expense`, `use-expense-mutations`,
-`use-categories`, `use-currencies`, `use-user`); screens never call `fetch`
-directly. Query keys and the filter/sort vocabulary are in
-`src/lib/query-keys.ts`.
+`use-categories` + `use-category-mutations`, `use-currencies`, `use-user`);
+screens never call `fetch` directly. Query keys and the filter/sort vocabulary
+are in `src/lib/query-keys.ts`.
+
+A category write invalidates both the `categories` and the `expenses`
+namespaces, because a rename or a recolour changes the label and dot on every
+cached expense row — not just the category list.
 
 Shared UI lives in `src/components/ui`: `Card`/`StatCard`, `Button`, `Chip`,
 `TextField`, `Badge`, `AppPageHeader`, and the `Spinner`/`ErrorNote`/`Skeleton`/
@@ -145,11 +150,10 @@ npm run assets:brand   # writes assets/images/*.png from the brand geometry
 the web's `lib/brand-mark.ts`, so the launcher icon, the splash and the in-app
 `PlutoMark` cannot drift apart.
 
-`src/constants/theme.ts` is a **transitional** shim: it re-states the Expo
-template's old token names (`Colors`, `Spacing`, `BottomTabInset`, and the
-`textSecondary`/`backgroundElement` colour aliases) on top of the Pluto palette
-so the screens written before the design system keep compiling. New code imports
-from `@/theme`; the shim goes away as the screens are migrated.
+`src/constants/theme.ts`, `src/components/themed-text.tsx` and
+`src/components/themed-view.tsx` are **dead code left over from the migration**:
+every screen now imports `@/theme` and the `src/components/ui` primitives
+directly. They are harmless but should be deleted.
 
 ## Monorepo notes
 

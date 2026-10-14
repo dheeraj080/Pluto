@@ -1,9 +1,9 @@
 import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { IconHome, IconReceipt, IconSettings } from '@/components/icons';
-import { ThemedView } from '@/components/themed-view';
+import { IconHome, IconReceipt, IconSettings, IconTag } from '@/components/icons';
+import { Spinner } from '@/components/ui/feedback';
 import { fontFamily } from '@/theme';
 import { useSession } from '@/hooks/use-session';
 import { useTheme } from '@/hooks/use-theme';
@@ -26,9 +26,9 @@ export default function TabsLayout() {
 
   if (status === 'loading') {
     return (
-      <ThemedView style={styles.centered}>
-        <ActivityIndicator color={theme.accent} />
-      </ThemedView>
+      <View style={[styles.centered, { backgroundColor: theme.canvas }]}>
+        <Spinner size="large" />
+      </View>
     );
   }
 
@@ -70,6 +70,13 @@ export default function TabsLayout() {
         options={{
           title: 'Activity',
           tabBarIcon: ({ color, size }) => <IconReceipt color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="categories"
+        options={{
+          title: 'Categories',
+          tabBarIcon: ({ color, size }) => <IconTag color={color} size={size} />,
         }}
       />
       <Tabs.Screen
