@@ -23,7 +23,7 @@ export class BackupMetadataDto {
   @ApiProperty({ enum: BackupStatus, example: BackupStatus.COMPLETED })
   status!: BackupStatus;
 
-  @ApiProperty({ example: '2026-10-09T05:00:00.000Z', nullable: true })
+  @ApiProperty({ example: '2026-10-09T05:00:00.000Z', nullable: true, type: Date })
   completedAt!: Date | null;
 
   @ApiProperty({ example: '2026-10-09T04:55:00.000Z' })

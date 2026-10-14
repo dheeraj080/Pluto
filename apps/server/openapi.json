@@ -1,0 +1,4709 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "operationId": "HealthController_getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "System health check details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "success": true,
+                    "data": {
+                      "status": "ok",
+                      "timestamp": "2026-10-09T03:45:00.000Z",
+                      "uptime": 12.34,
+                      "environment": "development",
+                      "database": {
+                        "status": "connected",
+                        "latencyMs": 3
+                      }
+                    },
+                    "timestamp": "2026-10-09T03:45:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get application and database health status",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/v1/auth/google": {
+      "post": {
+        "description": "Verifies Google ID token from Android client, establishes user session, and returns access & refresh tokens.",
+        "operationId": "AuthController_googleAuth",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleAuthDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired Google ID token"
+          }
+        },
+        "summary": "Authenticate with Google ID Token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/dev-login": {
+      "post": {
+        "description": "Creates or reuses a synthetic account and returns the same token pair as the Google flow, so the UI can be exercised without a Google client ID. A brand-new account is seeded with sample categories, expenses and budgets so the dashboard and reports have data to show. Only reachable when ENABLE_DEV_AUTH=true and NODE_ENV != production; otherwise it returns 404.",
+        "operationId": "AuthController_devLogin",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevLoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful (mock session)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dev auth is not enabled"
+          }
+        },
+        "summary": "Mock sign-in for local development (ENABLE_DEV_AUTH only)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "description": "Validates provided refresh token, invalidates it, issues a new token pair, and guards against token replay.",
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session rotated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid, revoked, or expired refresh token"
+          }
+        },
+        "summary": "Rotate refresh token and issue new access token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "description": "Invalidates the refresh session in the database upon client logout.",
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session successfully revoked"
+          }
+        },
+        "summary": "Revoke active refresh token session",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/expenses/categories": {
+      "get": {
+        "description": "Returns the caller's categories ordered by sort order. Seeds a default set on first call for a new account.",
+        "operationId": "ExpensesController_listCategories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Categories, including per-category expense counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExpenseCategoryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List expense categories",
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "post": {
+        "operationId": "ExpensesController_createCategory",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Category created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseCategoryDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A category with that name already exists"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Create an expense category",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/categories/{id}": {
+      "patch": {
+        "operationId": "ExpensesController_updateCategory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Category updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseCategoryDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Category not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Update an expense category",
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "delete": {
+        "operationId": "ExpensesController_deleteCategory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Category not found"
+          },
+          "409": {
+            "description": "Category still has expenses assigned to it"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete an expense category",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/summary": {
+      "get": {
+        "description": "Returns the period total, average, a per-category breakdown and native per-currency subtotals. Totals are converted into the requested base currency; when no rate snapshot is available `converted` is false and the base-currency figures are null.",
+        "operationId": "ExpensesController_getSummary",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive lower bound; defaults to the first day of the current month",
+            "schema": {
+              "example": "2026-10-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive upper bound; defaults to today",
+            "schema": {
+              "example": "2026-10-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "Base currency to convert into",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "USD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "secondary",
+            "required": false,
+            "in": "query",
+            "description": "Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "INR",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Period summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseSummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported base currency or malformed date"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Summarise spending over a date range",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/trends": {
+      "get": {
+        "description": "Returns a continuous series of trailing months, oldest first, including empty months.",
+        "operationId": "ExpensesController_getTrends",
+        "parameters": [
+          {
+            "name": "months",
+            "required": false,
+            "in": "query",
+            "description": "Number of trailing months to return",
+            "schema": {
+              "maximum": 24,
+              "default": 12,
+              "example": 12,
+              "type": "number"
+            }
+          },
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "Base currency to convert into",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "USD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "secondary",
+            "required": false,
+            "in": "query",
+            "description": "Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "INR",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Monthly totals",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseTrendDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported base currency"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Monthly spending totals for charts",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/series": {
+      "get": {
+        "description": "Returns a continuous, zero-filled series across an inclusive range for line charts and sparklines.",
+        "operationId": "ExpensesController_getSeries",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive lower bound on incurredOn; defaults to the first day of the current month",
+            "schema": {
+              "example": "2026-10-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive upper bound on incurredOn; defaults to today",
+            "schema": {
+              "example": "2026-10-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "granularity",
+            "required": false,
+            "in": "query",
+            "description": "Bucket size for the series",
+            "schema": {
+              "default": "day",
+              "type": "string",
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          },
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "Base currency to convert into",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "USD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "secondary",
+            "required": false,
+            "in": "query",
+            "description": "Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "INR",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bucketed spending series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseSeriesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported currency, malformed date or range too large"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Spending series bucketed by day, week or month",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/category-trends": {
+      "get": {
+        "description": "Returns per-category monthly series for the top-N categories by total spend, oldest first.",
+        "operationId": "ExpensesController_getCategoryTrends",
+        "parameters": [
+          {
+            "name": "months",
+            "required": false,
+            "in": "query",
+            "description": "Number of trailing months to return",
+            "schema": {
+              "maximum": 24,
+              "default": 12,
+              "example": 12,
+              "type": "number"
+            }
+          },
+          {
+            "name": "top",
+            "required": false,
+            "in": "query",
+            "description": "How many top categories (by total spend) to return",
+            "schema": {
+              "maximum": 12,
+              "default": 5,
+              "example": 5,
+              "type": "number"
+            }
+          },
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "Base currency to convert into",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "USD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "secondary",
+            "required": false,
+            "in": "query",
+            "description": "Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "INR",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Per-category monthly series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryTrendsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported currency"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Monthly totals for the top categories",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/category-series": {
+      "get": {
+        "description": "Returns every category the caller spent in, largest first, each bucketed by day, week or month across an inclusive range. Feeds the stacked-area category view and per-category sparklines.",
+        "operationId": "ExpensesController_getCategorySeries",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive lower bound on incurredOn; defaults to the first day of the current month",
+            "schema": {
+              "example": "2026-10-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive upper bound on incurredOn; defaults to today",
+            "schema": {
+              "example": "2026-10-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "granularity",
+            "required": false,
+            "in": "query",
+            "description": "Bucket size for the series",
+            "schema": {
+              "default": "day",
+              "type": "string",
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          },
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "Base currency to convert into",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "USD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "secondary",
+            "required": false,
+            "in": "query",
+            "description": "Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "INR",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Per-category bucketed series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategorySeriesResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported currency, malformed date or range too large"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Per-category spending series over a date range",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/budgets": {
+      "get": {
+        "operationId": "ExpensesController_listBudgets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Budgets owned by the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BudgetDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List configured budgets",
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "post": {
+        "description": "Omit `categoryId` to create an overall budget. Only one budget per (category, period) pair is allowed.",
+        "operationId": "ExpensesController_createBudget",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBudgetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Budget created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A matching budget already exists"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Create a budget",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/budgets/status": {
+      "get": {
+        "description": "Evaluates every budget against the requested month, converting spend into the base currency.",
+        "operationId": "ExpensesController_getBudgetStatus",
+        "parameters": [
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "description": "Month to evaluate, as YYYY-MM",
+            "schema": {
+              "example": "2026-10",
+              "type": "string"
+            }
+          },
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "Base currency to convert into",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "USD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "secondary",
+            "required": false,
+            "in": "query",
+            "description": "Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "INR",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Budget vs actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetStatusResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed month or unsupported base currency"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Compare budgets against actual spending",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/comparison": {
+      "get": {
+        "description": "Compares current period against previous period with absolute and percentage deltas.",
+        "operationId": "ExpensesController_getComparison",
+        "parameters": [
+          {
+            "name": "currentFrom",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive lower bound for current period; defaults to the first day of the current month",
+            "schema": {
+              "example": "2026-10-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "currentTo",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive upper bound for current period; defaults to today",
+            "schema": {
+              "example": "2026-10-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "previousFrom",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive lower bound for previous period",
+            "schema": {
+              "example": "2026-09-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "previousTo",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive upper bound for previous period",
+            "schema": {
+              "example": "2026-09-30",
+              "type": "string"
+            }
+          },
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "Base currency to convert into",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "USD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "secondary",
+            "required": false,
+            "in": "query",
+            "description": "Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "INR",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Period comparison"
+          },
+          "400": {
+            "description": "Malformed date or unsupported base currency"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Compare spending between two periods",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/top": {
+      "get": {
+        "description": "Returns largest expenses in the period, optionally converted to base currency.",
+        "operationId": "ExpensesController_getTopExpenses",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive lower bound on incurredOn; defaults to the first day of the current month",
+            "schema": {
+              "example": "2026-10-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive upper bound on incurredOn; defaults to today",
+            "schema": {
+              "example": "2026-10-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 10,
+              "example": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "Base currency to convert into",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "USD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "secondary",
+            "required": false,
+            "in": "query",
+            "description": "Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "INR",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top expenses"
+          },
+          "400": {
+            "description": "Invalid query parameter"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Top N expenses by amount",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/by-day-of-week": {
+      "get": {
+        "description": "Totals, counts, averages per day of week (Sun-Sat).",
+        "operationId": "ExpensesController_getByDayOfWeek",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive lower bound on incurredOn; defaults to the first day of the current month",
+            "schema": {
+              "example": "2026-10-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive upper bound on incurredOn; defaults to today",
+            "schema": {
+              "example": "2026-10-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "Base currency to convert into",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "USD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "secondary",
+            "required": false,
+            "in": "query",
+            "description": "Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "INR",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Day of week aggregates"
+          },
+          "400": {
+            "description": "Invalid query parameter"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Spending aggregated by day of week",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/export.csv": {
+      "get": {
+        "description": "Returns a CSV file of expenses filtered by the provided query parameters.",
+        "operationId": "ExpensesController_exportCsv",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive lower bound on incurredOn",
+            "schema": {
+              "example": "2026-10-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive upper bound on incurredOn",
+            "schema": {
+              "example": "2026-10-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "description": "Restrict to a single category",
+            "schema": {
+              "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+              "type": "string"
+            }
+          },
+          {
+            "name": "currency",
+            "required": false,
+            "in": "query",
+            "description": "Restrict to a single currency",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "EUR",
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Case-insensitive search over description",
+            "schema": {
+              "example": "grocer",
+              "type": "string"
+            }
+          },
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "Base currency to convert into",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "USD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "secondary",
+            "required": false,
+            "in": "query",
+            "description": "Optional second currency; when set, figures are also expressed in it (historically, from the same snapshot)",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "INR",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Export expenses as CSV",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/budgets/{id}": {
+      "patch": {
+        "operationId": "ExpensesController_updateBudget",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBudgetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Budget updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Budget not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Update a budget amount or start date",
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "delete": {
+        "operationId": "ExpensesController_deleteBudget",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Budget deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Budget not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete a budget",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses": {
+      "get": {
+        "description": "Paginated, filterable list of the caller's expenses, newest first by default.",
+        "operationId": "ExpensesController_listExpenses",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 50,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "description": "Restrict to a single category",
+            "schema": {
+              "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive lower bound on incurredOn",
+            "schema": {
+              "example": "2026-10-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive upper bound on incurredOn",
+            "schema": {
+              "example": "2026-10-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "minAmount",
+            "required": false,
+            "in": "query",
+            "description": "Minimum amount (native currency)",
+            "schema": {
+              "minimum": 0,
+              "example": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "maxAmount",
+            "required": false,
+            "in": "query",
+            "description": "Maximum amount (native currency)",
+            "schema": {
+              "minimum": 0,
+              "example": 500,
+              "type": "number"
+            }
+          },
+          {
+            "name": "currency",
+            "required": false,
+            "in": "query",
+            "description": "Restrict to a single currency",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 3,
+              "example": "EUR",
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Case-insensitive search over description",
+            "schema": {
+              "example": "grocer",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "date_desc",
+              "type": "string",
+              "enum": [
+                "date_desc",
+                "date_asc",
+                "amount_desc",
+                "amount_asc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of expenses",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedExpensesResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameter"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List expenses",
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "post": {
+        "operationId": "ExpensesController_createExpense",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExpenseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Expense recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported currency or unknown category"
+          },
+          "404": {
+            "description": "Category not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Record an expense",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/expenses/{id}": {
+      "get": {
+        "operationId": "ExpensesController_getExpense",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expense detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Expense not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get a single expense",
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "patch": {
+        "operationId": "ExpensesController_updateExpense",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateExpenseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Expense updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Expense not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Update an expense",
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "delete": {
+        "operationId": "ExpensesController_deleteExpense",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expense deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Expense not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete an expense",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/v1/rates/latest": {
+      "get": {
+        "description": "Returns the latest validated exchange rate snapshot for the requested base currency (default USD). Supports HTTP ETags for 304 Not Modified caching.",
+        "operationId": "RatesController_getLatestRates",
+        "parameters": [
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "ISO 4217 3-letter base currency code (default: USD)",
+            "schema": {
+              "default": "USD",
+              "example": "USD",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest exchange rate snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateSnapshotResponseDto"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified (ETag match)"
+          },
+          "400": {
+            "description": "Unsupported base currency"
+          }
+        },
+        "summary": "Get latest published exchange rate snapshot",
+        "tags": [
+          "Rates"
+        ]
+      }
+    },
+    "/v1/rates/supported-currencies": {
+      "get": {
+        "description": "Returns the list of supported ISO 4217 currencies along with names and symbols.",
+        "operationId": "RatesController_getSupportedCurrencies",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of supported currencies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SupportedCurrencyDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List supported currencies",
+        "tags": [
+          "Rates"
+        ]
+      }
+    },
+    "/v1/rates/history": {
+      "get": {
+        "description": "Returns one point per published snapshot in the range, oldest first. Defaults to the trailing twelve months when no range is given.",
+        "operationId": "RatesController_getRateHistory",
+        "parameters": [
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "ISO 4217 3-letter base currency code (default: the server default)",
+            "schema": {
+              "default": "USD",
+              "example": "EUR",
+              "type": "string"
+            }
+          },
+          {
+            "name": "quote",
+            "required": true,
+            "in": "query",
+            "description": "ISO 4217 3-letter quote currency code",
+            "schema": {
+              "example": "INR",
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive lower bound (YYYY-MM-DD); defaults to 12 months before `to`",
+            "schema": {
+              "example": "2025-10-12",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive upper bound (YYYY-MM-DD); defaults to today",
+            "schema": {
+              "example": "2026-10-12",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rate history information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateHistoryResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported currency or malformed date"
+          }
+        },
+        "summary": "Exchange-rate history between two currencies",
+        "tags": [
+          "Rates"
+        ]
+      }
+    },
+    "/v1/rates/versions": {
+      "get": {
+        "description": "Returns version metadata for recent published exchange rate snapshots.",
+        "operationId": "RatesController_getVersions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Historical published versions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RateSnapshotVersionDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List historical published rate versions",
+        "tags": [
+          "Rates"
+        ]
+      }
+    },
+    "/v1/users/me": {
+      "get": {
+        "description": "Retrieves profile of the currently authenticated user.",
+        "operationId": "UsersController_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "User profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get current user profile",
+        "tags": [
+          "Users"
+        ]
+      },
+      "patch": {
+        "description": "Updates allowed profile fields (name, avatarUrl, baseCurrency).",
+        "operationId": "UsersController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Update current user profile",
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "description": "Permanently deletes the authenticated user account and cascades all associated backups and refresh sessions.",
+        "operationId": "UsersController_deleteAccount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Account successfully deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete current user account",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/v1/backups/initiate": {
+      "post": {
+        "description": "Allocates the next sequential version for the user and generates a short-lived presigned S3 PUT URL for direct binary upload.",
+        "operationId": "BackupsController_initiateBackup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitiateBackupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Backup initiated and presigned upload URL generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiateBackupResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid metadata or checksum"
+          },
+          "413": {
+            "description": "File size exceeds maximum quota"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Initiate a new cloud backup upload",
+        "tags": [
+          "Backups"
+        ]
+      }
+    },
+    "/v1/backups/{id}/complete": {
+      "post": {
+        "description": "Verifies the binary object exists in S3, checks size, marks backup COMPLETED, and prunes older backups according to user retention limits.",
+        "operationId": "BackupsController_completeBackup",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backup verified and completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupMetadataDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "File not found in storage or invalid status"
+          },
+          "403": {
+            "description": "Forbidden - not owned by caller"
+          },
+          "404": {
+            "description": "Backup record not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Verify and finalize an uploaded backup snapshot",
+        "tags": [
+          "Backups"
+        ]
+      }
+    },
+    "/v1/backups": {
+      "get": {
+        "description": "Returns a paginated list of completed cloud backup snapshots belonging to the authenticated user, ordered from newest to oldest.",
+        "operationId": "BackupsController_listBackups",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 10,
+              "example": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of completed backup snapshots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedBackupsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List completed backup snapshots",
+        "tags": [
+          "Backups"
+        ]
+      }
+    },
+    "/v1/backups/{id}/download": {
+      "get": {
+        "description": "Generates a secure, short-lived presigned GET URL for downloading the private backup snapshot from object storage.",
+        "operationId": "BackupsController_getDownloadUrl",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presigned download URL generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadBackupResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - not owned by caller"
+          },
+          "404": {
+            "description": "Backup record not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get presigned download URL for a completed backup",
+        "tags": [
+          "Backups"
+        ]
+      }
+    },
+    "/v1/backups/{id}": {
+      "delete": {
+        "description": "Permanently deletes the backup metadata record and the corresponding binary object in S3.",
+        "operationId": "BackupsController_deleteBackup",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backup deleted successfully"
+          },
+          "403": {
+            "description": "Forbidden - not owned by caller"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete a backup snapshot",
+        "tags": [
+          "Backups"
+        ]
+      }
+    },
+    "/v1/admin/stats": {
+      "get": {
+        "description": "Total users, completed backups, storage usage, active sessions, and the latest published rate snapshot.",
+        "operationId": "AdminController_getStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Statistics retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStatsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - admin role required"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Aggregated dashboard statistics",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/v1/admin/locks": {
+      "get": {
+        "description": "Shows cron locks (rates sync, backup cleanup) and their expiry.",
+        "operationId": "AdminController_listLocks",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Locks retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminLockDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - admin role required"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List distributed scheduler locks",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/v1/admin/rates": {
+      "get": {
+        "description": "Newest-first snapshot history including publish state — doubles as the daily sync / provider health history.",
+        "operationId": "AdminController_listRateSnapshots",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshots retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminRateSnapshotDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - admin role required"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List rate snapshot history",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/v1/admin/users": {
+      "get": {
+        "description": "Paginated user list with backup and active-session counts; supports search.",
+        "operationId": "AdminController_listUsers",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Case-insensitive e-mail/name search",
+            "schema": {
+              "example": "jane",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Users retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedAdminUsersDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - admin role required"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List all users",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/v1/admin/users/{id}": {
+      "get": {
+        "description": "Returns the profile, the 20 newest refresh sessions (token hashes excluded), and the 20 newest backups.",
+        "operationId": "AdminController_getUserDetail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User detail retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - admin role required"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get user detail with sessions and backups",
+        "tags": [
+          "Admin"
+        ]
+      },
+      "delete": {
+        "description": "Permanently deletes the user, their backups (storage objects included), and sessions. Self-deletion is rejected.",
+        "operationId": "AdminController_deleteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Self-deletion attempted"
+          },
+          "403": {
+            "description": "Forbidden - admin role required"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete a user account",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/v1/admin/users/{id}/sessions/{sessionId}": {
+      "delete": {
+        "description": "Marks the refresh session as revoked, signing that device out.",
+        "operationId": "AdminController_revokeSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResultDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - admin role required"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Revoke a user session",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/v1/admin/backups": {
+      "get": {
+        "description": "Paginated, newest first; optionally filter by status.",
+        "operationId": "AdminController_listBackups",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by backup status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "COMPLETED",
+                "FAILED",
+                "DELETED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backups retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedAdminBackupsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - admin role required"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List backups across all users",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/v1/admin/backups/{id}": {
+      "delete": {
+        "description": "Removes the storage object and the metadata record on behalf of the owner.",
+        "operationId": "AdminController_deleteBackup",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backup deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResultDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - admin role required"
+          },
+          "404": {
+            "description": "Backup not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete any backup",
+        "tags": [
+          "Admin"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Pluto Server API",
+    "description": "REST API backend for Android application supporting Google Sign-In, exchange rate synchronization, and cloud backups.",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "System health checks and telemetry"
+    },
+    {
+      "name": "Auth",
+      "description": "Authentication and session management"
+    },
+    {
+      "name": "Users",
+      "description": "User profile management"
+    },
+    {
+      "name": "Rates",
+      "description": "Exchange rate queries and synchronization"
+    },
+    {
+      "name": "Backups",
+      "description": "Cloud backup upload, download, and metadata"
+    },
+    {
+      "name": "Expenses",
+      "description": "Expense tracking, categories, budgets, and spending reports"
+    },
+    {
+      "name": "Admin",
+      "description": "Administrator-only operations (requires ADMIN role)"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "JWT-auth": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "name": "Authorization",
+        "description": "Enter JWT access token",
+        "in": "header"
+      }
+    },
+    "schemas": {
+      "GoogleAuthDto": {
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string",
+            "description": "Raw Google ID Token (JWT) obtained from Google Sign-In SDK on the Android client",
+            "example": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjEyMyJ9..."
+          }
+        },
+        "required": [
+          "idToken"
+        ]
+      },
+      "UserProfileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+          },
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          },
+          "name": {
+            "type": "string",
+            "example": "Jane Doe",
+            "nullable": true
+          },
+          "avatarUrl": {
+            "type": "string",
+            "example": "https://lh3.googleusercontent.com/a/sample",
+            "nullable": true
+          },
+          "baseCurrency": {
+            "type": "string",
+            "description": "User's preferred reporting currency (ISO 4217). Null lets the server default apply.",
+            "example": "USD",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-09T03:45:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "avatarUrl",
+          "baseCurrency",
+          "createdAt"
+        ]
+      },
+      "AuthResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "Short-lived JWT access token for authenticating REST API requests",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "expiresIn": {
+            "type": "number",
+            "description": "Access token expiration time in seconds (e.g. 900 for 15 minutes)",
+            "example": 900
+          },
+          "refreshToken": {
+            "type": "string",
+            "description": "Refresh token for rotating session and obtaining new access tokens",
+            "example": "d8c9a7b6e5f4c3b2a1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserProfileDto"
+          }
+        },
+        "required": [
+          "accessToken",
+          "expiresIn",
+          "refreshToken",
+          "user"
+        ]
+      },
+      "DevLoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Account to sign in as. Defaults to dev@pluto.local.",
+            "example": "dev@pluto.local"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "example": "Dev User",
+            "maxLength": 120
+          }
+        }
+      },
+      "RefreshTokenDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "Cryptographically secure refresh token previously issued to the client",
+            "example": "a4f9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "ExpenseCategoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "b2f1c3de-1111-2222-3333-444455556666"
+          },
+          "name": {
+            "type": "string",
+            "example": "Food & Dining"
+          },
+          "color": {
+            "type": "string",
+            "example": "#f59e0b"
+          },
+          "icon": {
+            "type": "string",
+            "example": "utensils",
+            "nullable": true
+          },
+          "isDefault": {
+            "type": "boolean",
+            "example": true
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 10
+          },
+          "expenseCount": {
+            "type": "number",
+            "description": "Number of expenses filed under this category",
+            "example": 24
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "color",
+          "isDefault",
+          "sortOrder",
+          "expenseCount"
+        ]
+      },
+      "CreateCategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique category name within the account",
+            "example": "Groceries",
+            "maxLength": 40
+          },
+          "color": {
+            "type": "string",
+            "description": "Hex colour used in charts",
+            "example": "#f59e0b"
+          },
+          "icon": {
+            "type": "string",
+            "description": "Optional icon key",
+            "example": "utensils",
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateCategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Groceries",
+            "maxLength": 40
+          },
+          "color": {
+            "type": "string",
+            "description": "Hex colour used in charts",
+            "example": "#f59e0b"
+          },
+          "icon": {
+            "type": "string",
+            "example": "utensils",
+            "maxLength": 32
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Display order, ascending",
+            "example": 30,
+            "minimum": 0
+          }
+        }
+      },
+      "RateProvenanceDto": {
+        "type": "object",
+        "properties": {
+          "earliestRateDate": {
+            "type": "object",
+            "description": "Earliest snapshot date used",
+            "example": "2026-09-30"
+          },
+          "latestRateDate": {
+            "type": "object",
+            "description": "Latest snapshot date used",
+            "example": "2026-10-09"
+          },
+          "policies": {
+            "description": "Distinct policies applied; includes unavailable when any line failed",
+            "example": [
+              "historical",
+              "estimate"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "policies"
+        ]
+      },
+      "CategoryBreakdownDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "example": "b2f1c3de-1111-2222-3333-444455556666"
+          },
+          "categoryName": {
+            "type": "string",
+            "example": "Food & Dining"
+          },
+          "color": {
+            "type": "string",
+            "example": "#f59e0b"
+          },
+          "total": {
+            "type": "number",
+            "description": "Subtotal converted into the base currency",
+            "example": 245.75
+          },
+          "count": {
+            "type": "number",
+            "example": 18
+          },
+          "percentage": {
+            "type": "number",
+            "description": "Share of the period total, 0-100",
+            "example": 31.4
+          },
+          "secondaryTotal": {
+            "type": "number",
+            "description": "Subtotal in the secondary currency, when one was requested",
+            "example": 22490,
+            "nullable": true
+          }
+        },
+        "required": [
+          "categoryId",
+          "categoryName",
+          "color",
+          "total",
+          "count",
+          "percentage"
+        ]
+      },
+      "CurrencyTotalDto": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string",
+            "example": "USD",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "total": {
+            "type": "number",
+            "description": "Native, unconverted subtotal",
+            "example": 245.75
+          },
+          "count": {
+            "type": "number",
+            "example": 18
+          },
+          "convertedTotal": {
+            "type": "number",
+            "description": "Subtotal converted into the base currency at each row’s historical date; null when the rate was unavailable",
+            "example": 245.75,
+            "nullable": true
+          },
+          "secondaryTotal": {
+            "type": "number",
+            "description": "Subtotal in the secondary currency, when one was requested",
+            "example": 20397.75,
+            "nullable": true
+          }
+        },
+        "required": [
+          "currency",
+          "total",
+          "count"
+        ]
+      },
+      "ExpenseSummaryDto": {
+        "type": "object",
+        "properties": {
+          "baseCurrency": {
+            "type": "string",
+            "description": "Currency all converted figures are expressed in",
+            "example": "USD"
+          },
+          "converted": {
+            "type": "boolean",
+            "description": "False when no rate snapshot was available; totals are then null and only byCurrency is populated",
+            "example": true
+          },
+          "conversionUnavailableReason": {
+            "type": "string",
+            "description": "Why conversion was unavailable",
+            "example": "exchange rates unreachable"
+          },
+          "conversionStatus": {
+            "type": "string",
+            "description": "Health of this report: converted, partially_converted (some lines failed), or unavailable",
+            "enum": [
+              "converted",
+              "partially_converted",
+              "unavailable"
+            ],
+            "example": "converted"
+          },
+          "unconvertedCurrencies": {
+            "description": "Native currencies within the range that could not be converted",
+            "example": [
+              "VND"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rateProvenance": {
+            "$ref": "#/components/schemas/RateProvenanceDto"
+          },
+          "from": {
+            "type": "string",
+            "description": "Inclusive range start",
+            "example": "2026-10-01"
+          },
+          "to": {
+            "type": "string",
+            "description": "Inclusive range end",
+            "example": "2026-10-31"
+          },
+          "total": {
+            "type": "number",
+            "description": "Period total in the base currency",
+            "example": 783.2,
+            "nullable": true
+          },
+          "count": {
+            "type": "number",
+            "example": 42
+          },
+          "average": {
+            "type": "number",
+            "description": "Period average per expense in the base currency",
+            "example": 18.65,
+            "nullable": true
+          },
+          "byCategory": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CategoryBreakdownDto"
+            }
+          },
+          "byCurrency": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CurrencyTotalDto"
+            }
+          },
+          "secondaryCurrency": {
+            "type": "string",
+            "description": "Second currency these figures are also expressed in, when requested",
+            "example": "INR",
+            "nullable": true
+          },
+          "secondaryTotal": {
+            "type": "number",
+            "description": "Period total in the secondary currency",
+            "example": 44955,
+            "nullable": true
+          },
+          "secondaryAverage": {
+            "type": "number",
+            "description": "Period average per expense in the secondary currency",
+            "example": 1070.36,
+            "nullable": true
+          }
+        },
+        "required": [
+          "baseCurrency",
+          "converted",
+          "conversionStatus",
+          "unconvertedCurrencies",
+          "rateProvenance",
+          "from",
+          "to",
+          "count",
+          "byCategory",
+          "byCurrency"
+        ]
+      },
+      "TrendPointDto": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "description": "Calendar month, YYYY-MM",
+            "example": "2026-10"
+          },
+          "total": {
+            "type": "number",
+            "description": "Month total in the base currency",
+            "example": 783.2,
+            "nullable": true
+          },
+          "count": {
+            "type": "number",
+            "example": 42
+          },
+          "secondaryTotal": {
+            "type": "number",
+            "description": "Month total in the secondary currency, when one was requested",
+            "example": 65750,
+            "nullable": true
+          }
+        },
+        "required": [
+          "month",
+          "count"
+        ]
+      },
+      "ExpenseTrendDto": {
+        "type": "object",
+        "properties": {
+          "baseCurrency": {
+            "type": "string",
+            "example": "USD"
+          },
+          "secondaryCurrency": {
+            "type": "string",
+            "description": "Second currency the points are also expressed in, when requested",
+            "example": "INR",
+            "nullable": true
+          },
+          "converted": {
+            "type": "boolean",
+            "example": true
+          },
+          "conversionUnavailableReason": {
+            "type": "string",
+            "description": "Why conversion was unavailable",
+            "nullable": true
+          },
+          "conversionStatus": {
+            "type": "string",
+            "enum": [
+              "converted",
+              "partially_converted",
+              "unavailable"
+            ],
+            "example": "converted"
+          },
+          "unconvertedCurrencies": {
+            "example": [
+              "VND"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rateProvenance": {
+            "$ref": "#/components/schemas/RateProvenanceDto"
+          },
+          "months": {
+            "type": "number",
+            "description": "Number of months returned, oldest first",
+            "example": 12
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrendPointDto"
+            }
+          }
+        },
+        "required": [
+          "baseCurrency",
+          "converted",
+          "conversionStatus",
+          "unconvertedCurrencies",
+          "rateProvenance",
+          "months",
+          "points"
+        ]
+      },
+      "SeriesPointDto": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "description": "Bucket key: YYYY-MM-DD for day/week (week = Monday), YYYY-MM for month",
+            "example": "2026-10-01"
+          },
+          "total": {
+            "type": "number",
+            "description": "Bucket total in the base currency; null when nothing in range could convert",
+            "example": 42.5,
+            "nullable": true
+          },
+          "count": {
+            "type": "number",
+            "example": 3
+          },
+          "secondaryTotal": {
+            "type": "number",
+            "description": "Bucket total in the secondary currency, when one was requested",
+            "example": 3527.5,
+            "nullable": true
+          }
+        },
+        "required": [
+          "bucket",
+          "count"
+        ]
+      },
+      "ExpenseSeriesDto": {
+        "type": "object",
+        "properties": {
+          "baseCurrency": {
+            "type": "string",
+            "example": "USD"
+          },
+          "secondaryCurrency": {
+            "type": "string",
+            "description": "Second currency the points are also expressed in, when requested",
+            "example": "INR",
+            "nullable": true
+          },
+          "granularity": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ],
+            "example": "day"
+          },
+          "from": {
+            "type": "string",
+            "example": "2026-10-01"
+          },
+          "to": {
+            "type": "string",
+            "example": "2026-10-31"
+          },
+          "converted": {
+            "type": "boolean",
+            "example": true
+          },
+          "conversionUnavailableReason": {
+            "type": "string",
+            "description": "Why conversion was unavailable",
+            "nullable": true
+          },
+          "conversionStatus": {
+            "type": "string",
+            "enum": [
+              "converted",
+              "partially_converted",
+              "unavailable"
+            ],
+            "example": "converted"
+          },
+          "unconvertedCurrencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rateProvenance": {
+            "$ref": "#/components/schemas/RateProvenanceDto"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SeriesPointDto"
+            }
+          }
+        },
+        "required": [
+          "baseCurrency",
+          "granularity",
+          "from",
+          "to",
+          "converted",
+          "conversionStatus",
+          "unconvertedCurrencies",
+          "rateProvenance",
+          "points"
+        ]
+      },
+      "CategoryTrendPointDto": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "example": "2026-10"
+          },
+          "total": {
+            "type": "number",
+            "description": "Category total in the base currency for the month",
+            "example": 245.75,
+            "nullable": true
+          },
+          "secondaryTotal": {
+            "type": "number",
+            "description": "Category total in the secondary currency, when one was requested",
+            "example": 20397.75,
+            "nullable": true
+          }
+        },
+        "required": [
+          "month"
+        ]
+      },
+      "CategoryTrendSeriesDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "example": "b2f1c3de-1111-2222-3333-444455556666"
+          },
+          "categoryName": {
+            "type": "string",
+            "example": "Food & Dining"
+          },
+          "color": {
+            "type": "string",
+            "example": "#34d399"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CategoryTrendPointDto"
+            }
+          }
+        },
+        "required": [
+          "categoryId",
+          "categoryName",
+          "color",
+          "points"
+        ]
+      },
+      "CategoryTrendsResponseDto": {
+        "type": "object",
+        "properties": {
+          "baseCurrency": {
+            "type": "string",
+            "example": "USD"
+          },
+          "secondaryCurrency": {
+            "type": "string",
+            "description": "Second currency the series are also expressed in, when requested",
+            "example": "INR",
+            "nullable": true
+          },
+          "months": {
+            "type": "number",
+            "description": "Number of months returned",
+            "example": 12
+          },
+          "top": {
+            "type": "number",
+            "description": "Number of top categories returned",
+            "example": 5
+          },
+          "converted": {
+            "type": "boolean",
+            "example": true
+          },
+          "conversionUnavailableReason": {
+            "type": "string",
+            "description": "Why conversion was unavailable",
+            "nullable": true
+          },
+          "conversionStatus": {
+            "type": "string",
+            "enum": [
+              "converted",
+              "partially_converted",
+              "unavailable"
+            ],
+            "example": "converted"
+          },
+          "unconvertedCurrencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rateProvenance": {
+            "$ref": "#/components/schemas/RateProvenanceDto"
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CategoryTrendSeriesDto"
+            }
+          }
+        },
+        "required": [
+          "baseCurrency",
+          "months",
+          "top",
+          "converted",
+          "conversionStatus",
+          "unconvertedCurrencies",
+          "rateProvenance",
+          "series"
+        ]
+      },
+      "CategorySeriesPointDto": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "description": "Bucket key: YYYY-MM-DD for day/week (week = Monday), YYYY-MM for month",
+            "example": "2026-10-01"
+          },
+          "total": {
+            "type": "number",
+            "description": "Category total in the base currency for the bucket; null when nothing in range could convert",
+            "example": 245.75,
+            "nullable": true
+          },
+          "secondaryTotal": {
+            "type": "number",
+            "description": "Category total in the secondary currency, when one was requested",
+            "example": 20397.75,
+            "nullable": true
+          }
+        },
+        "required": [
+          "bucket"
+        ]
+      },
+      "CategorySeriesItemDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "example": "b2f1c3de-1111-2222-3333-444455556666"
+          },
+          "categoryName": {
+            "type": "string",
+            "example": "Food & Dining"
+          },
+          "color": {
+            "type": "string",
+            "example": "#34d399"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CategorySeriesPointDto"
+            }
+          }
+        },
+        "required": [
+          "categoryId",
+          "categoryName",
+          "color",
+          "points"
+        ]
+      },
+      "CategorySeriesResponseDto": {
+        "type": "object",
+        "properties": {
+          "baseCurrency": {
+            "type": "string",
+            "example": "USD"
+          },
+          "secondaryCurrency": {
+            "type": "string",
+            "description": "Second currency the series are also expressed in, when requested",
+            "example": "INR",
+            "nullable": true
+          },
+          "granularity": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ],
+            "example": "day"
+          },
+          "from": {
+            "type": "string",
+            "example": "2026-10-01"
+          },
+          "to": {
+            "type": "string",
+            "example": "2026-10-31"
+          },
+          "converted": {
+            "type": "boolean",
+            "example": true
+          },
+          "conversionUnavailableReason": {
+            "type": "string",
+            "description": "Why conversion was unavailable",
+            "nullable": true
+          },
+          "conversionStatus": {
+            "type": "string",
+            "enum": [
+              "converted",
+              "partially_converted",
+              "unavailable"
+            ],
+            "example": "converted"
+          },
+          "unconvertedCurrencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rateProvenance": {
+            "$ref": "#/components/schemas/RateProvenanceDto"
+          },
+          "buckets": {
+            "description": "Bucket keys in chart order",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CategorySeriesItemDto"
+            }
+          }
+        },
+        "required": [
+          "baseCurrency",
+          "granularity",
+          "from",
+          "to",
+          "converted",
+          "conversionStatus",
+          "unconvertedCurrencies",
+          "rateProvenance",
+          "buckets",
+          "series"
+        ]
+      },
+      "BudgetDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c9d8e7f6-aaaa-bbbb-cccc-ddddeeeeffff"
+          },
+          "categoryId": {
+            "type": "string",
+            "description": "Category id, or null for an overall budget",
+            "nullable": true
+          },
+          "categoryName": {
+            "type": "string",
+            "example": "Food & Dining",
+            "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "description": "Budgeted amount",
+            "example": 500
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "example": "MONTHLY"
+          },
+          "startDate": {
+            "type": "string",
+            "example": "2026-10-01"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-01T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "amount",
+          "currency",
+          "period",
+          "startDate",
+          "createdAt"
+        ]
+      },
+      "CreateBudgetDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "object",
+            "description": "Category the budget applies to. Omit for an overall (whole-account) budget.",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Budgeted amount in the budget currency",
+            "example": 500,
+            "minimum": 0.01
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code; use the report base currency for comparability",
+            "example": "USD",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "default": "MONTHLY"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "First date the budget applies; defaults to today",
+            "example": "2026-10-01"
+          }
+        },
+        "required": [
+          "amount",
+          "currency"
+        ]
+      },
+      "BudgetStatusDto": {
+        "type": "object",
+        "properties": {
+          "budgetId": {
+            "type": "string",
+            "example": "c9d8e7f6-aaaa-bbbb-cccc-ddddeeeeffff"
+          },
+          "categoryId": {
+            "type": "string",
+            "description": "Null for an overall budget",
+            "nullable": true
+          },
+          "categoryName": {
+            "type": "string",
+            "example": "Food & Dining",
+            "nullable": true
+          },
+          "color": {
+            "type": "string",
+            "example": "#f59e0b",
+            "nullable": true
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "example": "MONTHLY"
+          },
+          "budgetAmount": {
+            "type": "number",
+            "description": "Budgeted amount in the base currency",
+            "example": 500
+          },
+          "budgetAmountNative": {
+            "type": "number",
+            "description": "Native budgeted amount as stored",
+            "example": 500
+          },
+          "spent": {
+            "type": "number",
+            "description": "Spent in the evaluated window, converted",
+            "example": 612.4
+          },
+          "remaining": {
+            "type": "number",
+            "description": "budgetAmount minus spent",
+            "example": -112.4
+          },
+          "percentage": {
+            "type": "number",
+            "description": "Spent as a percentage of budget",
+            "example": 122.5
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD"
+          },
+          "overBudget": {
+            "type": "boolean",
+            "example": true
+          },
+          "applied": {
+            "type": "boolean",
+            "description": "False when the budget start date falls after the evaluated window",
+            "example": true
+          },
+          "convertedAmount": {
+            "type": "number",
+            "description": "Budget amount converted into the base currency, null when unconvertible",
+            "example": 500,
+            "nullable": true
+          },
+          "convertedCurrency": {
+            "type": "string",
+            "example": "USD",
+            "nullable": true
+          },
+          "rateDate": {
+            "type": "string",
+            "description": "Snapshot date used for the budget amount conversion",
+            "example": "2026-10-01",
+            "nullable": true
+          },
+          "ratePolicy": {
+            "type": "string",
+            "enum": [
+              "historical",
+              "estimate"
+            ],
+            "example": "historical",
+            "nullable": true
+          },
+          "conversionStatus": {
+            "type": "string",
+            "description": "converted when spend and budget amount both converted, unavailable otherwise",
+            "enum": [
+              "converted",
+              "unavailable"
+            ],
+            "example": "converted"
+          },
+          "secondaryBudgetAmount": {
+            "type": "number",
+            "description": "Budgeted amount in the secondary currency, when requested",
+            "example": 49900,
+            "nullable": true
+          },
+          "secondarySpent": {
+            "type": "number",
+            "description": "Spent in the secondary currency, when requested",
+            "example": 61100,
+            "nullable": true
+          },
+          "secondaryRemaining": {
+            "type": "number",
+            "description": "secondaryBudgetAmount minus secondarySpent, when requested",
+            "example": -11200,
+            "nullable": true
+          }
+        },
+        "required": [
+          "budgetId",
+          "period",
+          "budgetAmount",
+          "budgetAmountNative",
+          "spent",
+          "remaining",
+          "percentage",
+          "currency",
+          "overBudget",
+          "applied",
+          "conversionStatus"
+        ]
+      },
+      "BudgetStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "baseCurrency": {
+            "type": "string",
+            "example": "USD"
+          },
+          "secondaryCurrency": {
+            "type": "string",
+            "description": "Second currency the items are also expressed in, when requested",
+            "example": "INR",
+            "nullable": true
+          },
+          "converted": {
+            "type": "boolean",
+            "example": true
+          },
+          "conversionUnavailableReason": {
+            "type": "string",
+            "description": "Why conversion was unavailable",
+            "nullable": true
+          },
+          "conversionStatus": {
+            "type": "string",
+            "enum": [
+              "converted",
+              "partially_converted",
+              "unavailable"
+            ],
+            "example": "converted"
+          },
+          "unconvertedCurrencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rateProvenance": {
+            "$ref": "#/components/schemas/RateProvenanceDto"
+          },
+          "month": {
+            "type": "string",
+            "description": "Evaluated period, YYYY-MM",
+            "example": "2026-10"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BudgetStatusDto"
+            }
+          }
+        },
+        "required": [
+          "baseCurrency",
+          "converted",
+          "conversionStatus",
+          "unconvertedCurrencies",
+          "rateProvenance",
+          "month",
+          "items"
+        ]
+      },
+      "UpdateBudgetDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": "New budgeted amount",
+            "example": 600,
+            "minimum": 0.01
+          },
+          "startDate": {
+            "type": "string",
+            "description": "New first-applied date",
+            "example": "2026-10-01"
+          }
+        },
+        "required": [
+          "amount"
+        ]
+      },
+      "ExpenseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "categoryId": {
+            "type": "string",
+            "example": "b2f1c3de-1111-2222-3333-444455556666"
+          },
+          "categoryName": {
+            "type": "string",
+            "example": "Food & Dining"
+          },
+          "categoryColor": {
+            "type": "string",
+            "example": "#f59e0b"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount in the expense currency",
+            "example": 12.5
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code",
+            "example": "USD",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "description": {
+            "type": "string",
+            "example": "Lunch with team",
+            "nullable": true
+          },
+          "incurredOn": {
+            "type": "string",
+            "description": "Date the expense was incurred",
+            "example": "2026-10-10"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "example": "CARD",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-10T08:15:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-10T09:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "categoryId",
+          "categoryName",
+          "categoryColor",
+          "amount",
+          "currency",
+          "incurredOn",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PaginatedExpensesResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseDto"
+            }
+          },
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "example": 20
+          },
+          "total": {
+            "type": "number",
+            "example": 42
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total"
+        ]
+      },
+      "CreateExpenseDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "description": "Identifier of an expense category owned by the caller",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount spent, expressed in the expense currency",
+            "example": 12.5,
+            "minimum": 0.01
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code; must be one of the supported currencies",
+            "example": "USD",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "incurredOn": {
+            "type": "string",
+            "description": "Date the expense was incurred",
+            "example": "2026-10-10"
+          },
+          "description": {
+            "type": "string",
+            "description": "Free-form note describing the expense",
+            "example": "Lunch with team",
+            "maxLength": 280
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "How the expense was settled",
+            "example": "CARD",
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "categoryId",
+          "amount",
+          "currency",
+          "incurredOn"
+        ]
+      },
+      "UpdateExpenseDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "description": "Identifier of an expense category owned by the caller",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount spent",
+            "example": 12.5,
+            "minimum": 0.01
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code",
+            "example": "EUR",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "incurredOn": {
+            "type": "string",
+            "description": "Date the expense was incurred",
+            "example": "2026-10-10"
+          },
+          "description": {
+            "type": "string",
+            "description": "Free-form note",
+            "example": "Lunch with team",
+            "maxLength": 280
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "How the expense was settled",
+            "example": "CASH",
+            "maxLength": 32
+          }
+        }
+      },
+      "RateSnapshotResponseDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "example": 42,
+            "description": "Monotonically increasing version identifier"
+          },
+          "baseCurrency": {
+            "type": "string",
+            "example": "USD",
+            "description": "ISO 4217 base currency code"
+          },
+          "effectiveDate": {
+            "type": "string",
+            "example": "2026-10-09",
+            "description": "Effective market date for the rates snapshot"
+          },
+          "fetchedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-09T04:00:15.123Z",
+            "description": "Timestamp when rates were fetched from the provider"
+          },
+          "provider": {
+            "type": "string",
+            "example": "frankfurter",
+            "description": "Name of the exchange rate data provider"
+          },
+          "etag": {
+            "type": "string",
+            "example": "W/\"rates-v42-20261009\"",
+            "description": "ETag value for client caching and deduplication"
+          },
+          "rates": {
+            "type": "object",
+            "description": "Dictionary of quote currencies and their rate against 1 unit of base currency, serialized as exact decimal strings",
+            "example": {
+              "USD": "1.000000",
+              "EUR": "0.923400",
+              "GBP": "0.789100",
+              "INR": "86.425000",
+              "JPY": "152.340000",
+              "CNY": "7.245000",
+              "CAD": "1.385000",
+              "AUD": "1.542000",
+              "CHF": "0.887000",
+              "SGD": "1.341000",
+              "NZD": "1.678000"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "baseCurrency",
+          "effectiveDate",
+          "fetchedAt",
+          "provider",
+          "etag",
+          "rates"
+        ]
+      },
+      "SupportedCurrencyDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "USD"
+          },
+          "name": {
+            "type": "string",
+            "example": "United States Dollar"
+          },
+          "symbol": {
+            "type": "string",
+            "example": "$"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "symbol"
+        ]
+      },
+      "RateHistoryPointDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "example": "2026-10-09",
+            "description": "Snapshot market date (YYYY-MM-DD)"
+          },
+          "rate": {
+            "type": "number",
+            "example": 89.98,
+            "description": "Units of quoteCurrency per 1 unit of baseCurrency"
+          }
+        },
+        "required": [
+          "date",
+          "rate"
+        ]
+      },
+      "RateHistoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "baseCurrency": {
+            "type": "string",
+            "example": "EUR"
+          },
+          "quoteCurrency": {
+            "type": "string",
+            "example": "INR"
+          },
+          "from": {
+            "type": "string",
+            "example": "2025-10-12",
+            "description": "Inclusive range start (YYYY-MM-DD)"
+          },
+          "to": {
+            "type": "string",
+            "example": "2026-10-12",
+            "description": "Inclusive range end (YYYY-MM-DD)"
+          },
+          "points": {
+            "description": "One point per published snapshot in range, oldest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateHistoryPointDto"
+            }
+          }
+        },
+        "required": [
+          "baseCurrency",
+          "quoteCurrency",
+          "from",
+          "to",
+          "points"
+        ]
+      },
+      "RateSnapshotVersionDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "example": 42
+          },
+          "baseCurrency": {
+            "type": "string",
+            "example": "USD"
+          },
+          "effectiveDate": {
+            "type": "string",
+            "example": "2026-10-09"
+          },
+          "fetchedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-09T04:00:15.123Z"
+          },
+          "etag": {
+            "type": "string",
+            "example": "W/\"rates-v42-20261009\""
+          }
+        },
+        "required": [
+          "version",
+          "baseCurrency",
+          "effectiveDate",
+          "fetchedAt",
+          "etag"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Jane Doe"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "example": "https://example.com/avatar.png"
+          },
+          "baseCurrency": {
+            "type": "string",
+            "description": "Preferred reporting currency (ISO 4217). Must be a registry-valid code; the service additionally requires it to be a provider-backed reporting currency.",
+            "example": "USD"
+          }
+        }
+      },
+      "InitiateBackupDto": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "string",
+            "description": "Application backup envelope schema version",
+            "example": "1.0.0"
+          },
+          "appVersion": {
+            "type": "string",
+            "description": "Android application version creating the backup",
+            "example": "1.2.0"
+          },
+          "expectedSizeBytes": {
+            "type": "number",
+            "description": "Expected total size of the backup file in bytes",
+            "example": 2048576
+          },
+          "checksumSha256": {
+            "type": "string",
+            "description": "Hex-encoded SHA-256 integrity checksum of the backup file",
+            "example": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "appVersion",
+          "expectedSizeBytes",
+          "checksumSha256"
+        ]
+      },
+      "InitiateBackupResponseDto": {
+        "type": "object",
+        "properties": {
+          "backupId": {
+            "type": "string",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "sequenceNumber": {
+            "type": "number",
+            "example": 3
+          },
+          "uploadUrl": {
+            "type": "string",
+            "description": "Short-lived presigned S3 PUT URL for direct binary upload",
+            "example": "https://s3.amazonaws.com/pluto-backups/backups/user-id/backup-id.snap?AWSAccessKeyId=..."
+          },
+          "expiresInSeconds": {
+            "type": "number",
+            "example": 900,
+            "description": "Presigned upload URL expiry in seconds"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-09T05:15:00.000Z"
+          }
+        },
+        "required": [
+          "backupId",
+          "sequenceNumber",
+          "uploadUrl",
+          "expiresInSeconds",
+          "expiresAt"
+        ]
+      },
+      "BackupMetadataDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "sequenceNumber": {
+            "type": "number",
+            "example": 3,
+            "description": "Monotonically increasing sequence number per user"
+          },
+          "schemaVersion": {
+            "type": "string",
+            "example": "1.0.0"
+          },
+          "appVersion": {
+            "type": "string",
+            "example": "1.2.0"
+          },
+          "fileSizeBytes": {
+            "type": "number",
+            "example": 2048576,
+            "description": "File size in bytes"
+          },
+          "checksumSha256": {
+            "type": "string",
+            "example": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "COMPLETED",
+              "FAILED",
+              "DELETED"
+            ],
+            "example": "COMPLETED"
+          },
+          "completedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-09T05:00:00.000Z",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-09T04:55:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "sequenceNumber",
+          "schemaVersion",
+          "appVersion",
+          "fileSizeBytes",
+          "checksumSha256",
+          "status",
+          "completedAt",
+          "createdAt"
+        ]
+      },
+      "PaginatedBackupsResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BackupMetadataDto"
+            }
+          },
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "example": 10
+          },
+          "total": {
+            "type": "number",
+            "example": 3
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total"
+        ]
+      },
+      "DownloadBackupResponseDto": {
+        "type": "object",
+        "properties": {
+          "backupId": {
+            "type": "string",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "sequenceNumber": {
+            "type": "number",
+            "example": 3
+          },
+          "downloadUrl": {
+            "type": "string",
+            "description": "Short-lived presigned S3 GET URL for direct binary download",
+            "example": "https://s3.amazonaws.com/pluto-backups/backups/user-id/backup-id.snap?AWSAccessKeyId=..."
+          },
+          "expiresInSeconds": {
+            "type": "number",
+            "example": 900,
+            "description": "Presigned download URL expiry in seconds"
+          },
+          "checksumSha256": {
+            "type": "string",
+            "example": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "fileSizeBytes": {
+            "type": "number",
+            "example": 2048576
+          }
+        },
+        "required": [
+          "backupId",
+          "sequenceNumber",
+          "downloadUrl",
+          "expiresInSeconds",
+          "checksumSha256",
+          "fileSizeBytes"
+        ]
+      },
+      "AdminRateSnapshotSummaryDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number"
+          },
+          "baseCurrency": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "fetchedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "baseCurrency",
+          "effectiveDate",
+          "fetchedAt"
+        ]
+      },
+      "AdminStatsDto": {
+        "type": "object",
+        "properties": {
+          "totalUsers": {
+            "type": "number"
+          },
+          "totalBackups": {
+            "type": "number",
+            "description": "Completed backup snapshots"
+          },
+          "totalStorageBytes": {
+            "type": "number",
+            "description": "Sum of completed backup sizes in bytes"
+          },
+          "activeSessions": {
+            "type": "number",
+            "description": "Unrevoked, unexpired refresh sessions"
+          },
+          "lastRateSnapshot": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminRateSnapshotSummaryDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "totalUsers",
+          "totalBackups",
+          "totalStorageBytes",
+          "activeSessions",
+          "lastRateSnapshot"
+        ]
+      },
+      "AdminLockDto": {
+        "type": "object",
+        "properties": {
+          "lockName": {
+            "type": "string"
+          },
+          "lockedUntil": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lockedBy": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lockName",
+          "lockedUntil",
+          "lockedBy",
+          "updatedAt"
+        ]
+      },
+      "AdminRateSnapshotDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number"
+          },
+          "baseCurrency": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "fetchedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "isPublished": {
+            "type": "boolean",
+            "description": "True once the snapshot is live for clients"
+          },
+          "etag": {
+            "type": "string"
+          },
+          "rateCount": {
+            "type": "number",
+            "description": "Number of exchange rates in this snapshot"
+          }
+        },
+        "required": [
+          "version",
+          "baseCurrency",
+          "effectiveDate",
+          "fetchedAt",
+          "provider",
+          "isPublished",
+          "etag",
+          "rateCount"
+        ]
+      },
+      "AdminUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "ADMIN"
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "backupCount": {
+            "type": "number"
+          },
+          "activeSessionCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "avatarUrl",
+          "role",
+          "createdAt",
+          "backupCount",
+          "activeSessionCount"
+        ]
+      },
+      "PaginatedAdminUsersDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminUserSummaryDto"
+            }
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total"
+        ]
+      },
+      "AdminSessionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userAgent": {
+            "type": "string",
+            "nullable": true
+          },
+          "ipAddress": {
+            "type": "string",
+            "nullable": true
+          },
+          "isRevoked": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "userAgent",
+          "ipAddress",
+          "isRevoked",
+          "expiresAt",
+          "createdAt"
+        ]
+      },
+      "AdminBackupDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "userEmail": {
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "type": "number"
+          },
+          "schemaVersion": {
+            "type": "string"
+          },
+          "appVersion": {
+            "type": "string"
+          },
+          "fileSizeBytes": {
+            "type": "number",
+            "description": "File size in bytes (serialized as a plain number)"
+          },
+          "checksumSha256": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "COMPLETED",
+              "FAILED",
+              "DELETED"
+            ]
+          },
+          "completedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "userEmail",
+          "sequenceNumber",
+          "schemaVersion",
+          "appVersion",
+          "fileSizeBytes",
+          "checksumSha256",
+          "status",
+          "completedAt",
+          "createdAt"
+        ]
+      },
+      "AdminUserDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "avatarUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "ADMIN"
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "backupCount": {
+            "type": "number"
+          },
+          "activeSessionCount": {
+            "type": "number"
+          },
+          "sessions": {
+            "description": "Newest 20 refresh sessions",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminSessionDto"
+            }
+          },
+          "backups": {
+            "description": "Newest 20 backups",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminBackupDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "avatarUrl",
+          "role",
+          "createdAt",
+          "backupCount",
+          "activeSessionCount",
+          "sessions",
+          "backups"
+        ]
+      },
+      "ActionResultDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "success"
+        ]
+      },
+      "PaginatedAdminBackupsDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminBackupDto"
+            }
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total"
+        ]
+      }
+    }
+  }
+}

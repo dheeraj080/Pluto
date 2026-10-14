@@ -1,11 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { buildSwaggerDocumentConfig } from './config/swagger.config';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
@@ -75,31 +76,7 @@ async function bootstrap(): Promise<void> {
   app.enableShutdownHooks();
 
   // Swagger / OpenAPI documentation setup
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Pluto Server API')
-    .setDescription(
-      'REST API backend for Android application supporting Google Sign-In, exchange rate synchronization, and cloud backups.',
-    )
-    .setVersion('1.0.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'Authorization',
-        description: 'Enter JWT access token',
-        in: 'header',
-      },
-      'JWT-auth',
-    )
-    .addTag('Health', 'System health checks and telemetry')
-    .addTag('Auth', 'Authentication and session management')
-    .addTag('Users', 'User profile management')
-    .addTag('Rates', 'Exchange rate queries and synchronization')
-    .addTag('Backups', 'Cloud backup upload, download, and metadata')
-    .addTag('Expenses', 'Expense tracking, categories, budgets, and spending reports')
-    .addTag('Admin', 'Administrator-only operations (requires ADMIN role)')
-    .build();
+  const swaggerConfig = buildSwaggerDocumentConfig();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document, {

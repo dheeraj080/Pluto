@@ -7,10 +7,14 @@ export class UserProfileDto {
   @ApiProperty({ example: 'user@example.com' })
   email!: string;
 
-  @ApiProperty({ example: 'Jane Doe', nullable: true })
+  @ApiProperty({ example: 'Jane Doe', nullable: true, type: String })
   name!: string | null;
 
-  @ApiProperty({ example: 'https://lh3.googleusercontent.com/a/sample', nullable: true })
+  @ApiProperty({
+    example: 'https://lh3.googleusercontent.com/a/sample',
+    nullable: true,
+    type: String,
+  })
   avatarUrl!: string | null;
 
   @ApiProperty({
@@ -18,6 +22,7 @@ export class UserProfileDto {
       "User's preferred reporting currency (ISO 4217). Null lets the server default apply.",
     example: 'USD',
     nullable: true,
+    type: String,
   })
   baseCurrency!: string | null;
 

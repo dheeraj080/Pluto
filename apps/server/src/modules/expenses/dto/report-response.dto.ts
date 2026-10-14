@@ -64,6 +64,7 @@ export class CategoryBreakdownDto {
     description: 'Subtotal in the secondary currency, when one was requested',
     example: 22490,
     nullable: true,
+    type: Number,
   })
   secondaryTotal?: number | null;
 }
@@ -83,6 +84,7 @@ export class CurrencyTotalDto {
       'Subtotal converted into the base currency at each row\u2019s historical date; null when the rate was unavailable',
     example: 245.75,
     nullable: true,
+    type: Number,
   })
   convertedTotal?: number | null;
 
@@ -90,6 +92,7 @@ export class CurrencyTotalDto {
     description: 'Subtotal in the secondary currency, when one was requested',
     example: 20397.75,
     nullable: true,
+    type: Number,
   })
   secondaryTotal?: number | null;
 }
@@ -139,6 +142,7 @@ export class ExpenseSummaryDto {
     description: 'Period total in the base currency',
     example: 783.2,
     nullable: true,
+    type: Number,
   })
   total!: number | null;
 
@@ -149,6 +153,7 @@ export class ExpenseSummaryDto {
     description: 'Period average per expense in the base currency',
     example: 18.65,
     nullable: true,
+    type: Number,
   })
   average!: number | null;
 
@@ -162,6 +167,7 @@ export class ExpenseSummaryDto {
     description: 'Second currency these figures are also expressed in, when requested',
     example: 'INR',
     nullable: true,
+    type: String,
   })
   secondaryCurrency?: string | null;
 
@@ -169,6 +175,7 @@ export class ExpenseSummaryDto {
     description: 'Period total in the secondary currency',
     example: 44955,
     nullable: true,
+    type: Number,
   })
   secondaryTotal?: number | null;
 
@@ -176,6 +183,7 @@ export class ExpenseSummaryDto {
     description: 'Period average per expense in the secondary currency',
     example: 1070.36,
     nullable: true,
+    type: Number,
   })
   secondaryAverage?: number | null;
 }
@@ -188,6 +196,7 @@ export class TrendPointDto {
     description: 'Month total in the base currency',
     example: 783.2,
     nullable: true,
+    type: Number,
   })
   total!: number | null;
 
@@ -198,6 +207,7 @@ export class TrendPointDto {
     description: 'Month total in the secondary currency, when one was requested',
     example: 65750,
     nullable: true,
+    type: Number,
   })
   secondaryTotal?: number | null;
 }
@@ -210,6 +220,7 @@ export class ExpenseTrendDto {
     description: 'Second currency the points are also expressed in, when requested',
     example: 'INR',
     nullable: true,
+    type: String,
   })
   secondaryCurrency?: string | null;
 
@@ -242,13 +253,13 @@ export class BudgetStatusDto {
   @ApiProperty({ example: 'c9d8e7f6-aaaa-bbbb-cccc-ddddeeeeffff' })
   budgetId!: string;
 
-  @ApiPropertyOptional({ description: 'Null for an overall budget', nullable: true })
+  @ApiPropertyOptional({ description: 'Null for an overall budget', nullable: true, type: String })
   categoryId!: string | null;
 
-  @ApiPropertyOptional({ example: 'Food & Dining', nullable: true })
+  @ApiPropertyOptional({ example: 'Food & Dining', nullable: true, type: String })
   categoryName!: string | null;
 
-  @ApiPropertyOptional({ example: '#f59e0b', nullable: true })
+  @ApiPropertyOptional({ example: '#f59e0b', nullable: true, type: String })
   color!: string | null;
 
   @ApiProperty({ enum: BudgetPeriod, example: BudgetPeriod.MONTHLY })
@@ -285,16 +296,18 @@ export class BudgetStatusDto {
     description: 'Budget amount converted into the base currency, null when unconvertible',
     example: 500,
     nullable: true,
+    type: Number,
   })
   convertedAmount!: number | null;
 
-  @ApiPropertyOptional({ example: 'USD', nullable: true })
+  @ApiPropertyOptional({ example: 'USD', nullable: true, type: String })
   convertedCurrency!: string | null;
 
   @ApiPropertyOptional({
     description: 'Snapshot date used for the budget amount conversion',
     example: '2026-10-01',
     nullable: true,
+    type: String,
   })
   rateDate!: string | null;
 
@@ -316,6 +329,7 @@ export class BudgetStatusDto {
     description: 'Budgeted amount in the secondary currency, when requested',
     example: 49900,
     nullable: true,
+    type: Number,
   })
   secondaryBudgetAmount?: number | null;
 
@@ -323,6 +337,7 @@ export class BudgetStatusDto {
     description: 'Spent in the secondary currency, when requested',
     example: 61100,
     nullable: true,
+    type: Number,
   })
   secondarySpent?: number | null;
 
@@ -330,6 +345,7 @@ export class BudgetStatusDto {
     description: 'secondaryBudgetAmount minus secondarySpent, when requested',
     example: -11200,
     nullable: true,
+    type: Number,
   })
   secondaryRemaining?: number | null;
 }
@@ -384,13 +400,13 @@ export class TopExpenseItemDto {
   @ApiProperty({ example: 'e8f7a6b5-cccc-dddd-eeee-ffff00001111' })
   id!: string;
 
-  @ApiProperty({ example: 'Lunch at cafe', nullable: true })
+  @ApiProperty({ example: 'Lunch at cafe', nullable: true, type: String })
   description!: string | null;
 
-  @ApiPropertyOptional({ example: 'Food & Dining', nullable: true })
+  @ApiPropertyOptional({ example: 'Food & Dining', nullable: true, type: String })
   categoryName!: string | null;
 
-  @ApiProperty({ example: 'Food', nullable: true })
+  @ApiProperty({ example: 'Food', nullable: true, type: String })
   categorySlug!: string | null;
 
   @ApiProperty({ example: 25.5 })
@@ -406,16 +422,18 @@ export class TopExpenseItemDto {
     description: 'Converted amount in the base currency (alias of amount)',
     example: 27.3,
     nullable: true,
+    type: Number,
   })
   convertedAmount?: number | null;
 
-  @ApiPropertyOptional({ example: 'USD', nullable: true })
+  @ApiPropertyOptional({ example: 'USD', nullable: true, type: String })
   convertedCurrency?: string | null;
 
   @ApiPropertyOptional({
     description: 'Amount in the requested secondary currency, when one was requested',
     example: 2450,
     nullable: true,
+    type: Number,
   })
   amountSecondary?: number | null;
 
@@ -423,6 +441,7 @@ export class TopExpenseItemDto {
     description: 'Snapshot date used for conversion, or null',
     example: '2026-10-09',
     nullable: true,
+    type: String,
   })
   rateDate?: string | null;
 
@@ -489,6 +508,7 @@ export class DayOfWeekItemDto {
     description: 'Total in the secondary currency, when one was requested',
     example: 22490,
     nullable: true,
+    type: Number,
   })
   secondaryTotal?: number | null;
 }
@@ -501,6 +521,7 @@ export class ByDayOfWeekResponseDto {
     description: 'Second currency the items are also expressed in, when requested',
     example: 'INR',
     nullable: true,
+    type: String,
   })
   secondaryCurrency?: string | null;
 
@@ -534,6 +555,7 @@ export class BudgetStatusResponseDto {
     description: 'Second currency the items are also expressed in, when requested',
     example: 'INR',
     nullable: true,
+    type: String,
   })
   secondaryCurrency?: string | null;
 
@@ -573,6 +595,7 @@ export class SeriesPointDto {
     description: 'Bucket total in the base currency; null when nothing in range could convert',
     example: 42.5,
     nullable: true,
+    type: Number,
   })
   total!: number | null;
 
@@ -583,6 +606,7 @@ export class SeriesPointDto {
     description: 'Bucket total in the secondary currency, when one was requested',
     example: 3527.5,
     nullable: true,
+    type: Number,
   })
   secondaryTotal?: number | null;
 }
@@ -595,6 +619,7 @@ export class ExpenseSeriesDto {
     description: 'Second currency the points are also expressed in, when requested',
     example: 'INR',
     nullable: true,
+    type: String,
   })
   secondaryCurrency?: string | null;
 
@@ -637,6 +662,7 @@ export class CategoryTrendPointDto {
     description: 'Category total in the base currency for the month',
     example: 245.75,
     nullable: true,
+    type: Number,
   })
   total!: number | null;
 
@@ -644,6 +670,7 @@ export class CategoryTrendPointDto {
     description: 'Category total in the secondary currency, when one was requested',
     example: 20397.75,
     nullable: true,
+    type: Number,
   })
   secondaryTotal?: number | null;
 }
@@ -670,6 +697,7 @@ export class CategoryTrendsResponseDto {
     description: 'Second currency the series are also expressed in, when requested',
     example: 'INR',
     nullable: true,
+    type: String,
   })
   secondaryCurrency?: string | null;
 
@@ -713,6 +741,7 @@ export class CategorySeriesPointDto {
       'Category total in the base currency for the bucket; null when nothing in range could convert',
     example: 245.75,
     nullable: true,
+    type: Number,
   })
   total!: number | null;
 
@@ -720,6 +749,7 @@ export class CategorySeriesPointDto {
     description: 'Category total in the secondary currency, when one was requested',
     example: 20397.75,
     nullable: true,
+    type: Number,
   })
   secondaryTotal?: number | null;
 }
@@ -746,6 +776,7 @@ export class CategorySeriesResponseDto {
     description: 'Second currency the series are also expressed in, when requested',
     example: 'INR',
     nullable: true,
+    type: String,
   })
   secondaryCurrency?: string | null;
 

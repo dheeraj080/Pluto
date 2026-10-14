@@ -25,13 +25,13 @@ export class ExpenseDto {
   })
   currency!: string;
 
-  @ApiPropertyOptional({ example: 'Lunch with team', nullable: true })
+  @ApiPropertyOptional({ example: 'Lunch with team', nullable: true, type: String })
   description!: string | null;
 
   @ApiProperty({ description: 'Date the expense was incurred', example: '2026-10-10' })
   incurredOn!: string;
 
-  @ApiPropertyOptional({ example: 'CARD', nullable: true })
+  @ApiPropertyOptional({ example: 'CARD', nullable: true, type: String })
   paymentMethod!: string | null;
 
   @ApiProperty({ example: '2026-10-10T08:15:00.000Z' })
@@ -65,7 +65,7 @@ export class ExpenseCategoryDto {
   @ApiProperty({ example: '#f59e0b' })
   color!: string;
 
-  @ApiPropertyOptional({ example: 'utensils', nullable: true })
+  @ApiPropertyOptional({ example: 'utensils', nullable: true, type: String })
   icon!: string | null;
 
   @ApiProperty({ example: true })
@@ -85,10 +85,11 @@ export class BudgetDto {
   @ApiPropertyOptional({
     description: 'Category id, or null for an overall budget',
     nullable: true,
+    type: String,
   })
   categoryId!: string | null;
 
-  @ApiPropertyOptional({ example: 'Food & Dining', nullable: true })
+  @ApiPropertyOptional({ example: 'Food & Dining', nullable: true, type: String })
   categoryName!: string | null;
 
   @ApiProperty({ description: 'Budgeted amount', example: 500 })

@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
 import { BackupStatus, UserRole } from '@prisma/client';
 
 export class AdminUserSummaryDto {
@@ -8,10 +8,10 @@ export class AdminUserSummaryDto {
   @ApiProperty()
   email!: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   name!: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   avatarUrl!: string | null;
 
   @ApiProperty({ enum: UserRole })
@@ -31,10 +31,10 @@ export class AdminSessionDto {
   @ApiProperty()
   id!: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   userAgent!: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   ipAddress!: string | null;
 
   @ApiProperty()
@@ -75,7 +75,7 @@ export class AdminBackupDto {
   @ApiProperty({ enum: BackupStatus })
   status!: BackupStatus;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: Date })
   completedAt!: Date | null;
 
   @ApiProperty()
@@ -89,10 +89,10 @@ export class AdminUserDetailDto {
   @ApiProperty()
   email!: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   name!: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, type: String })
   avatarUrl!: string | null;
 
   @ApiProperty({ enum: UserRole })
@@ -169,7 +169,11 @@ export class AdminStatsDto {
   @ApiProperty({ description: 'Unrevoked, unexpired refresh sessions' })
   activeSessions!: number;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({
+    nullable: true,
+    type: AdminRateSnapshotSummaryDto,
+    allOf: [{ $ref: getSchemaPath(AdminRateSnapshotSummaryDto) }],
+  })
   lastRateSnapshot!: AdminRateSnapshotSummaryDto | null;
 }
 
