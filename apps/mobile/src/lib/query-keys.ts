@@ -1,3 +1,5 @@
+import type { ReportGranularity } from './ranges';
+
 /** Matches the server's `EXPENSE_SORTS`; the spec types it as a string union. */
 export type ExpenseSort = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
 
@@ -30,6 +32,28 @@ export interface BudgetStatusParams {
   base?: string;
   secondary?: string;
 }
+
+/**
+ * Report filters shared by every aggregate endpoint.
+ *
+ * A `type` alias rather than an `interface`, deliberately: only aliases get an
+ * implicit index signature, which is what makes this object assignable to the
+ * API client's `Record<string, QueryValue>` query parameter. `base`/`secondary`
+ * are `string | undefined` rather than `string | null`, so one object can both
+ * key the query cache and build the request — `null` and `undefined` would be
+ * two cache entries for one logical request.
+ */
+export type ReportQueryParams = {
+  from: string;
+  to: string;
+  base?: string;
+  secondary?: string;
+};
+
+/** A report query that also chooses the chart bucket size. */
+export type ReportSeriesParams = ReportQueryParams & {
+  granularity: ReportGranularity;
+};
 
 /**
  * Builds the query object for `GET /expenses`.
@@ -72,5 +96,13 @@ export const queryKeys = {
   budgets: {
     all: ['budgets'] as const,
     status: (params: BudgetStatusParams) => ['budgets', 'status', params] as const,
+  },
+  reports: {
+    all: ['reports'] as const,
+    summary: (params: ReportQueryParams) => ['reports', 'summary', params] as const,
+    comparison: (params: ReportQueryParams) => ['reports', 'comparison', params] as const,
+    byDayOfWeek: (params: ReportQueryParams) => ['reports', 'by-day-of-week', params] as const,
+    series: (params: ReportSeriesParams) => ['reports', 'series', params] as const,
+    categorySeries: (params: ReportSeriesParams) => ['reports', 'category-series', params] as const,
   },
 };

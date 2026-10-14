@@ -82,11 +82,16 @@ Routes live in `src/app` (Expo Router, typed routes enabled):
 | :--- | :--- |
 | `(tabs)/index` | Overview — month summary, 5 most recent expenses |
 | `(tabs)/transactions` | Activity — full list, search, sort, category filter, infinite scroll |
+| `(tabs)/budgets` | Budgets — per-category and whole-account limits, month by month |
 | `(tabs)/categories` | Categories — create, rename, recolour, delete |
 | `(tabs)/settings` | Profile, base currency, sign out |
 | `expense/new` | Create (modal) |
 | `expense/[id]/index` | Detail, with edit and delete |
 | `expense/[id]/edit` | Edit |
+
+Reports is the one web surface still missing a tab; its loaders
+(`src/hooks/use-reports.ts`) and date helpers (`src/lib/ranges.ts`) are in place,
+and the screen arrives with the `react-native-svg` charts.
 
 `(tabs)/_layout.tsx` guards the whole shell: `loading` shows a spinner and
 `signed-out` redirects to `/sign-in`, so no tab ever mounts and fires an

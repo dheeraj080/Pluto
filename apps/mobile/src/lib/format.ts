@@ -35,9 +35,14 @@ export function formatDate(iso: string): string {
   }
 }
 
-/** Today as `YYYY-MM-DD`, in the device's local time zone. */
-export function todayIso(): string {
-  const now = new Date();
+/**
+ * Today as `YYYY-MM-DD`, in the device's local time zone.
+ *
+ * Local rather than UTC on purpose: the user's "today" is what their calendar
+ * says. Date *ranges* built from this bound are plain calendar dates, so they
+ * stay zone-free once computed.
+ */
+export function todayIso(now: Date = new Date()): string {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${now.getFullYear()}-${month}-${day}`;
