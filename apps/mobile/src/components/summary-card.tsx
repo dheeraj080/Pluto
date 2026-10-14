@@ -7,18 +7,12 @@ import { Spacing } from '@/constants/theme';
 import { formatMoney } from '@/lib/format';
 
 /**
- * `total`/`average` are nullable numbers on the server. The OpenAPI document
- * used to describe them as objects (a Nest metadata bug being fixed server
- * side), so narrow by `typeof` rather than trusting the generated shape.
+ * Month-to-date totals.
+ *
+ * `total` and `average` are null whenever the server could not convert every
+ * line, which is why the card shows a dash plus an explanation rather than a
+ * partial number that would silently understate the month.
  */
-function asNumber(value: unknown): number | null {
-  return typeof value === 'number' ? value : null;
-}
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
 export function SummaryCard({
   summary,
   loading,
@@ -41,11 +35,12 @@ export function SummaryCard({
     );
   }
 
-  const total = asNumber(summary.total);
-  const average = asNumber(summary.average);
-  const secondaryCurrency = asString(summary.secondaryCurrency);
-  const secondaryTotal = asNumber(summary.secondaryTotal);
-  const partlyConverted = summary.conversionStatus === 'partially_converted';
+  const { baseCurrency, secondaryCurrency, conversionStatus } = summary;
+  // The generated types mark these `| undefined` on top of `| null`, so the
+  // narrowing below normalises both to `null`.
+  const total = summary.total ?? null;
+  const average = summary.average ?? null;
+  const secondaryTotal = summary.secondaryTotal ?? null;
 
   return (
     <ThemedView style={styles.card}>
@@ -54,7 +49,7 @@ export function SummaryCard({
       </ThemedText>
 
       <ThemedText type="title">
-        {total === null ? '—' : formatMoney(total, summary.baseCurrency)}
+        {total === null ? '—' : formatMoney(total, baseCurrency)}
       </ThemedText>
 
       <View style={styles.metaRow}>
@@ -63,7 +58,7 @@ export function SummaryCard({
         </ThemedText>
         {average !== null ? (
           <ThemedText type="small" themeColor="textSecondary">
-            avg {formatMoney(average, summary.baseCurrency)}
+            avg {formatMoney(average, baseCurrency)}
           </ThemedText>
         ) : null}
       </View>
@@ -74,13 +69,13 @@ export function SummaryCard({
         </ThemedText>
       ) : null}
 
-      {partlyConverted ? (
+      {conversionStatus === 'partially_converted' ? (
         <ThemedText type="small" themeColor="textSecondary">
           Some amounts could not be converted
         </ThemedText>
       ) : null}
 
-      {summary.conversionStatus === 'unavailable' ? (
+      {conversionStatus === 'unavailable' ? (
         <ThemedText type="small" themeColor="textSecondary">
           {summary.conversionUnavailableReason ?? 'Exchange rates unavailable'}
         </ThemedText>

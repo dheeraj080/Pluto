@@ -1,84 +1,57 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { Schemas } from '@pluto/api-client';
 
 import { api } from '@/lib/api';
+import {
+  expenseQueryParams,
+  queryKeys,
+  type ExpenseListFilters,
+  type ExpenseSummaryParams,
+} from '@/lib/query-keys';
 import { useSession } from '@/hooks/use-session';
 
-export interface ExpensesSnapshot {
-  expenses: Schemas['PaginatedExpensesResponseDto'] | null;
-  summary: Schemas['ExpenseSummaryDto'] | null;
-}
-
-export interface UseExpensesResult extends ExpensesSnapshot {
-  loading: boolean;
-  refreshing: boolean;
-  error: string | null;
-  reload: () => void;
-}
-
-const EMPTY: ExpensesSnapshot = { expenses: null, summary: null };
+/** The server caps `limit` at 50. */
+const PAGE_SIZE = 20;
 
 /**
- * Loads the first page of expenses plus the current-month summary.
+ * Paged, filtered expense list.
  *
- * Deliberately minimal for the first vertical slice — a query library
- * (TanStack Query) can replace this once caching/optimistic updates are needed.
- *
- * State is only written *after* an `await`, and `loading`/`refreshing` are
- * derived rather than assigned, so the effect never triggers a synchronous
- * cascading render (`react-hooks/set-state-in-effect`).
+ * The next page is derived from `total` rather than "a short page means the
+ * end", because `limit` is clamped server-side and a page can legitimately come
+ * back shorter than requested.
  */
-export function useExpenses(): UseExpensesResult {
+export function useExpenseList(filters: ExpenseListFilters) {
   const { status } = useSession();
-  const [snapshot, setSnapshot] = useState<ExpensesSnapshot>(EMPTY);
-  const [error, setError] = useState<string | null>(null);
-  const [settled, setSettled] = useState(false);
-  const [requestId, setRequestId] = useState(0);
 
-  const signedIn = status === 'signed-in';
-
-  useEffect(() => {
-    if (!signedIn) return;
-
-    let active = true;
-    void (async () => {
-      try {
-        const [expenses, summary] = await Promise.all([
-          api.get<Schemas['PaginatedExpensesResponseDto']>('/expenses', {
-            query: { page: 1, limit: 20, sort: 'date_desc' },
-          }),
-          api.get<Schemas['ExpenseSummaryDto']>('/expenses/summary'),
-        ]);
-        if (!active) return;
-        setSnapshot({ expenses, summary });
-        setError(null);
-      } catch (err) {
-        if (!active) return;
-        setError(err instanceof Error ? err.message : 'Failed to load expenses.');
-      } finally {
-        if (active) setSettled(true);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [signedIn, requestId]);
-
-  const reload = useCallback(() => {
-    setSettled(false);
-    setRequestId((id) => id + 1);
-  }, []);
-
-  // Never surface a previous user's data after signing out.
-  const visible = signedIn ? snapshot : EMPTY;
-  const hasData = visible.expenses !== null;
+  const query = useInfiniteQuery({
+    queryKey: queryKeys.expenses.list(filters),
+    enabled: status === 'signed-in',
+    initialPageParam: 1,
+    queryFn: ({ pageParam, signal }) =>
+      api.get<Schemas['PaginatedExpensesResponseDto']>('/expenses', {
+        query: expenseQueryParams(filters, pageParam, PAGE_SIZE),
+        signal,
+      }),
+    getNextPageParam: (last) =>
+      last.page * last.limit < last.total ? last.page + 1 : undefined,
+  });
 
   return {
-    ...visible,
-    loading: signedIn && !settled && !hasData,
-    refreshing: signedIn && !settled && hasData,
-    error,
-    reload,
+    ...query,
+    items: query.data?.pages.flatMap((page) => page.items) ?? [],
+    total: query.data?.pages[0]?.total ?? 0,
   };
+}
+
+export function useExpenseSummary(params: ExpenseSummaryParams = {}) {
+  const { status } = useSession();
+
+  return useQuery({
+    queryKey: queryKeys.expenses.summary(params),
+    enabled: status === 'signed-in',
+    queryFn: () =>
+      api.get<Schemas['ExpenseSummaryDto']>('/expenses/summary', {
+        query: { from: params.from, to: params.to, base: params.base },
+      }),
+  });
 }

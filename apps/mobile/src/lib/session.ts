@@ -1,5 +1,6 @@
 import type { Schemas } from '@pluto/api-client';
 
+import { getQueryClient } from './query-client';
 import { deleteRefreshToken, readRefreshToken, writeRefreshToken } from './session-storage';
 
 export type SessionStatus = 'loading' | 'signed-in' | 'signed-out';
@@ -65,9 +66,17 @@ export function markSignedOut(): void {
   emit();
 }
 
+/**
+ * Ends the session: credentials are dropped and cached API data is discarded.
+ *
+ * Dropping the cache matters as much as dropping the tokens — without it,
+ * signing in as a second account would briefly render the first account's
+ * expenses.
+ */
 export function clearSession(): void {
   markSignedOut();
   void deleteRefreshToken();
+  getQueryClient().clear();
 }
 
 /** Reads the persisted refresh token into memory without validating it. */

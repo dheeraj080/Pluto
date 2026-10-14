@@ -74,6 +74,39 @@ It must include the `/v1` prefix:
 | iOS simulator | `http://localhost:3000/v1` |
 | Physical device | `http://<your-lan-ip>:3000/v1` |
 
+## App structure
+
+Routes live in `src/app` (Expo Router, typed routes enabled):
+
+| Route | Screen |
+| :--- | :--- |
+| `(tabs)/index` | Overview — month summary, 5 most recent expenses |
+| `(tabs)/transactions` | Full list — search, sort, category filter, infinite scroll |
+| `(tabs)/settings` | Profile, base currency, sign out |
+| `expense/new` | Create (modal) |
+| `expense/[id]/index` | Detail, with edit and delete |
+| `expense/[id]/edit` | Edit |
+
+`(tabs)/_layout.tsx` guards the whole shell: `loading` shows a spinner and
+`signed-out` redirects to `/sign-in`, so no tab ever mounts and fires an
+authenticated request before the session is restored.
+
+Data access is TanStack Query. Hooks in `src/hooks` own every request
+(`use-expenses` — list and summary, `use-expense`, `use-expense-mutations`,
+`use-categories`, `use-currencies`, `use-user`); screens never call `fetch`
+directly. Query keys and the filter/sort vocabulary are in
+`src/lib/query-keys.ts`.
+
+Two things are deliberate and easy to "fix" by mistake:
+
+- `src/lib/routes.ts` casts a few hrefs. Typed routes derive their union from
+  *file paths*, so `expense/[id]/index.tsx` generates `/expense/[id]/index`
+  while the router serves `/expense/<id>`. The cast bridges that naming gap; the
+  URLs themselves are the canonical ones.
+- Icons are imported as `@expo/vector-icons/Ionicons`, not from the package
+  root, because the root entry pulls in every icon font (and its `.ttf` assets)
+  into the bundle.
+
 ## Monorepo notes
 
 `metro.config.js` is **required** and must not be removed:
@@ -84,6 +117,11 @@ It must include the `/v1` prefix:
   pins a different React).
 - `resolver.disableHierarchicalLookup = true` prevents a second React copy
   being pulled in from the root — two React copies in one bundle breaks hooks.
+
+Restart Metro (`npx expo start --clear`) after installing a package. Metro's
+file map is built at startup, so a package added while it is running resolves as
+missing — the symptom is an `UnableToResolveError` for an asset that is plainly
+on disk.
 
 `@types/react` is pinned via an `overrides` entry in the **root** `package.json`
 so TypeScript sees a single React type identity across web and mobile.

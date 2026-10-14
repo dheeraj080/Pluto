@@ -34,3 +34,37 @@ export function formatDate(iso: string): string {
     return iso;
   }
 }
+
+/** Today as `YYYY-MM-DD`, in the device's local time zone. */
+export function todayIso(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * True for a `YYYY-MM-DD` string that is also a real calendar date.
+ *
+ * The shape check alone would accept `2026-02-31`; the server validates with
+ * `IsDateString` and would reject it, so catching it here gives a better error.
+ */
+export function isValidIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+/**
+ * Parses a user-entered amount into the number the API expects.
+ *
+ * Returns `null` for anything that is not a positive amount with at most two
+ * decimal places, which is exactly what `CreateExpenseDto` permits — validating
+ * here means the user sees a field error instead of a 400.
+ */
+export function parseAmount(input: string): number | null {
+  const trimmed = input.trim();
+  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) return null;
+  const value = Number(trimmed);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}

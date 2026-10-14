@@ -61,5 +61,15 @@ export const Spacing = {
   six: 64,
 } as const;
 
+/**
+ * Brand colours that are the same in light and dark mode.
+ *
+ * These are deliberately not part of `Colors`: they are accents rather than
+ * surfaces, so they must not flip with the colour scheme.
+ */
+export const Accent = '#208AEF';
+export const AccentText = '#ffffff';
+export const Danger = '#d92d20';
+
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;

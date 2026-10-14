@@ -1,11 +1,14 @@
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/button';
 import { Spacing } from '@/constants/theme';
 import { devLogin } from '@/lib/api';
+import { errorMessage } from '@/lib/errors';
+import { HOME } from '@/lib/routes';
 
 /**
  * Sign-in.
@@ -24,9 +27,11 @@ export default function SignInScreen() {
     setError(null);
     try {
       await devLogin();
-      router.replace('/');
+      // The tab layout owns the signed-out redirect, so `/` is the only
+      // destination needed here.
+      router.replace(HOME);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign-in failed.');
+      setError(errorMessage(err) ?? 'Sign-in failed.');
     } finally {
       setBusy(false);
     }
@@ -39,25 +44,15 @@ export default function SignInScreen() {
         <ThemedText themeColor="textSecondary">Track spending across currencies.</ThemedText>
       </View>
 
-      <Pressable
-        onPress={onDevLogin}
-        disabled={busy}
-        style={({ pressed }) => [styles.button, (pressed || busy) && styles.buttonPressed]}
-      >
-        {busy ? (
-          <ActivityIndicator color="#ffffff" />
-        ) : (
-          <ThemedText style={styles.buttonLabel}>Continue with dev login</ThemedText>
-        )}
-      </Pressable>
+      <Button label="Continue with dev login" onPress={() => void onDevLogin()} busy={busy} />
 
       {error ? (
-        <ThemedText type="small" themeColor="textSecondary" style={styles.error}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           {error}
         </ThemedText>
       ) : null}
 
-      <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
+      <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
         Google Sign-In arrives with the EAS development build.
       </ThemedText>
     </ThemedView>
@@ -71,28 +66,6 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.four,
   },
-  header: {
-    gap: Spacing.one,
-  },
-  button: {
-    backgroundColor: '#208AEF',
-    borderRadius: Spacing.three,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  buttonPressed: {
-    opacity: 0.7,
-  },
-  buttonLabel: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  error: {
-    textAlign: 'center',
-  },
-  note: {
-    textAlign: 'center',
-  },
+  header: { gap: Spacing.one },
+  centered: { textAlign: 'center' },
 });
