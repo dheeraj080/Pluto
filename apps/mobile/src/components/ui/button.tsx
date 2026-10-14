@@ -38,8 +38,11 @@ export function Button({
   size?: ButtonSize;
   busy?: boolean;
   disabled?: boolean;
-  /** Optional leading glyph, e.g. `IconPlus`. */
-  icon?: ReactNode;
+  /**
+   * Optional leading glyph. Pass a function to colour it from the variant's
+   * resolved foreground, e.g. `(color) => <IconPlus color={color} />`.
+   */
+  icon?: ReactNode | ((color: string) => ReactNode);
   style?: StyleProp<ViewStyle>;
 }) {
   const theme = useTheme();
@@ -92,7 +95,7 @@ export function Button({
           <ActivityIndicator size="small" color={foreground} />
         ) : (
           <View style={styles.content}>
-            {icon}
+            {typeof icon === 'function' ? icon(foreground) : icon}
             <Text
               numberOfLines={1}
               style={[

@@ -1,17 +1,17 @@
 import { router } from 'expo-router';
 import { useCallback } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ExpenseRow } from '@/components/expense-row';
-import { SummaryCard } from '@/components/summary-card';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Button } from '@/components/ui/button';
+import { ExpenseRow, ExpenseRowDivider } from '@/components/expense-row';
+import { IconPlus } from '@/components/icons';
 import { Wordmark } from '@/components/logo';
-import { layout, spacing } from '@/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { SummaryCard } from '@/components/summary-card';
+import { Button } from '@/components/ui/button';
+import { EmptyState, ErrorNote, Spinner } from '@/components/ui/feedback';
+import { layout, spacing, text } from '@/theme';
 import { useExpenseList, useExpenseSummary } from '@/hooks/use-expenses';
 import { useSession } from '@/hooks/use-session';
+import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/errors';
 import { expenseHref } from '@/lib/routes';
 
@@ -33,38 +33,43 @@ export default function OverviewScreen() {
   }, [list, summary]);
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
-        <Wordmark size={28} />
-        <View style={styles.greeting}>
-          <ThemedText type="small" themeColor="textSecondary">
-            Signed in as
-          </ThemedText>
-          <ThemedText type="smallBold" numberOfLines={1}>
-            {user?.name ?? user?.email ?? 'Pluto user'}
-          </ThemedText>
-        </View>
+        <Wordmark size={26} />
+        <Text numberOfLines={1} style={[text.caption, styles.greeting, { color: theme.muted }]}>
+          {user?.name ?? user?.email ?? ''}
+        </Text>
       </View>
 
       <FlatList
         data={list.items.slice(0, RECENT_COUNT)}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
+        ItemSeparatorComponent={ExpenseRowDivider}
         refreshing={refreshing}
         onRefresh={onRefresh}
+        renderItem={({ item }) => (
+          <Pressable onPress={() => router.push(expenseHref(item.id))}>
+            <ExpenseRow expense={item} />
+          </Pressable>
+        )}
         ListHeaderComponent={
           <View style={styles.header}>
             <SummaryCard summary={summary.data ?? null} loading={summary.isPending} />
 
-            <Button label="Add expense" onPress={() => router.push('/expense/new')} />
+            <Button
+              label="Add expense"
+              icon={(color) => <IconPlus size={18} color={color} />}
+              onPress={() => router.push('/expense/new')}
+            />
 
             <View style={styles.sectionRow}>
-              <ThemedText type="overline">RECENT</ThemedText>
+              <Text style={[text.overline, { color: theme.muted }]}>RECENT</Text>
               {list.total > 0 ? (
                 <Pressable hitSlop={8} onPress={() => router.push('/transactions')}>
-                  <ThemedText type="link" themeColor="textPrimary">
+                  <Text style={[text.link, { color: theme.primary }]}>
                     See all {list.total}
-                  </ThemedText>
+                  </Text>
                 </Pressable>
               ) : null}
             </View>
@@ -72,20 +77,18 @@ export default function OverviewScreen() {
         }
         ListEmptyComponent={
           list.isPending ? (
-            <ActivityIndicator style={styles.placeholder} />
+            <Spinner size="large" style={styles.placeholder} />
+          ) : error ? (
+            <ErrorNote message={errorMessage(error) ?? 'Could not load expenses.'} />
           ) : (
-            <ThemedText themeColor="textSecondary" style={styles.placeholder}>
-              {errorMessage(error) ?? 'No expenses yet.'}
-            </ThemedText>
+            <EmptyState
+              title="No expenses yet"
+              message="Add your first expense to see it here."
+            />
           )
         }
-        renderItem={({ item }) => (
-          <Pressable onPress={() => router.push(expenseHref(item.id))}>
-            <ExpenseRow expense={item} />
-          </Pressable>
-        )}
       />
-    </ThemedView>
+    </View>
   );
 }
 
@@ -99,22 +102,20 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
   },
+  greeting: { flex: 1, textAlign: 'right' },
   content: {
     padding: layout.gutter,
     paddingBottom: layout.tabBarInset + spacing.xl,
-    gap: spacing.md,
   },
-  header: { gap: spacing.md },
-  greeting: { flex: 1 },
+  header: {
+    gap: spacing.lg,
+    paddingBottom: spacing.md,
+  },
   sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
-    marginTop: spacing.xs,
   },
-  placeholder: {
-    textAlign: 'center',
-    paddingVertical: spacing.xl,
-  },
+  placeholder: { marginTop: spacing.xxl },
 });

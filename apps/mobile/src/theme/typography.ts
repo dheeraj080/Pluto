@@ -13,7 +13,7 @@
  * screens, so mobile falls back to the platform monospace.
  */
 
-import { Platform } from 'react-native';
+import { Platform, type TextStyle } from 'react-native';
 
 export const fontFamily = {
   /** Inter — body copy, labels, controls. */
@@ -54,8 +54,14 @@ export const lineHeight = {
   xxxl: 36,
 } as const;
 
+/**
+ * Tabular figures, shared rather than inlined: `['tabular-nums'] as const`
+ * infers a readonly tuple, which React Native's `fontVariant` rejects.
+ */
+const tabularFigures: TextStyle['fontVariant'] = ['tabular-nums'];
+
 /** Tabular figures, for every money column. */
-export const tabularNums = { fontVariant: ['tabular-nums'] as const };
+export const tabularNums = { fontVariant: tabularFigures } satisfies TextStyle;
 
 /** Tailwind's `tracking-tight`, in px at the size it is used. */
 const tight = (size: number) => Math.round(size * -0.025 * 100) / 100;
@@ -150,7 +156,7 @@ export const text = {
     fontFamily: fontFamily.sans.semibold,
     fontSize: fontSize.sm,
     lineHeight: lineHeight.sm,
-    fontVariant: ['tabular-nums'] as const,
+    fontVariant: tabularFigures,
   },
   /** The hero figure on a dashboard card. */
   amountHero: {
@@ -158,7 +164,7 @@ export const text = {
     fontSize: fontSize.xxxl,
     lineHeight: lineHeight.xxxl,
     letterSpacing: tight(fontSize.xxxl),
-    fontVariant: ['tabular-nums'] as const,
+    fontVariant: tabularFigures,
   },
   /** Inline code — `font-mono text-xs`. */
   mono: {
@@ -180,6 +186,6 @@ export const text = {
     lineHeight: lineHeight.sm,
     letterSpacing: tight(fontSize.sm),
   },
-} as const;
+} satisfies Record<string, TextStyle>;
 
 export type TextStyleName = keyof typeof text;

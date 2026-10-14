@@ -1,18 +1,21 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { ErrorNote, Spinner } from '@/components/ui/feedback';
+import { AppPageHeader } from '@/components/ui/page-header';
+import { layout, spacing, text } from '@/theme';
 import { useSupportedCurrencies } from '@/hooks/use-currencies';
 import { useSession } from '@/hooks/use-session';
+import { useTheme } from '@/hooks/use-theme';
 import { useUpdateProfile } from '@/hooks/use-user';
 import { signOut } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 
 export default function SettingsScreen() {
+  const theme = useTheme();
   const { user } = useSession();
   const currencies = useSupportedCurrencies();
   const updateProfile = useUpdateProfile();
@@ -46,92 +49,84 @@ export default function SettingsScreen() {
   }, []);
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <ThemedText type="small" themeColor="textSecondary">
-            SIGNED IN AS
-          </ThemedText>
-          <ThemedText type="smallBold" numberOfLines={1}>
-            {user?.name ?? 'Pluto user'}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-            {user?.email ?? '—'}
-          </ThemedText>
-        </View>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.canvas }]}
+      contentContainerStyle={styles.content}
+    >
+      <AppPageHeader title="Settings" subtitle="Your account and preferences." />
 
-        <View style={styles.card}>
-          <ThemedText type="small" themeColor="textSecondary">
-            BASE CURRENCY
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            Reports and totals are converted into this currency.
-          </ThemedText>
+      <Card>
+        <Text style={[text.overline, { color: theme.muted }]}>SIGNED IN AS</Text>
+        <Text numberOfLines={1} style={[text.bodyStrong, { color: theme.ink }]}>
+          {user?.name ?? 'Pluto user'}
+        </Text>
+        <Text numberOfLines={1} style={[text.body, { color: theme.muted }]}>
+          {user?.email ?? '—'}
+        </Text>
+      </Card>
 
-          {currencies.isPending ? (
-            <ActivityIndicator style={styles.spinner} />
-          ) : currencies.isError ? (
-            <ThemedText type="small" themeColor="danger">
-              {errorMessage(currencies.error)}
-            </ThemedText>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipRow}
-            >
-              {(currencies.data ?? []).map((currency) => (
-                <Chip
-                  key={currency.code}
-                  label={`${currency.code} · ${currency.symbol}`}
-                  selected={currency.code === selectedCurrency}
-                  onPress={() => setDraftCurrency(currency.code)}
-                />
-              ))}
-            </ScrollView>
-          )}
+      <Card>
+        <Text style={[text.overline, { color: theme.muted }]}>BASE CURRENCY</Text>
+        <Text style={[text.body, { color: theme.muted }]}>
+          Reports and totals are converted into this currency.
+        </Text>
 
-          {updateProfile.isError ? (
-            <ThemedText type="small" themeColor="danger">
-              {errorMessage(updateProfile.error)}
-            </ThemedText>
-          ) : null}
+        {currencies.isPending ? (
+          <Spinner style={styles.spinner} />
+        ) : currencies.isError ? (
+          <ErrorNote message={errorMessage(currencies.error) ?? 'Could not load currencies.'} />
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+          >
+            {(currencies.data ?? []).map((currency) => (
+              <Chip
+                key={currency.code}
+                label={`${currency.code} · ${currency.symbol}`}
+                selected={currency.code === selectedCurrency}
+                onPress={() => setDraftCurrency(currency.code)}
+              />
+            ))}
+          </ScrollView>
+        )}
 
-          <Button
-            label="Save"
-            onPress={onSaveCurrency}
-            busy={updateProfile.isPending}
-            disabled={!dirty}
-          />
-        </View>
+        {updateProfile.isError ? (
+          <ErrorNote message={errorMessage(updateProfile.error) ?? 'Could not save.'} />
+        ) : null}
 
-        <View style={styles.card}>
-          <ThemedText type="small" themeColor="textSecondary">
-            SESSION
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            Signing out removes this device&apos;s stored session. Your expenses stay on the server.
-          </ThemedText>
-          <Button
-            label="Sign out"
-            variant="secondary"
-            onPress={() => void onSignOut()}
-            busy={signingOut}
-          />
-        </View>
-      </ScrollView>
-    </ThemedView>
+        <Button
+          label="Save"
+          onPress={onSaveCurrency}
+          busy={updateProfile.isPending}
+          disabled={!dirty}
+        />
+      </Card>
+
+      <Card>
+        <Text style={[text.overline, { color: theme.muted }]}>SESSION</Text>
+        <Text style={[text.body, { color: theme.muted }]}>
+          Signing out removes this device&apos;s stored session. Your expenses stay on the server.
+        </Text>
+        <Button
+          label="Sign out"
+          variant="secondary"
+          onPress={() => void onSignOut()}
+          busy={signingOut}
+        />
+      </Card>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
-    padding: Spacing.three,
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.four,
+    padding: layout.gutter,
+    paddingBottom: layout.tabBarInset + spacing.xl,
+    gap: spacing.lg,
   },
-  card: { gap: Spacing.two },
   spinner: { alignSelf: 'flex-start' },
-  chipRow: { gap: Spacing.two, paddingRight: Spacing.four },
+  chipRow: { gap: spacing.sm, paddingRight: spacing.lg },
 });

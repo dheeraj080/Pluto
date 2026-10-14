@@ -1,9 +1,11 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { Schemas } from '@pluto/api-client';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/feedback';
+import { spacing, text } from '@/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { formatMoney } from '@/lib/format';
 
 /**
@@ -20,18 +22,21 @@ export function SummaryCard({
   summary: Schemas['ExpenseSummaryDto'] | null;
   loading: boolean;
 }) {
+  const theme = useTheme();
+
   if (!summary) {
     return (
-      <ThemedView style={styles.card}>
-        <ThemedText type="small" themeColor="textSecondary">
-          This month
-        </ThemedText>
+      <Card>
+        <Text style={[text.overline, { color: theme.muted }]}>THIS MONTH</Text>
         {loading ? (
-          <ActivityIndicator style={styles.spinner} />
+          <Skeleton width={132} height={32} />
         ) : (
-          <ThemedText themeColor="textSecondary">No summary available.</ThemedText>
+          <Text style={[text.title, { color: theme.ink }]}>—</Text>
         )}
-      </ThemedView>
+        {!loading ? (
+          <Text style={[text.caption, { color: theme.muted }]}>No summary available.</Text>
+        ) : null}
+      </Card>
     );
   }
 
@@ -43,60 +48,54 @@ export function SummaryCard({
   const secondaryTotal = summary.secondaryTotal ?? null;
 
   return (
-    <ThemedView style={styles.card}>
-      <ThemedText type="small" themeColor="textSecondary">
-        This month
-      </ThemedText>
+    <Card>
+      <View style={styles.heading}>
+        <Text style={[text.overline, { color: theme.muted }]}>THIS MONTH</Text>
+        {conversionStatus === 'unavailable' ? (
+          <Badge label="Unconverted" tone="warning" />
+        ) : null}
+      </View>
 
-      <ThemedText type="title">
+      <Text numberOfLines={1} style={[text.amountHero, { color: theme.ink }]}>
         {total === null ? '—' : formatMoney(total, baseCurrency)}
-      </ThemedText>
+      </Text>
 
       <View style={styles.metaRow}>
-        <ThemedText type="small" themeColor="textSecondary">
+        <Text style={[text.caption, { color: theme.muted }]}>
           {summary.count} {summary.count === 1 ? 'expense' : 'expenses'}
-        </ThemedText>
+        </Text>
         {average !== null ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <Text style={[text.caption, { color: theme.muted }]}>
             avg {formatMoney(average, baseCurrency)}
-          </ThemedText>
+          </Text>
         ) : null}
       </View>
 
       {secondaryCurrency && secondaryTotal !== null ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          ≈ {formatMoney(secondaryTotal, secondaryCurrency)}
-        </ThemedText>
+        <Text style={[text.caption, { color: theme.muted }]}>
+          {`≈ ${formatMoney(secondaryTotal, secondaryCurrency)}`}
+        </Text>
       ) : null}
 
-      {conversionStatus === 'partially_converted' ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          Some amounts could not be converted
-        </ThemedText>
+      {total === null || conversionStatus === 'unavailable' ? (
+        <Text style={[text.caption, { color: theme.muted }]}>
+          Some expenses could not be converted into {baseCurrency}, so no total is shown.
+        </Text>
       ) : null}
-
-      {conversionStatus === 'unavailable' ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          {summary.conversionUnavailableReason ?? 'Exchange rates unavailable'}
-        </ThemedText>
-      ) : null}
-    </ThemedView>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: Spacing.one,
-    paddingVertical: Spacing.four,
-    paddingHorizontal: Spacing.three,
-    marginBottom: Spacing.three,
+  heading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: Spacing.three,
-  },
-  spinner: {
-    alignSelf: 'flex-start',
+    gap: spacing.md,
   },
 });

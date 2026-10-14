@@ -1,41 +1,73 @@
-import { StyleSheet, View } from 'react-native';
+/**
+ * One expense line.
+ *
+ * Laid out like the web app's activity list: the description leads (falling back
+ * to the category when there is no description), the category and date follow as
+ * muted metadata, and the amount is right-aligned in tabular figures so a column
+ * of rows lines up.
+ *
+ * The row carries no background or border of its own — lists separate rows with
+ * `ExpenseRowDivider` so the first and last rows sit flush inside their card.
+ */
+
+import { StyleSheet, Text, View } from 'react-native';
 import type { Schemas } from '@pluto/api-client';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { borderWidth, spacing, text } from '@/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { formatDate, formatMoney } from '@/lib/format';
 
 export function ExpenseRow({ expense }: { expense: Schemas['ExpenseDto'] }) {
+  const theme = useTheme();
+
+  const description = expense.description?.trim();
+  const title = description || expense.categoryName;
+  // Avoid printing the category twice when it is already the title.
+  const meta = description
+    ? `${expense.categoryName} · ${formatDate(expense.incurredOn)}`
+    : formatDate(expense.incurredOn);
+
   return (
-    <ThemedView type="backgroundElement" style={styles.row}>
+    <View style={styles.row}>
       <View style={[styles.dot, { backgroundColor: expense.categoryColor }]} />
+
       <View style={styles.details}>
-        <ThemedText numberOfLines={1}>{expense.categoryName}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {expense.description ?? formatDate(expense.incurredOn)}
-        </ThemedText>
+        <Text numberOfLines={1} style={[text.bodyStrong, { color: theme.ink }]}>
+          {title}
+        </Text>
+        <Text numberOfLines={1} style={[text.caption, { color: theme.muted }]}>
+          {meta}
+        </Text>
       </View>
-      <ThemedText type="smallBold">{formatMoney(expense.amount, expense.currency)}</ThemedText>
-    </ThemedView>
+
+      <Text numberOfLines={1} style={[text.amount, { color: theme.ink }]}>
+        {formatMoney(expense.amount, expense.currency)}
+      </Text>
+    </View>
   );
+}
+
+/** Hairline separator for a list of `ExpenseRow`s. */
+export function ExpenseRowDivider() {
+  const theme = useTheme();
+
+  return <View style={{ height: borderWidth.hairline, backgroundColor: theme.border }} />;
 }
 
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
   },
   dot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   details: {
     flex: 1,
-    gap: Spacing.half,
+    gap: spacing.xs / 2,
   },
 });

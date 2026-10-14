@@ -81,7 +81,7 @@ Routes live in `src/app` (Expo Router, typed routes enabled):
 | Route | Screen |
 | :--- | :--- |
 | `(tabs)/index` | Overview — month summary, 5 most recent expenses |
-| `(tabs)/transactions` | Full list — search, sort, category filter, infinite scroll |
+| `(tabs)/transactions` | Activity — full list, search, sort, category filter, infinite scroll |
 | `(tabs)/settings` | Profile, base currency, sign out |
 | `expense/new` | Create (modal) |
 | `expense/[id]/index` | Detail, with edit and delete |
@@ -96,6 +96,11 @@ Data access is TanStack Query. Hooks in `src/hooks` own every request
 `use-categories`, `use-currencies`, `use-user`); screens never call `fetch`
 directly. Query keys and the filter/sort vocabulary are in
 `src/lib/query-keys.ts`.
+
+Shared UI lives in `src/components/ui`: `Card`/`StatCard`, `Button`, `Chip`,
+`TextField`, `Badge`, `AppPageHeader`, and the `Spinner`/`ErrorNote`/`Skeleton`/
+`EmptyState` family. Screens compose those rather than hand-rolling styles, so a
+change to the design language is one edit, not twenty.
 
 Two things are deliberate and easy to "fix" by mistake:
 

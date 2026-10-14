@@ -68,7 +68,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="transactions"
         options={{
-          title: 'Expenses',
+          title: 'Activity',
           tabBarIcon: ({ color, size }) => <IconReceipt color={color} size={size} />,
         }}
       />
