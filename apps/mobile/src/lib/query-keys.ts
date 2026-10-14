@@ -23,6 +23,14 @@ export interface ExpenseSummaryParams {
   base?: string;
 }
 
+/** Filters for `GET /expenses/budgets/status`. */
+export interface BudgetStatusParams {
+  /** Evaluated month, `YYYY-MM`. */
+  month: string;
+  base?: string;
+  secondary?: string;
+}
+
 /**
  * Builds the query object for `GET /expenses`.
  *
@@ -60,5 +68,9 @@ export const queryKeys = {
   },
   currencies: {
     all: ['currencies'] as const,
+  },
+  budgets: {
+    all: ['budgets'] as const,
+    status: (params: BudgetStatusParams) => ['budgets', 'status', params] as const,
   },
 };

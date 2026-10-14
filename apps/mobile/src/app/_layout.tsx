@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { bootstrapSession } from '@/lib/api';
+import { hydrateSecondaryCurrency } from '@/lib/pair-storage';
 import { getQueryClient } from '@/lib/query-client';
 import { fontFamily, palettes } from '@/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -40,23 +41,24 @@ export default function RootLayout() {
     SpaceGrotesk_600SemiBold,
     SpaceGrotesk_700Bold,
   });
-  const [sessionReady, setSessionReady] = useState(false);
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     // Restore the persisted session before revealing the UI so the sign-in
-    // screen never flashes for an already-authenticated user.
-    void bootstrapSession().finally(() => {
-      setSessionReady(true);
+    // screen never flashes for an already-authenticated user, and the pair
+    // before the first report or budget paints.
+    void Promise.all([bootstrapSession(), hydrateSecondaryCurrency()]).finally(() => {
+      setRestored(true);
     });
   }, []);
 
   const fontsReady = fontsLoaded || Boolean(fontError);
 
   useEffect(() => {
-    if (fontsReady && sessionReady) {
+    if (fontsReady && restored) {
       void SplashScreen.hideAsync();
     }
-  }, [fontsReady, sessionReady]);
+  }, [fontsReady, restored]);
 
   // The splash screen stays up while the 400/500/600/700 faces register.
   if (!fontsReady) {

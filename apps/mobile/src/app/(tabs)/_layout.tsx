@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import { StyleSheet, View } from 'react-native';
 
-import { IconHome, IconReceipt, IconSettings, IconTag } from '@/components/icons';
+import { IconHome, IconReceipt, IconSettings, IconTag, IconWallet } from '@/components/icons';
 import { Spinner } from '@/components/ui/feedback';
 import { fontFamily } from '@/theme';
 import { useSession } from '@/hooks/use-session';
@@ -70,6 +70,13 @@ export default function TabsLayout() {
         options={{
           title: 'Activity',
           tabBarIcon: ({ color, size }) => <IconReceipt color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="budgets"
+        options={{
+          title: 'Budgets',
+          tabBarIcon: ({ color, size }) => <IconWallet color={color} size={size} />,
         }}
       />
       <Tabs.Screen

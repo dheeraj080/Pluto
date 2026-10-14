@@ -44,6 +44,36 @@ export function todayIso(): string {
 }
 
 /**
+ * `2026-10` → `Oct 2026`, anchored to UTC so a month boundary cannot shift it.
+ *
+ * Month *buckets* are UTC (`2026-10`) while `todayIso` is local; a bucket is a
+ * server-side grouping, so it must be read back in the same zone it was made.
+ */
+export function formatMonth(month: string): string {
+  const [year, mon] = month.split('-').map(Number);
+  if (!year || !mon) return month;
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(Date.UTC(year, mon - 1, 1)));
+  } catch {
+    return month;
+  }
+}
+
+/** Today as a `YYYY-MM` bucket, in UTC. */
+export function currentMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+/** `0.5` → `0.5%`, `12` → `12%` — only adds a decimal when there is one. */
+export function formatPercent(value: number): string {
+  return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
+}
+
+/**
  * True for a `YYYY-MM-DD` string that is also a real calendar date.
  *
  * The shape check alone would accept `2026-02-31`; the server validates with
