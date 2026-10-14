@@ -1,9 +1,13 @@
-import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Danger, Spacing } from '@/constants/theme';
+import { borderWidth, radius, spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+/**
+ * A labelled text input, matching the web app's `Field` + `Input`: `text-sm`
+ * label, inset `surface-muted` control with a hairline border, and an optional
+ * hint or error beneath.
+ */
 export function TextField({
   label,
   hint,
@@ -15,17 +19,17 @@ export function TextField({
 
   return (
     <View style={styles.wrap}>
-      <ThemedText type="smallBold" themeColor="textSecondary">
-        {label}
-      </ThemedText>
+      <Text style={[text.bodyMedium, { color: theme.ink }]}>{label}</Text>
 
       <TextInput
-        placeholderTextColor={theme.textSecondary}
+        placeholderTextColor={theme.muted}
         style={[
           styles.input,
+          text.body,
           {
-            color: theme.text,
-            borderColor: error ? Danger : theme.backgroundSelected,
+            color: theme.ink,
+            backgroundColor: theme.surfaceMuted,
+            borderColor: error ? theme.danger : theme.border,
           },
           style,
         ]}
@@ -33,27 +37,21 @@ export function TextField({
       />
 
       {error ? (
-        <ThemedText type="small" style={styles.error}>
-          {error}
-        </ThemedText>
+        <Text style={[text.captionMedium, { color: theme.danger }]}>{error}</Text>
       ) : hint ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          {hint}
-        </ThemedText>
+        <Text style={[text.caption, { color: theme.muted }]}>{hint}</Text>
       ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: Spacing.one },
+  wrap: { gap: spacing.xs },
   input: {
-    minHeight: 48,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    fontSize: 16,
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: borderWidth.hairline,
   },
-  error: { color: Danger },
 });

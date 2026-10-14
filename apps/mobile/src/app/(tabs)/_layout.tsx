@@ -1,48 +1,33 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
-import type { ComponentProps } from 'react';
-import { ActivityIndicator, StyleSheet, type ColorValue } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
 
+import { IconHome, IconReceipt, IconSettings } from '@/components/icons';
 import { ThemedView } from '@/components/themed-view';
-import { Accent } from '@/constants/theme';
+import { fontFamily } from '@/theme';
 import { useSession } from '@/hooks/use-session';
-
-type IconName = ComponentProps<typeof Ionicons>['name'];
-
-/**
- * Filled icon while a tab is active, outline while it is not.
- *
- * Note the import path: `Tabs` from `expo-router` itself is deprecated in
- * Router v57 and the name is no longer re-exported from the package root.
- */
-function tabIcon(icons: [IconName, IconName]) {
-  return function TabIcon({
-    color,
-    size,
-    focused,
-  }: {
-    color: ColorValue;
-    size: number;
-    focused: boolean;
-  }) {
-    return <Ionicons name={icons[focused ? 1 : 0]} size={size} color={color} />;
-  };
-}
+import { useTheme } from '@/hooks/use-theme';
 
 /**
  * Guarded tab shell.
  *
  * The redirect lives here rather than in each screen so a signed-out user never
  * briefly mounts a tab that would fire authenticated requests.
+ *
+ * Note the import path: `Tabs` from `expo-router` itself is deprecated in
+ * Router v57 and the name is no longer re-exported from the package root.
+ *
+ * The icons are Pluto's own stroke set (the same glyphs the web sidebar and
+ * mobile tab bar use) rather than an icon font.
  */
 export default function TabsLayout() {
   const { status } = useSession();
+  const theme = useTheme();
 
   if (status === 'loading') {
     return (
       <ThemedView style={styles.centered}>
-        <ActivityIndicator />
+        <ActivityIndicator color={theme.accent} />
       </ThemedView>
     );
   }
@@ -52,26 +37,46 @@ export default function TabsLayout() {
   }
 
   return (
-    <Tabs screenOptions={{ tabBarActiveTintColor: Accent }}>
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: theme.accent,
+        tabBarInactiveTintColor: theme.muted,
+        tabBarStyle: {
+          backgroundColor: theme.surface,
+          borderTopColor: theme.border,
+        },
+        tabBarLabelStyle: {
+          fontFamily: fontFamily.sans.medium,
+          fontSize: 12,
+        },
+        headerStyle: { backgroundColor: theme.canvas },
+        headerShadowVisible: false,
+        headerTitleStyle: {
+          color: theme.ink,
+          fontFamily: fontFamily.display.semibold,
+          fontSize: 20,
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Overview',
-          tabBarIcon: tabIcon(['pie-chart-outline', 'pie-chart']),
+          tabBarIcon: ({ color, size }) => <IconHome color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="transactions"
         options={{
           title: 'Expenses',
-          tabBarIcon: tabIcon(['list-outline', 'list']),
+          tabBarIcon: ({ color, size }) => <IconReceipt color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: tabIcon(['settings-outline', 'settings']),
+          tabBarIcon: ({ color, size }) => <IconSettings color={color} size={size} />,
         }}
       />
     </Tabs>

@@ -5,7 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { TextField } from '@/components/ui/text-field';
-import { Danger, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { useSupportedCurrencies } from '@/hooks/use-currencies';
 import { isValidIsoDate, parseAmount, todayIso } from '@/lib/format';
@@ -145,7 +145,7 @@ export function ExpenseForm({
         {categories.isPending ? (
           <ActivityIndicator style={styles.spinner} />
         ) : categories.isError ? (
-          <ThemedText type="small" style={styles.errorText}>
+          <ThemedText type="small" themeColor="danger">
             Could not load categories. Pull to refresh and try again.
           </ThemedText>
         ) : (
@@ -163,7 +163,7 @@ export function ExpenseForm({
         )}
 
         {errors.categoryId ? (
-          <ThemedText type="small" style={styles.errorText}>
+          <ThemedText type="small" themeColor="danger">
             {errors.categoryId}
           </ThemedText>
         ) : null}
@@ -205,7 +205,7 @@ export function ExpenseForm({
       </View>
 
       {submitError ? (
-        <ThemedText type="small" style={styles.errorText}>
+        <ThemedText type="small" themeColor="danger">
           {submitError}
         </ThemedText>
       ) : null}
@@ -223,5 +223,4 @@ const styles = StyleSheet.create({
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   spinner: { alignSelf: 'flex-start' },
   inlineSpinner: { alignSelf: 'flex-start' },
-  errorText: { color: Danger },
 });

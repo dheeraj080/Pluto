@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-na
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { Danger, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useExpense } from '@/hooks/use-expense';
 import { useDeleteExpense } from '@/hooks/use-expense-mutations';
 import { errorMessage } from '@/lib/errors';
@@ -73,7 +73,7 @@ export default function ExpenseDetailScreen() {
         </View>
 
         {remove.isError ? (
-          <ThemedText type="small" style={styles.error}>
+          <ThemedText type="small" themeColor="danger">
             {errorMessage(remove.error)}
           </ThemedText>
         ) : null}
@@ -107,5 +107,4 @@ const styles = StyleSheet.create({
   card: { gap: Spacing.three },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.three },
   detailValue: { flex: 1, textAlign: 'right' },
-  error: { color: Danger },
 });

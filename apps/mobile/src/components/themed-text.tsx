@@ -1,12 +1,46 @@
-import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
+/**
+ * Themed text.
+ *
+ * The `type` names come from the Expo template this app was scaffolded from.
+ * They are kept so the screens written against them keep compiling, but each
+ * one now resolves to a Pluto type style from `@/theme`. New components should
+ * use those `text` styles directly.
+ */
 
-import { Fonts, ThemeColor } from '@/constants/theme';
+import { Text, type TextProps } from 'react-native';
+
+import type { ThemeColor } from '@/constants/theme';
+import { resolveThemeColor } from '@/constants/theme';
+import { text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+export type ThemedTextType =
+  | 'default'
+  | 'small'
+  | 'smallBold'
+  | 'title'
+  | 'subtitle'
+  | 'overline'
+  | 'link'
+  | 'linkPrimary'
+  | 'code';
+
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?: ThemedTextType;
   themeColor?: ThemeColor;
 };
+
+const TYPE_STYLES = {
+  default: text.body,
+  small: text.caption,
+  smallBold: text.bodyStrong,
+  title: text.title,
+  subtitle: text.subtitle,
+  overline: text.overline,
+  link: text.link,
+  linkPrimary: text.linkPrimary,
+  code: text.mono,
+} as const;
 
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
@@ -14,60 +48,11 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
   return (
     <Text
       style={[
-        { color: theme[themeColor ?? 'text'] },
-        type === 'default' && styles.default,
-        type === 'title' && styles.title,
-        type === 'small' && styles.small,
-        type === 'smallBold' && styles.smallBold,
-        type === 'subtitle' && styles.subtitle,
-        type === 'link' && styles.link,
-        type === 'linkPrimary' && styles.linkPrimary,
-        type === 'code' && styles.code,
+        { color: resolveThemeColor(theme, themeColor ?? 'text') },
+        TYPE_STYLES[type],
         style,
       ]}
       {...rest}
     />
   );
 }
-
-const styles = StyleSheet.create({
-  small: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 500,
-  },
-  smallBold: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 700,
-  },
-  default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 500,
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
-  },
-  subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
-  },
-  link: {
-    lineHeight: 30,
-    fontSize: 14,
-  },
-  linkPrimary: {
-    lineHeight: 30,
-    fontSize: 14,
-    color: '#3c87f7',
-  },
-  code: {
-    fontFamily: Fonts.mono,
-    fontWeight: Platform.select({ android: 700 }) ?? 500,
-    fontSize: 12,
-  },
-});

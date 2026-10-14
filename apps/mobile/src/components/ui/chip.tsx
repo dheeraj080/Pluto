@@ -1,7 +1,6 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Accent, AccentText, Spacing } from '@/constants/theme';
+import { borderWidth, radius, spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export function Chip({
@@ -27,16 +26,19 @@ export function Chip({
       style={({ pressed }) => [
         styles.chip,
         {
-          backgroundColor: selected ? Accent : theme.backgroundElement,
-          borderColor: selected ? Accent : theme.backgroundSelected,
+          backgroundColor: selected ? theme.primary : theme.surfaceMuted,
+          borderColor: selected ? theme.primary : theme.border,
         },
         pressed && styles.pressed,
       ]}
     >
       {dotColor ? <View style={[styles.dot, { backgroundColor: dotColor }]} /> : null}
-      <ThemedText type="small" style={selected ? styles.selectedLabel : undefined}>
+      <Text
+        numberOfLines={1}
+        style={[text.bodyMedium, { color: selected ? theme.onPrimary : theme.muted }]}
+      >
         {label}
-      </ThemedText>
+      </Text>
     </Pressable>
   );
 }
@@ -44,14 +46,13 @@ export function Chip({
 const styles = StyleSheet.create({
   chip: {
     minHeight: 36,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.five,
-    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.pill,
+    borderWidth: borderWidth.hairline,
   },
   pressed: { opacity: 0.7 },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  selectedLabel: { color: AccentText },
 });

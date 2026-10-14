@@ -103,9 +103,48 @@ Two things are deliberate and easy to "fix" by mistake:
   *file paths*, so `expense/[id]/index.tsx` generates `/expense/[id]/index`
   while the router serves `/expense/<id>`. The cast bridges that naming gap; the
   URLs themselves are the canonical ones.
-- Icons are imported as `@expo/vector-icons/Ionicons`, not from the package
-  root, because the root entry pulls in every icon font (and its `.ttf` assets)
-  into the bundle.
+- Icons and the brand mark are **Pluto's own**, drawn with `react-native-svg` in
+  `src/components/icons.tsx` and `src/components/logo.tsx`, ported glyph-for-glyph
+  from the web app. There is no icon font: every glyph takes an explicit `size`
+  and `color`, because React Native has neither `currentColor` nor CSS sizing.
+
+## Design system
+
+`src/theme` is the single source of every colour, radius, spacing step and text
+style. Screens compose those tokens; they do not invent values.
+
+| Module | Holds |
+| :--- | :--- |
+| `src/theme/palette.ts` | `darkPalette` / `lightPalette` — the colour ramps |
+| `src/theme/typography.ts` | `fontFamily`, `fontSize`, `text` (named styles) |
+| `src/theme/tokens.ts` | `spacing`, `radius`, `controlHeight`, `borderWidth`, `layout` |
+
+**The dark palette mirrors `apps/web/src/app/globals.css` exactly.** The web app
+is dark-only, so the light ramp is mobile's own invention and is asserted against
+nothing. `npm run check:theme` cross-checks all 39 mapped tokens between the two
+files and runs as part of `typecheck`, so editing one side without the other fails
+the build.
+
+Fonts are Inter (body) and Space Grotesk (display/headings), loaded via
+`expo-font` in `src/app/_layout.tsx`, which holds the splash screen until they
+register. Each weight is registered as its own family name because Android will
+not resolve a weight out of a bundled family.
+
+App icons and the splash mark are generated, not hand-drawn:
+
+```bash
+npm run assets:brand   # writes assets/images/*.png from the brand geometry
+```
+
+`scripts/generate-brand-assets.mjs` rasterises the same planet-and-orbit mark as
+the web's `lib/brand-mark.ts`, so the launcher icon, the splash and the in-app
+`PlutoMark` cannot drift apart.
+
+`src/constants/theme.ts` is a **transitional** shim: it re-states the Expo
+template's old token names (`Colors`, `Spacing`, `BottomTabInset`, and the
+`textSecondary`/`backgroundElement` colour aliases) on top of the Pluto palette
+so the screens written before the design system keep compiling. New code imports
+from `@/theme`; the shim goes away as the screens are migrated.
 
 ## Monorepo notes
 

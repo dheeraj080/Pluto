@@ -1,56 +1,62 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Transitional token exports.
+ *
+ * `@/theme` is the design system; this module exists only so the screens
+ * written before it keep compiling, by re-stating the old template's token
+ * *names* on top of the Pluto palette. The shell/screen pass deletes it.
+ *
+ * **New code must import from `@/theme`.**
  */
 
-import '@/global.css';
+import { layout, palettes, type Palette } from '@/theme';
 
-import { Platform } from 'react-native';
+/** Old surface/text names, kept as aliases onto their Pluto equivalents. */
+type LegacyKey = 'text' | 'background' | 'backgroundElement' | 'backgroundSelected' | 'textSecondary';
 
+/** The palette plus its deprecated names — what `useTheme()` returns today. */
+export type ThemedColors = Palette & Record<LegacyKey, string>;
+
+/** Every token `ThemedText`/`ThemedView` can address by name. */
+type StringKeys<T> = { [K in keyof T]: T[K] extends string ? K : never }[keyof T];
+
+export type ThemeColor =
+  | StringKeys<Palette>
+  | LegacyKey
+  | 'textPrimary'
+  | 'textDanger'
+  | 'textSuccess'
+  | 'textWarning'
+  | 'textGold'
+  | 'textAccent'
+  | 'textInk'
+  | 'textMuted';
+
+/** The palette per colour scheme, plus the deprecated aliases. */
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    ...palettes.light,
+    text: palettes.light.ink,
+    background: palettes.light.canvas,
+    backgroundElement: palettes.light.surfaceMuted,
+    backgroundSelected: palettes.light.surface,
+    textSecondary: palettes.light.muted,
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    ...palettes.dark,
+    text: palettes.dark.ink,
+    background: palettes.dark.canvas,
+    backgroundElement: palettes.dark.surfaceMuted,
+    backgroundSelected: palettes.dark.surface,
+    textSecondary: palettes.dark.muted,
   },
 } as const;
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
-
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
-});
-
+/**
+ * @deprecated Use `spacing` from `@/theme`.
+ *
+ * A literal rather than an alias: the old scale has a 2pt and a 64pt step that
+ * the 4pt grid in `@/theme` does not carry.
+ */
 export const Spacing = {
   half: 2,
   one: 4,
@@ -61,15 +67,41 @@ export const Spacing = {
   six: 64,
 } as const;
 
-/**
- * Brand colours that are the same in light and dark mode.
- *
- * These are deliberately not part of `Colors`: they are accents rather than
- * surfaces, so they must not flip with the colour scheme.
- */
-export const Accent = '#208AEF';
-export const AccentText = '#ffffff';
-export const Danger = '#d92d20';
+/** @deprecated Use `layout.tabBarInset` from `@/theme`. */
+export const BottomTabInset = layout.tabBarInset;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+/** @deprecated Use `layout.maxContentWidth` from `@/theme`. */
+export const MaxContentWidth = layout.maxContentWidth;
+
+/** Resolves a semantic colour name onto the palette, including aliases such
+ * as `text-primary` (the web's `text-primary` utility). */
+export function resolveThemeColor(theme: ThemedColors, key: ThemeColor): string {
+  switch (key) {
+    case 'text':
+    case 'textInk':
+      return theme.ink;
+    case 'background':
+      return theme.canvas;
+    case 'backgroundElement':
+      return theme.surfaceMuted;
+    case 'backgroundSelected':
+      return theme.surface;
+    case 'textSecondary':
+    case 'textMuted':
+      return theme.muted;
+    case 'textPrimary':
+      return theme.primary;
+    case 'textDanger':
+      return theme.danger;
+    case 'textSuccess':
+      return theme.success;
+    case 'textWarning':
+      return theme.warning;
+    case 'textGold':
+      return theme.gold;
+    case 'textAccent':
+      return theme.accent;
+    default:
+      return theme[key] as string;
+  }
+}

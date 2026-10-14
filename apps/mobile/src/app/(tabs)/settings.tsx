@@ -5,7 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
-import { BottomTabInset, Danger, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useSupportedCurrencies } from '@/hooks/use-currencies';
 import { useSession } from '@/hooks/use-session';
 import { useUpdateProfile } from '@/hooks/use-user';
@@ -71,7 +71,7 @@ export default function SettingsScreen() {
           {currencies.isPending ? (
             <ActivityIndicator style={styles.spinner} />
           ) : currencies.isError ? (
-            <ThemedText type="small" style={styles.error}>
+            <ThemedText type="small" themeColor="danger">
               {errorMessage(currencies.error)}
             </ThemedText>
           ) : (
@@ -92,7 +92,7 @@ export default function SettingsScreen() {
           )}
 
           {updateProfile.isError ? (
-            <ThemedText type="small" style={styles.error}>
+            <ThemedText type="small" themeColor="danger">
               {errorMessage(updateProfile.error)}
             </ThemedText>
           ) : null}
@@ -134,5 +134,4 @@ const styles = StyleSheet.create({
   card: { gap: Spacing.two },
   spinner: { alignSelf: 'flex-start' },
   chipRow: { gap: Spacing.two, paddingRight: Spacing.four },
-  error: { color: Danger },
 });

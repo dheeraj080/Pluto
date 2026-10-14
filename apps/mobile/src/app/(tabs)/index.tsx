@@ -1,4 +1,4 @@
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
@@ -7,7 +7,9 @@ import { SummaryCard } from '@/components/summary-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { Wordmark } from '@/components/logo';
+import { layout, spacing } from '@/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useExpenseList, useExpenseSummary } from '@/hooks/use-expenses';
 import { useSession } from '@/hooks/use-session';
 import { errorMessage } from '@/lib/errors';
@@ -18,6 +20,7 @@ const RECENT_COUNT = 5;
 
 export default function OverviewScreen() {
   const { user } = useSession();
+  const theme = useTheme();
   const list = useExpenseList({ sort: 'date_desc' });
   const summary = useExpenseSummary({});
 
@@ -31,6 +34,18 @@ export default function OverviewScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
+        <Wordmark size={28} />
+        <View style={styles.greeting}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Signed in as
+          </ThemedText>
+          <ThemedText type="smallBold" numberOfLines={1}>
+            {user?.name ?? user?.email ?? 'Pluto user'}
+          </ThemedText>
+        </View>
+      </View>
+
       <FlatList
         data={list.items.slice(0, RECENT_COUNT)}
         keyExtractor={(item) => item.id}
@@ -39,29 +54,18 @@ export default function OverviewScreen() {
         onRefresh={onRefresh}
         ListHeaderComponent={
           <View style={styles.header}>
-            <View style={styles.greeting}>
-              <ThemedText type="small" themeColor="textSecondary">
-                Signed in as
-              </ThemedText>
-              <ThemedText type="smallBold" numberOfLines={1}>
-                {user?.name ?? user?.email ?? 'Pluto user'}
-              </ThemedText>
-            </View>
-
             <SummaryCard summary={summary.data ?? null} loading={summary.isPending} />
 
             <Button label="Add expense" onPress={() => router.push('/expense/new')} />
 
             <View style={styles.sectionRow}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                RECENT
-              </ThemedText>
+              <ThemedText type="overline">RECENT</ThemedText>
               {list.total > 0 ? (
-                <Link href="/transactions" asChild>
-                  <Pressable hitSlop={8}>
-                    <ThemedText type="link">See all {list.total}</ThemedText>
-                  </Pressable>
-                </Link>
+                <Pressable hitSlop={8} onPress={() => router.push('/transactions')}>
+                  <ThemedText type="link" themeColor="textPrimary">
+                    See all {list.total}
+                  </ThemedText>
+                </Pressable>
               ) : null}
             </View>
           </View>
@@ -87,22 +91,30 @@ export default function OverviewScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: {
-    padding: Spacing.three,
-    paddingBottom: Spacing.three + BottomTabInset,
-    gap: Spacing.two,
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: layout.gutter,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
   },
-  header: { gap: Spacing.three },
-  greeting: { gap: Spacing.half },
+  content: {
+    padding: layout.gutter,
+    paddingBottom: layout.tabBarInset + spacing.xl,
+    gap: spacing.md,
+  },
+  header: { gap: spacing.md },
+  greeting: { flex: 1 },
   sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: Spacing.three,
-    marginTop: Spacing.two,
+    gap: spacing.md,
+    marginTop: spacing.xs,
   },
   placeholder: {
     textAlign: 'center',
-    paddingVertical: Spacing.four,
+    paddingVertical: spacing.xl,
   },
 });

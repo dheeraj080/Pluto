@@ -1,14 +1,20 @@
 /**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
+ * The active colour tokens for the current OS colour scheme.
+ *
+ * Falls back to the light palette whenever the scheme is not known yet (web
+ * pre-hydration, or a platform that reports `null`), so the first frame is
+ * deterministic rather than flashing the dark canvas.
+ *
+ * Returns the aliased palette from `@/constants/theme` while the screens are
+ * still being migrated; once they all read `@/theme` directly this becomes
+ * `paletteFor(useColorScheme())`.
  */
 
-import { Colors } from '@/constants/theme';
+import { Colors, type ThemedColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export function useTheme() {
+export function useTheme(): ThemedColors {
   const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
 
-  return Colors[theme];
+  return Colors[scheme === 'dark' ? 'dark' : 'light'];
 }
