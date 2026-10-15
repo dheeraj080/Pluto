@@ -164,11 +164,15 @@ style. Screens compose those tokens; they do not invent values.
 | `src/theme/typography.ts` | `fontFamily`, `fontSize`, `text` (named styles) |
 | `src/theme/tokens.ts` | `spacing`, `radius`, `controlHeight`, `borderWidth`, `layout` |
 
-**The dark palette mirrors `apps/web/src/app/globals.css` exactly.** The web app
-is dark-only, so the light ramp is mobile's own invention and is asserted against
-nothing. `npm run check:theme` cross-checks all 39 mapped tokens between the two
-files and runs as part of `typecheck`, so editing one side without the other fails
-the build.
+**Both palettes mirror `apps/web/src/app/globals.css` exactly.** `darkPalette`
+matches the `:root` ramp and `lightPalette` matches `:root[data-theme="light"]`.
+`npm run check:theme` cross-checks all 39 mapped tokens in both themes between
+the two files and runs as part of `typecheck`, so editing one side without the
+other fails the build.
+
+Appearance is a user preference (`system` / `light` / `dark`), stored in
+`src/lib/theme-preference.ts` and resolved into the active palette by
+`src/hooks/use-color-scheme.ts`. The control lives on the Settings screen.
 
 Fonts are Inter (body) and Space Grotesk (display/headings), loaded via
 `expo-font` in `src/app/_layout.tsx`, which holds the splash screen until they

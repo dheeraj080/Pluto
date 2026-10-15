@@ -11,6 +11,7 @@
 
 import { useMemo } from "react";
 import { AppPageHeader } from "@/components/app-page-header";
+import { ThemeToggle } from "@/components/theme";
 import { Button, ErrorNote, Field, Select } from "@/components/ui";
 import { IconSwap } from "@/components/icons";
 import { formatMoney } from "@/lib/format";
@@ -128,6 +129,17 @@ export default function SettingsPage() {
             )}
           </div>
         )}
+      </section>
+
+      <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
+        <h2 className="text-sm font-medium text-ink">Appearance</h2>
+        <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
+          Choose a light or dark interface, or follow your device. The setting is saved to this
+          browser.
+        </p>
+        <div className="mt-4">
+          <ThemeToggle withLabels />
+        </div>
       </section>
 
       <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">

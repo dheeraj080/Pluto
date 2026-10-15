@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
 import { ErrorNote, Spinner } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { IconSwap } from '@/components/icons';
 import { borderWidth, layout, radius, spacing, tabularNums, text } from '@/theme';
 import { useSupportedCurrencies } from '@/hooks/use-currencies';
@@ -13,12 +14,21 @@ import { usePair } from '@/hooks/use-pair';
 import { useRateSnapshot } from '@/hooks/use-rates';
 import { useSession } from '@/hooks/use-session';
 import { useTheme } from '@/hooks/use-theme';
+import { useThemePreference } from '@/hooks/use-theme-preference';
 import { signOut } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { formatMoney } from '@/lib/format';
+import { writeThemePreference, type ThemePreference } from '@/lib/theme-preference';
 
 /** The illustrative amount used for the live pair preview. */
 const SAMPLE = 100;
+
+/** Appearance options for the segmented control. */
+const APPEARANCE_OPTIONS: ReadonlyArray<{ value: ThemePreference; label: string }> = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
 
 /**
  * Settings: the account, and the one place the currency Pair is defined.
@@ -30,6 +40,7 @@ const SAMPLE = 100;
  */
 export default function SettingsScreen() {
   const theme = useTheme();
+  const themePreference = useThemePreference();
   const { user } = useSession();
   const currencies = useSupportedCurrencies();
   const { base, second, setBase, setSecond, swap, savingBase, baseError } = usePair();
@@ -71,6 +82,19 @@ export default function SettingsScreen() {
         <Text numberOfLines={1} style={[text.body, { color: theme.muted }]}>
           {user?.email ?? '—'}
         </Text>
+      </Card>
+
+      <Card>
+        <Text style={[text.overline, { color: theme.muted }]}>APPEARANCE</Text>
+        <Text style={[text.body, { color: theme.muted }]}>
+          Follow your device, or pin a light or dark theme on this device.
+        </Text>
+        <SegmentedControl
+          label="Appearance"
+          options={APPEARANCE_OPTIONS}
+          value={themePreference}
+          onChange={writeThemePreference}
+        />
       </Card>
 
       <Card>

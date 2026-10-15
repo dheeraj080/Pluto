@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
+import { ThemeProvider } from "@/components/theme";
+import { THEME_COLORS, THEME_INIT_SCRIPT } from "@/lib/theme";
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -57,7 +60,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0B0C0E",
+  // The document supports both themes; "dark light" prefers dark when the user
+  // has expressed no OS preference. The inline script overwrites this per the
+  // stored choice before paint.
+  colorScheme: "dark light",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -65,8 +75,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       className={`${inter.variable} ${spaceGrotesk.variable} ${geistMono.variable} h-full antialiased`}
+      // The inline script may rewrite `data-theme` and the colour-scheme before
+      // React hydrates; suppress the resulting attribute mismatch.
+      data-theme="dark"
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
+      <body className="min-h-full flex flex-col">
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

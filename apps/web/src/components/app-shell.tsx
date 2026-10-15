@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { PlutoMark, Wordmark } from "./logo";
+import { ThemeToggle } from "./theme";
 import { IconLogOut, IconSettings } from "./icons";
 import type { UserProfile } from "@/lib/types";
 
@@ -82,6 +83,9 @@ export function AppShell({
         </nav>
 
         <div className="relative border-t border-border p-2 lg:p-3">
+          <div className="mb-2 hidden justify-center lg:flex">
+            <ThemeToggle />
+          </div>
           <AccountMenu user={user} onSignOut={onSignOut} />
         </div>
       </aside>
@@ -93,16 +97,19 @@ export function AppShell({
           <Link href="/" className="text-ink transition-opacity hover:opacity-80">
             <Wordmark />
           </Link>
-          {onSignOut && (
-            <button
-              type="button"
-              onClick={onSignOut}
-              aria-label="Sign out"
-              className="rounded-lg p-2 text-muted transition-colors hover:bg-surface-muted hover:text-ink"
-            >
-              <IconLogOut className="h-5 w-5" />
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {onSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                aria-label="Sign out"
+                className="rounded-lg p-2 text-muted transition-colors hover:bg-surface-muted hover:text-ink"
+              >
+                <IconLogOut className="h-5 w-5" />
+              </button>
+            )}
+          </div>
         </div>
 
         <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6 md:px-8 md:pb-10 lg:pb-12">

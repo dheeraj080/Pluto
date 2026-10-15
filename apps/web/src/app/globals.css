@@ -3,15 +3,23 @@
 /*
  * Pluto design tokens.
  *
- * A single dark, near-black "graphite" theme. Neutrals are strictly
- * blue/green-free greys; one bright mint-emerald accent carries key numbers,
- * active states, primary buttons and chart lines. Semantic CSS variables feed
- * the Tailwind 4 `@theme` via `@theme inline`, so every utility resolves the
- * variable at use time.
+ * Two themes over one semantic vocabulary. The default, written into `:root`,
+ * is the dark near-black "graphite" theme: neutrals are strictly blue/green-free
+ * greys, and one bright mint-emerald accent carries key numbers, active states,
+ * primary buttons and chart lines. `:root[data-theme="light"]` is the light
+ * ramp, a 1:1 mirror of `apps/mobile/src/theme/palette.ts`'s `lightPalette`
+ * (asserted by `apps/mobile/scripts/check-theme-parity.mjs`); its accents move
+ * to the darker step of each family so ink keeps WCAG AA on a white surface.
+ * Semantic CSS variables feed the Tailwind 4 `@theme` via `@theme inline`, so
+ * every utility resolves the variable at use time and follows the active theme.
  *
- * Contrast targets WCAG AA: off-white ink on the near-black canvas is ~17:1,
- * secondary grey ~8:1, emerald ~10:1, and dark ink on a solid emerald surface
- * ~9:1.
+ * Dark contrast targets WCAG AA: off-white ink on the near-black canvas is
+ * ~17:1, secondary grey ~8:1, emerald ~10:1, and dark ink on a solid emerald
+ * surface ~9:1. The light ramp targets the same on white (~19:1 ink, ~7:1
+ * muted, ~4.9:1 emerald).
+ *
+ * `data-theme` is set on `<html>` by the inline script in `app/layout.tsx`
+ * before first paint (so there is no flash) and updated by the theme control.
  */
 
 :root {
@@ -70,11 +78,98 @@
   /* Second-currency line in dual-series charts: a soft, quiet grey. */
   --chart-secondary: #cbd5e1;
 
+  /* Chart palette — distinct, bright hues that read on dark surfaces. */
+  --chart-1: #34d399;
+  --chart-2: #60a5fa;
+  --chart-3: #a78bfa;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+  --chart-6: #22d3ee;
+  --chart-7: #fb923c;
+  --chart-8: #4ade80;
+  --chart-9: #facc15;
+  --chart-10: #94a3b8;
+
   --focus-ring: #34d399;
 
   /* Radial glow used behind the hero chart and product card. */
   --glow: rgba(52, 211, 153, 0.22);
   --glow-strong: rgba(52, 211, 153, 0.34);
+}
+
+/*
+ * Light theme. Mirrors `lightPalette` in apps/mobile/src/theme/palette.ts value
+ * for value — the parity check compares every mapped token between the two.
+ * Applied by `data-theme="light"` on `<html>`; the dark ramp above stays the
+ * default, so an unset attribute (no scripting) renders dark.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --canvas: #f7f8f8;
+  --surface: #ffffff;
+  --surface-muted: #f1f3f4;
+  --ink: #0b0c0e;
+  --muted: #5b656d;
+  --border: rgba(11, 12, 14, 0.09);
+  --border-strong: rgba(11, 12, 14, 0.18);
+
+  --primary: #059669;
+  --primary-hover: #047857;
+  --primary-active: #065f46;
+  --primary-subtle: rgba(5, 150, 105, 0.10);
+  --on-primary: #ffffff;
+
+  --accent: #059669;
+  --accent-hover: #047857;
+  --accent-strong: #047857;
+  --accent-subtle: rgba(5, 150, 105, 0.10);
+  --on-accent: #ffffff;
+
+  --gold: #b45309;
+  --gold-subtle: rgba(180, 83, 9, 0.10);
+
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --danger-solid: #b91c1c;
+  --danger-solid-hover: #991b1b;
+  --danger-subtle: rgba(220, 38, 38, 0.08);
+  --on-danger: #ffffff;
+
+  --success: #047857;
+  --success-subtle: rgba(5, 150, 105, 0.10);
+
+  --warning: #b45309;
+  --warning-subtle: rgba(180, 83, 9, 0.10);
+
+  /* Restrained category palette, darkened for a white canvas. */
+  --cat-mint: #059669;
+  --cat-sky: #0284c7;
+  --cat-amber: #d97706;
+  --cat-rose: #e11d48;
+  --cat-violet: #7c3aed;
+  --cat-slate: #64748b;
+
+  /* Second-currency line in dual-series charts: a quiet grey. */
+  --chart-secondary: #94a3b8;
+
+  /* Chart palette — the dark brights, moved to a legible step on white. */
+  --chart-1: #059669;
+  --chart-2: #2563eb;
+  --chart-3: #7c3aed;
+  --chart-4: #d97706;
+  --chart-5: #db2777;
+  --chart-6: #0891b2;
+  --chart-7: #ea580c;
+  --chart-8: #16a34a;
+  --chart-9: #ca8a04;
+  --chart-10: #64748b;
+
+  --focus-ring: #059669;
+
+  /* Radial glow used behind the hero chart and product card. */
+  --glow: rgba(5, 150, 105, 0.16);
+  --glow-strong: rgba(5, 150, 105, 0.26);
 }
 
 @theme inline {
@@ -123,17 +218,17 @@
   --color-cat-slate: var(--cat-slate);
   --color-chart-secondary: var(--chart-secondary);
 
-  /* Chart palette — distinct, bright hues that read on dark surfaces. */
-  --color-chart-1: #34d399;
-  --color-chart-2: #60a5fa;
-  --color-chart-3: #a78bfa;
-  --color-chart-4: #fbbf24;
-  --color-chart-5: #f472b6;
-  --color-chart-6: #22d3ee;
-  --color-chart-7: #fb923c;
-  --color-chart-8: #4ade80;
-  --color-chart-9: #facc15;
-  --color-chart-10: #94a3b8;
+  /* Chart palette — resolved per theme from the `--chart-*` tokens above. */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-chart-9: var(--chart-9);
+  --color-chart-10: var(--chart-10);
 
   --font-sans: var(--font-inter);
   --font-display: var(--font-space-grotesk);
@@ -142,7 +237,6 @@
 
 @layer base {
   html {
-    color-scheme: dark;
     scroll-behavior: smooth;
   }
 

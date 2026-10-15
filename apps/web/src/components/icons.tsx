@@ -347,6 +347,26 @@ export function IconSun(props: IconProps) {
   );
 }
 
+export function IconMoon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M20 14.4A8.2 8.2 0 0 1 9.6 4a8.2 8.2 0 1 0 10.4 10.4z" />
+      <path d="M16.4 5.2h.01" />
+      <path d="M19.4 3.2h.01" />
+    </Svg>
+  );
+}
+
+export function IconMonitor(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="4" width="18" height="12.5" rx="1.8" />
+      <path d="M9 20.5h6" />
+      <path d="M12 16.5v4" />
+    </Svg>
+  );
+}
+
 export function IconMobile(props: IconProps) {
   return (
     <Svg {...props}>

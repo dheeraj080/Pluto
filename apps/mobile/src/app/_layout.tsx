@@ -20,6 +20,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { bootstrapSession } from '@/lib/api';
 import { hydrateSecondaryCurrency } from '@/lib/pair-storage';
 import { getQueryClient } from '@/lib/query-client';
+import { hydrateThemePreference } from '@/lib/theme-preference';
 import { fontFamily, palettes } from '@/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -45,9 +46,13 @@ export default function RootLayout() {
 
   useEffect(() => {
     // Restore the persisted session before revealing the UI so the sign-in
-    // screen never flashes for an already-authenticated user, and the pair
-    // before the first report or budget paints.
-    void Promise.all([bootstrapSession(), hydrateSecondaryCurrency()]).finally(() => {
+    // screen never flashes for an already-authenticated user, and the pair and
+    // appearance preference before the first report or palette paints.
+    void Promise.all([
+      bootstrapSession(),
+      hydrateSecondaryCurrency(),
+      hydrateThemePreference(),
+    ]).finally(() => {
       setRestored(true);
     });
   }, []);

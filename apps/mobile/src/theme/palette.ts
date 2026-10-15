@@ -1,18 +1,17 @@
 /**
  * Pluto colour tokens.
  *
- * The `dark` palette is a 1:1 mirror of the design system's source of truth,
- * `apps/web/src/app/globals.css` (`:root`). `scripts/check-theme-parity.mjs`
- * fails the build when the two drift, so any change there must be mirrored
- * here.
+ * Both ramps are a 1:1 mirror of the design system's source of truth,
+ * `apps/web/src/app/globals.css`: `darkPalette` matches `:root` and
+ * `lightPalette` matches `:root[data-theme="light"]`. `scripts/check-theme-parity.mjs`
+ * fails the build when either drifts, so any change there must be mirrored here.
  *
- * The web app is `color-scheme: dark` only, so there is no light ramp to
- * mirror: `light` is **ours**. Neutrals are the same graphite ramp inverted
- * around the brand's own darkest value (`#0B0C0E` becomes the ink, and the
- * near-black canvas becomes near-white), and every accent moves to the darker
- * step of its existing family so ink stays above WCAG AA on a white surface.
- * `#34D399` is only ~1.9:1 on white, which is why light mode uses the
- * emerald ramp's `#059669` — already the dark theme's `primaryActive`.
+ * Neutrals are the same graphite ramp inverted around the brand's own darkest
+ * value (`#0B0C0E` becomes the ink, and the near-black canvas becomes
+ * near-white), and every accent moves to the darker step of its existing family
+ * so ink stays above WCAG AA on a white surface. `#34D399` is only ~1.9:1 on
+ * white, which is why light mode uses the emerald ramp's `#059669` — already the
+ * dark theme's `primaryActive`.
  */
 
 export interface Palette {

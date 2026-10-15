@@ -12,6 +12,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Wordmark } from "./logo";
 import { AuthNavLink } from "./auth-nav-link";
+import { ThemeToggle } from "./theme";
 import { IconClose, IconMenu } from "./icons";
 
 const NAV = [
@@ -48,7 +49,8 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <div className="hidden lg:block">
+        <div className="hidden items-center gap-3 lg:flex">
+          <ThemeToggle />
           <AuthNavLink />
         </div>
 
@@ -83,7 +85,8 @@ export function SiteHeader() {
               </li>
             ))}
           </ul>
-          <div className="mt-3 border-t border-border pt-3">
+          <div className="mt-3 flex flex-col gap-3 border-t border-border pt-3">
+            <ThemeToggle withLabels />
             <AuthNavLink stack onNavigate={() => setMenuOpen(false)} />
           </div>
         </nav>
