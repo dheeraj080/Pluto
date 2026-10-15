@@ -32,9 +32,9 @@ import { useSession } from '@/hooks/use-session';
  */
 export function comparisonDeltaPct(comparison: ExpenseComparison | null): number | null {
   if (!comparison || !comparison.converted) return null;
-  if (comparison.current.total == null || comparison.previous.total == null) return null;
-  const percent = comparison.delta.totalPct;
-  return Number.isFinite(percent) ? percent : null;
+  const { current, previous } = comparison;
+  if (current.total == null || previous.total == null || previous.total <= 0) return null;
+  return Number.isFinite(comparison.delta.totalPct) ? comparison.delta.totalPct : null;
 }
 
 export interface MonthComparison {

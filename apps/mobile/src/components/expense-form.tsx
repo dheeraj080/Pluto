@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { IconSwap } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { ErrorNote, Spinner } from '@/components/ui/feedback';
 import { TextField } from '@/components/ui/text-field';
-import { spacing, text } from '@/theme';
+import { borderWidth, radius, spacing, tabularNums, text } from '@/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { useSupportedCurrencies } from '@/hooks/use-currencies';
+import { usePair } from '@/hooks/use-pair';
+import { useRateSnapshot } from '@/hooks/use-rates';
 import { useTheme } from '@/hooks/use-theme';
-import { isValidIsoDate, parseAmount, todayIso } from '@/lib/format';
+import { buildConversionPreview, dualAmounts } from '@/lib/convert';
+import { formatMoney, isValidIsoDate, parseAmount, todayIso } from '@/lib/format';
 
 /** Validated values, ready to be sent as a create/update payload. */
 export interface ExpenseDraft {
@@ -38,6 +42,9 @@ const PAYMENT_METHODS = ['CARD', 'CASH', 'UPI', 'OTHER'];
  * Group labels reuse `TextField`'s label treatment (`text-sm font-medium` in
  * ink) rather than the uppercase card-title style, so a chip group and a text
  * field read as the same kind of thing.
+ *
+ * The live conversion preview is display-only: it is computed from the public
+ * ECB snapshot and never changes the amount that gets stored.
  */
 export function ExpenseForm({
   initial,
@@ -58,6 +65,8 @@ export function ExpenseForm({
   const theme = useTheme();
   const categories = useCategories();
   const currencies = useSupportedCurrencies();
+  const { base, second } = usePair();
+  const snapshot = useRateSnapshot(base ?? undefined);
 
   const [amount, setAmount] = useState(
     initial?.amount === undefined ? '' : String(initial.amount),
@@ -69,11 +78,24 @@ export function ExpenseForm({
   const [paymentMethod, setPaymentMethod] = useState(initial?.paymentMethod ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const parsedAmount = parseAmount(amount);
+
+  // The preview is only meaningful when the amount is recorded in a currency
+  // other than the Base — otherwise the recorded amount already is the headline.
+  const toBase =
+    base && parsedAmount !== null && currency !== base
+      ? buildConversionPreview(parsedAmount, currency, base, snapshot.data ?? null)
+      : null;
+  const pair =
+    toBase && parsedAmount !== null
+      ? dualAmounts(parsedAmount, currency, base, second, snapshot.data ?? null)
+      : null;
+
   function handleSubmit() {
     const nextErrors: Record<string, string> = {};
-    const parsedAmount = parseAmount(amount);
+    const parsed = parseAmount(amount);
 
-    if (parsedAmount === null) {
+    if (parsed === null) {
       nextErrors.amount = 'Enter a positive amount with up to 2 decimals.';
     }
     if (!isValidIsoDate(incurredOn)) {
@@ -87,10 +109,10 @@ export function ExpenseForm({
     }
 
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0 || parsedAmount === null) return;
+    if (Object.keys(nextErrors).length > 0 || parsed === null) return;
 
     onSubmit({
-      amount: parsedAmount,
+      amount: parsed,
       currency: currency.trim().toUpperCase(),
       categoryId,
       incurredOn,
@@ -143,6 +165,33 @@ export function ExpenseForm({
           />
         )}
       </View>
+
+      {toBase && pair ? (
+        <View
+          style={[
+            styles.preview,
+            { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+          ]}
+        >
+          <View style={styles.previewLine}>
+            <IconSwap size={16} color={theme.primary} />
+            <Text style={[text.body, { color: theme.muted }]}>≈</Text>
+            <Text style={[text.bodyMedium, tabularNums, { color: theme.ink }]}>
+              {formatMoney(pair.base ?? 0, toBase.to)}
+            </Text>
+            {pair.second !== null && second ? (
+              <Text style={[text.body, tabularNums, { color: theme.muted }]}>
+                · {formatMoney(pair.second, second)}
+              </Text>
+            ) : null}
+            <Text style={[text.body, { color: theme.muted }]}>in your pair</Text>
+          </View>
+          <Text style={[text.caption, { color: theme.muted }]}>
+            1 {toBase.from} = {toBase.rate.toFixed(4)} {toBase.to} · {toBase.provider}{' '}
+            {toBase.effectiveDate}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={styles.group}>
         <Text style={[text.bodyMedium, { color: theme.ink }]}>Category</Text>
@@ -216,4 +265,17 @@ const styles = StyleSheet.create({
   chipRow: { gap: spacing.sm, paddingRight: spacing.lg },
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   spinner: { alignSelf: 'flex-start' },
+  preview: {
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.xl,
+    borderWidth: borderWidth.hairline,
+  },
+  previewLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
 });

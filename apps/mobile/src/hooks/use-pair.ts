@@ -16,10 +16,14 @@ export interface Pair {
   second: string | null;
   /** Persist a new base currency (`PATCH /users/me`). */
   setBase: (code: string) => void;
-  /** Persist a new second currency, client-side only. */
-  setSecond: (code: string) => void;
+  /** Persist (or clear, with `null`) the second currency, client-side only. */
+  setSecond: (code: string | null) => void;
   /** Swap base ⇄ second so a header control can flip the pair. */
   swap: () => void;
+  /** True while a base-currency change is being persisted to the server. */
+  savingBase: boolean;
+  /** The last base-currency save's error, or null when it succeeded. */
+  baseError: unknown;
 }
 
 /**
@@ -35,7 +39,7 @@ export interface Pair {
  */
 export function usePair(): Pair {
   const { status, user } = useSession();
-  const { mutate: updateProfile } = useUpdateProfile();
+  const { mutate: updateProfile, isPending, error } = useUpdateProfile();
   const second = useSyncExternalStore(
     subscribeSecondaryCurrency,
     readSecondaryCurrency,
@@ -51,7 +55,7 @@ export function usePair(): Pair {
     [updateProfile],
   );
 
-  const setSecond = useCallback((code: string) => writeSecondaryCurrency(code), []);
+  const setSecond = useCallback((code: string | null) => writeSecondaryCurrency(code), []);
 
   const swap = useCallback(() => {
     if (!second) return;
@@ -60,5 +64,5 @@ export function usePair(): Pair {
     writeSecondaryCurrency(previousBase);
   }, [base, second, updateProfile]);
 
-  return { base, second, setBase, setSecond, swap };
+  return { base, second, setBase, setSecond, swap, savingBase: isPending, baseError: error };
 }

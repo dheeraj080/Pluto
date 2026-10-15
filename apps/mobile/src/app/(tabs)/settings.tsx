@@ -1,41 +1,49 @@
-import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
 import { ErrorNote, Spinner } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
-import { layout, spacing, text } from '@/theme';
+import { IconSwap } from '@/components/icons';
+import { borderWidth, layout, radius, spacing, tabularNums, text } from '@/theme';
 import { useSupportedCurrencies } from '@/hooks/use-currencies';
+import { usePair } from '@/hooks/use-pair';
+import { useRateSnapshot } from '@/hooks/use-rates';
 import { useSession } from '@/hooks/use-session';
 import { useTheme } from '@/hooks/use-theme';
-import { useUpdateProfile } from '@/hooks/use-user';
 import { signOut } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
+import { formatMoney } from '@/lib/format';
 
+/** The illustrative amount used for the live pair preview. */
+const SAMPLE = 100;
+
+/**
+ * Settings: the account, and the one place the currency Pair is defined.
+ *
+ * The Base drives aggregation and lives on the server profile; the Second is a
+ * display companion kept on the device. Both are edited through `usePair` — the
+ * same source of truth every other screen reads — so a change here is reflected
+ * immediately, without a "save" step or a round-trip for the second half.
+ */
 export default function SettingsScreen() {
   const theme = useTheme();
   const { user } = useSession();
   const currencies = useSupportedCurrencies();
-  const updateProfile = useUpdateProfile();
+  const { base, second, setBase, setSecond, swap, savingBase, baseError } = usePair();
 
-  const [draftCurrency, setDraftCurrency] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
-  const baseCurrency = user?.baseCurrency ?? null;
-  // `null` means "untouched", so the save button tracks real divergence rather
-  // than comparing against a value the user never edited.
-  const selectedCurrency = draftCurrency ?? baseCurrency;
-  const dirty = draftCurrency !== null && draftCurrency !== baseCurrency;
+  const options = useMemo(
+    () => [...(currencies.data ?? [])].sort((a, b) => a.code.localeCompare(b.code)),
+    [currencies.data],
+  );
 
-  const onSaveCurrency = useCallback(() => {
-    if (draftCurrency === null) return;
-    updateProfile.mutate(
-      { baseCurrency: draftCurrency },
-      { onSuccess: () => setDraftCurrency(null) },
-    );
-  }, [draftCurrency, updateProfile]);
+  // Rates are quoted against the base, so ask for the base snapshot directly.
+  const snapshot = useRateSnapshot(base ?? undefined);
+  const rate = second && snapshot.data ? Number(snapshot.data.rates[second]) : Number.NaN;
 
   const onSignOut = useCallback(async () => {
     setSigningOut(true);
@@ -66,9 +74,10 @@ export default function SettingsScreen() {
       </Card>
 
       <Card>
-        <Text style={[text.overline, { color: theme.muted }]}>BASE CURRENCY</Text>
+        <Text style={[text.overline, { color: theme.muted }]}>DISPLAY CURRENCIES</Text>
         <Text style={[text.body, { color: theme.muted }]}>
-          Reports and totals are converted into this currency.
+          Every amount is shown in two currencies: a Base, which totals are converted into, and a
+          Second, which each figure is re-expressed in.
         </Text>
 
         {currencies.isPending ? (
@@ -76,32 +85,85 @@ export default function SettingsScreen() {
         ) : currencies.isError ? (
           <ErrorNote message={errorMessage(currencies.error) ?? 'Could not load currencies.'} />
         ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipRow}
-          >
-            {(currencies.data ?? []).map((currency) => (
-              <Chip
-                key={currency.code}
-                label={`${currency.code} · ${currency.symbol}`}
-                selected={currency.code === selectedCurrency}
-                onPress={() => setDraftCurrency(currency.code)}
-              />
-            ))}
-          </ScrollView>
+          <>
+            <View style={styles.fieldLabel}>
+              <Text style={[text.captionStrong, { color: theme.muted }]}>BASE</Text>
+              {savingBase ? <Spinner size="small" /> : null}
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipRow}
+            >
+              {options.map((currency) => (
+                <Chip
+                  key={currency.code}
+                  label={`${currency.code} · ${currency.symbol}`}
+                  selected={currency.code === base}
+                  onPress={() => setBase(currency.code)}
+                />
+              ))}
+            </ScrollView>
+
+            <Button
+              label="Swap"
+              variant="secondary"
+              icon={(color) => <IconSwap size={16} color={color} />}
+              onPress={swap}
+              disabled={!base || !second}
+              style={styles.swap}
+            />
+
+            <Text style={[text.captionStrong, { color: theme.muted }]}>SECOND</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipRow}
+            >
+              <Chip label="None" selected={second === null} onPress={() => setSecond(null)} />
+              {options
+                .filter((currency) => currency.code !== base)
+                .map((currency) => (
+                  <Chip
+                    key={currency.code}
+                    label={`${currency.code} · ${currency.symbol}`}
+                    selected={currency.code === second}
+                    onPress={() => setSecond(currency.code)}
+                  />
+                ))}
+            </ScrollView>
+          </>
         )}
 
-        {updateProfile.isError ? (
-          <ErrorNote message={errorMessage(updateProfile.error) ?? 'Could not save.'} />
+        {baseError ? (
+          <ErrorNote message={errorMessage(baseError) ?? 'Could not save.'} />
         ) : null}
 
-        <Button
-          label="Save"
-          onPress={onSaveCurrency}
-          busy={updateProfile.isPending}
-          disabled={!dirty}
-        />
+        {base && second ? (
+          <View
+            style={[
+              styles.preview,
+              { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+            ]}
+          >
+            <Text style={[text.overline, { color: theme.muted }]}>PREVIEW</Text>
+            <View style={styles.previewLine}>
+              <Text style={[text.subtitle, tabularNums, { color: theme.ink }]}>
+                {formatMoney(SAMPLE, base)}
+              </Text>
+              {Number.isFinite(rate) ? (
+                <Text style={[text.body, tabularNums, { color: theme.muted }]}>
+                  · {formatMoney(SAMPLE * rate, second)}
+                </Text>
+              ) : null}
+            </View>
+            {Number.isFinite(rate) ? (
+              <Text style={[text.caption, { color: theme.muted }]}>
+                1 {base} = {rate.toFixed(4)} {second}, at the latest published rate.
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
       </Card>
 
       <Card>
@@ -128,5 +190,25 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   spinner: { alignSelf: 'flex-start' },
+  fieldLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   chipRow: { gap: spacing.sm, paddingRight: spacing.lg },
+  swap: { alignSelf: 'flex-start' },
+  preview: {
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.xl,
+    borderWidth: borderWidth.hairline,
+  },
+  previewLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+  },
 });

@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { DualAmount } from '@/components/amount';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Divider } from '@/components/ui/divider';
@@ -9,9 +10,12 @@ import { ErrorNote, Spinner } from '@/components/ui/feedback';
 import { layout, radius, spacing, text } from '@/theme';
 import { useExpense } from '@/hooks/use-expense';
 import { useDeleteExpense } from '@/hooks/use-expense-mutations';
+import { usePair } from '@/hooks/use-pair';
+import { useRateSnapshot } from '@/hooks/use-rates';
 import { useTheme } from '@/hooks/use-theme';
+import { buildConversionPreview, dualAmounts } from '@/lib/convert';
 import { errorMessage } from '@/lib/errors';
-import { formatDate, formatMoney } from '@/lib/format';
+import { formatDate } from '@/lib/format';
 import { editExpenseHref } from '@/lib/routes';
 
 export default function ExpenseDetailScreen() {
@@ -19,6 +23,8 @@ export default function ExpenseDetailScreen() {
   const theme = useTheme();
   const expense = useExpense(id);
   const remove = useDeleteExpense();
+  const { base, second } = usePair();
+  const snapshot = useRateSnapshot(base ?? undefined);
 
   const onDelete = useCallback(() => {
     const target = expense.data;
@@ -58,6 +64,31 @@ export default function ExpenseDetailScreen() {
 
   const item = expense.data;
 
+  // Read the recorded amount through the Pair, exactly as the web detail page
+  // does: the Base is the headline, the Second sits beside it, and the currency
+  // actually paid in is kept visible as a "Paid …" label rather than rewritten.
+  const rates = snapshot.data ?? null;
+  const pair = dualAmounts(item.amount, item.currency, base, second, rates);
+  const primaryCurrency = pair.base !== null ? (base ?? item.currency) : item.currency;
+  const primaryAmount = pair.base ?? item.amount;
+  const recorded =
+    item.currency !== primaryCurrency ? { amount: item.amount, currency: item.currency } : null;
+
+  // The rate that produced the converted values: the recorded currency to the
+  // Base when the expense was a third currency, otherwise the Base to the
+  // Second — so a figure can always be traced back to its snapshot.
+  const toBase =
+    base && base !== item.currency
+      ? buildConversionPreview(item.amount, item.currency, base, rates)
+      : null;
+  const baseToSecond =
+    base && second && base !== second ? buildConversionPreview(1, base, second, rates) : null;
+  const rateLine = toBase
+    ? `1 ${toBase.from} = ${toBase.rate.toFixed(4)} ${toBase.to} · ${toBase.provider} ${toBase.effectiveDate}`
+    : baseToSecond
+      ? `1 ${baseToSecond.from} = ${baseToSecond.rate.toFixed(4)} ${baseToSecond.to} · ${baseToSecond.provider} ${baseToSecond.effectiveDate}`
+      : null;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -69,9 +100,17 @@ export default function ExpenseDetailScreen() {
             </Text>
           </View>
 
-          <Text numberOfLines={1} style={[text.amountHero, { color: theme.ink }]}>
-            {formatMoney(item.amount, item.currency)}
-          </Text>
+          <DualAmount
+            amount={primaryAmount}
+            currency={primaryCurrency}
+            secondaryAmount={pair.second}
+            secondaryCurrency={second}
+            recorded={recorded}
+            size="hero"
+            layout="inline"
+          />
+
+          {rateLine ? <Text style={[text.caption, { color: theme.muted }]}>{rateLine}</Text> : null}
 
           <Text style={[text.caption, { color: theme.muted }]}>{formatDate(item.incurredOn)}</Text>
         </Card>

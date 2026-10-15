@@ -73,6 +73,28 @@ export function IconChart(props: IconProps) {
   );
 }
 
+/** A line-chart glyph — the "show the chart" side of a report toggle. */
+export function IconChartLine(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <Path d="M3.5 17.5 9 11l3.5 3.5L20.5 6" />
+      <Path d="M3.5 20.5h17" />
+    </Stroke>
+  );
+}
+
+/** A small grid glyph — the "show the data table" side of a report toggle. */
+export function IconTable(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <Rect x="3.5" y="4.5" width="17" height="15" rx="1.8" />
+      <Path d="M3.5 9.5h17" />
+      <Path d="M3.5 14.5h17" />
+      <Path d="M9.5 4.5v15" />
+    </Stroke>
+  );
+}
+
 export function IconWallet(props: IconProps) {
   return (
     <Stroke {...props}>
