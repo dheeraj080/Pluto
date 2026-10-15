@@ -8,22 +8,50 @@ import { Card } from '@/components/ui/card';
 import { ErrorNote } from '@/components/ui/feedback';
 import { layout, spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { devLogin } from '@/lib/api';
+import { devLogin, googleLogin } from '@/lib/api';
+import { GOOGLE_WEB_CLIENT_ID } from '@/lib/env';
 import { errorMessage } from '@/lib/errors';
+import { requestGoogleIdToken } from '@/lib/google-sign-in';
 import { HOME } from '@/lib/routes';
 
+/**
+ * The way in.
+ *
+ * Google is the real path. The mock login stays behind `__DEV__`: it needs
+ * `ENABLE_DEV_AUTH=true` on the server and a locally seeded user, so it is worth
+ * keeping while building the app, but it must never ship in a release binary.
+ */
 export default function SignInScreen() {
   const theme = useTheme();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'google' | 'dev' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const onSignIn = useCallback(() => {
+  const googleConfigured = GOOGLE_WEB_CLIENT_ID !== '';
+
+  const onGoogleSignIn = useCallback(() => {
     setError(null);
-    setBusy(true);
+    setBusy('google');
+    void (async () => {
+      try {
+        const idToken = await requestGoogleIdToken();
+        if (!idToken) return; // The account sheet was dismissed.
+        await googleLogin(idToken);
+        router.replace(HOME);
+      } catch (cause) {
+        setError(errorMessage(cause) ?? 'Could not sign in with Google.');
+      } finally {
+        setBusy(null);
+      }
+    })();
+  }, []);
+
+  const onDevSignIn = useCallback(() => {
+    setError(null);
+    setBusy('dev');
     devLogin()
       .then(() => router.replace(HOME))
       .catch((cause: unknown) => setError(errorMessage(cause) ?? 'Could not sign in.'))
-      .finally(() => setBusy(false));
+      .finally(() => setBusy(null));
   }, []);
 
   return (
@@ -36,14 +64,33 @@ export default function SignInScreen() {
           </Text>
         </View>
 
-        <Button label="Continue" onPress={onSignIn} busy={busy} />
+        {googleConfigured ? (
+          <Button
+            label="Continue with Google"
+            onPress={onGoogleSignIn}
+            busy={busy === 'google'}
+            disabled={busy !== null}
+          />
+        ) : (
+          <ErrorNote message="Google Sign-In is not configured (EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing)." />
+        )}
 
         {error ? <ErrorNote message={error} /> : null}
 
-        <Text style={[text.caption, styles.centered, { color: theme.muted }]}>
-          Google sign-in arrives with the native build. Until then the development
-          login is the way in.
-        </Text>
+        {__DEV__ ? (
+          <View style={styles.dev}>
+            <Text style={[text.captionMedium, styles.centered, { color: theme.muted }]}>
+              Development only
+            </Text>
+            <Button
+              label="Continue with a dev account"
+              variant="secondary"
+              onPress={onDevSignIn}
+              busy={busy === 'dev'}
+              disabled={busy !== null}
+            />
+          </View>
+        ) : null}
       </Card>
     </View>
   );
@@ -59,4 +106,5 @@ const styles = StyleSheet.create({
   card: { width: '100%', gap: spacing.lg },
   header: { alignItems: 'center', gap: spacing.md },
   centered: { textAlign: 'center' },
+  dev: { gap: spacing.sm },
 });

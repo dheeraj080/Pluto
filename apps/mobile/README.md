@@ -34,6 +34,16 @@ Plain `npm run dev --workspace pluto-mobile` also works, but only uses whatever
 scan the QR code. `npm run typecheck` and `npm run lint` run from this directory
 (or via Turbo).
 
+### Expo Go or a development build
+
+`expo-dev-client` is installed, so `expo start` targets a **development build** —
+which is what Google Sign-In and any other native module require. To keep
+running in Expo Go instead (JS-only, no native Google sign-in):
+
+```bash
+npx expo start --go
+```
+
 ### Backend must be up, or every screen shows "Internal server error"
 
 That message is the server's 500 envelope, not a client bug. The usual cause is
@@ -189,10 +199,6 @@ npm run assets:brand   # writes assets/images/*.png from the brand geometry
 the web's `lib/brand-mark.ts`, so the launcher icon, the splash and the in-app
 `PlutoMark` cannot drift apart.
 
-`scripts/generate-brand-assets.mjs` rasterises the same planet-and-orbit mark as
-the web's `lib/brand-mark.ts`, so the launcher icon, the splash and the in-app
-`PlutoMark` cannot drift apart.
-
 ## Dashboard
 
 `src/app/(tabs)/index.tsx` answers six questions in order, and the order is the
@@ -248,13 +254,41 @@ so TypeScript sees a single React type identity across web and mobile.
 - Access token: memory only (`src/lib/session.ts`).
 - Refresh token: `expo-secure-store` on device, `localStorage` on web
   (`src/lib/session-storage.ts`).
-- Development sign-in uses the server's mock endpoint
-  (`POST /v1/auth/dev-login`, requires `ENABLE_DEV_AUTH=true`).
 
-**Google Sign-In is not wired up yet.** `@react-native-google-signin/google-signin`
-is a native module and does **not** run in Expo Go — it needs an EAS development
-build, which also means `expo-sqlite` and any other native module added later
-must be tested in a dev build, not Expo Go.
+Two ways in:
+
+| | Offered | Endpoint |
+| :--- | :--- | :--- |
+| **Google Sign-In** | every build | `POST /v1/auth/google` |
+| Development login | `__DEV__` builds only | `POST /v1/auth/dev-login`, needs `ENABLE_DEV_AUTH=true` |
+
+Google runs through `src/lib/google-signin.ts`: the native SDK yields an ID
+token, which is posted to the same endpoint the web client uses. The SDK is
+imported **lazily**, so a session with no native module (Expo Go) still renders
+the screen and reports why sign-in cannot start, instead of dying at launch.
+
+Two client IDs are involved and are easy to mix up:
+
+- `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` — the *web* client, the audience Google
+  stamps on the ID token. **`apps/server` must list the same ID in
+  `GOOGLE_ALLOWED_CLIENT_IDS`**, or `/auth/google` rejects every token. This is
+  the usual cause of a 401 after a successful-looking sign-in.
+- `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` — the iOS client. Its reversed form
+  (`com.googleusercontent.apps.<id>`) is registered as a URL scheme by the
+  Google config plugin in `app.config.ts`, which is added *only* when this is
+  set — the plugin refuses to run with neither that option nor Firebase files.
+
+The Android client is a third, separate credential (keyed on the package name
+`com.pluto.app` plus the release **SHA-1** fingerprint in Google Cloud Console).
+The SDK configures the platform itself rather than being handed it, but it must
+also be listed in `GOOGLE_ALLOWED_CLIENT_IDS`.
+
+The web target resolves `src/lib/google-sign-in.web.ts` instead, which points at
+the web app — so the mobile bundle never pulls a native module in.
+
+> The button reuses Pluto's `Button` rather than Google's branded control. If the
+> client is ever submitted for OAuth verification that restricts displayed
+> branding, swap in `GoogleSigninButton`.
 
 ## Testing
 
@@ -281,16 +315,21 @@ Then, from this directory:
 | `npm run eas:build:prod` | `production` | Store-ready AAB / IPA |
 | `npm run eas:submit:prod` | `production` | Upload to Google Play / App Store |
 
-### The API URL is per profile
+### Build-time environment variables
 
 `EXPO_PUBLIC_API_URL` is inlined at bundle time and defaults to
-`http://localhost:3000/v1`, which is correct only for local development. Set it
-as an **EAS environment variable** scoped to each non-development profile
+`http://localhost:3000/v1`, which is correct only for local development.
+`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is inlined the same way, and is the audience
+the server's token check matches against.
+
+Set both as **EAS environment variables** scoped to each non-development profile
 (`eas env:create`), pointing at the deployed API over HTTPS.
 
 `app.config.ts` refuses a `production` build whose `EXPO_PUBLIC_API_URL` is
-missing, plain `http`, or a development host, so a misconfigured release fails
-at build time rather than on a user's phone.
+missing, plain `http`, or a development host — or whose
+`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is unset, which would ship a release with no
+way to sign in — so a misconfigured build fails at build time rather than on a
+user's phone.
 
 ### Versioning
 
@@ -298,6 +337,6 @@ at build time rather than on a user's phone.
 Android version code and the `production` profile increments them automatically.
 The user-facing `version` in `app.config.ts` is still edited by hand.
 
-The `development` profile builds a dev client and needs `expo-dev-client`
-(`npx expo install expo-dev-client`). Until it is installed, Expo Go still runs
-the app; once it is, `npx expo start --go` is the way to keep using Expo Go.
+`expo-dev-client` is installed, so the `development` profile is usable as-is.
+`npx expo start --go` is the fallback for keeping to Expo Go (JS-only, no
+native Google sign-in) while you work.

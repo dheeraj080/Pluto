@@ -60,6 +60,17 @@ export async function bootstrapSession(): Promise<void> {
   if (!restored) session.clearSession();
 }
 
+/**
+ * Exchanges a Google ID token for a session.
+ *
+ * The token comes from the native Google Sign-In SDK; the server verifies its
+ * signature and audience before issuing tokens. Same endpoint as the web client.
+ */
+export async function googleLogin(idToken: string): Promise<void> {
+  const result = await api.post<Schemas['AuthResponseDto']>('/auth/google', { idToken });
+  session.saveSession(result);
+}
+
 /** Dev-only mock sign-in — requires `ENABLE_DEV_AUTH=true` on the server. */
 export async function devLogin(): Promise<void> {
   const result = await api.post<Schemas['AuthResponseDto']>('/auth/dev-login', {});
