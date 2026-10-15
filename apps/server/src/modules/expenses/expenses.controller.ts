@@ -29,7 +29,7 @@ import {
   TopQueryDto,
   TrendQueryDto,
 } from './dto/expense-query.dto';
-import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
+import { CreateCategoryDto, DeleteCategoryQueryDto, UpdateCategoryDto } from './dto/category.dto';
 import { CreateBudgetDto, UpdateBudgetDto } from './dto/budget.dto';
 import {
   BudgetDto,
@@ -114,9 +114,9 @@ export class ExpensesController {
   async deleteCategory(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Query('reassignTo') reassignTo?: string,
+    @Query() query: DeleteCategoryQueryDto,
   ): Promise<Ack> {
-    return this.expensesService.deleteCategory(user.id, id, reassignTo);
+    return this.expensesService.deleteCategory(user.id, id, query.reassignTo);
   }
 
   // ------------------------------------------------------------------ reports

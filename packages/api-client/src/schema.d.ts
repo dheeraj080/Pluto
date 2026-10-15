@@ -1337,6 +1337,11 @@ export interface components {
              */
             budgetAmountNative: number;
             /**
+             * @description Currency the budget was recorded in — the currency of budgetAmountNative, and the only currency an update may write
+             * @example EUR
+             */
+            budgetCurrency: string;
+            /**
              * @description Spent in the evaluated window, converted
              * @example 612.4
              */
@@ -1351,7 +1356,10 @@ export interface components {
              * @example 122.5
              */
             percentage: number;
-            /** @example USD */
+            /**
+             * @description Currency budgetAmount (the converted figure) is expressed in — Home when converted, otherwise the recorded currency
+             * @example USD
+             */
             currency: string;
             /** @example true */
             overBudget: boolean;
@@ -2078,7 +2086,10 @@ export interface operations {
     };
     ExpensesController_deleteCategory: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Category to move this category’s expenses to before deleting it. Required when the category still has expenses; must be another category owned by the caller. */
+                reassignTo?: string;
+            };
             header?: never;
             path: {
                 id: string;

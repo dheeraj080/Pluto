@@ -110,7 +110,10 @@ export class ExpensesService {
       }
       const target = await this.findOwnedCategory(userId, reassignTo, 'Target category not found');
       await this.prisma.$transaction([
-        this.prisma.expense.updateMany({ where: { userId, categoryId: category.id }, data: { categoryId: target.id } }),
+        this.prisma.expense.updateMany({
+          where: { userId, categoryId: category.id },
+          data: { categoryId: target.id },
+        }),
         this.prisma.budget.deleteMany({ where: { userId, categoryId: category.id } }),
         this.prisma.expenseCategory.delete({ where: { id: category.id } }),
       ]);

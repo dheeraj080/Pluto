@@ -297,6 +297,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "reassignTo",
+            "required": false,
+            "in": "query",
+            "description": "Category to move this category’s expenses to before deleting it. Required when the category still has expenses; must be another category owned by the caller.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -3557,6 +3567,11 @@
             "description": "Native budgeted amount as stored",
             "example": 500
           },
+          "budgetCurrency": {
+            "type": "string",
+            "description": "Currency the budget was recorded in — the currency of budgetAmountNative, and the only currency an update may write",
+            "example": "EUR"
+          },
           "spent": {
             "type": "number",
             "description": "Spent in the evaluated window, converted",
@@ -3574,6 +3589,7 @@
           },
           "currency": {
             "type": "string",
+            "description": "Currency budgetAmount (the converted figure) is expressed in — Home when converted, otherwise the recorded currency",
             "example": "USD"
           },
           "overBudget": {
@@ -3644,6 +3660,7 @@
           "period",
           "budgetAmount",
           "budgetAmountNative",
+          "budgetCurrency",
           "spent",
           "remaining",
           "percentage",

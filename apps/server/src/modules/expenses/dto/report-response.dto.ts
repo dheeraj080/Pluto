@@ -271,6 +271,13 @@ export class BudgetStatusDto {
   @ApiProperty({ description: 'Native budgeted amount as stored', example: 500 })
   budgetAmountNative!: number;
 
+  @ApiProperty({
+    description:
+      'Currency the budget was recorded in — the currency of budgetAmountNative, and the only currency an update may write',
+    example: 'EUR',
+  })
+  budgetCurrency!: string;
+
   @ApiProperty({ description: 'Spent in the evaluated window, converted', example: 612.4 })
   spent!: number;
 
@@ -280,7 +287,11 @@ export class BudgetStatusDto {
   @ApiProperty({ description: 'Spent as a percentage of budget', example: 122.5 })
   percentage!: number;
 
-  @ApiProperty({ example: 'USD' })
+  @ApiProperty({
+    description:
+      'Currency budgetAmount (the converted figure) is expressed in — Home when converted, otherwise the recorded currency',
+    example: 'USD',
+  })
   currency!: string;
 
   @ApiProperty({ example: true })

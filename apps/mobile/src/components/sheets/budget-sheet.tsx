@@ -8,6 +8,12 @@
  * Create mode edits every field. Edit mode fixes the category, period and
  * currency (the API's update only accepts a new amount and start date), showing
  * them read-only and leaving just the amount editable.
+ *
+ * The status payload carries the limit twice: `budgetAmount`, converted into
+ * Home currency for the row, and `budgetAmountNative`, the figure the update
+ * endpoint writes. Edit shows the native pair — `budgetAmountNative` under
+ * `budgetCurrency` — with the Home equivalent beneath it when the two differ, so
+ * the form never labels one currency's number with the other's code.
  */
 
 import { useState } from 'react';
@@ -38,7 +44,7 @@ import {
 import { useCategories } from '@/hooks/use-categories';
 import { useSupportedCurrencies } from '@/hooks/use-currencies';
 import { errorMessage } from '@/lib/errors';
-import { isValidIsoDate, parseAmount, todayIso } from '@/lib/format';
+import { formatMoney, isValidIsoDate, parseAmount, todayIso } from '@/lib/format';
 
 const PERIODS: { value: BudgetPeriod; label: string }[] = [
   { value: 'MONTHLY', label: 'Monthly' },
@@ -63,7 +69,7 @@ export function BudgetSheet({
 
   const [categoryId, setCategoryId] = useState('');
   const [amount, setAmount] = useState(target ? String(target.budgetAmountNative) : '');
-  const [currency, setCurrency] = useState(target?.currency ?? '');
+  const [currency, setCurrency] = useState(target?.budgetCurrency ?? '');
   const [period, setPeriod] = useState<BudgetPeriod>(target?.period ?? 'MONTHLY');
   const [startDate, setStartDate] = useState(todayIso());
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -77,6 +83,14 @@ export function BudgetSheet({
 
   const busy = create.isPending || update.isPending;
   const mutationError = create.isError ? create.error : update.isError ? update.error : null;
+
+  // The Home figure the row shows, as a caption under the amount — but only
+  // when Home differs from the recorded currency, so the same two-currency pair
+  // appears here as everywhere else without repeating the figure.
+  const homeHint =
+    target && target.currency !== target.budgetCurrency
+      ? `≈ ${formatMoney(target.budgetAmount, target.currency)} in ${target.currency}`
+      : undefined;
 
   const submit = () => {
     const parsed = parseAmount(amount);
@@ -145,7 +159,7 @@ export function BudgetSheet({
                   label="Period"
                   value={target.period === 'MONTHLY' ? 'Monthly' : 'Yearly'}
                 />
-                <ReadOnly label="Currency" value={target.currency} />
+                <ReadOnly label="Currency" value={target.budgetCurrency} />
               </>
             ) : (
               <View style={styles.group}>
@@ -169,6 +183,7 @@ export function BudgetSheet({
 
             <TextField
               label="Amount"
+              hint={homeHint}
               value={amount}
               onChangeText={setAmount}
               placeholder="0.00"

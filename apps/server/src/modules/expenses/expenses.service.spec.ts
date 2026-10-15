@@ -60,6 +60,7 @@ describe('ExpensesService', () => {
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
     },
@@ -390,6 +391,48 @@ describe('ExpensesService', () => {
       expect(mockPrismaService.budget.deleteMany).toHaveBeenCalled();
       expect(mockPrismaService.expenseCategory.delete).toHaveBeenCalled();
       expect(result.success).toBe(true);
+    });
+
+    it('moves the expenses to the target category before deleting', async () => {
+      const targetId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+      mockPrismaService.expenseCategory.findFirst
+        .mockResolvedValueOnce(makeCategory())
+        .mockResolvedValueOnce(makeCategory({ id: targetId, name: 'Travel', isDefault: false }));
+      mockPrismaService.expense.count.mockResolvedValue(3);
+      mockPrismaService.expense.updateMany.mockResolvedValue({ count: 3 });
+      mockPrismaService.budget.deleteMany.mockResolvedValue({ count: 0 });
+      mockPrismaService.expenseCategory.delete.mockResolvedValue({});
+
+      const result = await service.deleteCategory(USER_A, makeCategory().id, targetId);
+
+      expect(mockPrismaService.expense.updateMany).toHaveBeenCalledWith({
+        where: { userId: USER_A, categoryId: makeCategory().id },
+        data: { categoryId: targetId },
+      });
+      expect(mockPrismaService.$transaction).toHaveBeenCalled();
+      expect(result.success).toBe(true);
+    });
+
+    it('refuses to reassign a category onto itself', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(makeCategory());
+      mockPrismaService.expense.count.mockResolvedValue(1);
+
+      await expect(
+        service.deleteCategory(USER_A, makeCategory().id, makeCategory().id),
+      ).rejects.toThrow(ConflictException);
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects a target category the caller does not own', async () => {
+      mockPrismaService.expenseCategory.findFirst
+        .mockResolvedValueOnce(makeCategory())
+        .mockResolvedValueOnce(null);
+      mockPrismaService.expense.count.mockResolvedValue(2);
+
+      await expect(
+        service.deleteCategory(USER_A, makeCategory().id, 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrismaService.expense.updateMany).not.toHaveBeenCalled();
     });
   });
 

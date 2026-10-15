@@ -1015,6 +1015,7 @@ export class ExpensesReportsService {
         period: budget.period,
         budgetAmount,
         budgetAmountNative: Number(budget.amount),
+        budgetCurrency: budget.currency,
         spent,
         remaining,
         percentage,

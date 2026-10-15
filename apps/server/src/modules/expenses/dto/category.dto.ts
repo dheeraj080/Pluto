@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -58,4 +59,15 @@ export class UpdateCategoryDto {
   @IsInt()
   @Min(0)
   sortOrder?: number;
+}
+
+export class DeleteCategoryQueryDto {
+  @ApiPropertyOptional({
+    description:
+      'Category to move this category’s expenses to before deleting it. Required when the category still has expenses; must be another category owned by the caller.',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID()
+  reassignTo?: string;
 }
