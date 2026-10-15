@@ -1,253 +1,158 @@
-import { useCallback, useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import type { Schemas } from '@pluto/api-client';
-
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Divider } from '@/components/ui/divider';
-import { EmptyState, ErrorNote, Spinner } from '@/components/ui/feedback';
-import { AppPageHeader } from '@/components/ui/page-header';
-import { TextField } from '@/components/ui/text-field';
-import { borderWidth, layout, radius, spacing, text } from '@/theme';
-import { useCategories } from '@/hooks/use-categories';
-import {
-  useCreateCategory,
-  useDeleteCategory,
-  useUpdateCategory,
-} from '@/hooks/use-category-mutations';
-import { useTheme } from '@/hooks/use-theme';
-import { errorMessage } from '@/lib/errors';
-
-type Category = Schemas['ExpenseCategoryDto'];
-
 /**
  * Categories — the web's "Tags" page.
  *
- * One form serves both create and rename: tapping Edit loads the row into the
- * form and the primary button becomes "Save changes". A separate modal would be
- * more machinery for a four-field record, and on a phone the list is short
- * enough that scrolling back to the form is not a burden.
+ * A category is a colour, a name and a count. The list is one card; creating
+ * and renaming happen in a bottom sheet, so the screen is the categories
+ * themselves rather than a permanently-open form. Tapping a row opens that
+ * category's expenses in Activity, the same drill-down Budgets and the Reports
+ * breakdown use.
+ *
+ * Delete is guarded in the client rather than by the server's 409: a category
+ * still holding expenses cannot be removed, so the button explains why instead
+ * of firing a request that can only fail.
  */
+
+import { useCallback, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { CategoryRow } from '@/components/categories/category-row';
+import { DashboardCard } from '@/components/dashboard/card';
+import { CategorySheet } from '@/components/sheets/category-sheet';
+import { Button } from '@/components/ui/button';
+import { Divider } from '@/components/ui/divider';
+import { EmptyState, ErrorNote } from '@/components/ui/feedback';
+import { AppPageHeader } from '@/components/ui/page-header';
+import { IconPlus } from '@/components/icons';
+import { layout, spacing } from '@/theme';
+import { useCategories, type ExpenseCategory } from '@/hooks/use-categories';
+import { useDeleteCategory } from '@/hooks/use-category-mutations';
+import { useTheme } from '@/hooks/use-theme';
+import { errorMessage } from '@/lib/errors';
+import { queryKeys } from '@/lib/query-keys';
+import { activityHref } from '@/lib/routes';
+
 export default function CategoriesScreen() {
   const theme = useTheme();
+  const queryClient = useQueryClient();
   const categories = useCategories();
-  const create = useCreateCategory();
-  const update = useUpdateCategory();
   const remove = useDeleteCategory();
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [color, setColor] = useState(theme.cat.mint);
-  const [validationError, setValidationError] = useState<string | null>(null);
-
-  const swatches = [
-    theme.cat.mint,
-    theme.cat.sky,
-    theme.cat.amber,
-    theme.cat.rose,
-    theme.cat.violet,
-    theme.cat.slate,
-  ];
+  const [sheet, setSheet] = useState<{ target: ExpenseCategory | null } | null>(null);
 
   const items = categories.data ?? [];
-  const editing = editingId ? items.find((item) => item.id === editingId) ?? null : null;
-  const busy = create.isPending || update.isPending;
-  const writeError = errorMessage(create.error) ?? errorMessage(update.error);
+  const totalExpenses = items.reduce((sum, category) => sum + category.expenseCount, 0);
+  const countLine = `${items.length} ${
+    items.length === 1 ? 'category' : 'categories'
+  } · ${totalExpenses} ${totalExpenses === 1 ? 'expense' : 'expenses'}`;
+  const subtitle = categories.isPending ? 'Loading…' : countLine;
 
-  // A category may carry a colour outside the palette; keep it selectable.
-  const colorOptions = swatches.includes(color) ? swatches : [color, ...swatches];
+  const openCreate = useCallback(() => setSheet({ target: null }), []);
+  const openEdit = useCallback((category: ExpenseCategory) => setSheet({ target: category }), []);
+  const closeSheet = useCallback(() => setSheet(null), []);
 
-  const resetForm = useCallback(() => {
-    setEditingId(null);
-    setName('');
-    setValidationError(null);
-  }, []);
-
-  const startEdit = useCallback((category: Category) => {
-    setEditingId(category.id);
-    setName(category.name);
-    setColor(category.color);
-    setValidationError(null);
-  }, []);
-
-  const submit = useCallback(() => {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setValidationError('Enter a name.');
-      return;
-    }
-    setValidationError(null);
-
-    const onSuccess = () => resetForm();
-    if (editing) {
-      update.mutate({ id: editing.id, body: { name: trimmed, color } }, { onSuccess });
-    } else {
-      create.mutate({ name: trimmed, color }, { onSuccess });
-    }
-  }, [color, create, editing, name, resetForm, update]);
-
-  const confirmDelete = useCallback(
-    (category: Category) => {
-      Alert.alert(
-        `Delete “${category.name}”?`,
-        'Categories that still have expenses cannot be deleted.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () =>
-              remove.mutate(category.id, {
-                // Drop the form if it was editing the row that just vanished.
-                onSuccess: () => {
-                  if (editingId === category.id) resetForm();
-                },
-              }),
-          },
-        ],
-      );
-    },
-    [editingId, remove, resetForm],
+  const openExpenses = useCallback(
+    (category: ExpenseCategory) => router.push(activityHref({ categoryId: category.id })),
+    [],
   );
 
+  const confirmDelete = useCallback(
+    (category: ExpenseCategory) => {
+      // A category still in use would only get a 409 from the server; say so up
+      // front rather than firing a request that cannot succeed.
+      if (category.expenseCount > 0) {
+        Alert.alert(
+          'Category in use',
+          `${category.expenseCount} ${
+            category.expenseCount === 1 ? 'expense uses' : 'expenses use'
+          } “${category.name}”. Reassign them before deleting.`,
+        );
+        return;
+      }
+
+      Alert.alert(`Delete “${category.name}”?`, 'This cannot be undone.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => remove.mutate(category.id),
+        },
+      ]);
+    },
+    [remove],
+  );
+
+  const onRefresh = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.categories.all });
+  }, [queryClient]);
+
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.canvas }]}
-      contentContainerStyle={styles.content}
-    >
-      <AppPageHeader
-        title="Categories"
-        subtitle={
-          categories.isPending
-            ? 'Loading…'
-            : `${items.length} ${items.length === 1 ? 'category' : 'categories'}`
-        }
-      />
-
-      <Card>
-        <Text style={[text.overline, { color: theme.muted }]}>
-          {editing ? 'EDIT CATEGORY' : 'NEW CATEGORY'}
-        </Text>
-
-        <TextField
-          label="Name"
-          value={name}
-          onChangeText={setName}
-          placeholder="Groceries"
-          maxLength={60}
-          error={validationError ?? undefined}
-          editable={!busy}
-        />
-
-        <View style={styles.group}>
-          <Text style={[text.bodyMedium, { color: theme.ink }]}>Colour</Text>
-          <View style={styles.wrapRow}>
-            {colorOptions.map((option) => (
-              <Pressable
-                key={option}
-                accessibilityRole="button"
-                accessibilityLabel={`Colour ${option}`}
-                accessibilityState={{ selected: option === color }}
-                onPress={() => setColor(option)}
-                hitSlop={4}
-                style={[
-                  styles.swatch,
-                  {
-                    backgroundColor: option,
-                    borderColor: option === color ? theme.ink : theme.border,
-                    borderWidth: option === color ? borderWidth.thick : borderWidth.hairline,
-                  },
-                ]}
-              />
-            ))}
-          </View>
-        </View>
-
-        {writeError ? <ErrorNote message={writeError} /> : null}
-
-        <View style={styles.formActions}>
-          <Button
-            label={editing ? 'Save changes' : 'Add category'}
-            onPress={submit}
-            busy={busy}
+    <View style={[styles.container, { backgroundColor: theme.canvas }]}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={categories.isFetching}
+            onRefresh={onRefresh}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
           />
-          {editing ? (
-            <Button label="Cancel" variant="secondary" onPress={resetForm} disabled={busy} />
-          ) : null}
-        </View>
-      </Card>
+        }
+      >
+        <AppPageHeader title="Categories" subtitle={subtitle}>
+          <Button
+            label="Add category"
+            size="sm"
+            icon={(color) => <IconPlus size={16} color={color} />}
+            onPress={openCreate}
+          />
+        </AppPageHeader>
 
-      {categories.isPending ? (
-        <Spinner size="large" style={styles.placeholder} />
-      ) : categories.isError ? (
-        <ErrorNote message={errorMessage(categories.error) ?? 'Could not load categories.'} />
-      ) : items.length === 0 ? (
-        <EmptyState
-          title="No categories yet"
-          message="Add one above and it will be available when you record an expense."
-        />
-      ) : (
-        <Card style={styles.list}>
+        {categories.isError ? (
+          <ErrorNote message={errorMessage(categories.error) ?? 'Could not load categories.'} />
+        ) : null}
+
+        <DashboardCard
+          title="Your categories"
+          loading={categories.isPending}
+          skeletonHeight={200}
+          isEmpty={!categories.isError && items.length === 0}
+          empty={
+            <EmptyState
+              title="No categories yet"
+              message="Add one to start grouping expenses for reports and budgets."
+            >
+              <Button
+                label="Add category"
+                size="sm"
+                icon={(color) => <IconPlus size={16} color={color} />}
+                onPress={openCreate}
+              />
+            </EmptyState>
+          }
+        >
           {items.map((category, index) => (
             <View key={category.id}>
               {index > 0 ? <Divider /> : null}
               <CategoryRow
                 category={category}
-                selected={category.id === editingId}
-                onEdit={() => startEdit(category)}
+                onOpen={() => openExpenses(category)}
+                onEdit={() => openEdit(category)}
                 onDelete={() => confirmDelete(category)}
                 deleteBusy={remove.isPending && remove.variables === category.id}
               />
             </View>
           ))}
-        </Card>
-      )}
+        </DashboardCard>
 
-      {remove.isError ? (
-        <ErrorNote message={errorMessage(remove.error) ?? 'Could not delete the category.'} />
-      ) : null}
-    </ScrollView>
-  );
-}
+        {remove.isError ? (
+          <ErrorNote message={errorMessage(remove.error) ?? 'Could not delete the category.'} />
+        ) : null}
+      </ScrollView>
 
-function CategoryRow({
-  category,
-  selected,
-  onEdit,
-  onDelete,
-  deleteBusy,
-}: {
-  category: Category;
-  selected: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
-  deleteBusy: boolean;
-}) {
-  const theme = useTheme();
-
-  return (
-    <View style={[styles.row, selected && { backgroundColor: theme.surfaceMuted }]}>
-      <View style={[styles.dot, { backgroundColor: category.color }]} />
-
-      <View style={styles.rowText}>
-        <Text numberOfLines={1} style={[text.bodyStrong, { color: theme.ink }]}>
-          {category.name}
-        </Text>
-        <Text style={[text.caption, { color: theme.muted }]}>
-          {category.expenseCount}{' '}
-          {category.expenseCount === 1 ? 'expense' : 'expenses'}
-        </Text>
-      </View>
-
-      <Button label="Edit" variant="ghost" size="sm" onPress={onEdit} />
-      <Button label="Delete" variant="ghost" size="sm" onPress={onDelete} busy={deleteBusy} />
+      {sheet ? <CategorySheet target={sheet.target} onClose={closeSheet} /> : null}
     </View>
   );
 }
@@ -259,24 +164,4 @@ const styles = StyleSheet.create({
     paddingBottom: layout.tabBarInset + spacing.xl,
     gap: spacing.lg,
   },
-  group: { gap: spacing.sm },
-  formActions: { gap: spacing.sm },
-  placeholder: { marginTop: spacing.xl },
-  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  swatch: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    borderWidth: borderWidth.thin,
-  },
-  list: { padding: 0, gap: 0 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  dot: { width: 12, height: 12, borderRadius: radius.pill },
-  rowText: { flex: 1, gap: spacing.xs / 2 },
 });
