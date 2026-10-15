@@ -1,48 +1,10 @@
-import { useCallback, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { ConversionNote } from '@/components/ui/conversion-note';
-import { Divider } from '@/components/ui/divider';
-import { EmptyState, ErrorNote, Skeleton } from '@/components/ui/feedback';
-import { AppPageHeader } from '@/components/ui/page-header';
-import { Select } from '@/components/ui/select';
-import { TextField } from '@/components/ui/text-field';
-import { IconArrowLeft, IconArrowRight } from '@/components/icons';
-import { borderWidth, layout, radius, spacing, text } from '@/theme';
-import {
-  useBudgetStatus,
-  useCreateBudget,
-  useDeleteBudget,
-  type BudgetPeriod,
-  type BudgetStatus,
-} from '@/hooks/use-budgets';
-import { useCategories } from '@/hooks/use-categories';
-import { useSupportedCurrencies } from '@/hooks/use-currencies';
-import { usePair } from '@/hooks/use-pair';
-import { useTheme } from '@/hooks/use-theme';
-import { errorMessage } from '@/lib/errors';
-import {
-  currentMonth,
-  formatMoney,
-  formatMonth,
-  formatPercent,
-  isValidIsoDate,
-  parseAmount,
-  todayIso,
-} from '@/lib/format';
-import { shiftMonth } from '@/lib/ranges';
-
-const PERIODS: { value: BudgetPeriod; label: string }[] = [
-  { value: 'MONTHLY', label: 'Monthly' },
-  { value: 'YEARLY', label: 'Yearly' },
-];
-
 /**
- * Budgets: limits per category or for the whole account, with the current month
- * tracking against each one.
+ * Budgets.
+ *
+ * Limits per category or for the whole account, and how the evaluated month is
+ * tracking against each one. The month is a compact stepper in the header, the
+ * list is a single card, and adding or editing happens in a bottom sheet — so
+ * the screen is the budgets themselves rather than a permanently-open form.
  *
  * Progress is a thin mint line that turns soft amber when a budget is exceeded —
  * never red, because going over a budget is information, not an error.
@@ -50,375 +12,176 @@ const PERIODS: { value: BudgetPeriod; label: string }[] = [
  * One request covers every row: the status payload carries each budget's id, so
  * this screen never fetches the budget list as well.
  */
+
+import { useCallback, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { BudgetRow } from '@/components/budgets/budget-row';
+import { DashboardCard } from '@/components/dashboard/card';
+import { BudgetSheet } from '@/components/sheets/budget-sheet';
+import { Button } from '@/components/ui/button';
+import { ConversionNote } from '@/components/ui/conversion-note';
+import { Divider } from '@/components/ui/divider';
+import { EmptyState, ErrorNote } from '@/components/ui/feedback';
+import { MonthStepper } from '@/components/ui/month-stepper';
+import { AppPageHeader } from '@/components/ui/page-header';
+import { IconPlus } from '@/components/icons';
+import { layout, spacing } from '@/theme';
+import { useBudgetStatus, useDeleteBudget, type BudgetStatus } from '@/hooks/use-budgets';
+import { usePair } from '@/hooks/use-pair';
+import { useTheme } from '@/hooks/use-theme';
+import { errorMessage } from '@/lib/errors';
+import { currentMonth, formatMonth } from '@/lib/format';
+import { queryKeys } from '@/lib/query-keys';
+import { monthEndIso, shiftMonth } from '@/lib/ranges';
+import { activityHref } from '@/lib/routes';
+
 export default function BudgetsScreen() {
   const theme = useTheme();
+  const queryClient = useQueryClient();
   const { base, second } = usePair();
 
   const [month, setMonth] = useState(currentMonth());
-  const categories = useCategories();
-  const currencies = useSupportedCurrencies();
+  const [sheet, setSheet] = useState<{ target: BudgetStatus | null } | null>(null);
+
   const status = useBudgetStatus({
     month,
     base: base ?? undefined,
     secondary: second ?? undefined,
   });
-  const create = useCreateBudget();
   const remove = useDeleteBudget();
 
-  const [categoryId, setCategoryId] = useState('');
-  const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('');
-  const [period, setPeriod] = useState<BudgetPeriod>('MONTHLY');
-  const [startDate, setStartDate] = useState(todayIso());
-  const [validationError, setValidationError] = useState<string | null>(null);
-
-  const currencyOptions = currencies.data ?? [];
-  const categoryOptions = categories.data ?? [];
-
-  // An empty selection means "not chosen yet": fall back to the first loaded
-  // option rather than syncing it in an effect.
-  const effectiveCurrency = currency || currencyOptions[0]?.code || '';
+  const items = status.data?.items ?? [];
   const baseCurrency = status.data?.baseCurrency ?? base ?? 'USD';
   const secondCurrency = status.data?.secondaryCurrency ?? second;
 
-  const items = status.data?.items ?? [];
+  const overCount = items.filter((item) => item.overBudget).length;
+  const countLine =
+    items.length === 0
+      ? null
+      : `${items.length} ${items.length === 1 ? 'budget' : 'budgets'}${
+          overCount > 0 ? ` · ${overCount} over budget` : ''
+        }`;
+  const subtitle = countLine ? `${formatMonth(month)} · ${countLine}` : formatMonth(month);
 
-  const submit = useCallback(() => {
-    const parsed = parseAmount(amount);
-    if (parsed === null) {
-      setValidationError('Enter an amount like 250.00.');
-      return;
-    }
-    if (!effectiveCurrency) {
-      setValidationError('Choose the currency this limit is set in.');
-      return;
-    }
-    if (!isValidIsoDate(startDate)) {
-      setValidationError('Starts must be a date like 2026-10-01.');
-      return;
-    }
+  const openCreate = useCallback(() => setSheet({ target: null }), []);
+  const openEdit = useCallback((item: BudgetStatus) => setSheet({ target: item }), []);
+  const closeSheet = useCallback(() => setSheet(null), []);
 
-    setValidationError(null);
-    create.mutate(
-      {
-        // An empty selection means "no category" — an overall budget.
-        categoryId: categoryId || null,
-        amount: parsed,
-        currency: effectiveCurrency,
-        period,
-        startDate,
-      },
-      { onSuccess: () => setAmount('') },
-    );
-  }, [amount, categoryId, create, effectiveCurrency, period, startDate]);
+  const openExpenses = useCallback(
+    (item: BudgetStatus) => {
+      router.push(
+        activityHref({
+          categoryId: item.categoryId ?? undefined,
+          from: `${month}-01`,
+          to: monthEndIso(month),
+        }),
+      );
+    },
+    [month],
+  );
 
   const confirmDelete = useCallback(
     (item: BudgetStatus) => {
       const label = item.categoryName ?? 'all expenses';
-      Alert.alert(
-        `Delete the budget for ${label}?`,
-        'The expenses behind it are not affected.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => remove.mutate(item.budgetId),
-          },
-        ],
-      );
+      Alert.alert(`Delete the budget for ${label}?`, 'The expenses behind it are not affected.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => remove.mutate(item.budgetId),
+        },
+      ]);
     },
     [remove],
   );
 
+  const onRefresh = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.budgets.all });
+  }, [queryClient]);
+
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.canvas }]}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      <AppPageHeader title="Budgets" subtitle="Limits and how this month tracks against them" />
-
-      {/* The one range control: which month every row below is evaluated for. */}
-      <View style={[styles.monthRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <MonthStep
-          direction="previous"
-          onPress={() => setMonth((value) => shiftMonth(value, -1))}
-        />
-        <Text style={[text.bodyStrong, { color: theme.ink }]}>{formatMonth(month)}</Text>
-        <MonthStep direction="next" onPress={() => setMonth((value) => shiftMonth(value, 1))} />
-      </View>
-
-      <ConversionNote
-        status={status.data?.conversionStatus}
-        unconvertedCurrencies={status.data?.unconvertedCurrencies ?? []}
-      />
-      {status.isError ? (
-        <ErrorNote message={errorMessage(status.error) ?? 'Could not load budgets.'} />
-      ) : null}
-
-      <Card>
-        <View style={styles.cardHead}>
-          <Text style={[text.overline, { color: theme.muted }]}>PROGRESS</Text>
-          <Text style={[text.caption, { color: theme.muted }]}>
-            {status.data?.month ? formatMonth(status.data.month) : formatMonth(month)}
-          </Text>
-        </View>
-
-        {status.isPending ? (
-          <View style={styles.skeletons}>
-            {[0, 1, 2].map((key) => (
-              <Skeleton key={key} height={64} style={styles.skeleton} />
-            ))}
-          </View>
-        ) : items.length === 0 ? (
-          <EmptyState
-            title="No budgets yet"
-            message="Add a budget to start tracking spending against a limit."
+    <View style={[styles.container, { backgroundColor: theme.canvas }]}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={status.isFetching}
+            onRefresh={onRefresh}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
           />
-        ) : (
-          items.map((item, index) => (
+        }
+      >
+        <AppPageHeader title="Budgets" subtitle="Limits and what's left this month.">
+          <MonthStepper
+            label={formatMonth(month)}
+            onPrevious={() => setMonth((value) => shiftMonth(value, -1))}
+            onNext={() => setMonth((value) => shiftMonth(value, 1))}
+          />
+
+          <Button
+            label="Add budget"
+            size="sm"
+            icon={(color) => <IconPlus size={16} color={color} />}
+            onPress={openCreate}
+          />
+        </AppPageHeader>
+
+        <ConversionNote
+          status={status.data?.conversionStatus}
+          unconvertedCurrencies={status.data?.unconvertedCurrencies ?? []}
+        />
+        {status.isError ? (
+          <ErrorNote message={errorMessage(status.error) ?? 'Could not load budgets.'} />
+        ) : null}
+
+        <DashboardCard
+          title="Progress"
+          subtitle={subtitle}
+          loading={status.isPending}
+          skeletonHeight={200}
+          isEmpty={!status.isError && items.length === 0}
+          empty={
+            <EmptyState
+              title="No budgets yet"
+              message="Add a budget to start tracking spending against a limit."
+            >
+              <Button
+                label="Add budget"
+                size="sm"
+                icon={(color) => <IconPlus size={16} color={color} />}
+                onPress={openCreate}
+              />
+            </EmptyState>
+          }
+        >
+          {items.map((item, index) => (
             <View key={item.budgetId}>
               {index > 0 ? <Divider /> : null}
               <BudgetRow
                 item={item}
                 baseCurrency={baseCurrency}
                 secondCurrency={secondCurrency}
+                onOpen={() => openExpenses(item)}
+                onEdit={() => openEdit(item)}
                 onRemove={() => confirmDelete(item)}
                 busy={remove.isPending && remove.variables === item.budgetId}
               />
             </View>
-          ))
-        )}
-      </Card>
+          ))}
+        </DashboardCard>
 
-      {remove.isError ? (
-        <ErrorNote message={errorMessage(remove.error) ?? 'Could not delete the budget.'} />
-      ) : null}
-
-      <Card>
-        <View style={styles.cardHead}>
-          <Text style={[text.overline, { color: theme.muted }]}>ADD BUDGET</Text>
-          <Text style={[text.caption, { color: theme.muted }]}>
-            A limit per category, or one overall limit.
-          </Text>
-        </View>
-
-        <View style={styles.group}>
-          <Text style={[text.bodyMedium, { color: theme.ink }]}>Applies to</Text>
-          <Select
-            accessibilityLabel="Applies to"
-            value={categoryId}
-            onChange={setCategoryId}
-            hint="Leave as “All expenses” for an overall budget."
-            options={[
-              { value: '', label: 'All expenses' },
-              ...categoryOptions.map((option) => ({
-                value: option.id,
-                label: option.name,
-                dotColor: option.color,
-              })),
-            ]}
-          />
-        </View>
-
-        <TextField
-          label="Amount"
-          value={amount}
-          onChangeText={setAmount}
-          placeholder="0.00"
-          keyboardType="decimal-pad"
-          editable={!create.isPending}
-        />
-
-        <View style={styles.group}>
-          <Text style={[text.bodyMedium, { color: theme.ink }]}>Currency</Text>
-          {currencyOptions.length === 0 ? (
-            <Text style={[text.caption, { color: theme.muted }]}>Loading currencies…</Text>
-          ) : (
-            <Select
-              accessibilityLabel="Currency"
-              value={effectiveCurrency}
-              onChange={setCurrency}
-              options={currencyOptions.map((option) => ({
-                value: option.code,
-                label: `${option.code} · ${option.symbol}`,
-              }))}
-            />
-          )}
-        </View>
-
-        <View style={styles.group}>
-          <Text style={[text.bodyMedium, { color: theme.ink }]}>Period</Text>
-          <Select
-            accessibilityLabel="Period"
-            value={period}
-            onChange={(value) => setPeriod(value as BudgetPeriod)}
-            options={PERIODS}
-          />
-        </View>
-
-        <TextField
-          label="Starts"
-          hint="Spend before this date is not counted"
-          value={startDate}
-          onChangeText={setStartDate}
-          placeholder="2026-10-01"
-          autoCapitalize="none"
-          autoCorrect={false}
-          error={validationError && !isValidIsoDate(startDate) ? validationError : undefined}
-        />
-
-        {validationError && isValidIsoDate(startDate) ? (
-          <ErrorNote message={validationError} />
+        {remove.isError ? (
+          <ErrorNote message={errorMessage(remove.error) ?? 'Could not delete the budget.'} />
         ) : null}
-        {create.isError ? (
-          <ErrorNote message={errorMessage(create.error) ?? 'Could not save the budget.'} />
-        ) : null}
+      </ScrollView>
 
-        <Button label="Add budget" onPress={submit} busy={create.isPending} />
-      </Card>
-    </ScrollView>
-  );
-}
-
-/**
- * One budget: what it applies to, how much of it is used, and the bar.
- *
- * The bar is two flex children rather than a percentage width — React Native's
- * `DimensionValue` does not accept a computed `string`, and flex ratios are
- * exact here because the only other child is the remainder.
- */
-function BudgetRow({
-  item,
-  baseCurrency,
-  secondCurrency,
-  onRemove,
-  busy,
-}: {
-  item: BudgetStatus;
-  baseCurrency: string;
-  secondCurrency: string | null;
-  onRemove: () => void;
-  busy: boolean;
-}) {
-  const theme = useTheme();
-
-  const filled = Math.min(100, Math.max(0, item.percentage));
-  const over = item.overBudget;
-  const secondSpent = item.secondarySpent ?? null;
-  const secondRemaining = item.secondaryRemaining ?? null;
-  const secondLimit = item.secondaryBudgetAmount ?? null;
-
-  return (
-    <View style={styles.row}>
-      <View style={styles.rowTop}>
-        <View style={styles.rowInfo}>
-          <View style={styles.rowTitle}>
-            {item.color ? <View style={[styles.dot, { backgroundColor: item.color }]} /> : null}
-            <Text numberOfLines={1} style={[text.bodyMedium, { color: theme.ink }]}>
-              {item.categoryName ?? 'All expenses'}
-            </Text>
-            <Text style={[text.caption, { color: theme.muted }]}>
-              {item.period === 'MONTHLY' ? 'monthly' : 'yearly'}
-            </Text>
-          </View>
-
-          <View style={styles.tags}>
-            {!item.applied ? <Badge label="not yet active" /> : null}
-            {over ? <Badge label="over budget" tone="warning" /> : null}
-            {item.ratePolicy === 'estimate' ? <Badge label="estimated" /> : null}
-            {item.conversionStatus === 'unavailable' ? (
-              <Badge label="rates unavailable" tone="warning" />
-            ) : null}
-          </View>
-
-          <Text style={[text.caption, { color: theme.muted }]}>
-            {secondRemaining !== null && secondCurrency ? (
-              <>
-                <Text style={{ color: theme.ink }}>
-                  {formatMoney(Math.abs(secondRemaining), secondCurrency)}
-                </Text>
-                {` · ${formatMoney(Math.abs(item.remaining), baseCurrency)}`}
-              </>
-            ) : (
-              <Text style={{ color: theme.ink }}>
-                {formatMoney(Math.abs(item.remaining), baseCurrency)}
-              </Text>
-            )}
-            {` ${over ? 'over' : 'left'} · ${formatPercent(item.percentage)} used`}
-          </Text>
-        </View>
-
-        <View style={styles.rowAmount}>
-          {secondSpent !== null && secondCurrency ? (
-            <>
-              <Text style={[text.bodyMedium, { color: theme.ink }]}>
-                {formatMoney(secondSpent, secondCurrency)}
-              </Text>
-              <Text style={[text.caption, { color: theme.muted }]}>
-                {formatMoney(item.spent, baseCurrency)}
-              </Text>
-            </>
-          ) : (
-            <Text style={[text.bodyMedium, { color: theme.ink }]}>
-              {formatMoney(item.spent, baseCurrency)}
-            </Text>
-          )}
-          <Text style={[text.caption, { color: theme.muted }]}>
-            of{' '}
-            {secondLimit !== null && secondCurrency
-              ? `${formatMoney(secondLimit, secondCurrency)} · ${formatMoney(item.budgetAmount, baseCurrency)}`
-              : formatMoney(item.budgetAmount, baseCurrency)}
-          </Text>
-        </View>
-      </View>
-
-      <View style={[styles.track, { backgroundColor: theme.surfaceMuted }]}>
-        <View
-          style={[
-            styles.fill,
-            { flex: filled, backgroundColor: over ? theme.warning : theme.primary },
-          ]}
-        />
-        <View style={{ flex: 100 - filled }} />
-      </View>
-
-      <View style={styles.rowActions}>
-        <Button label="Remove" variant="ghost" size="sm" onPress={onRemove} busy={busy} />
-      </View>
+      {sheet ? <BudgetSheet target={sheet.target} onClose={closeSheet} /> : null}
     </View>
-  );
-}
-
-/**
- * A one-month step. A plain `Pressable` rather than the `Button` primitive,
- * whose label is required — an icon-only control should carry its name in the
- * accessibility label instead of an empty string.
- */
-function MonthStep({
-  direction,
-  onPress,
-}: {
-  direction: 'previous' | 'next';
-  onPress: () => void;
-}) {
-  const theme = useTheme();
-  const Glyph = direction === 'previous' ? IconArrowLeft : IconArrowRight;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={direction === 'previous' ? 'Previous month' : 'Next month'}
-      onPress={onPress}
-      hitSlop={8}
-      style={({ pressed }) => [
-        styles.monthStep,
-        pressed && { backgroundColor: theme.surfaceMuted },
-      ]}
-    >
-      <Glyph size={18} color={theme.ink} />
-    </Pressable>
   );
 }
 
@@ -429,39 +192,4 @@ const styles = StyleSheet.create({
     paddingBottom: layout.tabBarInset + spacing.xl,
     gap: spacing.lg,
   },
-  monthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.lg,
-    borderWidth: borderWidth.thin,
-  },
-  cardHead: { gap: spacing.xs / 2 },
-  monthStep: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  skeletons: { gap: spacing.sm },
-  skeleton: { borderRadius: radius.lg },
-  group: { gap: spacing.sm },
-  row: { gap: spacing.sm, paddingVertical: spacing.md },
-  rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  rowInfo: { flex: 1, gap: spacing.xs },
-  rowTitle: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  rowAmount: { alignItems: 'flex-end', gap: spacing.xs / 2 },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  dot: { width: 9, height: 9, borderRadius: radius.pill },
-  track: {
-    flexDirection: 'row',
-    height: 6,
-    borderRadius: radius.pill,
-    overflow: 'hidden',
-  },
-  fill: { borderRadius: radius.pill },
-  rowActions: { alignItems: 'flex-end' },
 });
