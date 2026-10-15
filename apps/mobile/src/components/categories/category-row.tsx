@@ -1,16 +1,20 @@
 /**
- * One category: its colour, name, expense count, and the actions.
+ * One category: its colour, name, expense count, and the two actions.
  *
- * Tapping the row opens that category's expenses in Activity; the actions sit
- * below the tap target so a reach for Delete never navigates. The colour dot is
- * always drawn beside the name, so colour never carries meaning on its own.
+ * A single line, so a long list stays scannable. Tapping the row opens that
+ * category's expenses in Activity; the icon buttons sit outside the tap target
+ * so a reach for Delete never navigates. The colour dot is always drawn beside
+ * the name, so colour never carries meaning on its own.
+ *
+ * The actions are icon-only, so each carries its name in the accessibility
+ * label instead of a visible one.
  */
 
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { IconEdit, IconTrash } from '@/components/icons';
+import { Spinner } from '@/components/ui/feedback';
 import { radius, spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { ExpenseCategory } from '@/hooks/use-categories';
@@ -41,48 +45,74 @@ export function CategoryRow({
         style={({ pressed }) => [styles.open, pressed && styles.pressed]}
       >
         <View style={[styles.dot, { backgroundColor: category.color }]} />
-
-        <View style={styles.info}>
-          <View style={styles.title}>
-            <Text numberOfLines={1} style={[text.bodyStrong, styles.name, { color: theme.ink }]}>
-              {category.name}
-            </Text>
-            {category.isDefault ? <Badge label="default" /> : null}
-          </View>
-          <Text style={[text.caption, { color: theme.muted }]}>
-            {category.expenseCount} {category.expenseCount === 1 ? 'expense' : 'expenses'}
-          </Text>
-        </View>
+        <Text
+          numberOfLines={1}
+          style={[text.bodyStrong, styles.name, { color: theme.ink }]}
+        >
+          {category.name}
+        </Text>
+        <Text style={[text.caption, { color: theme.muted }]}>
+          {category.expenseCount} {category.expenseCount === 1 ? 'expense' : 'expenses'}
+        </Text>
       </Pressable>
 
-      <View style={styles.actions}>
-        <Button
-          label="Edit"
-          variant="ghost"
-          size="sm"
-          icon={(color) => <IconEdit size={14} color={color} />}
-          onPress={onEdit}
-        />
-        <Button
-          label="Delete"
-          variant="ghost"
-          size="sm"
-          icon={(color) => <IconTrash size={14} color={color} />}
-          onPress={onDelete}
-          busy={deleteBusy}
-        />
-      </View>
+      <RowAction label={`Edit ${category.name}`} onPress={onEdit}>
+        <IconEdit size={18} color={theme.muted} />
+      </RowAction>
+      <RowAction label={`Delete ${category.name}`} onPress={onDelete} busy={deleteBusy}>
+        <IconTrash size={18} color={theme.danger} />
+      </RowAction>
     </View>
   );
 }
 
+/** An icon-only control; the glyph is the whole button, so `label` names it. */
+function RowAction({
+  label,
+  onPress,
+  busy = false,
+  children,
+}: {
+  label: string;
+  onPress: () => void;
+  busy?: boolean;
+  children: ReactNode;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ busy, disabled: busy }}
+      onPress={onPress}
+      disabled={busy}
+      hitSlop={6}
+      style={({ pressed }) => [styles.action, pressed && { backgroundColor: theme.surfaceMuted }]}
+    >
+      {busy ? <Spinner size="small" /> : children}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  row: { paddingVertical: spacing.md, gap: spacing.sm },
-  open: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  open: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    alignSelf: 'stretch',
+    paddingVertical: spacing.md,
+  },
   pressed: { opacity: 0.7 },
-  dot: { width: 12, height: 12, borderRadius: radius.pill },
-  info: { flex: 1, gap: spacing.xs / 2 },
-  title: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  dot: { width: 10, height: 10, borderRadius: radius.pill },
   name: { flexShrink: 1 },
-  actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.xs },
+  action: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+  },
 });

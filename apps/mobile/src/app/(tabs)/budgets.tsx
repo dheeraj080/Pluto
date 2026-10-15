@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -22,6 +22,7 @@ import { BudgetRow } from '@/components/budgets/budget-row';
 import { DashboardCard } from '@/components/dashboard/card';
 import { BudgetSheet } from '@/components/sheets/budget-sheet';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm';
 import { ConversionNote } from '@/components/ui/conversion-note';
 import { Divider } from '@/components/ui/divider';
 import { EmptyState, ErrorNote } from '@/components/ui/feedback';
@@ -52,6 +53,7 @@ export default function BudgetsScreen() {
     secondary: second ?? undefined,
   });
   const remove = useDeleteBudget();
+  const { confirm, sheet: confirmSheet } = useConfirm();
 
   const items = status.data?.items ?? [];
   const baseCurrency = status.data?.baseCurrency ?? base ?? 'USD';
@@ -86,16 +88,15 @@ export default function BudgetsScreen() {
   const confirmDelete = useCallback(
     (item: BudgetStatus) => {
       const label = item.categoryName ?? 'all expenses';
-      Alert.alert(`Delete the budget for ${label}?`, 'The expenses behind it are not affected.', [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => remove.mutate(item.budgetId),
-        },
-      ]);
+      void confirm({
+        title: `Delete the budget for ${label}?`,
+        message: 'The expenses behind it are not affected.',
+        confirmLabel: 'Delete',
+      }).then((confirmed) => {
+        if (confirmed) remove.mutate(item.budgetId);
+      });
     },
-    [remove],
+    [confirm, remove],
   );
 
   const onRefresh = useCallback(() => {
@@ -181,6 +182,7 @@ export default function BudgetsScreen() {
       </ScrollView>
 
       {sheet ? <BudgetSheet target={sheet.target} onClose={closeSheet} /> : null}
+      {confirmSheet}
     </View>
   );
 }

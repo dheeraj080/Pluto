@@ -20,10 +20,11 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { useConfirm } from '@/components/ui/confirm';
 import { ConversionNote } from '@/components/ui/conversion-note';
 import { AppPageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
@@ -72,6 +73,7 @@ export default function ReportsScreen() {
   const [compare, setCompare] = useState(true);
   const [rangeOpen, setRangeOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const { confirm, sheet: confirmSheet } = useConfirm();
 
   const onOverview = tab === 'overview';
   const showOverTime = onOverview && trendMode === 'overTime';
@@ -160,13 +162,27 @@ export default function ReportsScreen() {
         to: range.to,
         base: baseCurrency,
       });
-      if (!shared) Alert.alert('Export', 'Sharing is not available on this device.');
+      if (!shared) {
+        void confirm({
+          title: 'Export',
+          message: 'Sharing is not available on this device.',
+          confirmLabel: 'OK',
+          tone: 'primary',
+          cancelable: false,
+        });
+      }
     } catch (error) {
-      Alert.alert('Export failed', errorMessage(error) ?? 'Could not export this range.');
+      void confirm({
+        title: 'Export failed',
+        message: errorMessage(error) ?? 'Could not export this range.',
+        confirmLabel: 'OK',
+        tone: 'primary',
+        cancelable: false,
+      });
     } finally {
       setExporting(false);
     }
-  }, [range.from, range.to, baseCurrency]);
+  }, [range.from, range.to, baseCurrency, confirm]);
 
   const openCategory = useCallback(
     (categoryId: string) => router.push(activityHref({ categoryId, from: range.from, to: range.to })),
@@ -334,6 +350,8 @@ export default function ReportsScreen() {
           onApplyCustom={applyCustom}
         />
       ) : null}
+
+      {confirmSheet}
     </View>
   );
 }

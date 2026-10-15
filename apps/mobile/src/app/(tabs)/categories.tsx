@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -21,6 +21,7 @@ import { CategoryRow } from '@/components/categories/category-row';
 import { DashboardCard } from '@/components/dashboard/card';
 import { CategorySheet } from '@/components/sheets/category-sheet';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm';
 import { Divider } from '@/components/ui/divider';
 import { EmptyState, ErrorNote } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
@@ -38,6 +39,7 @@ export default function CategoriesScreen() {
   const queryClient = useQueryClient();
   const categories = useCategories();
   const remove = useDeleteCategory();
+  const { confirm, sheet: confirmSheet } = useConfirm();
 
   const [sheet, setSheet] = useState<{ target: ExpenseCategory | null } | null>(null);
 
@@ -62,25 +64,27 @@ export default function CategoriesScreen() {
       // A category still in use would only get a 409 from the server; say so up
       // front rather than firing a request that cannot succeed.
       if (category.expenseCount > 0) {
-        Alert.alert(
-          'Category in use',
-          `${category.expenseCount} ${
+        void confirm({
+          title: 'Category in use',
+          message: `${category.expenseCount} ${
             category.expenseCount === 1 ? 'expense uses' : 'expenses use'
           } “${category.name}”. Reassign them before deleting.`,
-        );
+          confirmLabel: 'OK',
+          tone: 'primary',
+          cancelable: false,
+        });
         return;
       }
 
-      Alert.alert(`Delete “${category.name}”?`, 'This cannot be undone.', [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => remove.mutate(category.id),
-        },
-      ]);
+      void confirm({
+        title: `Delete “${category.name}”?`,
+        message: 'This cannot be undone.',
+        confirmLabel: 'Delete',
+      }).then((confirmed) => {
+        if (confirmed) remove.mutate(category.id);
+      });
     },
-    [remove],
+    [confirm, remove],
   );
 
   const onRefresh = useCallback(() => {
@@ -153,6 +157,7 @@ export default function CategoriesScreen() {
       </ScrollView>
 
       {sheet ? <CategorySheet target={sheet.target} onClose={closeSheet} /> : null}
+      {confirmSheet}
     </View>
   );
 }

@@ -1,10 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { DualAmount } from '@/components/amount';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useConfirm } from '@/components/ui/confirm';
 import { Divider } from '@/components/ui/divider';
 import { ErrorNote, Spinner } from '@/components/ui/feedback';
 import { layout, radius, spacing, text } from '@/theme';
@@ -25,25 +26,25 @@ export default function ExpenseDetailScreen() {
   const remove = useDeleteExpense();
   const { base, second } = usePair();
   const snapshot = useRateSnapshot(base ?? undefined);
+  const { confirm, sheet: confirmSheet } = useConfirm();
 
   const onDelete = useCallback(() => {
     const target = expense.data;
     if (!target) return;
 
-    Alert.alert('Delete expense?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () =>
-          remove.mutate(target.id, {
-            // The list already dropped this row from its cache, so returning
-            // to it shows the deletion without a manual refresh.
-            onSuccess: () => router.back(),
-          }),
-      },
-    ]);
-  }, [expense.data, remove]);
+    void confirm({
+      title: 'Delete expense?',
+      message: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+    }).then((confirmed) => {
+      if (!confirmed) return;
+      remove.mutate(target.id, {
+        // The list already dropped this row from its cache, so returning
+        // to it shows the deletion without a manual refresh.
+        onSuccess: () => router.back(),
+      });
+    });
+  }, [confirm, expense.data, remove]);
 
   if (expense.isPending) {
     return (
@@ -123,6 +124,8 @@ export default function ExpenseDetailScreen() {
           <Button label="Delete" variant="danger" onPress={onDelete} busy={remove.isPending} />
         </View>
       </ScrollView>
+
+      {confirmSheet}
     </View>
   );
 }
