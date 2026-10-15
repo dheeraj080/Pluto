@@ -3,10 +3,10 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Chip } from '@/components/ui/chip';
 import { ErrorNote, Spinner } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
 import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Select } from '@/components/ui/select';
 import { IconSwap } from '@/components/icons';
 import { borderWidth, layout, radius, spacing, tabularNums, text } from '@/theme';
 import { useSupportedCurrencies } from '@/hooks/use-currencies';
@@ -33,10 +33,11 @@ const APPEARANCE_OPTIONS: ReadonlyArray<{ value: ThemePreference; label: string 
 /**
  * Settings: the account, and the one place the currency Pair is defined.
  *
- * The Base drives aggregation and lives on the server profile; the Second is a
- * display companion kept on the device. Both are edited through `usePair` — the
- * same source of truth every other screen reads — so a change here is reflected
- * immediately, without a "save" step or a round-trip for the second half.
+ * The Home currency drives aggregation and lives on the server profile; the
+ * Second is a display companion kept on the device. Both are edited through
+ * `usePair` — the same source of truth every other screen reads — so a change
+ * here is reflected immediately, without a "save" step or a round-trip for the
+ * second half.
  */
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -50,6 +51,25 @@ export default function SettingsScreen() {
   const options = useMemo(
     () => [...(currencies.data ?? [])].sort((a, b) => a.code.localeCompare(b.code)),
     [currencies.data],
+  );
+
+  /** Dropdown options for a currency, matching the chip labels ("USD · $"). */
+  const currencyOptions = useMemo(
+    () =>
+      options.map((currency) => ({
+        value: currency.code,
+        label: `${currency.code} · ${currency.symbol}`,
+      })),
+    [options],
+  );
+
+  /** The Second can be cleared, so it leads with a "None" entry. */
+  const secondOptions = useMemo(
+    () => [
+      { value: '', label: 'None' },
+      ...currencyOptions.filter((option) => option.value !== base),
+    ],
+    [currencyOptions, base],
   );
 
   // Rates are quoted against the base, so ask for the base snapshot directly.
@@ -100,8 +120,8 @@ export default function SettingsScreen() {
       <Card>
         <Text style={[text.overline, { color: theme.muted }]}>DISPLAY CURRENCIES</Text>
         <Text style={[text.body, { color: theme.muted }]}>
-          Every amount is shown in two currencies: a Base, which totals are converted into, and a
-          Second, which each figure is re-expressed in.
+          Every amount is shown in two currencies: a Home currency, which totals are converted
+          into, and a Second, which each figure is re-expressed in.
         </Text>
 
         {currencies.isPending ? (
@@ -111,23 +131,15 @@ export default function SettingsScreen() {
         ) : (
           <>
             <View style={styles.fieldLabel}>
-              <Text style={[text.captionStrong, { color: theme.muted }]}>BASE</Text>
+              <Text style={[text.captionStrong, { color: theme.muted }]}>HOME</Text>
               {savingBase ? <Spinner size="small" /> : null}
             </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipRow}
-            >
-              {options.map((currency) => (
-                <Chip
-                  key={currency.code}
-                  label={`${currency.code} · ${currency.symbol}`}
-                  selected={currency.code === base}
-                  onPress={() => setBase(currency.code)}
-                />
-              ))}
-            </ScrollView>
+            <Select
+              accessibilityLabel="Home currency"
+              value={base ?? ''}
+              onChange={setBase}
+              options={currencyOptions}
+            />
 
             <Button
               label="Swap"
@@ -139,23 +151,12 @@ export default function SettingsScreen() {
             />
 
             <Text style={[text.captionStrong, { color: theme.muted }]}>SECOND</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipRow}
-            >
-              <Chip label="None" selected={second === null} onPress={() => setSecond(null)} />
-              {options
-                .filter((currency) => currency.code !== base)
-                .map((currency) => (
-                  <Chip
-                    key={currency.code}
-                    label={`${currency.code} · ${currency.symbol}`}
-                    selected={currency.code === second}
-                    onPress={() => setSecond(currency.code)}
-                  />
-                ))}
-            </ScrollView>
+            <Select
+              accessibilityLabel="Second currency"
+              value={second ?? ''}
+              onChange={(value) => setSecond(value === '' ? null : value)}
+              options={secondOptions}
+            />
           </>
         )}
 
@@ -219,7 +220,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  chipRow: { gap: spacing.sm, paddingRight: spacing.lg },
   swap: { alignSelf: 'flex-start' },
   preview: {
     gap: spacing.xs,

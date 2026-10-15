@@ -128,6 +128,28 @@ export function formatPercent(value: number): string {
  * The shape check alone would accept `2026-02-31`; the server validates with
  * `IsDateString` and would reject it, so catching it here gives a better error.
  */
+export function formatRelativeDate(iso: string, now: Date = new Date()): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return iso;
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  const diffDays = Math.floor((today.getTime() - target.getTime()) / 86_400_000);
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      day: 'numeric',
+      month: 'short',
+      year: today.getFullYear() !== target.getFullYear() ? 'numeric' : undefined,
+    }).format(target);
+  } catch {
+    return formatDate(iso);
+  }
+}
+
 export function isValidIsoDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);

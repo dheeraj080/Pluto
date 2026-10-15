@@ -231,6 +231,7 @@ export default function ReportsScreen() {
         <DayOfWeekInsight
           rows={dowRows}
           base={baseCurrency}
+          second={second}
           rangeLabel={rangeLabel}
           loading={dayOfWeek.isPending}
           error={dowError}

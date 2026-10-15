@@ -14,6 +14,7 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DowChart } from '@/components/charts';
+import { InlineAmounts } from '@/components/amount';
 import { ReportCard, type ReportTableData } from '@/components/reports/report-card';
 import { spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -59,22 +60,30 @@ export function DayOfWeekCard({
   onRetry: () => void;
 }) {
   const theme = useTheme();
-  const peak = useMemo(() => busiest(rows), [rows]);
+
+  // The line and its axis read in the leading (Second) currency when a pair is
+  // set, so the shape matches the figures above; a weekday falls back to its Home
+  // average when the server could not convert it.
+  const displayCurrency = second ?? base;
+  const chartValues = rows.map((row) => (second ? (row.secondaryAverage ?? row.average) : row.average));
+  const peakIndex =
+    chartValues.length > 0 ? chartValues.indexOf(Math.max(...chartValues)) : -1;
 
   const table: ReportTableData = useMemo(() => {
-    const columns = [{ label: 'Day' }, { label: `Average (${base ?? '—'})`, align: 'right' as const }];
-    if (second) columns.push({ label: `Average (${second})`, align: 'right' as const });
-    columns.push(
+    const columns = [
+      { label: 'Day' },
+      ...(second ? [{ label: `Average (${second})`, align: 'right' as const }] : []),
+      { label: `Average (${base ?? '—'})`, align: 'right' as const },
       { label: 'Expenses', align: 'right' as const },
       { label: `Total (${base ?? '—'})`, align: 'right' as const },
-    );
+    ];
     return {
       caption: 'Spending by day of week, average per weekday',
       columns,
       rows: rows.map((row) => [
         row.full,
-        money(row.average, base),
         ...(second ? [money(row.secondaryAverage, second)] : []),
+        money(row.average, base),
         String(row.count),
         money(row.total, base),
       ]),
@@ -82,7 +91,6 @@ export function DayOfWeekCard({
   }, [rows, base, second]);
 
   const isEmpty = rows.length === 0 || !rows.some((row) => row.average > 0);
-  const peakIndex = peak ? rows.indexOf(peak) : -1;
 
   return (
     <ReportCard
@@ -101,10 +109,15 @@ export function DayOfWeekCard({
       }
     >
       <DowChart
-        points={rows.map((row) => ({ label: row.label, value: row.average }))}
+        points={rows.map((row) => ({
+          label: row.label,
+          value: second ? (row.secondaryAverage ?? row.average) : row.average,
+        }))}
         height={240}
         peakIndex={peakIndex}
-        formatValue={(value) => (base ? formatMoney(value, base) : String(Math.round(value)))}
+        formatValue={(value) =>
+          displayCurrency ? formatMoney(value, displayCurrency) : String(Math.round(value))
+        }
       />
     </ReportCard>
   );
@@ -113,6 +126,7 @@ export function DayOfWeekCard({
 export function DayOfWeekInsight({
   rows,
   base,
+  second,
   rangeLabel,
   loading,
   error,
@@ -120,6 +134,7 @@ export function DayOfWeekInsight({
 }: {
   rows: DayOfWeekRow[];
   base: string | null;
+  second: string | null;
   rangeLabel: string;
   loading: boolean;
   error: string | null;
@@ -150,7 +165,13 @@ export function DayOfWeekInsight({
           <Text style={[text.body, { color: theme.muted }]}>
             You spend the most on{' '}
             <Text style={strong}>{peak.full}s</Text> (
-            <Text style={figures}>{money(peak.average, base)}</Text>
+            <InlineAmounts
+              homeAmount={peak.average}
+              homeCurrency={base}
+              secondAmount={peak.secondaryAverage}
+              secondCurrency={second}
+              textStyle={text.body}
+            />
             {share > 0 ? (
               <>
                 {' '}
@@ -161,7 +182,14 @@ export function DayOfWeekInsight({
           </Text>
           <Text style={[text.body, { color: theme.muted }]}>
             The quietest day is <Text style={strong}>{calmest.full}</Text> —{' '}
-            <Text style={figures}>{money(calmest.average, base)}</Text> on average.
+            <InlineAmounts
+              homeAmount={calmest.average}
+              homeCurrency={base}
+              secondAmount={calmest.secondaryAverage}
+              secondCurrency={second}
+              textStyle={text.body}
+            />{' '}
+            on average.
           </Text>
         </View>
       ) : null}

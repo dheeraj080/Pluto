@@ -28,6 +28,7 @@ export function DashboardCard({
   loading = false,
   skeletonHeight = 128,
   empty,
+  isEmpty = false,
   footer,
   glow = false,
   style,
@@ -39,8 +40,14 @@ export function DashboardCard({
   action?: ReactNode;
   loading?: boolean;
   skeletonHeight?: number;
-  /** Shown instead of `children` when there is genuinely nothing to draw. */
+  /** Shown instead of `children` when `isEmpty` is true. */
   empty?: ReactNode;
+  /**
+   * True when there is genuinely nothing to draw. Like `ReportCard`, the empty
+   * state is gated on this rather than on `empty` merely being provided, so a
+   * placeholder never shadows real content.
+   */
+  isEmpty?: boolean;
   footer?: ReactNode;
   /** The soft emerald wash. Reserved for the headline card. */
   glow?: boolean;
@@ -78,8 +85,10 @@ export function DashboardCard({
       <View style={styles.body}>
         {loading ? (
           <Skeleton height={skeletonHeight} />
+        ) : isEmpty ? (
+          (empty ?? null)
         ) : (
-          (empty ?? children)
+          children
         )}
       </View>
 

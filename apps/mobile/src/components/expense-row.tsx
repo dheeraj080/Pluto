@@ -6,6 +6,10 @@
  * muted metadata, and the amount is right-aligned in tabular figures so a column
  * of rows lines up.
  *
+ * The amount shows two figures — the currency it was recorded in, with the same
+ * amount in the home currency beneath it (or the Second when the expense is
+ * already in home). The recorded amount is never rewritten.
+ *
  * The row carries no background or border of its own — lists separate rows with
  * the `Divider` component so the first and last rows sit flush inside their card.
  */
@@ -13,11 +17,26 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { Schemas } from '@pluto/api-client';
 
+import { DualAmount } from '@/components/amount';
 import { spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatDate, formatMoney } from '@/lib/format';
+import { recordedAmounts, type RateSnapshot } from '@/lib/convert';
+import { formatDate } from '@/lib/format';
 
-export function ExpenseRow({ expense }: { expense: Schemas['ExpenseDto'] }) {
+export function ExpenseRow({
+  expense,
+  home,
+  second,
+  snapshot,
+}: {
+  expense: Schemas['ExpenseDto'];
+  /** Home currency the recorded amount is also shown in; null hides it. */
+  home: string | null;
+  /** Second currency, the companion when the expense is already in home. */
+  second: string | null;
+  /** Latest public rates, for the companion figure. */
+  snapshot: RateSnapshot | null;
+}) {
   const theme = useTheme();
 
   const description = expense.description?.trim();
@@ -26,6 +45,8 @@ export function ExpenseRow({ expense }: { expense: Schemas['ExpenseDto'] }) {
   const meta = description
     ? `${expense.categoryName} · ${formatDate(expense.incurredOn)}`
     : formatDate(expense.incurredOn);
+
+  const amounts = recordedAmounts(expense.amount, expense.currency, home, snapshot, second);
 
   return (
     <View style={styles.row}>
@@ -40,9 +61,16 @@ export function ExpenseRow({ expense }: { expense: Schemas['ExpenseDto'] }) {
         </Text>
       </View>
 
-      <Text numberOfLines={1} style={[text.amount, { color: theme.ink }]}>
-        {formatMoney(expense.amount, expense.currency)}
-      </Text>
+      <DualAmount
+        amount={amounts.amount}
+        currency={amounts.currency}
+        secondaryAmount={amounts.companionAmount}
+        secondaryCurrency={amounts.companionCurrency}
+        size="sm"
+        layout="stack"
+        align="right"
+        style={styles.amount}
+      />
     </View>
   );
 }
@@ -63,4 +91,5 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xs / 2,
   },
+  amount: { flexShrink: 0 },
 });

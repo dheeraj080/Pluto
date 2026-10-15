@@ -16,6 +16,7 @@ import { ChangePill } from '@/components/ui/change-pill';
 import { ReportCard } from '@/components/reports/report-card';
 import { fontFamily, radius, spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { summaryAmounts } from '@/lib/convert';
 import { formatPercent } from '@/lib/format';
 import type { ExpenseComparison } from '@/lib/report-types';
 
@@ -110,6 +111,11 @@ export function ReportKpis({
     : null;
   const topPct = top ? pctChange(top.total, topPreviousTotal) : null;
 
+  // Every total leads with the Second and shows the Home equivalent beneath.
+  const totalPair = summaryAmounts(total, base, totalSecond, second);
+  const averagePair = summaryAmounts(average, base, averageSecond, second);
+  const topPair = top ? summaryAmounts(top.total, base, top.secondaryTotal, second) : null;
+
   return (
     <ReportCard
       title="Key figures"
@@ -123,15 +129,8 @@ export function ReportKpis({
         <View style={styles.headlineMain}>
           <Text style={[text.overline, { color: theme.muted }]}>Total spent</Text>
           <View style={styles.headlineValue}>
-            {total !== null && base ? (
-              <DualAmount
-                amount={total}
-                currency={base}
-                secondaryAmount={totalSecond}
-                secondaryCurrency={totalSecond != null ? second : null}
-                size="hero"
-                layout="inline"
-              />
+            {totalPair ? (
+              <DualAmount {...totalPair} size="hero" layout="inline" />
             ) : (
               <Dash />
             )}
@@ -152,15 +151,8 @@ export function ReportKpis({
         </Stat>
 
         <Stat label="Average per expense" percent={averagePct}>
-          {average !== null && base ? (
-            <DualAmount
-              amount={average}
-              currency={base}
-              secondaryAmount={averageSecond}
-              secondaryCurrency={averageSecond != null ? second : null}
-              size="md"
-              layout="inline"
-            />
+          {averagePair ? (
+            <DualAmount {...averagePair} size="md" layout="inline" />
           ) : (
             <Dash />
           )}
@@ -176,16 +168,7 @@ export function ReportKpis({
                 </Text>
                 <Text style={[text.caption, { color: theme.muted }]}>{formatPercent(top.percentage)}</Text>
               </View>
-              {base ? (
-                <DualAmount
-                  amount={top.total}
-                  currency={base}
-                  secondaryAmount={top.secondaryTotal ?? null}
-                  secondaryCurrency={top.secondaryTotal != null ? second : null}
-                  size="md"
-                  layout="inline"
-                />
-              ) : null}
+              {topPair ? <DualAmount {...topPair} size="md" layout="inline" /> : null}
             </View>
           ) : (
             <Dash />

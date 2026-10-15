@@ -13,7 +13,7 @@ import { useDeleteExpense } from '@/hooks/use-expense-mutations';
 import { usePair } from '@/hooks/use-pair';
 import { useRateSnapshot } from '@/hooks/use-rates';
 import { useTheme } from '@/hooks/use-theme';
-import { buildConversionPreview, dualAmounts } from '@/lib/convert';
+import { buildConversionPreview, recordedAmounts } from '@/lib/convert';
 import { errorMessage } from '@/lib/errors';
 import { formatDate } from '@/lib/format';
 import { editExpenseHref } from '@/lib/routes';
@@ -64,30 +64,21 @@ export default function ExpenseDetailScreen() {
 
   const item = expense.data;
 
-  // Read the recorded amount through the Pair, exactly as the web detail page
-  // does: the Base is the headline, the Second sits beside it, and the currency
-  // actually paid in is kept visible as a "Paid …" label rather than rewritten.
+  // Read the recorded amount as the headline, with its companion (home, or the
+  // Second when the expense is already in home) beneath it. The recorded amount
+  // is never rewritten.
   const rates = snapshot.data ?? null;
-  const pair = dualAmounts(item.amount, item.currency, base, second, rates);
-  const primaryCurrency = pair.base !== null ? (base ?? item.currency) : item.currency;
-  const primaryAmount = pair.base ?? item.amount;
-  const recorded =
-    item.currency !== primaryCurrency ? { amount: item.amount, currency: item.currency } : null;
+  const amounts = recordedAmounts(item.amount, item.currency, base, rates, second);
 
-  // The rate that produced the converted values: the recorded currency to the
-  // Base when the expense was a third currency, otherwise the Base to the
-  // Second — so a figure can always be traced back to its snapshot.
-  const toBase =
-    base && base !== item.currency
-      ? buildConversionPreview(item.amount, item.currency, base, rates)
+  // The rate that produced the companion figure, so it can be traced back to its
+  // snapshot. A row with no companion needs no such line.
+  const companionRate =
+    amounts.companionCurrency && amounts.companionCurrency !== item.currency
+      ? buildConversionPreview(item.amount, item.currency, amounts.companionCurrency, rates)
       : null;
-  const baseToSecond =
-    base && second && base !== second ? buildConversionPreview(1, base, second, rates) : null;
-  const rateLine = toBase
-    ? `1 ${toBase.from} = ${toBase.rate.toFixed(4)} ${toBase.to} · ${toBase.provider} ${toBase.effectiveDate}`
-    : baseToSecond
-      ? `1 ${baseToSecond.from} = ${baseToSecond.rate.toFixed(4)} ${baseToSecond.to} · ${baseToSecond.provider} ${baseToSecond.effectiveDate}`
-      : null;
+  const rateLine = companionRate
+    ? `1 ${companionRate.from} = ${companionRate.rate.toFixed(4)} ${companionRate.to} · ${companionRate.provider} ${companionRate.effectiveDate}`
+    : null;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
@@ -101,11 +92,10 @@ export default function ExpenseDetailScreen() {
           </View>
 
           <DualAmount
-            amount={primaryAmount}
-            currency={primaryCurrency}
-            secondaryAmount={pair.second}
-            secondaryCurrency={second}
-            recorded={recorded}
+            amount={amounts.amount}
+            currency={amounts.currency}
+            secondaryAmount={amounts.companionAmount}
+            secondaryCurrency={amounts.companionCurrency}
             size="hero"
             layout="inline"
           />

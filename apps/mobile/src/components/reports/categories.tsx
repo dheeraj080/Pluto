@@ -23,6 +23,7 @@ import { ReportCard, type ReportTableData } from '@/components/reports/report-ca
 import { Chip } from '@/components/ui/chip';
 import { radius, spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { summaryAmounts } from '@/lib/convert';
 import { errorMessage } from '@/lib/errors';
 import { formatMoney, formatPercent } from '@/lib/format';
 import { granularityLabel, type ReportGranularity } from '@/lib/ranges';
@@ -110,15 +111,22 @@ export function ReportCategories({
   const seriesItems = useMemo(() => categorySeries.data?.series ?? [], [categorySeries.data]);
   const buckets = useMemo(() => categorySeries.data?.buckets ?? [], [categorySeries.data]);
 
+  // The stacked chart and its table read in the leading (Second) currency when a
+  // pair is set, so the axis matches the totals above; a point falls back to its
+  // Home value when the server could not convert it.
+  const displayCurrency = second ?? base;
+
   const topEntries: StackedSeries[] = useMemo(
     () =>
       seriesItems.slice(0, 5).map((item) => ({
         id: item.categoryId,
         label: item.categoryName,
         color: PALETTE[(rankOf.get(item.categoryId) ?? 0) % PALETTE.length],
-        values: item.points.map((point) => point.total ?? 0),
+        values: item.points.map(
+          (point) => (second ? (point.secondaryTotal ?? point.total) : point.total) ?? 0,
+        ),
       })),
-    [seriesItems, rankOf],
+    [seriesItems, rankOf, second],
   );
 
   const visibleStack: StackedSeries[] = useMemo(() => {
@@ -129,11 +137,14 @@ export function ReportCategories({
       label: 'Other',
       color: OTHER_COLOR,
       values: buckets.map((_, index) =>
-        rest.reduce((sum, item) => sum + (item.points[index]?.total ?? 0), 0),
+        rest.reduce((sum, item) => {
+          const point = item.points[index];
+          return sum + ((second ? (point?.secondaryTotal ?? point?.total) : point?.total) ?? 0);
+        }, 0),
       ),
     };
     return [...topEntries, other];
-  }, [seriesItems, buckets, topEntries]);
+  }, [seriesItems, buckets, topEntries, second]);
 
   const isolatedEntry = visibleStack.find((entry) => entry.id === isolated) ?? null;
   const renderStack = isolatedEntry ? [isolatedEntry] : visibleStack;
@@ -145,6 +156,7 @@ export function ReportCategories({
 
   const isEmpty = categories.length === 0 || !categories.some((entry) => entry.total > 0);
   const max = categories[0]?.total ?? 0;
+  const centrePair = summaryAmounts(total, base, secondaryTotal, second);
 
   const shareTable: ReportTableData | undefined =
     categories.length > 0
@@ -152,14 +164,14 @@ export function ReportCategories({
           caption: `Spending by category, ${rangeLabel}`,
           columns: [
             { label: 'Category' },
-            { label: `Spent (${base ?? '—'})`, align: 'right' },
             ...(second ? [{ label: `Spent (${second})`, align: 'right' as const }] : []),
+            { label: `Spent (${base ?? '—'})`, align: 'right' },
             { label: 'Share', align: 'right' },
           ],
           rows: categories.map((entry) => [
             entry.categoryName,
+            ...(second ? [fmt(entry.secondaryTotal, second)] : []),
             fmt(entry.total, base),
-            ...(second ? [entry.secondaryTotal == null ? '—' : fmt(entry.secondaryTotal, second)] : []),
             formatPercent(entry.percentage),
           ]),
         }
@@ -175,7 +187,7 @@ export function ReportCategories({
           ],
           rows: stackRows.map((row) => [
             bucketHeading(row.bucket, granularity),
-            ...row.values.map((value) => fmt(value, base)),
+            ...row.values.map((value) => fmt(value, displayCurrency)),
           ]),
         }
       : undefined;
@@ -211,17 +223,9 @@ export function ReportCategories({
       {view === 'share' ? (
         <View style={styles.donutWrap}>
           <DonutChart slices={donutSlices} size={220}>
-            {total != null && base ? (
+            {centrePair ? (
               <View style={styles.donutCenter}>
-                <DualAmount
-                  amount={total}
-                  currency={base}
-                  secondaryAmount={secondaryTotal}
-                  secondaryCurrency={secondaryTotal != null ? second : null}
-                  size="kpi"
-                  layout="stack"
-                  align="center"
-                />
+                <DualAmount {...centrePair} size="kpi" layout="stack" align="center" />
                 <Text style={[text.caption, { color: theme.muted }]}>
                   {count} {count === 1 ? 'expense' : 'expenses'}
                 </Text>
@@ -252,7 +256,9 @@ export function ReportCategories({
             series={renderStack}
             height={240}
             formatXTick={(key) => bucketAxis(key, granularity)}
-            formatValue={(value) => (base ? formatMoney(value, base) : String(Math.round(value)))}
+            formatValue={(value) =>
+              displayCurrency ? formatMoney(value, displayCurrency) : String(Math.round(value))
+            }
           />
         </View>
       )}
@@ -260,6 +266,7 @@ export function ReportCategories({
       <View style={[styles.list, { borderColor: theme.border }]}>
         {categories.map((entry) => {
           const barWidth = max > 0 ? (entry.total / max) * 100 : 0;
+          const entryPair = summaryAmounts(entry.total, base, entry.secondaryTotal, second);
           return (
             <View key={entry.categoryId} style={[styles.row, { borderColor: theme.border }]}>
               <View style={styles.rowHead}>
@@ -267,15 +274,9 @@ export function ReportCategories({
                 <Text style={[text.bodyMedium, styles.rowName, { color: theme.ink }]} numberOfLines={1}>
                   {entry.categoryName}
                 </Text>
-                <DualAmount
-                  amount={entry.total}
-                  currency={base ?? 'USD'}
-                  secondaryAmount={entry.secondaryTotal ?? null}
-                  secondaryCurrency={entry.secondaryTotal != null ? second : null}
-                  size="sm"
-                  layout="stack"
-                  align="right"
-                />
+                {entryPair ? (
+                  <DualAmount {...entryPair} size="sm" layout="stack" align="right" />
+                ) : null}
               </View>
               <View style={styles.rowBar}>
                 <Text style={[text.caption, { color: theme.muted }]}>
@@ -300,15 +301,9 @@ export function ReportCategories({
         {categories.length > 0 ? (
           <View style={[styles.total, { borderColor: theme.borderStrong }]}>
             <Text style={[text.bodyMedium, { color: theme.ink }]}>Total</Text>
-            <DualAmount
-              amount={total ?? 0}
-              currency={base ?? 'USD'}
-              secondaryAmount={secondaryTotal}
-              secondaryCurrency={secondaryTotal != null ? second : null}
-              size="sm"
-              layout="stack"
-              align="right"
-            />
+            {centrePair ? (
+              <DualAmount {...centrePair} size="sm" layout="stack" align="right" />
+            ) : null}
           </View>
         ) : null}
       </View>

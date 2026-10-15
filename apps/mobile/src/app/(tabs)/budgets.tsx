@@ -4,11 +4,11 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Chip } from '@/components/ui/chip';
 import { ConversionNote } from '@/components/ui/conversion-note';
 import { Divider } from '@/components/ui/divider';
 import { EmptyState, ErrorNote, Skeleton } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
+import { Select } from '@/components/ui/select';
 import { TextField } from '@/components/ui/text-field';
 import { IconArrowLeft, IconArrowRight } from '@/components/icons';
 import { borderWidth, layout, radius, spacing, text } from '@/theme';
@@ -206,21 +206,20 @@ export default function BudgetsScreen() {
 
         <View style={styles.group}>
           <Text style={[text.bodyMedium, { color: theme.ink }]}>Applies to</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            <Chip label="All expenses" selected={categoryId === ''} onPress={() => setCategoryId('')} />
-            {categoryOptions.map((option) => (
-              <Chip
-                key={option.id}
-                label={option.name}
-                dotColor={option.color}
-                selected={categoryId === option.id}
-                onPress={() => setCategoryId(option.id)}
-              />
-            ))}
-          </ScrollView>
-          <Text style={[text.caption, { color: theme.muted }]}>
-            Leave as “All expenses” for an overall budget.
-          </Text>
+          <Select
+            accessibilityLabel="Applies to"
+            value={categoryId}
+            onChange={setCategoryId}
+            hint="Leave as “All expenses” for an overall budget."
+            options={[
+              { value: '', label: 'All expenses' },
+              ...categoryOptions.map((option) => ({
+                value: option.id,
+                label: option.name,
+                dotColor: option.color,
+              })),
+            ]}
+          />
         </View>
 
         <TextField
@@ -237,31 +236,26 @@ export default function BudgetsScreen() {
           {currencyOptions.length === 0 ? (
             <Text style={[text.caption, { color: theme.muted }]}>Loading currencies…</Text>
           ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-              {currencyOptions.map((option) => (
-                <Chip
-                  key={option.code}
-                  label={option.code}
-                  selected={option.code === effectiveCurrency}
-                  onPress={() => setCurrency(option.code)}
-                />
-              ))}
-            </ScrollView>
+            <Select
+              accessibilityLabel="Currency"
+              value={effectiveCurrency}
+              onChange={setCurrency}
+              options={currencyOptions.map((option) => ({
+                value: option.code,
+                label: `${option.code} · ${option.symbol}`,
+              }))}
+            />
           )}
         </View>
 
         <View style={styles.group}>
           <Text style={[text.bodyMedium, { color: theme.ink }]}>Period</Text>
-          <View style={styles.chipRow}>
-            {PERIODS.map((option) => (
-              <Chip
-                key={option.value}
-                label={option.label}
-                selected={option.value === period}
-                onPress={() => setPeriod(option.value)}
-              />
-            ))}
-          </View>
+          <Select
+            accessibilityLabel="Period"
+            value={period}
+            onChange={(value) => setPeriod(value as BudgetPeriod)}
+            options={PERIODS}
+          />
         </View>
 
         <TextField
@@ -340,30 +334,42 @@ function BudgetRow({
           </View>
 
           <Text style={[text.caption, { color: theme.muted }]}>
-            <Text style={{ color: theme.ink }}>
-              {formatMoney(Math.abs(item.remaining), baseCurrency)}
-            </Text>
-            {secondRemaining !== null && secondCurrency
-              ? ` · ${formatMoney(Math.abs(secondRemaining), secondCurrency)}`
-              : ''}
+            {secondRemaining !== null && secondCurrency ? (
+              <>
+                <Text style={{ color: theme.ink }}>
+                  {formatMoney(Math.abs(secondRemaining), secondCurrency)}
+                </Text>
+                {` · ${formatMoney(Math.abs(item.remaining), baseCurrency)}`}
+              </>
+            ) : (
+              <Text style={{ color: theme.ink }}>
+                {formatMoney(Math.abs(item.remaining), baseCurrency)}
+              </Text>
+            )}
             {` ${over ? 'over' : 'left'} · ${formatPercent(item.percentage)} used`}
           </Text>
         </View>
 
         <View style={styles.rowAmount}>
-          <Text style={[text.bodyMedium, { color: theme.ink }]}>
-            {formatMoney(item.spent, baseCurrency)}
-          </Text>
           {secondSpent !== null && secondCurrency ? (
-            <Text style={[text.caption, { color: theme.muted }]}>
-              {formatMoney(secondSpent, secondCurrency)}
+            <>
+              <Text style={[text.bodyMedium, { color: theme.ink }]}>
+                {formatMoney(secondSpent, secondCurrency)}
+              </Text>
+              <Text style={[text.caption, { color: theme.muted }]}>
+                {formatMoney(item.spent, baseCurrency)}
+              </Text>
+            </>
+          ) : (
+            <Text style={[text.bodyMedium, { color: theme.ink }]}>
+              {formatMoney(item.spent, baseCurrency)}
             </Text>
-          ) : null}
+          )}
           <Text style={[text.caption, { color: theme.muted }]}>
-            of {formatMoney(item.budgetAmount, baseCurrency)}
+            of{' '}
             {secondLimit !== null && secondCurrency
-              ? ` · ${formatMoney(secondLimit, secondCurrency)}`
-              : ''}
+              ? `${formatMoney(secondLimit, secondCurrency)} · ${formatMoney(item.budgetAmount, baseCurrency)}`
+              : formatMoney(item.budgetAmount, baseCurrency)}
           </Text>
         </View>
       </View>
@@ -443,7 +449,6 @@ const styles = StyleSheet.create({
   skeletons: { gap: spacing.sm },
   skeleton: { borderRadius: radius.lg },
   group: { gap: spacing.sm },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   row: { gap: spacing.sm, paddingVertical: spacing.md },
   rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   rowInfo: { flex: 1, gap: spacing.xs },

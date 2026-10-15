@@ -1,52 +1,42 @@
 /**
  * The expense dashboard.
  *
- * Built to answer six questions in about five seconds, in one column:
+ * Built to answer the questions a person actually asks, in about five seconds:
  *
- *  1. how much have I spent this month?          — the spending card
- *  2. am I on budget, and how much per day?      — the budget card
- *  3. faster or slower than last month?          — the comparison card
- *  4. what did I buy recently?                   — the recent card
- *  5. where is the money going?                  — the top-categories card
- *  6. what is today's rate, and what is X worth? — the rate & converter card
+ *  1. how much have I spent this month, and am I on budget? — the month card
+ *  2. what did I buy recently?                             — the recent card
+ *  3. what is today's rate?                                — the rate line
  *
- * The web lays these out in a 12-column grid whose `order-*` classes collapse to
- * exactly this sequence below the `lg` breakpoint, so the order is the web's own
- * phone order rather than a new decision.
+ * The deeper analysis — spending over time, the category breakdown, the weekday
+ * profile — belongs to the Reports tab, so the dashboard draws no charts and
+ * does not repeat them. Each card is a full-width surface in one column.
  *
  * Every converted figure comes from the server aggregates; the per-row previews
  * are display-only, and a window that cannot be converted reads "—" rather than
  * zero.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { router } from 'expo-router';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { BudgetCard } from '@/components/dashboard/budget-card';
-import { ComparisonCard } from '@/components/dashboard/comparison-card';
-import { RateCard } from '@/components/dashboard/rate-card';
+import { RateLine } from '@/components/dashboard/rate-line';
 import { RecentCard } from '@/components/dashboard/recent-card';
-import { SpendingCard } from '@/components/dashboard/spending-card';
-import { TopCategoriesCard } from '@/components/dashboard/top-categories-card';
+import { ThisMonthCard } from '@/components/dashboard/this-month-card';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ConversionNote } from '@/components/ui/conversion-note';
 import { EmptyState } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
-import { IconCalendar, IconPlus, IconRefresh } from '@/components/icons';
+import { IconCalendar, IconPlus } from '@/components/icons';
 import { borderWidth, controlHeight, layout, radius, spacing, text } from '@/theme';
 import { useBudgetStatus } from '@/hooks/use-budgets';
-import { comparisonDeltaPct, useComparisonSeries, useMonthComparison } from '@/hooks/use-dashboard';
+import { comparisonDeltaPct, useMonthComparison } from '@/hooks/use-dashboard';
 import { useExpenseList } from '@/hooks/use-expenses';
 import { usePair } from '@/hooks/use-pair';
-import { useRateHistory, useRateSnapshot } from '@/hooks/use-rates';
+import { useRateSnapshot } from '@/hooks/use-rates';
 import { useTheme } from '@/hooks/use-theme';
-import { formatDateRange, todayIso } from '@/lib/format';
-import { isoDaysAgo, type CompareRange } from '@/lib/ranges';
-
-/** Enough history for the rate line to say something; below this it is hidden. */
-const RATE_HISTORY_DAYS = 30;
+import { formatDateRange } from '@/lib/format';
 
 export default function DashboardScreen() {
   const theme = useTheme();
@@ -60,16 +50,7 @@ export default function DashboardScreen() {
   });
   const recent = useExpenseList({ sort: 'date_desc' });
 
-  const [range, setRange] = useState<CompareRange>('month');
-  const comparisonSeries = useComparisonSeries(range, base, second);
-
   const snapshot = useRateSnapshot(base);
-  const history = useRateHistory({
-    base,
-    quote: second,
-    from: isoDaysAgo(RATE_HISTORY_DAYS - 1),
-    to: todayIso(),
-  });
 
   const comparison = month.comparison;
   const summary = comparison?.current ?? null;
@@ -83,18 +64,16 @@ export default function DashboardScreen() {
   // the Budgets screen.
   const budget = budgetStatus.data?.items.find((item) => item.categoryId == null) ?? null;
 
-  const refreshing =
-    month.loading || budgetStatus.isPending || recent.isRefetching || comparisonSeries.loading;
+  const refreshing = month.loading || budgetStatus.isPending || recent.isRefetching;
 
   const onRefresh = useCallback(() => {
     month.refetch();
     void budgetStatus.refetch();
     void recent.refetch();
-    comparisonSeries.refetch();
-    void history.refetch();
-  }, [month, budgetStatus, recent, comparisonSeries, history]);
+    void snapshot.refetch();
+  }, [month, budgetStatus, recent, snapshot]);
 
-  // A brand-new account sees one friendly card, never a grid of empty charts.
+  // A brand-new account sees one friendly card, never a grid of empty cards.
   const isEmpty =
     !month.loading && summary !== null && summary.count === 0 && recent.items.length === 0;
 
@@ -111,10 +90,7 @@ export default function DashboardScreen() {
         />
       }
     >
-      <AppPageHeader
-        title="Dashboard"
-        subtitle="Where your money went this month."
-      >
+      <AppPageHeader title="Dashboard">
         <View style={[styles.dateChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
           <IconCalendar size={14} color={theme.muted} />
           <Text style={[text.captionMedium, { color: theme.muted }]}>
@@ -127,23 +103,6 @@ export default function DashboardScreen() {
           icon={(color) => <IconPlus size={16} color={color} />}
           onPress={() => router.push('/expense/new')}
         />
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Refresh"
-          onPress={onRefresh}
-          disabled={refreshing}
-          style={({ pressed }) => [
-            styles.refresh,
-            {
-              backgroundColor: theme.surfaceMuted,
-              borderColor: theme.border,
-              opacity: refreshing ? 0.45 : pressed ? 0.7 : 1,
-            },
-          ]}
-        >
-          <IconRefresh size={16} color={theme.ink} />
-        </Pressable>
       </AppPageHeader>
 
       {comparison ? (
@@ -168,32 +127,18 @@ export default function DashboardScreen() {
         </Card>
       ) : (
         <View style={styles.cards}>
-          <SpendingCard
+          <ThisMonthCard
             summary={summary}
             second={second}
             delta={delta}
             loading={month.loading}
             error={month.error}
             onRetry={month.refetch}
-          />
-
-          <BudgetCard
             budget={budget}
             window={month.window}
-            second={second}
-            loading={budgetStatus.isPending}
-            error={budgetStatus.isError ? 'Failed to load your budget.' : null}
-            onRetry={() => void budgetStatus.refetch()}
-          />
-
-          <ComparisonCard
-            rows={comparisonSeries.rows}
-            range={range}
-            onRangeChange={setRange}
-            base={baseCurrency ?? ''}
-            loading={comparisonSeries.loading}
-            error={comparisonSeries.error}
-            onRetry={comparisonSeries.refetch}
+            budgetLoading={budgetStatus.isPending}
+            budgetError={budgetStatus.isError ? 'Failed to load your budget.' : null}
+            onBudgetRetry={() => void budgetStatus.refetch()}
           />
 
           <RecentCard
@@ -207,20 +152,11 @@ export default function DashboardScreen() {
             onRetry={() => void recent.refetch()}
           />
 
-          <TopCategoriesCard
-            entries={summary?.byCategory ?? []}
-            base={baseCurrency ?? ''}
-            second={second}
-            snapshot={snapshot.data ?? null}
-            loading={month.loading}
-          />
-
-          <RateCard
-            snapshot={snapshot.data ?? null}
+          <RateLine
             base={baseCurrency}
             second={second}
-            history={history.data ?? null}
-            loading={history.isPending}
+            snapshot={snapshot.data ?? null}
+            loading={snapshot.isPending}
           />
         </View>
       )}
@@ -242,14 +178,6 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     height: controlHeight.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
-    borderWidth: borderWidth.hairline,
-  },
-  refresh: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: controlHeight.sm,
-    height: controlHeight.sm,
     borderRadius: radius.pill,
     borderWidth: borderWidth.hairline,
   },

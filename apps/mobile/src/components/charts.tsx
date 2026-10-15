@@ -264,65 +264,6 @@ export function ComparisonChart({
   );
 }
 
-/**
- * A bare trend line with no axes, for "last 30 days" inside a card.
- *
- * The domain is the data's own min–max rather than zero-anchored: the point is
- * the shape of the movement, and a sparkline that started at zero would flatten
- * a rate's daily drift into a straight line.
- */
-export function Sparkline({
-  values,
-  color,
-  height = 34,
-  style,
-}: {
-  values: number[];
-  color?: string;
-  height?: number;
-  style?: StyleProp<ViewStyle>;
-}) {
-  const theme = useTheme();
-  const { width, onLayout } = useMeasuredWidth();
-
-  // A non-finite rate would poison the whole path, so it is dropped rather than
-  // drawn as a gap.
-  const finite = values.filter((value) => Number.isFinite(value));
-  const min = values.length > 0 ? Math.min(...finite) : 0;
-  const max = values.length > 0 ? Math.max(...finite) : 0;
-  const span = max - min;
-
-  const points: Point[] =
-    width > 0 && finite.length > 1
-      ? finite.map((value, index) => ({
-          x: (index / (finite.length - 1)) * width,
-          y: height - 3 - (span === 0 ? 0.5 : (value - min) / span) * (height - 6),
-        }))
-      : [];
-
-  return (
-    <View
-      style={style}
-      onLayout={onLayout}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-    >
-      {width > 0 && points.length > 1 ? (
-        <Svg width={width} height={height}>
-          <Path
-            d={toPath(points)}
-            fill="none"
-            stroke={color ?? theme.chartSecondary}
-            strokeWidth={1.75}
-          />
-        </Svg>
-      ) : (
-        <View style={{ height }} />
-      )}
-    </View>
-  );
-}
-
 /* ------------------------------------------------------------------ */
 /* Reports: share donut, weekday line and stacked category area        */
 /* ------------------------------------------------------------------ */

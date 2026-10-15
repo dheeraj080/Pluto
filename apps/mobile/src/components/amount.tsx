@@ -1,13 +1,14 @@
 /**
- * Two-currency money display, matching the web app's `components/amount.tsx`.
+ * Two-currency money display.
  *
- * Every money value in the app is shown in the user's Pair: a large Base value
- * with the Second value beside or below it in smaller muted text. When an
- * expense was recorded in a third currency, that original amount stays visible
- * as a small "Paid …" label — the recorded amount is never rewritten.
+ * Every money value is shown as a large primary figure with a smaller muted
+ * companion beside or below it, in the app's one display order: the non-home
+ * currency leads and the home currency sits beneath it. An expense row leads
+ * with the currency it was recorded in; a summary leads with the Second. The
+ * recorded amount is never rewritten.
  *
- * Presentation only: the caller decides which currency is Base and which is
- * Second, and supplies both amounts. Digits are always tabular so columns line
+ * Presentation only: the caller decides which currency leads and which is the
+ * companion, and supplies both amounts. Digits are always tabular so columns line
  * up and figures do not jump as values change.
  */
 
@@ -15,6 +16,7 @@ import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle 
 
 import { fontSize, fontFamily, tabularNums, spacing } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { summaryAmounts } from '@/lib/convert';
 import { formatMoney } from '@/lib/format';
 
 export type AmountSize = 'display' | 'hero' | 'kpi' | 'lg' | 'md' | 'sm';
@@ -44,21 +46,11 @@ const SECONDARY: Record<AmountSize, TextStyle> = {
   sm: { fontFamily: fontFamily.sans.regular, fontSize: fontSize.xs, lineHeight: 16 },
 };
 
-const RECORDED: Record<AmountSize, TextStyle> = {
-  display: { fontFamily: fontFamily.sans.regular, fontSize: fontSize.sm, lineHeight: 20 },
-  hero: { fontFamily: fontFamily.sans.regular, fontSize: fontSize.sm, lineHeight: 20 },
-  kpi: { fontFamily: fontFamily.sans.regular, fontSize: fontSize.xs, lineHeight: 16 },
-  lg: { fontFamily: fontFamily.sans.regular, fontSize: fontSize.xs, lineHeight: 16 },
-  md: { fontFamily: fontFamily.sans.regular, fontSize: fontSize.xs, lineHeight: 16 },
-  sm: { fontFamily: fontFamily.sans.regular, fontSize: 11, lineHeight: 15 },
-};
-
 export function DualAmount({
   amount,
   currency,
   secondaryAmount,
   secondaryCurrency,
-  recorded,
   size = 'md',
   layout = 'inline',
   align = 'left',
@@ -72,10 +64,8 @@ export function DualAmount({
   /** Amount in the secondary (smaller, muted) currency; omit to show one value. */
   secondaryAmount?: number | null;
   secondaryCurrency?: string | null;
-  /** The amount as originally recorded, when that is a third currency. */
-  recorded?: { amount: number; currency: string } | null;
   size?: AmountSize;
-  /** `inline` puts the Second value beside the Base; `stack` puts it below. */
+  /** `inline` puts the companion beside the primary; `stack` puts it below. */
   layout?: 'inline' | 'stack';
   align?: 'left' | 'center' | 'right';
   tone?: 'ink' | 'warning';
@@ -86,7 +76,6 @@ export function DualAmount({
 
   const showSecond = secondaryAmount != null && secondaryCurrency != null;
   const inline = layout === 'inline';
-  const showRecorded = recorded != null && recorded.currency !== currency;
   const singleLine = size === 'md' || size === 'sm';
 
   return (
@@ -109,13 +98,49 @@ export function DualAmount({
           </Text>
         ) : null}
       </View>
+    </View>
+  );
+}
 
-      {showRecorded ? (
-        <Text style={[RECORDED[size], tabularNums, { color: theme.muted }]}>
-          Paid {formatMoney(recorded.amount, recorded.currency)}
+/**
+ * The two figures of a summary as inline text, for prose sentences: the
+ * non-home (Second) currency in ink, the home currency in muted parentheses.
+ *
+ * Renders nothing when there is no figure to show, so a caller can drop it into
+ * a sentence unconditionally.
+ */
+export function InlineAmounts({
+  homeAmount,
+  homeCurrency,
+  secondAmount,
+  secondCurrency,
+  textStyle,
+  primaryColor,
+}: {
+  homeAmount: number | null | undefined;
+  homeCurrency: string | null | undefined;
+  secondAmount: number | null | undefined;
+  secondCurrency: string | null | undefined;
+  textStyle?: StyleProp<TextStyle>;
+  /** Overrides the primary figure's colour (e.g. the warning tone). */
+  primaryColor?: string;
+}) {
+  const theme = useTheme();
+  const pair = summaryAmounts(homeAmount, homeCurrency, secondAmount, secondCurrency);
+  if (!pair) return null;
+
+  return (
+    <>
+      <Text style={[textStyle, tabularNums, { color: primaryColor ?? theme.ink }]}>
+        {formatMoney(pair.amount, pair.currency)}
+      </Text>
+      {pair.secondaryAmount != null && pair.secondaryCurrency ? (
+        <Text style={[textStyle, tabularNums, { color: theme.muted }]}>
+          {' '}
+          ({formatMoney(pair.secondaryAmount, pair.secondaryCurrency)})
         </Text>
       ) : null}
-    </View>
+    </>
   );
 }
 

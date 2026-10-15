@@ -2,8 +2,8 @@
  * Display-only currency conversion, ported from `apps/web/src/lib/convert.ts`.
  *
  * The server converts when it aggregates; this module exists so a row or a
- * preview can be shown in the user's Pair using the same public ECB snapshot.
- * It never changes a stored amount.
+ * preview can be shown in the user's currencies using the same public ECB
+ * snapshot. It never changes a stored amount.
  *
  * A snapshot's `rates` map is "units of CODE per 1 unit of baseCurrency", so a
  * rate between two arbitrary codes is `rates[to] / rates[from]`.
@@ -83,30 +83,83 @@ export function buildConversionPreview(
   };
 }
 
-export interface DualAmounts {
-  /** Amount in the base currency, or null when it cannot be derived. */
-  base: number | null;
-  /** Amount in the second currency, or null when none was set/derivable. */
-  second: number | null;
+export interface RecordedAmounts {
+  /** The amount exactly as recorded — always the primary figure. */
+  amount: number;
+  /** The currency it was recorded in — always the primary currency. */
+  currency: string;
+  /** The same amount in the companion currency, or null when it cannot be shown. */
+  companionAmount: number | null;
+  /** The companion currency code, or null when there is no companion figure. */
+  companionCurrency: string | null;
 }
 
 /**
- * Both Pair values for one recorded amount, for list rows.
+ * The two figures an expense row shows: the amount as it was recorded, and the
+ * same amount in one companion currency.
  *
- * A row recorded in the base currency needs no rate for the base value; a row
- * in a third currency is converted from the public snapshot for display only.
+ * The recorded currency always leads and is never rewritten. The companion is
+ * the home currency when the expense was recorded in something else; when the
+ * expense already is in the home currency, the Second stands in so a row still
+ * shows two currencies. It is derived from the public snapshot for display only
+ * and is omitted when no rate is available.
  */
-export function dualAmounts(
+export function recordedAmounts(
   amount: number,
   currency: string,
-  base: string | null,
-  second: string | null,
+  home: string | null,
   snapshot: RateSnapshot | null,
-): DualAmounts {
-  const convert = (to: string | null): number | null => {
-    if (!to) return null;
-    if (to === currency) return amount;
-    return buildConversionPreview(amount, currency, to, snapshot)?.amount ?? null;
+  second: string | null = null,
+): RecordedAmounts {
+  const companion =
+    home && home !== currency ? home : second && second !== currency ? second : null;
+  if (!companion) {
+    return { amount, currency, companionAmount: null, companionCurrency: null };
+  }
+  const converted = buildConversionPreview(amount, currency, companion, snapshot)?.amount ?? null;
+  return {
+    amount,
+    currency,
+    companionAmount: converted,
+    companionCurrency: converted === null ? null : companion,
   };
-  return { base: convert(base), second: convert(second) };
+}
+
+export interface SummaryAmounts {
+  /** The larger figure, in the non-home currency. */
+  amount: number;
+  currency: string;
+  /** The same figure in the home currency, or null when there is no pair. */
+  secondaryAmount: number | null;
+  secondaryCurrency: string | null;
+}
+
+/**
+ * The two figures a total or summary shows, in the app's one display order: the
+ * Second (non-home) currency leads and the home currency sits beneath it.
+ *
+ * Falls back to a single home figure when no Second is paired or the server did
+ * not convert the total. Returns null when there is not even a home figure.
+ */
+export function summaryAmounts(
+  homeAmount: number | null | undefined,
+  homeCurrency: string | null | undefined,
+  secondAmount: number | null | undefined,
+  secondCurrency: string | null | undefined,
+): SummaryAmounts | null {
+  if (homeAmount == null || !homeCurrency) return null;
+  if (secondAmount != null && secondCurrency && secondCurrency !== homeCurrency) {
+    return {
+      amount: secondAmount,
+      currency: secondCurrency,
+      secondaryAmount: homeAmount,
+      secondaryCurrency: homeCurrency,
+    };
+  }
+  return {
+    amount: homeAmount,
+    currency: homeCurrency,
+    secondaryAmount: null,
+    secondaryCurrency: null,
+  };
 }

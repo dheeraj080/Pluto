@@ -1,17 +1,19 @@
 import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ExpenseRow } from '@/components/expense-row';
-import { Chip } from '@/components/ui/chip';
 import { Divider } from '@/components/ui/divider';
 import { EmptyState, ErrorNote, Spinner } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
+import { Select } from '@/components/ui/select';
 import { TextField } from '@/components/ui/text-field';
 import { layout, spacing, text } from '@/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useExpenseList } from '@/hooks/use-expenses';
+import { usePair } from '@/hooks/use-pair';
+import { useRateSnapshot } from '@/hooks/use-rates';
 import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/errors';
 import { expenseHref } from '@/lib/routes';
@@ -46,6 +48,8 @@ export default function ActivityScreen() {
 
   const list = useExpenseList(filters);
   const categories = useCategories();
+  const { base, second } = usePair();
+  const snapshot = useRateSnapshot(base);
 
   const hasFilters = Boolean(debouncedSearch.trim()) || categoryId !== null;
 
@@ -67,7 +71,7 @@ export default function ActivityScreen() {
         ItemSeparatorComponent={Divider}
         renderItem={({ item }) => (
           <Pressable onPress={() => router.push(expenseHref(item.id))}>
-            <ExpenseRow expense={item} />
+            <ExpenseRow expense={item} home={base} second={second} snapshot={snapshot.data ?? null} />
           </Pressable>
         )}
         ListHeaderComponent={
@@ -87,47 +91,30 @@ export default function ActivityScreen() {
 
             <View style={styles.group}>
               <Text style={[text.overline, { color: theme.muted }]}>SORT</Text>
-              <View style={styles.wrapRow}>
-                {SORT_OPTIONS.map((option) => (
-                  <Chip
-                    key={option.value}
-                    label={option.label}
-                    selected={option.value === sort}
-                    onPress={() => setSort(option.value)}
-                  />
-                ))}
-              </View>
+              <Select
+                accessibilityLabel="Sort"
+                value={sort}
+                onChange={(value) => setSort(value as ExpenseSort)}
+                options={SORT_OPTIONS}
+              />
             </View>
 
             {categories.data?.length ? (
               <View style={styles.group}>
                 <Text style={[text.overline, { color: theme.muted }]}>CATEGORY</Text>
-                {/* Horizontal rather than wrapped: the list is user-grown. */}
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.chipRow}
-                >
-                  <Chip
-                    label="All"
-                    selected={categoryId === null}
-                    onPress={() => setCategoryId(null)}
-                  />
-                  {categories.data.map((category) => (
-                    <Chip
-                      key={category.id}
-                      label={category.name}
-                      dotColor={category.color}
-                      selected={category.id === categoryId}
-                      // Tapping the active category removes the filter.
-                      onPress={() =>
-                        setCategoryId((current) =>
-                          current === category.id ? null : category.id,
-                        )
-                      }
-                    />
-                  ))}
-                </ScrollView>
+                <Select
+                  accessibilityLabel="Category filter"
+                  value={categoryId ?? ''}
+                  onChange={(value) => setCategoryId(value === '' ? null : value)}
+                  options={[
+                    { value: '', label: 'All categories' },
+                    ...categories.data.map((category) => ({
+                      value: category.id,
+                      label: category.name,
+                      dotColor: category.color,
+                    })),
+                  ]}
+                />
               </View>
             ) : null}
 
@@ -180,8 +167,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   group: { gap: spacing.sm },
-  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chipRow: { gap: spacing.sm, paddingRight: spacing.lg },
   clear: { alignSelf: 'flex-start' },
   placeholder: { marginTop: spacing.xxl },
   footer: { marginTop: spacing.lg },

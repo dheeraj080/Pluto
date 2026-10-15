@@ -1,12 +1,11 @@
 /**
  * "Recent transactions": the last few things bought.
  *
- * At most six rows, no inner scroll. Each row shows exactly the Pair — the
- * amount in the primary currency with the second-currency value beneath it. The
- * currency an expense was actually paid in stays visible as "Paid …", so the
- * recorded amount is never rewritten or hidden. When the month leaned on an
- * estimated rate, one amber note in the header says so instead of tagging every
- * row.
+ * At most five rows, no inner scroll. Each row shows exactly two figures: the
+ * amount as it was recorded, with the same amount in the home currency beneath
+ * it (or the Second when the expense is already in home). The recorded amount is
+ * never rewritten. When the month leaned on an estimated rate, one amber note in
+ * the header says so instead of tagging every row.
  */
 
 import { router } from 'expo-router';
@@ -20,11 +19,11 @@ import { EmptyState } from '@/components/ui/feedback';
 import { IconPlus } from '@/components/icons';
 import { spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { dualAmounts, type RateSnapshot } from '@/lib/convert';
+import { recordedAmounts, type RateSnapshot } from '@/lib/convert';
 import { formatDate } from '@/lib/format';
 import { expenseHref } from '@/lib/routes';
 
-const MAX_ROWS = 6;
+const MAX_ROWS = 5;
 
 export function RecentCard({
   items,
@@ -48,12 +47,14 @@ export function RecentCard({
 }) {
   const theme = useTheme();
   const rows = items.slice(0, MAX_ROWS);
+  const isEmpty = !loading && !error && rows.length === 0;
 
   return (
     <DashboardCard
       title="Recent transactions"
       skeletonHeight={240}
       loading={loading && rows.length === 0}
+      isEmpty={isEmpty}
       action={
         estimated ? (
           <View
@@ -108,7 +109,7 @@ export function RecentCard({
                 </Text>
               </View>
 
-              <RowAmount expense={expense} base={base} second={second} snapshot={snapshot} />
+              <RowAmount expense={expense} home={base} second={second} snapshot={snapshot} />
             </Pressable>
           ))}
         </>
@@ -118,37 +119,33 @@ export function RecentCard({
 }
 
 /**
- * The Pair for one row, plus "Paid …" when it was recorded in a third currency.
+ * The two figures for one row: the amount as recorded, and its companion in the
+ * home currency — or, when the expense was already recorded in home, the Second.
  *
- * A row already in the base currency needs no rate; anything else is converted
- * from the public snapshot for display only.
+ * The recorded currency always leads. A row whose rate is unavailable shows a
+ * single value.
  */
 function RowAmount({
   expense,
-  base,
+  home,
   second,
   snapshot,
 }: {
   expense: Schemas['ExpenseDto'];
-  base: string | null;
+  /** Home currency the recorded amount is shown in beneath it. */
+  home: string | null;
+  /** Second currency, the companion when the expense is already in home. */
   second: string | null;
   snapshot: RateSnapshot | null;
 }) {
-  const pair = dualAmounts(expense.amount, expense.currency, base, second, snapshot);
-  const primaryCurrency = pair.base != null ? (base ?? expense.currency) : expense.currency;
-  const primaryAmount = pair.base ?? expense.amount;
+  const amounts = recordedAmounts(expense.amount, expense.currency, home, snapshot, second);
 
   return (
     <DualAmount
-      amount={primaryAmount}
-      currency={primaryCurrency}
-      secondaryAmount={pair.second}
-      secondaryCurrency={pair.second != null ? second : null}
-      recorded={
-        expense.currency !== primaryCurrency
-          ? { amount: expense.amount, currency: expense.currency }
-          : null
-      }
+      amount={amounts.amount}
+      currency={amounts.currency}
+      secondaryAmount={amounts.companionAmount}
+      secondaryCurrency={amounts.companionCurrency}
       size="md"
       layout="stack"
       align="right"

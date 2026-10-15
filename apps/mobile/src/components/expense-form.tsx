@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { IconSwap } from '@/components/icons';
 import { Button } from '@/components/ui/button';
-import { Chip } from '@/components/ui/chip';
 import { ErrorNote, Spinner } from '@/components/ui/feedback';
+import { Select } from '@/components/ui/select';
 import { TextField } from '@/components/ui/text-field';
 import { borderWidth, radius, spacing, tabularNums, text } from '@/theme';
 import { useCategories } from '@/hooks/use-categories';
@@ -12,7 +12,7 @@ import { useSupportedCurrencies } from '@/hooks/use-currencies';
 import { usePair } from '@/hooks/use-pair';
 import { useRateSnapshot } from '@/hooks/use-rates';
 import { useTheme } from '@/hooks/use-theme';
-import { buildConversionPreview, dualAmounts } from '@/lib/convert';
+import { buildConversionPreview } from '@/lib/convert';
 import { formatMoney, isValidIsoDate, parseAmount, todayIso } from '@/lib/format';
 
 /** Validated values, ready to be sent as a create/update payload. */
@@ -80,15 +80,14 @@ export function ExpenseForm({
 
   const parsedAmount = parseAmount(amount);
 
-  // The preview is only meaningful when the amount is recorded in a currency
-  // other than the Base — otherwise the recorded amount already is the headline.
-  const toBase =
-    base && parsedAmount !== null && currency !== base
-      ? buildConversionPreview(parsedAmount, currency, base, snapshot.data ?? null)
-      : null;
-  const pair =
-    toBase && parsedAmount !== null
-      ? dualAmounts(parsedAmount, currency, base, second, snapshot.data ?? null)
+  // The preview shows the recorded amount in its companion currency — home, or
+  // the Second when the recorded currency already is home — so the form previews
+  // the same pair a saved row will show.
+  const companionCurrency =
+    base && base !== currency ? base : second && second !== currency ? second : null;
+  const companion =
+    parsedAmount !== null && companionCurrency
+      ? buildConversionPreview(parsedAmount, currency, companionCurrency, snapshot.data ?? null)
       : null;
 
   function handleSubmit() {
@@ -139,20 +138,15 @@ export function ExpenseForm({
         {currencies.isPending ? (
           <Spinner style={styles.spinner} />
         ) : currencies.data && currencies.data.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipRow}
-          >
-            {currencies.data.map((item) => (
-              <Chip
-                key={item.code}
-                label={item.code}
-                selected={item.code === currency}
-                onPress={() => setCurrency(item.code)}
-              />
-            ))}
-          </ScrollView>
+          <Select
+            accessibilityLabel="Currency"
+            value={currency}
+            onChange={setCurrency}
+            options={currencies.data.map((item) => ({
+              value: item.code,
+              label: `${item.code} · ${item.symbol}`,
+            }))}
+          />
         ) : (
           // The currency list is a convenience; recording must not depend on it.
           <TextField
@@ -166,7 +160,7 @@ export function ExpenseForm({
         )}
       </View>
 
-      {toBase && pair ? (
+      {companion ? (
         <View
           style={[
             styles.preview,
@@ -177,18 +171,13 @@ export function ExpenseForm({
             <IconSwap size={16} color={theme.primary} />
             <Text style={[text.body, { color: theme.muted }]}>≈</Text>
             <Text style={[text.bodyMedium, tabularNums, { color: theme.ink }]}>
-              {formatMoney(pair.base ?? 0, toBase.to)}
+              {formatMoney(companion.amount, companion.to)}
             </Text>
-            {pair.second !== null && second ? (
-              <Text style={[text.body, tabularNums, { color: theme.muted }]}>
-                · {formatMoney(pair.second, second)}
-              </Text>
-            ) : null}
-            <Text style={[text.body, { color: theme.muted }]}>in your pair</Text>
+            <Text style={[text.body, { color: theme.muted }]}>in {companion.to}</Text>
           </View>
           <Text style={[text.caption, { color: theme.muted }]}>
-            1 {toBase.from} = {toBase.rate.toFixed(4)} {toBase.to} · {toBase.provider}{' '}
-            {toBase.effectiveDate}
+            1 {companion.from} = {companion.rate.toFixed(4)} {companion.to} · {companion.provider}{' '}
+            {companion.effectiveDate}
           </Text>
         </View>
       ) : null}
@@ -201,22 +190,19 @@ export function ExpenseForm({
         ) : categories.isError ? (
           <ErrorNote message="Could not load categories. Pull to refresh and try again." />
         ) : (
-          <View style={styles.wrapRow}>
-            {(categories.data ?? []).map((category) => (
-              <Chip
-                key={category.id}
-                label={category.name}
-                dotColor={category.color}
-                selected={category.id === categoryId}
-                onPress={() => setCategoryId(category.id)}
-              />
-            ))}
-          </View>
+          <Select
+            accessibilityLabel="Category"
+            value={categoryId}
+            onChange={setCategoryId}
+            placeholder="Choose a category"
+            options={(categories.data ?? []).map((category) => ({
+              value: category.id,
+              label: category.name,
+              dotColor: category.color,
+            }))}
+            error={errors.categoryId}
+          />
         )}
-
-        {errors.categoryId ? (
-          <Text style={[text.captionMedium, { color: theme.danger }]}>{errors.categoryId}</Text>
-        ) : null}
       </View>
 
       <TextField
@@ -239,17 +225,15 @@ export function ExpenseForm({
 
       <View style={styles.group}>
         <Text style={[text.bodyMedium, { color: theme.ink }]}>Payment method</Text>
-        <View style={styles.wrapRow}>
-          {PAYMENT_METHODS.map((method) => (
-            <Chip
-              key={method}
-              label={method}
-              selected={paymentMethod === method}
-              // Tapping the selected chip clears it: the field is optional.
-              onPress={() => setPaymentMethod(method === paymentMethod ? '' : method)}
-            />
-          ))}
-        </View>
+        <Select
+          accessibilityLabel="Payment method"
+          value={paymentMethod}
+          onChange={setPaymentMethod}
+          options={[
+            { value: '', label: 'Any method' },
+            ...PAYMENT_METHODS.map((method) => ({ value: method, label: method })),
+          ]}
+        />
       </View>
 
       {submitError ? <ErrorNote message={submitError} /> : null}
@@ -262,8 +246,6 @@ export function ExpenseForm({
 const styles = StyleSheet.create({
   form: { gap: spacing.xl },
   group: { gap: spacing.sm },
-  chipRow: { gap: spacing.sm, paddingRight: spacing.lg },
-  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   spinner: { alignSelf: 'flex-start' },
   preview: {
     gap: spacing.xs,

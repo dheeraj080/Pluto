@@ -63,27 +63,44 @@ export function SpendingOverTime({
     [rows, mode],
   );
 
+  // The line leads in the Second currency when a pair is set, so its axis matches
+  // the KPIs above; the table shows both currencies side by side.
+  const displayCurrency = second ?? base;
+  const seriesRows = useMemo(
+    () =>
+      second
+        ? chartRows.map((row) => ({
+            key: row.key,
+            current: row.currentSecond,
+            previous: row.previousSecond,
+          }))
+        : chartRows,
+    [chartRows, second],
+  );
+
   const lastCurrent = (() => {
-    for (let index = chartRows.length - 1; index >= 0; index -= 1) {
-      const value = chartRows[index].current;
+    for (let index = seriesRows.length - 1; index >= 0; index -= 1) {
+      const value = seriesRows[index].current;
       if (value != null) return value;
     }
     return null;
   })();
 
   const table: ReportTableData = useMemo(() => {
-    const columns = [{ label: 'Bucket' }, { label: `This period (${base ?? '—'})`, align: 'right' as const }];
-    if (second) columns.push({ label: `This period (${second})`, align: 'right' as const });
-    columns.push(
+    const columns = [
+      { label: 'Bucket' },
+      ...(second ? [{ label: `This period (${second})`, align: 'right' as const }] : []),
+      { label: `This period (${base ?? '—'})`, align: 'right' as const },
       { label: `Previous (${base ?? '—'})`, align: 'right' as const },
       { label: `Difference (${base ?? '—'})`, align: 'right' as const },
-    );
+    ];
     return {
       caption: `Spending over time, ${granularity} buckets, ${mode === 'cumulative' ? 'cumulative' : 'per period'}`,
       columns,
       rows: chartRows.map((row) => {
-        const cells = [bucketHeading(row.key, granularity), fmt(row.current, base)];
+        const cells = [bucketHeading(row.key, granularity)];
         if (second) cells.push(fmt(row.currentSecond, second));
+        cells.push(fmt(row.current, base));
         const diff =
           row.current == null && row.previous == null
             ? null
@@ -128,12 +145,14 @@ export function SpendingOverTime({
       }
     >
       <ComparisonChart
-        rows={chartRows}
+        rows={seriesRows}
         height={260}
         formatXTick={(key) => bucketAxis(key, granularity)}
         currentLabel="This period"
         previousLabel="Previous period"
-        formatValue={(value) => (base ? formatMoney(value, base) : String(Math.round(value)))}
+        formatValue={(value) =>
+          displayCurrency ? formatMoney(value, displayCurrency) : String(Math.round(value))
+        }
       />
 
       <View style={[styles.legend, { borderColor: theme.border }]}>
@@ -141,7 +160,9 @@ export function SpendingOverTime({
           <View style={[styles.dot, { backgroundColor: theme.primary }]} />
           <Text style={[text.caption, { color: theme.muted }]} numberOfLines={1}>
             {mode === 'cumulative' ? 'Cumulative' : 'This period'}
-            {lastCurrent != null && base ? ` · ${formatMoney(lastCurrent, base)}` : ''}
+            {lastCurrent != null && displayCurrency
+              ? ` · ${formatMoney(lastCurrent, displayCurrency)}`
+              : ''}
           </Text>
         </View>
         <View style={styles.legendRow}>
