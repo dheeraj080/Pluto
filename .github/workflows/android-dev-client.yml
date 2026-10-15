@@ -47,16 +47,41 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # package.json pins npm@11.16.0, but Node 20.19 ships npm 10.8. Installing
+      # with a different npm than the one that wrote the lockfile is exactly how
+      # an install succeeds locally and fails in CI.
+      - name: Use the repo's pinned npm
+        run: npm install --global npm@11.16.0 && npm --version
+
       # React Native 0.86 / Expo SDK 57 build against JDK 17.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      # The whole monorepo, because apps/mobile depends on the workspace
-      # package @pluto/api-client.
+      # The whole monorepo, because apps/web and apps/mobile resolve the
+      # workspace package @pluto/api-client through hoisting.
       - name: Install the monorepo
-        run: npm ci
+        run: |
+          set -o pipefail
+          if npm ci 2>&1 | tee "$RUNNER_TEMP/npm-ci.log"; then
+            exit 0
+          fi
+          # The Actions log endpoint needs authentication, but check-run
+          # annotations on a public repo do not. Re-emit the failure newest-line
+          # first so the real error survives the 10-annotation cap.
+          tail -n 15 "$RUNNER_TEMP/npm-ci.log" | tac | while IFS= read -r line; do
+            echo "::error::${line//'%'/'%25'}"
+          done
+          exit 1
+
+      - name: Upload the install log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-ci-log
+          path: ${{ runner.temp }}/npm-ci.log
+          if-no-files-found: ignore
 
       - name: Restore a stable Android signing key
         env:
