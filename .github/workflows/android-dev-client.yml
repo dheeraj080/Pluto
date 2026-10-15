@@ -95,6 +95,11 @@ jobs:
 
           echo "package=$package" >> "$GITHUB_OUTPUT"
           echo "sha1=$sha1" >> "$GITHUB_OUTPUT"
+          # Also to the log itself: step outputs and the job summary are not
+          # readable from the run's log, so this is the only line that lets the
+          # fingerprint be read back out of CI without downloading anything.
+          echo "PLUTO_ANDROID_PACKAGE=$package"
+          echo "PLUTO_ANDROID_SHA1=$sha1"
           {
             echo "## Android OAuth registration"
             echo ""
