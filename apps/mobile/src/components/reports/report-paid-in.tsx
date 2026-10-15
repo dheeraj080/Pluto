@@ -1,5 +1,6 @@
 /**
- * The "Paid in" card: one line per original currency behind the KPI total.
+ * The Breakdown's "Paid in" block: one line per original currency behind the
+ * total.
  *
  * Each line shows the currency's code, how many expenses were paid in it, the
  * native subtotal, the subtotal converted into the reporting currency, and a
@@ -7,9 +8,10 @@
  * listed; everything else folds under a single expandable "Other currencies"
  * line.
  *
- * The converted totals reconcile with the Total KPI by construction: the
+ * The converted totals reconcile with the Total figure by construction: the
  * "Other" line carries exactly `total - (sum of the listed converted totals)`,
- * so this card can never disagree with the KPI beside it.
+ * so this card can never disagree with it. A row opens the Activity list
+ * filtered to that currency and the current range.
  */
 
 import { useState } from 'react';
@@ -55,16 +57,27 @@ function CurrencyLine({
   entry,
   base,
   total,
+  onPress,
 }: {
   entry: CurrencyTotal;
   base: string | null;
   total: number | null;
+  onPress: () => void;
 }) {
   const theme = useTheme();
   const share = shareOf(entry.convertedTotal, total);
 
   return (
-    <View style={styles.line}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Show expenses paid in ${entry.currency}`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.line,
+        { borderColor: theme.border },
+        pressed && styles.pressed,
+      ]}
+    >
       <View style={styles.lineTop}>
         <CodeBadge strong>{entry.currency}</CodeBadge>
         <Text style={[text.caption, styles.lineCount, { color: theme.muted }]}>
@@ -80,7 +93,7 @@ function CurrencyLine({
         </View>
         <Text style={[styles.converted, { color: theme.ink }]}>{fmt(entry.convertedTotal, base)}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -92,16 +105,19 @@ export function ReportPaidIn({
   loading,
   error,
   onRetry,
+  onOpenCurrency,
 }: {
   rangeLabel: string;
   currencies: CurrencyTotal[];
-  /** The range total in the base currency — the same figure as the Total KPI. */
+  /** The range total in the base currency — the same figure as the Summary's. */
   total: number | null;
   /** Reporting (base) currency. */
   base: string | null;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  /** Open the Activity list filtered to one original currency. */
+  onOpenCurrency: (currency: string) => void;
 }) {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
@@ -118,7 +134,7 @@ export function ReportPaidIn({
   const top = sorted.slice(0, TOP);
   const rest = sorted.slice(TOP);
   const topConverted = top.reduce((sum, c) => sum + (c.convertedTotal ?? 0), 0);
-  // The exact difference, so every line sums to the KPI total.
+  // The exact difference, so every line sums to the total.
   const restConverted = total != null ? Math.max(0, total - topConverted) : null;
   const restCount = rest.reduce((sum, c) => sum + c.count, 0);
 
@@ -158,17 +174,23 @@ export function ReportPaidIn({
           No spending in this period yet
         </Text>
       }
-      footer={FOOTER}
+      footer={
+        <Text style={[text.caption, { color: theme.muted }]}>{FOOTER}</Text>
+      }
     >
       <View style={[styles.list, { borderColor: theme.border }]}>
         {top.map((entry) => (
-          <View key={entry.currency} style={[styles.listItem, { borderColor: theme.border }]}>
-            <CurrencyLine entry={entry} base={base} total={total} />
-          </View>
+          <CurrencyLine
+            key={entry.currency}
+            entry={entry}
+            base={base}
+            total={total}
+            onPress={() => onOpenCurrency(entry.currency)}
+          />
         ))}
 
         {rest.length > 0 ? (
-          <View style={styles.otherWrap}>
+          <View style={[styles.otherWrap, { borderColor: theme.border }]}>
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ expanded }}
@@ -194,12 +216,7 @@ export function ReportPaidIn({
                     ]}
                   />
                 </View>
-                <View
-                  style={[
-                    styles.chevron,
-                    expanded && styles.chevronOpen,
-                  ]}
-                >
+                <View style={[styles.chevron, expanded && styles.chevronOpen]}>
                   <IconChevronDown size={16} color={theme.muted} />
                 </View>
               </View>
@@ -207,8 +224,13 @@ export function ReportPaidIn({
 
             {expanded
               ? rest.map((entry) => (
-                  <View key={entry.currency} style={styles.otherItem}>
-                    <CurrencyLine entry={entry} base={base} total={total} />
+                  <View key={entry.currency} style={[styles.otherItem, { borderColor: theme.border }]}>
+                    <CurrencyLine
+                      entry={entry}
+                      base={base}
+                      total={total}
+                      onPress={() => onOpenCurrency(entry.currency)}
+                    />
                   </View>
                 ))
               : null}
@@ -222,8 +244,11 @@ export function ReportPaidIn({
 const styles = StyleSheet.create({
   empty: { textAlign: 'center', paddingVertical: spacing.huge },
   list: { borderTopWidth: borderWidth.hairline },
-  listItem: { borderBottomWidth: borderWidth.hairline },
-  line: { paddingVertical: spacing.md, gap: spacing.sm },
+  line: {
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+    borderBottomWidth: borderWidth.hairline,
+  },
   lineTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   lineCount: { flex: 1 },
   lineNative: { textAlign: 'right' },
@@ -249,4 +274,5 @@ const styles = StyleSheet.create({
   },
   chevron: { width: 22, alignItems: 'center' },
   chevronOpen: { transform: [{ rotate: '180deg' }] },
+  pressed: { opacity: 0.7 },
 });

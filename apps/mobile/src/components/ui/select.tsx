@@ -40,6 +40,14 @@ export interface SelectProps {
   error?: string;
   disabled?: boolean;
   accessibilityLabel?: string;
+  /**
+   * `field` (default) is the labelled inset control; `chip` is a compact pill
+   * trigger for filter rows, where a stack of full-width fields would waste
+   * space. Both open the same bottom sheet.
+   */
+  variant?: 'field' | 'chip';
+  /** Chip only: fill the pill with the accent colour when the value is set. */
+  active?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -53,6 +61,8 @@ export function Select({
   error,
   disabled = false,
   accessibilityLabel,
+  variant = 'field',
+  active = false,
   style,
 }: SelectProps) {
   const theme = useTheme();
@@ -75,20 +85,31 @@ export function Select({
 
   return (
     <View style={[styles.wrap, style]}>
-      {label ? <Text style={[text.bodyMedium, { color: theme.ink }]}>{label}</Text> : null}
+      {label && variant === 'field' ? (
+        <Text style={[text.bodyMedium, { color: theme.ink }]}>{label}</Text>
+      ) : null}
 
       <Pressable
         accessibilityRole="button"
-        accessibilityState={{ expanded: open, disabled }}
+        accessibilityState={{
+          expanded: open,
+          disabled,
+          selected: variant === 'chip' ? active : undefined,
+        }}
         accessibilityLabel={accessibilityLabel ?? label ?? 'Select'}
         disabled={disabled}
         onPress={handleOpen}
         style={({ pressed }) => [
-          styles.trigger,
-          {
-            backgroundColor: theme.surfaceMuted,
-            borderColor: error ? theme.danger : theme.border,
-          },
+          variant === 'chip' ? styles.chipTrigger : styles.trigger,
+          variant === 'chip'
+            ? {
+                backgroundColor: active ? theme.primary : theme.surfaceMuted,
+                borderColor: active ? theme.primary : theme.border,
+              }
+            : {
+                backgroundColor: theme.surfaceMuted,
+                borderColor: error ? theme.danger : theme.border,
+              },
           pressed && styles.pressed,
           disabled && styles.disabled,
         ]}
@@ -97,15 +118,27 @@ export function Select({
           {selected?.dotColor ? (
             <View style={[styles.dot, { backgroundColor: selected.dotColor }]} />
           ) : null}
-          <Text numberOfLines={1} style={[text.body, styles.triggerText, { color: theme.ink }]}>
+          <Text
+            numberOfLines={1}
+            style={[
+              variant === 'chip' ? text.bodyMedium : text.body,
+              styles.triggerText,
+              {
+                color:
+                  variant === 'chip' ? (active ? theme.onPrimary : theme.muted) : theme.ink,
+              },
+            ]}
+          >
             {triggerLabel}
           </Text>
         </View>
-        <IconChevronDown
-          size={18}
-          color={theme.muted}
-          style={[styles.chevron, open && styles.chevronOpen]}
-        />
+        {variant === 'field' ? (
+          <IconChevronDown
+            size={18}
+            color={theme.muted}
+            style={[styles.chevron, open && styles.chevronOpen]}
+          />
+        ) : null}
       </Pressable>
 
       {error ? (
@@ -190,6 +223,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.lg,
+    borderWidth: borderWidth.hairline,
+  },
+  chipTrigger: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.pill,
     borderWidth: borderWidth.hairline,
   },
   triggerContent: {

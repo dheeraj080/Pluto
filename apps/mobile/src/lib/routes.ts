@@ -24,3 +24,32 @@ export function expenseHref(id: string): Href {
 export function editExpenseHref(id: string): Href {
   return `/expense/${id}/edit` as unknown as Href;
 }
+
+/** The filters a Reports drill-down can hand to the Activity list. */
+export interface ActivityHrefParams {
+  /** Pre-select one category (`GET /expenses?categoryId=`). */
+  categoryId?: string;
+  /** Pre-select one original currency (`GET /expenses?currency=`). */
+  currency?: string;
+  /** Inclusive window bounds, so the list opens on the same range as the card. */
+  from?: string;
+  to?: string;
+}
+
+/**
+ * The Activity tab, optionally pre-filtered by a Reports drill-down.
+ *
+ * Built as a query string rather than an object so the params survive the
+ * typed-routes `Href` cast the way the detail links do. `URLSearchParams` is
+ * deliberately avoided: React Native's implementation is incomplete (no `set`),
+ * so the encoding is done by hand.
+ */
+export function activityHref(params: ActivityHrefParams = {}): Href {
+  const query: string[] = [];
+  if (params.categoryId) query.push(`categoryId=${encodeURIComponent(params.categoryId)}`);
+  if (params.currency) query.push(`currency=${encodeURIComponent(params.currency)}`);
+  if (params.from) query.push(`from=${encodeURIComponent(params.from)}`);
+  if (params.to) query.push(`to=${encodeURIComponent(params.to)}`);
+  const suffix = query.length > 0 ? `?${query.join('&')}` : '';
+  return `/transactions${suffix}` as unknown as Href;
+}

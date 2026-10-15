@@ -8,7 +8,6 @@ import type {
   CategorySeries,
   ExpenseComparison,
   ExpenseSeries,
-  ExpenseSummary,
 } from '@/lib/report-types';
 import { withPrevious, type ReportGranularity } from '@/lib/ranges';
 import { useSession } from '@/hooks/use-session';
@@ -23,6 +22,12 @@ import { useSession } from '@/hooks/use-session';
  *
  * Every request passes `secondary` through, so the server can express each
  * figure in both halves of the Pair from one resolved rate snapshot.
+ *
+ * The comparison is the anchor: `ExpenseComparisonDto.current` is a full
+ * summary (its `byCategory` and `byCurrency` are the same figures the stand-alone
+ * `/expenses/summary` returns), so the Overview and the Breakdown read from one
+ * request instead of two that could disagree. Everything else is lazy — each
+ * hook takes an `enabled` flag so a chart that is not on screen fires nothing.
  */
 
 interface RangeParams {
@@ -30,6 +35,8 @@ interface RangeParams {
   to: string;
   base?: string | null;
   secondary?: string | null;
+  /** False to keep the query idle until the view that needs it is shown. */
+  enabled?: boolean;
 }
 
 /**
@@ -46,18 +53,6 @@ function normalize(params: RangeParams): ReportQueryParams {
   };
 }
 
-/** Period totals, the per-category breakdown and the per-currency subtotals. */
-export function useReportSummary(params: RangeParams) {
-  const { status } = useSession();
-  const query = normalize(params);
-
-  return useQuery({
-    queryKey: queryKeys.reports.summary(query),
-    enabled: status === 'signed-in',
-    queryFn: () => api.get<ExpenseSummary>('/expenses/summary', { query }),
-  });
-}
-
 /**
  * The range in force against the equal-length window immediately before it.
  *
@@ -72,7 +67,7 @@ export function useReportComparison(params: RangeParams) {
 
   return useQuery({
     queryKey: queryKeys.reports.comparison(query),
-    enabled: status === 'signed-in',
+    enabled: status === 'signed-in' && (params.enabled ?? true),
     queryFn: () =>
       api.get<ExpenseComparison>('/expenses/comparison', {
         query: {
@@ -94,7 +89,7 @@ export function useReportByDayOfWeek(params: RangeParams) {
 
   return useQuery({
     queryKey: queryKeys.reports.byDayOfWeek(query),
-    enabled: status === 'signed-in',
+    enabled: status === 'signed-in' && (params.enabled ?? true),
     queryFn: () => api.get<ByDayOfWeekResponse>('/expenses/by-day-of-week', { query }),
   });
 }
@@ -114,7 +109,7 @@ export function useReportSeries(params: RangeParams & { granularity: ReportGranu
 
   return useQuery({
     queryKey: queryKeys.reports.series(keyed),
-    enabled: status === 'signed-in',
+    enabled: status === 'signed-in' && (params.enabled ?? true),
     queryFn: () =>
       api.get<ExpenseSeries>('/expenses/series', {
         query: { ...query, granularity: params.granularity },
@@ -130,7 +125,7 @@ export function useReportCategorySeries(params: RangeParams & { granularity: Rep
 
   return useQuery({
     queryKey: queryKeys.reports.categorySeries(keyed),
-    enabled: status === 'signed-in',
+    enabled: status === 'signed-in' && (params.enabled ?? true),
     queryFn: () =>
       api.get<CategorySeries>('/expenses/category-series', {
         query: { ...query, granularity: params.granularity },

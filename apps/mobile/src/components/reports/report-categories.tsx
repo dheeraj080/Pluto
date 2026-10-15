@@ -1,6 +1,6 @@
 /**
- * The category block: a share donut (with a stacked-area "over time"
- * alternative) and the ranked list beneath it.
+ * The Breakdown's category block: a share donut (with a stacked-area "over
+ * time" alternative) and the ranked list beneath it.
  *
  * Share draws every category as a donut wedge with the range total in the
  * centre; Over time stacks the top five categories plus "Other" so the bands
@@ -8,19 +8,20 @@
  * grey count, a thin share bar, the share, and the amounts in both currencies,
  * with the range total as a footer.
  *
- * Two deliberate differences from the web: there is no hover dimming (no
- * pointer), so the donut and the list are read independently, and the ranked
- * rows do not open a side drawer — a phone list is not a drawer host, and the
- * same expenses are one tap away in the Transactions tab.
+ * The over-time series is fetched lazily — only when that view is chosen — so
+ * opening Breakdown costs nothing until the user asks for it. Every ranked row
+ * is tappable: it opens the Activity list filtered to that category and range,
+ * which is the drill-down the web reaches through a side drawer.
  */
 
 import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DualAmount } from '@/components/amount';
 import { DonutChart, StackedAreaChart, type StackedSeries } from '@/components/charts';
 import { ReportCard, type ReportTableData } from '@/components/reports/report-card';
 import { Chip } from '@/components/ui/chip';
+import { IconArrowRight } from '@/components/icons';
 import { radius, spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { summaryAmounts } from '@/lib/convert';
@@ -61,6 +62,7 @@ export function ReportCategories({
   loading,
   error,
   onRetry,
+  onOpenCategory,
 }: {
   from: string;
   to: string;
@@ -75,18 +77,32 @@ export function ReportCategories({
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  /** Open the Activity list filtered to one category and the current range. */
+  onOpenCategory: (categoryId: string) => void;
 }) {
   const theme = useTheme();
   const [view, setView] = useState<CategoryView>('share');
   const [isolated, setIsolated] = useState<string | null>(null);
 
-  const categorySeries = useReportCategorySeries({ from, to, granularity, base, secondary: second });
+  // Idle until the over-time view is chosen.
+  const categorySeries = useReportCategorySeries({
+    from,
+    to,
+    granularity,
+    base,
+    secondary: second,
+    enabled: view === 'overTime',
+  });
 
-  const seriesLoading = loading || categorySeries.isPending;
-  const seriesError = error ?? (categorySeries.error ? errorMessage(categorySeries.error) : null);
+  // `isLoading` (pending *and* fetching), not `isPending`: a query that is
+  // disabled because the Share view is active still reports `isPending`, and
+  // that would pin the card to its skeleton forever.
+  const seriesLoading = loading || (view === 'overTime' && categorySeries.isLoading);
+  const seriesError =
+    error ?? (view === 'overTime' && categorySeries.error ? errorMessage(categorySeries.error) : null);
   const retryAll = () => {
     onRetry();
-    void categorySeries.refetch();
+    if (view === 'overTime') void categorySeries.refetch();
   };
 
   const rankOf = useMemo(
@@ -268,7 +284,17 @@ export function ReportCategories({
           const barWidth = max > 0 ? (entry.total / max) * 100 : 0;
           const entryPair = summaryAmounts(entry.total, base, entry.secondaryTotal, second);
           return (
-            <View key={entry.categoryId} style={[styles.row, { borderColor: theme.border }]}>
+            <Pressable
+              key={entry.categoryId}
+              accessibilityRole="button"
+              accessibilityLabel={`Show ${entry.categoryName} expenses`}
+              onPress={() => onOpenCategory(entry.categoryId)}
+              style={({ pressed }) => [
+                styles.row,
+                { borderColor: theme.border },
+                pressed && styles.pressed,
+              ]}
+            >
               <View style={styles.rowHead}>
                 <View style={[styles.swatch, { backgroundColor: colorFor(entry.categoryId) }]} />
                 <Text style={[text.bodyMedium, styles.rowName, { color: theme.ink }]} numberOfLines={1}>
@@ -277,6 +303,7 @@ export function ReportCategories({
                 {entryPair ? (
                   <DualAmount {...entryPair} size="sm" layout="stack" align="right" />
                 ) : null}
+                <IconArrowRight size={16} color={theme.muted} />
               </View>
               <View style={styles.rowBar}>
                 <Text style={[text.caption, { color: theme.muted }]}>
@@ -294,7 +321,7 @@ export function ReportCategories({
                   {formatPercent(entry.percentage)}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           );
         })}
 
@@ -340,4 +367,5 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     borderTopWidth: 1,
   },
+  pressed: { opacity: 0.7 },
 });

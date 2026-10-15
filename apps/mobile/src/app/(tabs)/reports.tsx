@@ -1,90 +1,93 @@
 /**
  * Reports.
  *
- * One range control in the header drives every card below, and every figure it
- * reports is compared with the equal-length window before it:
+ * Two fixed tabs over one range:
  *
- *  1. a KPI card (Total, Expenses, Average, Top category) in both currencies;
- *  2. "Spending over time" — the selected range as an emerald line with a soft
- *     gradient fill against the equal-length previous period, bucketed daily /
- *     weekly / monthly to match the range;
- *  3. "Spending by day of week" (average per weekday) beside a one-line insight
- *     naming the busiest and quietest days;
- *  4. the category share donut (or its over-time alternative) and ranking;
- *  5. which original currencies the money was paid in ("Paid in").
+ *  - **Overview** — a dense Summary block (total, count, average, top
+ *    category, each against the equal-length window before it) and one Trend
+ *    card that reads the range either over time or by weekday.
+ *  - **Breakdown** — where the money went: the category share/over-time block
+ *    and the original currencies it was paid in.
  *
- * Every converted figure comes from the server aggregates; the range's own rate
- * provenance is named under the header so "as of" is never a guess.
+ * Every figure comes from a single `GET /expenses/comparison`, whose `current`
+ * summary already carries the per-category and per-currency breakdowns, so the
+ * two tabs can never disagree with each other or with the "vs previous" pills.
+ * The heavier charts are fetched lazily — a hidden tab, or a chart view the user
+ * has not opened, fires no request.
+ *
+ * The range control lives in the header and opens a sheet; the header (range,
+ * tabs, compare and export) stays put while the cards scroll beneath it.
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { ConversionNote } from '@/components/ui/conversion-note';
 import { AppPageHeader } from '@/components/ui/page-header';
-import { IconRefresh } from '@/components/icons';
-import { ReportRangeControl } from '@/components/reports/range-control';
-import { ReportKpis } from '@/components/reports/report-kpis';
+import { Button } from '@/components/ui/button';
+import { Chip } from '@/components/ui/chip';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { IconCalendar, IconChevronDown, IconRefresh } from '@/components/icons';
+import { ReportSummary } from '@/components/reports/report-summary';
+import { ReportTrend, type TrendMode } from '@/components/reports/report-trend';
+import { ReportCategories } from '@/components/reports/report-categories';
+import { ReportPaidIn } from '@/components/reports/report-paid-in';
 import { RatesNote } from '@/components/reports/report-card';
-import { SpendingOverTime } from '@/components/reports/spending-over-time';
-import { DayOfWeekCard, DayOfWeekInsight } from '@/components/reports/day-of-week';
-import { ReportCategories } from '@/components/reports/categories';
-import { ReportPaidIn } from '@/components/reports/paid-in';
-import { borderWidth, controlHeight, layout, radius, spacing } from '@/theme';
+import { ReportRangeSheet } from '@/components/sheets/report-range-sheet';
+import { borderWidth, controlHeight, layout, radius, spacing, text } from '@/theme';
 import { usePair } from '@/hooks/use-pair';
 import { useRateSnapshot } from '@/hooks/use-rates';
+import { useReportRange } from '@/hooks/use-report-range';
 import {
   useReportByDayOfWeek,
   useReportComparison,
   useReportSeries,
-  useReportSummary,
 } from '@/hooks/use-reports';
 import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/errors';
-import { formatDateRange, isValidIsoDate } from '@/lib/format';
-import { diffDays, granularityFor, reportRange, type ReportPreset } from '@/lib/ranges';
+import { shareExpensesCsv } from '@/lib/export';
+import { queryKeys } from '@/lib/query-keys';
+import { activityHref } from '@/lib/routes';
 import { buildTrendRows, dayOfWeekRows } from '@/lib/report-utils';
+
+type Tab = 'overview' | 'breakdown';
+
+const TAB_OPTIONS: { value: Tab; label: string }[] = [
+  { value: 'overview', label: 'Overview' },
+  { value: 'breakdown', label: 'Breakdown' },
+];
 
 export default function ReportsScreen() {
   const theme = useTheme();
   const { base, second } = usePair();
+  const queryClient = useQueryClient();
 
-  const [preset, setPreset] = useState<ReportPreset>('month');
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo, setCustomTo] = useState('');
+  const { preset, range, granularity, rangeLabel, days, custom, applyPreset, applyCustom } =
+    useReportRange();
 
-  const fromValid = !customFrom || isValidIsoDate(customFrom);
-  const toValid = !customTo || isValidIsoDate(customTo);
-  const effectiveFrom = isValidIsoDate(customFrom) ? customFrom : '';
-  const effectiveTo = isValidIsoDate(customTo) ? customTo : '';
+  const [tab, setTab] = useState<Tab>('overview');
+  const [trendMode, setTrendMode] = useState<TrendMode>('overTime');
+  const [compare, setCompare] = useState(true);
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  const range = useMemo(
-    () => reportRange(preset, effectiveFrom, effectiveTo),
-    [preset, effectiveFrom, effectiveTo],
-  );
-  const granularity = useMemo(() => granularityFor(range.from, range.to), [range.from, range.to]);
-  const rangeLabel = formatDateRange(range.from, range.to);
-  const days = diffDays(range.from, range.to) + 1;
+  const onOverview = tab === 'overview';
+  const showOverTime = onOverview && trendMode === 'overTime';
+  const showWeekday = onOverview && trendMode === 'weekday';
 
-  const selectPreset = useCallback(
-    (next: ReportPreset) => {
-      if (next === 'custom') {
-        setCustomFrom((value) => value || range.from);
-        setCustomTo((value) => value || range.to);
-      }
-      setPreset(next);
-    },
-    [range.from, range.to],
-  );
-
-  const summary = useReportSummary({ from: range.from, to: range.to, base, secondary: second });
+  // The anchor request: the Overview's figures and the Breakdown's categories
+  // and currencies all read from its `current` summary.
   const comparison = useReportComparison({ from: range.from, to: range.to, base, secondary: second });
+
   const seriesCurrent = useReportSeries({
     from: range.from,
     to: range.to,
     base,
     secondary: second,
     granularity,
+    enabled: showOverTime,
   });
   const seriesPrevious = useReportSeries({
     from: range.prevFrom,
@@ -92,13 +95,21 @@ export default function ReportsScreen() {
     base,
     secondary: second,
     granularity,
+    enabled: showOverTime && compare,
   });
-  const dayOfWeek = useReportByDayOfWeek({ from: range.from, to: range.to, base, secondary: second });
+  const dayOfWeek = useReportByDayOfWeek({
+    from: range.from,
+    to: range.to,
+    base,
+    secondary: second,
+    enabled: showWeekday,
+  });
   const snapshot = useRateSnapshot(base);
 
   // `base` is null only until a profile exists; the server's echoed currency is
   // the honest fallback, so no figure is ever shown in an invented currency.
-  const baseCurrency = base ?? summary.data?.baseCurrency ?? snapshot.data?.baseCurrency ?? null;
+  const baseCurrency =
+    base ?? comparison.data?.baseCurrency ?? snapshot.data?.baseCurrency ?? null;
 
   const trendRows = useMemo(
     () => buildTrendRows(seriesCurrent.data?.points ?? [], seriesPrevious.data?.points ?? []),
@@ -109,179 +120,264 @@ export default function ReportsScreen() {
     [dayOfWeek.data, range.from, range.to],
   );
 
-  const summaryError = summary.isError ? errorMessage(summary.error) : null;
   const comparisonError = comparison.isError ? errorMessage(comparison.error) : null;
-  const dowError = dayOfWeek.isError ? errorMessage(dayOfWeek.error) : null;
   const seriesError = seriesCurrent.isError
     ? errorMessage(seriesCurrent.error)
     : seriesPrevious.isError
       ? errorMessage(seriesPrevious.error)
       : null;
-  const seriesLoading = seriesCurrent.isPending || seriesPrevious.isPending;
+  const trendLoading = showOverTime
+    ? seriesCurrent.isPending || (compare && seriesPrevious.isPending)
+    : dayOfWeek.isPending;
+  const trendError = showWeekday ? (dayOfWeek.isError ? errorMessage(dayOfWeek.error) : null) : seriesError;
+  const reloadTrend = useCallback(() => {
+    if (showOverTime) {
+      void seriesCurrent.refetch();
+      if (compare) void seriesPrevious.refetch();
+    } else if (showWeekday) {
+      void dayOfWeek.refetch();
+    }
+  }, [showOverTime, showWeekday, compare, seriesCurrent, seriesPrevious, dayOfWeek]);
 
-  const refreshing =
-    summary.isFetching ||
-    comparison.isFetching ||
-    seriesCurrent.isFetching ||
-    seriesPrevious.isFetching ||
-    dayOfWeek.isFetching;
-
+  // Pull-to-refresh reflects the *user's* refresh, not every background
+  // refetch: a range change or a focus refetch must not pop the spinner.
+  const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(() => {
-    void summary.refetch();
-    void comparison.refetch();
-    void seriesCurrent.refetch();
-    void seriesPrevious.refetch();
-    void dayOfWeek.refetch();
-    void snapshot.refetch();
-  }, [summary, comparison, seriesCurrent, seriesPrevious, dayOfWeek, snapshot]);
+    setRefreshing(true);
+    // Invalidating the whole group also refreshes the Breakdown's lazily-loaded
+    // category series, which the screen does not own directly.
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.all }),
+      snapshot.refetch(),
+    ]).finally(() => setRefreshing(false));
+  }, [queryClient, snapshot]);
 
-  const reloadSeries = useCallback(() => {
-    void seriesCurrent.refetch();
-    void seriesPrevious.refetch();
-  }, [seriesCurrent, seriesPrevious]);
+  const onExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      const shared = await shareExpensesCsv({
+        from: range.from,
+        to: range.to,
+        base: baseCurrency,
+      });
+      if (!shared) Alert.alert('Export', 'Sharing is not available on this device.');
+    } catch (error) {
+      Alert.alert('Export failed', errorMessage(error) ?? 'Could not export this range.');
+    } finally {
+      setExporting(false);
+    }
+  }, [range.from, range.to, baseCurrency]);
 
-  const provenance = summary.data?.rateProvenance ?? comparison.data?.rateProvenance ?? null;
+  const openCategory = useCallback(
+    (categoryId: string) => router.push(activityHref({ categoryId, from: range.from, to: range.to })),
+    [range.from, range.to],
+  );
+  const openCurrency = useCallback(
+    (currency: string) => router.push(activityHref({ currency, from: range.from, to: range.to })),
+    [range.from, range.to],
+  );
+
+  const provenance = comparison.data?.rateProvenance ?? null;
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.canvas }]}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={theme.accent}
-          colors={[theme.accent]}
-        />
-      }
-    >
-      <AppPageHeader title="Reports" subtitle="Where your money goes, over any period.">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Refresh"
-          onPress={onRefresh}
-          disabled={refreshing}
-          style={({ pressed }) => [
-            styles.refresh,
-            {
-              backgroundColor: theme.surfaceMuted,
-              borderColor: theme.border,
-              opacity: refreshing ? 0.45 : pressed ? 0.7 : 1,
-            },
-          ]}
-        >
-          <IconRefresh size={16} color={theme.ink} />
-        </Pressable>
-      </AppPageHeader>
+    <View style={[styles.container, { backgroundColor: theme.canvas }]}>
+      <View style={styles.header}>
+        <AppPageHeader title="Reports">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Refresh"
+            onPress={onRefresh}
+            disabled={refreshing}
+            style={({ pressed }) => [
+              styles.refresh,
+              {
+                backgroundColor: theme.surfaceMuted,
+                borderColor: theme.border,
+                opacity: refreshing ? 0.45 : pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <IconRefresh size={16} color={theme.ink} />
+          </Pressable>
+        </AppPageHeader>
 
-      <ReportRangeControl
-        preset={preset}
-        rangeLabel={rangeLabel}
-        customFrom={customFrom}
-        customTo={customTo}
-        fromError={fromValid ? undefined : 'Enter a date like 2026-10-01'}
-        toError={toValid ? undefined : 'Enter a date like 2026-10-01'}
-        onSelectPreset={selectPreset}
-        onCustomFrom={setCustomFrom}
-        onCustomTo={setCustomTo}
-      />
+        <View style={styles.controls}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Date range: ${rangeLabel}`}
+            onPress={() => setRangeOpen(true)}
+            style={({ pressed }) => [
+              styles.range,
+              {
+                backgroundColor: theme.surfaceMuted,
+                borderColor: theme.border,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <IconCalendar size={16} color={theme.muted} />
+            <Text style={[text.bodyMedium, styles.rangeLabel, { color: theme.ink }]} numberOfLines={1}>
+              {rangeLabel}
+            </Text>
+            <IconChevronDown size={16} color={theme.muted} />
+          </Pressable>
 
-      <RatesNote provenance={provenance} fallbackDate={snapshot.data?.effectiveDate ?? null} />
+          <Chip label="Compare" selected={compare} onPress={() => setCompare((value) => !value)} />
+        </View>
 
-      {summary.data ? (
-        <ConversionNote
-          status={summary.data.conversionStatus}
-          unconvertedCurrencies={summary.data.unconvertedCurrencies}
+        <View style={styles.tabsRow}>
+          <SegmentedControl options={TAB_OPTIONS} value={tab} onChange={setTab} label="Report view" />
+          <Button
+            label="Export"
+            variant="secondary"
+            size="sm"
+            busy={exporting}
+            onPress={() => void onExport()}
+          />
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+          />
+        }
+      >
+        <RatesNote provenance={provenance} fallbackDate={snapshot.data?.effectiveDate ?? null} />
+
+        {comparison.data ? (
+          <ConversionNote
+            status={comparison.data.conversionStatus}
+            unconvertedCurrencies={comparison.data.unconvertedCurrencies}
+          />
+        ) : null}
+
+        <View style={styles.cards}>
+          {onOverview ? (
+            <>
+              <ReportSummary
+                data={comparison.data ?? null}
+                base={baseCurrency}
+                second={second}
+                days={days}
+                rangeLabel={rangeLabel}
+                compare={compare}
+                loading={comparison.isPending}
+                error={comparisonError}
+                onRetry={() => void comparison.refetch()}
+                onOpenCategory={openCategory}
+              />
+
+              <ReportTrend
+                mode={trendMode}
+                onModeChange={setTrendMode}
+                compare={compare}
+                rows={trendRows}
+                dowRows={dowRows}
+                granularity={granularity}
+                base={baseCurrency}
+                second={second}
+                rangeLabel={rangeLabel}
+                loading={trendLoading}
+                error={trendError}
+                onRetry={reloadTrend}
+              />
+            </>
+          ) : (
+            <>
+              <ReportCategories
+                from={range.from}
+                to={range.to}
+                granularity={granularity}
+                rangeLabel={rangeLabel}
+                categories={comparison.data?.current.byCategory ?? []}
+                count={comparison.data?.current.count ?? 0}
+                total={comparison.data?.current.total ?? null}
+                secondaryTotal={comparison.data?.current.secondaryTotal ?? null}
+                base={baseCurrency}
+                second={second}
+                loading={comparison.isPending}
+                error={comparisonError}
+                onRetry={() => void comparison.refetch()}
+                onOpenCategory={openCategory}
+              />
+
+              <ReportPaidIn
+                rangeLabel={rangeLabel}
+                currencies={comparison.data?.current.byCurrency ?? []}
+                total={comparison.data?.current.total ?? null}
+                base={baseCurrency}
+                loading={comparison.isPending}
+                error={comparisonError}
+                onRetry={() => void comparison.refetch()}
+                onOpenCurrency={openCurrency}
+              />
+            </>
+          )}
+        </View>
+      </ScrollView>
+
+      {rangeOpen ? (
+        <ReportRangeSheet
+          visible
+          onClose={() => setRangeOpen(false)}
+          preset={preset}
+          customFrom={custom.from}
+          customTo={custom.to}
+          onApplyPreset={applyPreset}
+          onApplyCustom={applyCustom}
         />
       ) : null}
-
-      <View style={styles.cards}>
-        <ReportKpis
-          data={comparison.data ?? null}
-          base={baseCurrency}
-          second={second}
-          days={days}
-          rangeLabel={rangeLabel}
-          loading={comparison.isPending}
-          error={comparisonError}
-          onRetry={() => void comparison.refetch()}
-        />
-
-        <SpendingOverTime
-          rows={trendRows}
-          granularity={granularity}
-          base={baseCurrency}
-          second={second}
-          rangeLabel={rangeLabel}
-          loading={seriesLoading}
-          error={seriesError}
-          onRetry={reloadSeries}
-        />
-
-        <DayOfWeekCard
-          rows={dowRows}
-          base={baseCurrency}
-          second={second}
-          rangeLabel={rangeLabel}
-          loading={dayOfWeek.isPending}
-          error={dowError}
-          onRetry={() => void dayOfWeek.refetch()}
-        />
-
-        <DayOfWeekInsight
-          rows={dowRows}
-          base={baseCurrency}
-          second={second}
-          rangeLabel={rangeLabel}
-          loading={dayOfWeek.isPending}
-          error={dowError}
-          onRetry={() => void dayOfWeek.refetch()}
-        />
-
-        <ReportCategories
-          from={range.from}
-          to={range.to}
-          granularity={granularity}
-          rangeLabel={rangeLabel}
-          categories={summary.data?.byCategory ?? []}
-          count={summary.data?.count ?? 0}
-          total={summary.data?.total ?? null}
-          secondaryTotal={summary.data?.secondaryTotal ?? null}
-          base={baseCurrency}
-          second={second}
-          loading={summary.isPending}
-          error={summaryError}
-          onRetry={() => void summary.refetch()}
-        />
-
-        <ReportPaidIn
-          rangeLabel={rangeLabel}
-          currencies={summary.data?.byCurrency ?? []}
-          total={summary.data?.total ?? null}
-          base={baseCurrency}
-          loading={summary.isPending}
-          error={summaryError}
-          onRetry={() => void summary.refetch()}
-        />
-      </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  header: {
+    paddingHorizontal: layout.gutter,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
+  },
+  controls: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  range: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    height: controlHeight.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: borderWidth.hairline,
+  },
+  rangeLabel: { flex: 1 },
+  tabsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  refresh: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: controlHeight.lg,
+    height: controlHeight.lg,
+    borderRadius: radius.pill,
+    borderWidth: borderWidth.hairline,
+  },
+  scroll: { flex: 1 },
   content: {
     padding: layout.gutter,
+    paddingTop: 0,
     paddingBottom: layout.tabBarInset + spacing.xl,
     gap: spacing.lg,
   },
   cards: { gap: spacing.lg },
-  refresh: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: controlHeight.sm,
-    height: controlHeight.sm,
-    borderRadius: radius.pill,
-    borderWidth: borderWidth.hairline,
-  },
 });

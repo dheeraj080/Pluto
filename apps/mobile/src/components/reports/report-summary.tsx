@@ -1,19 +1,24 @@
 /**
- * The Reports KPI card: one block answering "how much, how many, how much
- * each, and where".
+ * The Overview's Summary block: the range's headline figures in one card.
  *
- * Every figure is driven by one comparison request for the range in force, so
- * the "vs previous N days" pills always compare like with like and can never
- * disagree with the totals they sit beside. The shared comparison note lives
- * once, in the card subtitle.
+ * One `GET /expenses/comparison` drives every figure here, so the hero total,
+ * the per-expense average and the "vs previous" pills can never disagree about
+ * the window or the rate snapshot. The `compare` prop only decides whether the
+ * pills are shown; the figures themselves are the same either way.
+ *
+ * Figures are laid out *stacked* — a label (with its change pill) above the
+ * value — rather than label-left/value-right: an amount in two currencies is
+ * wide, and the stacked form cannot be squeezed off a phone. The top category
+ * is tappable, the fastest route from "where did it go" to the matching rows.
  */
 
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DualAmount } from '@/components/amount';
 import { ChangePill } from '@/components/ui/change-pill';
 import { ReportCard } from '@/components/reports/report-card';
+import { IconArrowRight } from '@/components/icons';
 import { fontFamily, radius, spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { summaryAmounts } from '@/lib/convert';
@@ -30,24 +35,22 @@ function pctChange(
   return Number.isFinite(pct) ? pct : null;
 }
 
-/** A category's colour chip, matching the web's `CategorySwatch`. */
-function Swatch({ color }: { color: string }) {
-  return <View style={[styles.swatch, { backgroundColor: color }]} />;
-}
-
 /** The muted em dash that stands in for a figure that cannot be shown. */
 function Dash() {
   const theme = useTheme();
   return <Text style={[styles.dash, { color: theme.muted }]}>—</Text>;
 }
 
+/** A label with its change pill, above a value. */
 function Stat({
   label,
   percent,
+  compare,
   children,
 }: {
   label: string;
   percent: number | null;
+  compare: boolean;
   children: ReactNode;
 }) {
   const theme = useTheme();
@@ -58,68 +61,74 @@ function Stat({
         <Text style={[text.overline, { color: theme.muted }]} numberOfLines={1}>
           {label}
         </Text>
-        {percent != null ? <ChangePill percent={percent} /> : null}
+        {compare && percent != null ? <ChangePill percent={percent} /> : null}
       </View>
       <View style={styles.statBody}>{children}</View>
     </View>
   );
 }
 
-export function ReportKpis({
+export function ReportSummary({
   data,
   base,
   second,
   days,
   rangeLabel,
+  compare,
   loading,
   error,
   onRetry,
+  onOpenCategory,
 }: {
   data: ExpenseComparison | null;
-  /** Primary currency. */
+  /** Home currency. */
   base: string | null;
-  /** Secondary currency, when one is paired. */
+  /** Second (non-home) currency, when one is paired. */
   second: string | null;
   /** Length of the window in days, for the "vs previous …" note. */
   days: number;
-  /** The range every card is describing; shown in the card subtitle. */
   rangeLabel: string;
+  /** Whether the "vs previous" pills are shown. */
+  compare: boolean;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  /** Open the Activity list filtered to one category. */
+  onOpenCategory: (categoryId: string) => void;
 }) {
   const theme = useTheme();
 
   const current = data?.current ?? null;
   const previous = data?.previous ?? null;
-  const caption = `vs previous ${days} ${days === 1 ? 'day' : 'days'}`;
   const placeholder = loading && !data;
   const failed = Boolean(error) && !loading;
 
   const total = current?.total ?? null;
-  const totalSecond = current?.secondaryTotal ?? null;
-  const totalPct = pctChange(total, previous?.total ?? null);
   const average = current?.average ?? null;
-  const averageSecond = current?.secondaryAverage ?? null;
-  const averagePct = pctChange(average, previous?.average ?? null);
   const count = current?.count ?? null;
-  const countPct = pctChange(count, previous?.count ?? null);
-
   const top = current?.byCategory?.[0] ?? null;
-  const topPreviousTotal = top
-    ? (previous?.byCategory.find((entry) => entry.categoryId === top.categoryId)?.total ?? null)
+
+  const totalPct = pctChange(total, previous?.total ?? null);
+  const averagePct = pctChange(average, previous?.average ?? null);
+  const countPct = pctChange(count, previous?.count ?? null);
+  const topPct = top
+    ? pctChange(
+        top.total,
+        previous?.byCategory.find((entry) => entry.categoryId === top.categoryId)?.total ?? null,
+      )
     : null;
-  const topPct = top ? pctChange(top.total, topPreviousTotal) : null;
 
   // Every total leads with the Second and shows the Home equivalent beneath.
-  const totalPair = summaryAmounts(total, base, totalSecond, second);
-  const averagePair = summaryAmounts(average, base, averageSecond, second);
+  const totalPair = summaryAmounts(total, base, current?.secondaryTotal ?? null, second);
+  const averagePair = summaryAmounts(average, base, current?.secondaryAverage ?? null, second);
   const topPair = top ? summaryAmounts(top.total, base, top.secondaryTotal, second) : null;
+
+  const caption = `vs previous ${days} ${days === 1 ? 'day' : 'days'}`;
 
   return (
     <ReportCard
-      title="Key figures"
-      subtitle={`${rangeLabel} · ${caption}`}
+      title="Summary"
+      subtitle={compare ? `${rangeLabel} · ${caption}` : rangeLabel}
       loading={placeholder}
       skeletonHeight={220}
       error={failed ? error : null}
@@ -129,20 +138,16 @@ export function ReportKpis({
         <View style={styles.headlineMain}>
           <Text style={[text.overline, { color: theme.muted }]}>Total spent</Text>
           <View style={styles.headlineValue}>
-            {totalPair ? (
-              <DualAmount {...totalPair} size="hero" layout="inline" />
-            ) : (
-              <Dash />
-            )}
+            {totalPair ? <DualAmount {...totalPair} size="hero" layout="inline" /> : <Dash />}
           </View>
         </View>
-        {totalPct != null ? <ChangePill percent={totalPct} /> : null}
+        {compare && totalPct != null ? <ChangePill percent={totalPct} /> : null}
       </View>
 
       <View style={[styles.divider, { borderColor: theme.border }]} />
 
       <View style={styles.stats}>
-        <Stat label="Expenses" percent={countPct}>
+        <Stat label="Expenses" percent={countPct} compare={compare}>
           {count !== null ? (
             <Text style={[styles.count, { color: theme.ink }]}>{count}</Text>
           ) : (
@@ -150,26 +155,35 @@ export function ReportKpis({
           )}
         </Stat>
 
-        <Stat label="Average per expense" percent={averagePct}>
-          {averagePair ? (
-            <DualAmount {...averagePair} size="md" layout="inline" />
-          ) : (
-            <Dash />
-          )}
+        <Stat label="Average per expense" percent={averagePct} compare={compare}>
+          {averagePair ? <DualAmount {...averagePair} size="md" layout="inline" /> : <Dash />}
         </Stat>
 
-        <Stat label="Top category" percent={topPct}>
+        <Stat label="Top category" percent={topPct} compare={compare}>
           {top ? (
-            <View style={styles.top}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Show ${top.categoryName} expenses`}
+              onPress={() => onOpenCategory(top.categoryId)}
+              style={({ pressed }) => [styles.top, pressed && styles.pressed]}
+            >
               <View style={styles.topName}>
-                <Swatch color={top.color} />
-                <Text style={[text.bodyMedium, styles.topLabel, { color: theme.ink }]} numberOfLines={1}>
+                <View style={[styles.swatch, { backgroundColor: top.color }]} />
+                <Text
+                  style={[text.bodyMedium, styles.topLabel, { color: theme.ink }]}
+                  numberOfLines={1}
+                >
                   {top.categoryName}
                 </Text>
-                <Text style={[text.caption, { color: theme.muted }]}>{formatPercent(top.percentage)}</Text>
+                <Text style={[text.caption, { color: theme.muted }]}>
+                  {formatPercent(top.percentage)}
+                </Text>
               </View>
-              {topPair ? <DualAmount {...topPair} size="md" layout="inline" /> : null}
-            </View>
+              <View style={styles.topRight}>
+                {topPair ? <DualAmount {...topPair} size="md" layout="inline" /> : null}
+                <IconArrowRight size={16} color={theme.muted} />
+              </View>
+            </Pressable>
           ) : (
             <Dash />
           )}
@@ -189,11 +203,7 @@ const styles = StyleSheet.create({
   },
   headlineMain: { gap: spacing.sm, flexShrink: 1 },
   headlineValue: { marginTop: spacing.xs },
-  divider: {
-    marginTop: spacing.xl,
-    borderTopWidth: 1,
-    paddingTop: spacing.xl,
-  },
+  divider: { marginTop: spacing.xl, borderTopWidth: 1, paddingTop: spacing.xl },
   stats: { gap: spacing.xl },
   stat: { gap: spacing.sm },
   statHead: {
@@ -205,8 +215,16 @@ const styles = StyleSheet.create({
   statBody: { marginTop: spacing.xs },
   count: { fontFamily: fontFamily.sans.semibold, fontSize: 16, lineHeight: 20 },
   dash: { fontFamily: fontFamily.sans.regular, fontSize: 28, lineHeight: 32 },
-  top: { gap: spacing.xs },
-  topName: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  top: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  topName: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
   topLabel: { flexShrink: 1 },
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   swatch: { width: 9, height: 9, borderRadius: radius.xs / 2 },
+  pressed: { opacity: 0.7 },
 });

@@ -32,7 +32,7 @@ export function AppPageHeader({
       <View style={styles.heading}>
         <Text style={[text.display, { color: theme.ink }]}>{title}</Text>
         {subtitle ? (
-          <Text style={[text.body, { color: theme.muted }]}>{subtitle}</Text>
+          <Text style={[text.caption, { color: theme.muted }]}>{subtitle}</Text>
         ) : null}
       </View>
 
@@ -47,9 +47,16 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
-  heading: { flexShrink: 1, gap: spacing.xs },
+  heading: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+    flexShrink: 1,
+    minWidth: 0,
+  },
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',

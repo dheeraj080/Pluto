@@ -113,7 +113,6 @@ export const queryKeys = {
   },
   reports: {
     all: ['reports'] as const,
-    summary: (params: ReportQueryParams) => ['reports', 'summary', params] as const,
     comparison: (params: ReportQueryParams) => ['reports', 'comparison', params] as const,
     byDayOfWeek: (params: ReportQueryParams) => ['reports', 'by-day-of-week', params] as const,
     series: (params: ReportSeriesParams) => ['reports', 'series', params] as const,

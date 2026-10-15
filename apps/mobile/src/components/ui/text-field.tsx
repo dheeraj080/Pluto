@@ -4,9 +4,9 @@ import { borderWidth, radius, spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
- * A labelled text input, matching the web app's `Field` + `Input`: `text-sm`
- * label, inset `surface-muted` control with a hairline border, and an optional
- * hint or error beneath.
+ * A text input, matching the web app's `Field` + `Input`: an optional `text-sm`
+ * label, an inset `surface-muted` control with a hairline border, and an
+ * optional hint or error beneath.
  */
 export function TextField({
   label,
@@ -14,12 +14,12 @@ export function TextField({
   error,
   style,
   ...rest
-}: TextInputProps & { label: string; hint?: string; error?: string }) {
+}: TextInputProps & { label?: string; hint?: string; error?: string }) {
   const theme = useTheme();
 
   return (
     <View style={styles.wrap}>
-      <Text style={[text.bodyMedium, { color: theme.ink }]}>{label}</Text>
+      {label ? <Text style={[text.bodyMedium, { color: theme.ink }]}>{label}</Text> : null}
 
       <TextInput
         placeholderTextColor={theme.muted}
