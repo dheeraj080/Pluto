@@ -91,14 +91,30 @@ export class ExpensesService {
     return this.toCategoryDto(updated);
   }
 
-  async deleteCategory(userId: string, id: string): Promise<{ success: boolean; message: string }> {
+  async deleteCategory(
+    userId: string,
+    id: string,
+    reassignTo?: string,
+  ): Promise<{ success: boolean; message: string }> {
     const category = await this.findOwnedCategory(userId, id);
 
     const inUse = await this.prisma.expense.count({ where: { categoryId: category.id } });
     if (inUse > 0) {
-      throw new ConflictException(
-        `Cannot delete '${category.name}': ${inUse} expense${inUse === 1 ? '' : 's'} still ${inUse === 1 ? 'uses' : 'use'} it. Reassign them first.`,
-      );
+      if (!reassignTo) {
+        throw new ConflictException(
+          `Cannot delete '${category.name}': ${inUse} expense${inUse === 1 ? '' : 's'} still ${inUse === 1 ? 'uses' : 'use'} it. Reassign them first.`,
+        );
+      }
+      if (reassignTo === id) {
+        throw new ConflictException('Cannot reassign expenses to the category being deleted.');
+      }
+      const target = await this.findOwnedCategory(userId, reassignTo, 'Target category not found');
+      await this.prisma.$transaction([
+        this.prisma.expense.updateMany({ where: { userId, categoryId: category.id }, data: { categoryId: target.id } }),
+        this.prisma.budget.deleteMany({ where: { userId, categoryId: category.id } }),
+        this.prisma.expenseCategory.delete({ where: { id: category.id } }),
+      ]);
+      return { success: true, message: 'Category deleted and expenses reassigned successfully' };
     }
 
     await this.prisma.budget.deleteMany({ where: { userId, categoryId: category.id } });

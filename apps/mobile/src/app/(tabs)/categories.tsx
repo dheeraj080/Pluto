@@ -20,6 +20,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { CategoryRow } from '@/components/categories/category-row';
 import { DashboardCard } from '@/components/dashboard/card';
 import { CategorySheet } from '@/components/sheets/category-sheet';
+import { ReassignCategorySheet } from '@/components/sheets/reassign-category-sheet';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm';
 import { Divider } from '@/components/ui/divider';
@@ -42,6 +43,7 @@ export default function CategoriesScreen() {
   const { confirm, sheet: confirmSheet } = useConfirm();
 
   const [sheet, setSheet] = useState<{ target: ExpenseCategory | null } | null>(null);
+  const [reassign, setReassign] = useState<ExpenseCategory | null>(null);
 
   const items = categories.data ?? [];
   const totalExpenses = items.reduce((sum, category) => sum + category.expenseCount, 0);
@@ -61,18 +63,8 @@ export default function CategoriesScreen() {
 
   const confirmDelete = useCallback(
     (category: ExpenseCategory) => {
-      // A category still in use would only get a 409 from the server; say so up
-      // front rather than firing a request that cannot succeed.
       if (category.expenseCount > 0) {
-        void confirm({
-          title: 'Category in use',
-          message: `${category.expenseCount} ${
-            category.expenseCount === 1 ? 'expense uses' : 'expenses use'
-          } “${category.name}”. Reassign them before deleting.`,
-          confirmLabel: 'OK',
-          tone: 'primary',
-          cancelable: false,
-        });
+        setReassign(category);
         return;
       }
 
@@ -81,7 +73,7 @@ export default function CategoriesScreen() {
         message: 'This cannot be undone.',
         confirmLabel: 'Delete',
       }).then((confirmed) => {
-        if (confirmed) remove.mutate(category.id);
+        if (confirmed) remove.mutate({ id: category.id });
       });
     },
     [confirm, remove],
@@ -145,7 +137,7 @@ export default function CategoriesScreen() {
                 onOpen={() => openExpenses(category)}
                 onEdit={() => openEdit(category)}
                 onDelete={() => confirmDelete(category)}
-                deleteBusy={remove.isPending && remove.variables === category.id}
+                deleteBusy={remove.isPending && remove.variables?.id === category.id}
               />
             </View>
           ))}
@@ -157,6 +149,22 @@ export default function CategoriesScreen() {
       </ScrollView>
 
       {sheet ? <CategorySheet target={sheet.target} onClose={closeSheet} /> : null}
+      <ReassignCategorySheet
+        visible={reassign !== null}
+        source={reassign}
+        categories={items}
+        busy={remove.isPending}
+        error={remove.error ? errorMessage(remove.error) : null}
+        onClose={() => setReassign(null)}
+        onConfirm={(targetId) => {
+          if (reassign) {
+            remove.mutate(
+              { id: reassign.id, reassignTo: targetId },
+              { onSuccess: () => setReassign(null) },
+            );
+          }
+        }}
+      />
       {confirmSheet}
     </View>
   );

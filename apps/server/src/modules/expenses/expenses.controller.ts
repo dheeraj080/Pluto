@@ -114,8 +114,9 @@ export class ExpensesController {
   async deleteCategory(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
+    @Query('reassignTo') reassignTo?: string,
   ): Promise<Ack> {
-    return this.expensesService.deleteCategory(user.id, id);
+    return this.expensesService.deleteCategory(user.id, id, reassignTo);
   }
 
   // ------------------------------------------------------------------ reports

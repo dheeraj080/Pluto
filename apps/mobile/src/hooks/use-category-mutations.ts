@@ -47,8 +47,10 @@ export function useDeleteCategory() {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) =>
-      api.delete<Record<string, never>>(`/expenses/categories/${id}`),
+    mutationFn: ({ id, reassignTo }: { id: string; reassignTo?: string }) =>
+      api.delete<Record<string, never>>(`/expenses/categories/${id}`, {
+        query: reassignTo ? { reassignTo } : undefined,
+      }),
     onSuccess: () => invalidateCategories(client),
   });
 }
