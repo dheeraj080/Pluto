@@ -13,7 +13,11 @@
     "lint": "expo lint",
     "assets:brand": "node ./scripts/generate-brand-assets.mjs",
     "check:theme": "node ./scripts/check-theme-parity.mjs",
-    "typecheck": "npm run check:theme && tsc --noEmit"
+    "typecheck": "npm run check:theme && tsc --noEmit",
+    "eas:build:dev": "npx eas-cli@latest build --profile development",
+    "eas:build:preview": "npx eas-cli@latest build --profile preview",
+    "eas:build:prod": "npx eas-cli@latest build --profile production",
+    "eas:submit:prod": "npx eas-cli@latest submit --profile production"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",

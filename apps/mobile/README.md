@@ -258,4 +258,46 @@ must be tested in a dev build, not Expo Go.
 
 ## Testing
 
-Not set up yet. React Native uses Jest; see `internal/mobile-plan.md` Phase 5.
+Not set up yet. React Native uses Jest; the mobile workspace has no `test`
+script, so `turbo run test` skips it today.
+
+## Building and releasing
+
+Builds are EAS builds (`eas.json`); there is no local signing setup. Install the
+CLI once and sign in with the Expo account that owns the project:
+
+```bash
+npm install -g eas-cli      # or call `npx eas-cli@latest` directly
+eas login
+eas init                    # once: links the app to the EAS project
+```
+
+Then, from this directory:
+
+| Command | Profile | Output |
+| :--- | :--- | :--- |
+| `npm run eas:build:dev` | `development` | Dev client, for native modules |
+| `npm run eas:build:preview` | `preview` | Installable APK / ad-hoc iOS build |
+| `npm run eas:build:prod` | `production` | Store-ready AAB / IPA |
+| `npm run eas:submit:prod` | `production` | Upload to Google Play / App Store |
+
+### The API URL is per profile
+
+`EXPO_PUBLIC_API_URL` is inlined at bundle time and defaults to
+`http://localhost:3000/v1`, which is correct only for local development. Set it
+as an **EAS environment variable** scoped to each non-development profile
+(`eas env:create`), pointing at the deployed API over HTTPS.
+
+`app.config.ts` refuses a `production` build whose `EXPO_PUBLIC_API_URL` is
+missing, plain `http`, or a development host, so a misconfigured release fails
+at build time rather than on a user's phone.
+
+### Versioning
+
+`cli.appVersionSource` is `remote`, so EAS owns the iOS build number and the
+Android version code and the `production` profile increments them automatically.
+The user-facing `version` in `app.config.ts` is still edited by hand.
+
+The `development` profile builds a dev client and needs `expo-dev-client`
+(`npx expo install expo-dev-client`). Until it is installed, Expo Go still runs
+the app; once it is, `npx expo start --go` is the way to keep using Expo Go.

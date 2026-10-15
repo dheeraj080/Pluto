@@ -1,6 +1,40 @@
 import type { ExpoConfig } from 'expo/config';
 
 /**
+ * Refuse to build a production binary that talks to a development API.
+ *
+ * `EXPO_PUBLIC_API_URL` is inlined at build time, so a slip here ships a release
+ * that points at `localhost` — or plain HTTP — and fails on the device with no
+ * visible cause. EAS sets `EAS_BUILD_PROFILE` for the build in progress, so the
+ * check engages only on the `production` profile and never during local
+ * `expo start` / `expo export`, where no profile is set.
+ *
+ * The real value comes from an EAS environment variable scoped to the
+ * `production` profile, not from a committed file.
+ */
+function assertProductionApiUrl(): void {
+  if (process.env.EAS_BUILD_PROFILE !== 'production') return;
+
+  const url = process.env.EXPO_PUBLIC_API_URL;
+  const problem = !url
+    ? 'EXPO_PUBLIC_API_URL is not set'
+    : !url.startsWith('https://')
+      ? `EXPO_PUBLIC_API_URL must use https, got "${url}"`
+      : /localhost|127\.0\.0\.1|10\.0\.2\.2/.test(url)
+        ? `EXPO_PUBLIC_API_URL must not point at a development host, got "${url}"`
+        : null;
+
+  if (problem) {
+    throw new Error(
+      `[app.config] Production build refused: ${problem}. ` +
+        'Set EXPO_PUBLIC_API_URL as an EAS environment variable on the production profile.',
+    );
+  }
+}
+
+assertProductionApiUrl();
+
+/**
  * Expo app configuration.
  *
  * Kept as a `.ts` config (rather than `app.json`) so the same file can read
