@@ -19,6 +19,17 @@ import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from './env';
 
 type Sdk = typeof import('@react-native-google-signin/google-signin');
 
+/**
+ * Google Play Services' status code for "no OAuth client matches this app".
+ *
+ * The native module stringifies the numeric status (`ErrorDto.code`), so on the
+ * JS side a `DEVELOPER_ERROR` arrives as `code === '10'`. The message Google
+ * attaches — "Developer console is not set up correctly" — points at the
+ * Console without naming either of the two values that are actually wrong, so
+ * it is worth translating.
+ */
+const DEVELOPER_ERROR_CODE = '10';
+
 let sdkPromise: Promise<Sdk> | null = null;
 
 /** Imports the SDK once, configuring it on first use. */
@@ -53,15 +64,40 @@ export async function requestGoogleIdToken(): Promise<string | null> {
     );
   }
 
-  const { GoogleSignin } = await loadSdk();
+  const sdk = await loadSdk();
 
   // Updates Google Play Services when it is too old to sign in; a no-op on iOS.
-  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  await sdk.GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-  const response = await GoogleSignin.signIn();
+  // A dismissal is a *response* (`{ type: 'cancelled' }`), not a rejection, so
+  // anything thrown here is a real failure worth explaining.
+  const response = await sdk.GoogleSignin.signIn().catch((cause: unknown) => {
+    throw explainSignInFailure(cause, sdk);
+  });
   if (response.type !== 'success') return null;
 
   const idToken = response.data.idToken;
   if (!idToken) throw new Error('Google did not return an ID token.');
   return idToken;
+}
+
+/**
+ * Turns the one failure whose message cannot be acted on into instructions.
+ *
+ * `DEVELOPER_ERROR` means Google could not match a registered Android OAuth
+ * client to this build's package name and signing SHA-1 — a Console mismatch,
+ * not a broken app. There is nothing to fix in JS, so the best this can do is
+ * say which pair to compare and how to read it off the APK that is installed.
+ */
+function explainSignInFailure(cause: unknown, sdk: Sdk): Error {
+  if (sdk.isErrorWithCode(cause) && cause.code === DEVELOPER_ERROR_CODE) {
+    return new Error(
+      'Google could not match this build to an Android OAuth client ' +
+        '(DEVELOPER_ERROR). Register this build\'s package name and signing SHA-1 ' +
+        'on an *Android* OAuth client in the same Google Cloud project as the web ' +
+        'client, then reinstall. Read the pair from the APK with ' +
+        '`npm run apk:fingerprint --workspace pluto-mobile -- <path-to.apk>`.',
+    );
+  }
+  return cause instanceof Error ? cause : new Error(String(cause));
 }
