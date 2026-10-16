@@ -25,6 +25,7 @@ import { createHash, X509Certificate } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { inflateRawSync } from 'node:zlib';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(projectRoot, '..', '..');
@@ -148,6 +149,98 @@ function configuredPackageName() {
   }
 }
 
+/** The decompressed contents of one named entry in the APK's ZIP container. */
+function readZipEntry(apk, centralDirectory, wanted) {
+  let cursor = centralDirectory;
+  while (cursor + 46 <= apk.length && apk.readUInt32LE(cursor) === 0x02014b50) {
+    const method = apk.readUInt16LE(cursor + 10);
+    const compressedSize = apk.readUInt32LE(cursor + 20);
+    const nameLength = apk.readUInt16LE(cursor + 28);
+    const extraLength = apk.readUInt16LE(cursor + 30);
+    const commentLength = apk.readUInt16LE(cursor + 32);
+    const localOffset = apk.readUInt32LE(cursor + 42);
+    const name = apk.toString('utf8', cursor + 46, cursor + 46 + nameLength);
+
+    if (name === wanted) {
+      // The central directory's sizes are authoritative; a local header may
+      // carry zeroes and defer them to a trailing data descriptor.
+      const dataStart =
+        localOffset + 30 + apk.readUInt16LE(localOffset + 26) + apk.readUInt16LE(localOffset + 28);
+      const data = apk.subarray(dataStart, dataStart + compressedSize);
+      return method === 8 ? inflateRawSync(data) : Buffer.from(data);
+    }
+    cursor += 46 + nameLength + extraLength + commentLength;
+  }
+  return null;
+}
+
+/** The string pool of a binary Android XML (AXML) document. */
+function readAxmlStrings(buffer) {
+  if (buffer.readUInt16LE(0) !== 0x0003) return null; // RES_XML_TYPE
+  const pool = 8;
+  if (buffer.readUInt16LE(pool) !== 0x0001) return null; // RES_STRING_POOL_TYPE
+  const count = buffer.readUInt32LE(pool + 8);
+  const utf8 = (buffer.readUInt32LE(pool + 16) & 0x100) !== 0;
+  const stringsStart = buffer.readUInt32LE(pool + 20);
+
+  const strings = [];
+  for (let i = 0; i < count; i++) {
+    const at = pool + stringsStart + buffer.readUInt32LE(pool + 28 + i * 4);
+    if (utf8) {
+      let cursor = at + 1;
+      if (buffer[at] & 0x80) cursor++;
+      const lengthByte = buffer[cursor++];
+      const byteLength = lengthByte & 0x80 ? ((lengthByte & 0x7f) << 8) | buffer[cursor++] : lengthByte;
+      strings.push(buffer.toString('utf8', cursor, cursor + byteLength));
+    } else {
+      const length = buffer.readUInt16LE(at);
+      strings.push(buffer.toString('utf16le', at + 2, at + 2 + length * 2));
+    }
+  }
+  return strings;
+}
+
+/**
+ * The `package` attribute of the manifest's root element.
+ *
+ * This is the value Google matches against the OAuth client, so it is read from
+ * the APK rather than from app.config.ts: a Gradle `applicationIdSuffix`, a
+ * different build profile or a stale checkout would otherwise be invisible here
+ * — and would surface on the device as DEVELOPER_ERROR with every Console value
+ * looking correct.
+ */
+function manifestPackageName(apk, centralDirectory) {
+  const buffer = readZipEntry(apk, centralDirectory, 'AndroidManifest.xml');
+  if (!buffer) return null;
+  const strings = readAxmlStrings(buffer);
+  if (!strings) return null;
+
+  let cursor = 8;
+  while (cursor + 8 <= buffer.length) {
+    const type = buffer.readUInt16LE(cursor);
+    const chunkSize = buffer.readUInt32LE(cursor + 4);
+    if (chunkSize < 8) break;
+
+    if (type === 0x0102) {
+      // RES_START_ELEMENT_TYPE: an attribute array of 20-byte records follows.
+      const nameIndex = buffer.readInt32LE(cursor + 20);
+      if (strings[nameIndex] === 'manifest') {
+        const attributes = cursor + buffer.readUInt16LE(cursor + 24);
+        for (let i = 0; i < buffer.readUInt16LE(cursor + 26); i++) {
+          const attribute = attributes + i * 20;
+          if (strings[buffer.readInt32LE(attribute + 4)] !== 'package') continue;
+          const dataType = buffer[attribute + 15];
+          const value = dataType === 0x03 ? buffer.readUInt32LE(attribute + 16) : -1;
+          return value >= 0 ? (strings[value] ?? null) : null;
+        }
+        return null;
+      }
+    }
+    cursor += chunkSize;
+  }
+  return null;
+}
+
 const argv = process.argv.slice(2);
 let apkArgument = null;
 let packageName = null;
@@ -180,9 +273,15 @@ if (eocd < 0) {
   process.exit(1);
 }
 
+const centralDirectory = apk.readUInt32LE(eocd + 16);
+
+// What the APK actually declares. Falling back to app.config.ts would hide a
+// mismatch between the two, which is precisely what this tool exists to surface.
+const measuredPackage = manifestPackageName(apk, centralDirectory);
+
 let signed = null;
 try {
-  const pairs = readSigningBlock(apk, apk.readUInt32LE(eocd + 16));
+  const pairs = readSigningBlock(apk, centralDirectory);
   if (pairs) {
     for (const scheme of SCHEMES) {
       const pair = pairs.find((candidate) => candidate.id === scheme.id);
@@ -216,9 +315,19 @@ if (sha1Only) {
 }
 
 console.log(`\n  APK           ${apkPath}`);
+const configured = configuredPackageName();
 console.log(
-  `  Package name  ${packageName ?? configuredPackageName() ?? '(unknown — pass --package)'}`,
+  `  Package name  ${packageName ?? measuredPackage ?? configured ?? '(unknown — pass --package)'}`,
 );
+if (!packageName && configured && measuredPackage && configured !== measuredPackage) {
+  // The single most confusing sign-in failure: every Console value looks right
+  // because it was copied from the config the APK was not actually built with.
+  console.log(
+    `                app.config.ts says ${configured}, but this APK is built as\n` +
+      `                ${measuredPackage}. Google matches the OAuth client\n` +
+      '                against the APK, not the config.',
+  );
+}
 console.log(`  Signature     ${signed.scheme}`);
 for (const certificate of signed.certificates) {
   console.log(`  Subject       ${describe(certificate)}`);
