@@ -13,6 +13,7 @@
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
     "typecheck": "turbo run typecheck",
+    "secrets:check": "node scripts/check-secrets.mjs",
     "api:generate": "npm run openapi:generate --workspace pluto-server && npm run generate --workspace @pluto/api-client"
   },
   "devDependencies": {

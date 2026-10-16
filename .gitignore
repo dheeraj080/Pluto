@@ -9,9 +9,16 @@ coverage/
 *.tsbuildinfo
 
 # env (templates like .env.example ARE committed)
-.env
-.env.local
-.env.*.local
+.env*
+!.env.example
+
+# signing keys and credentials must never be committed
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.mobileprovision
+*.p8
 
 # turbo
 .turbo/
