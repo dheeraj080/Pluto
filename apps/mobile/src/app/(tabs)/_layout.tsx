@@ -1,8 +1,8 @@
 import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
-import { IconChart, IconHome, IconReceipt, IconSettings, IconTag, IconWallet } from '@/components/icons';
+import { IconChart, IconHome, IconReceipt, IconSettings, IconWallet } from '@/components/icons';
 import { Spinner } from '@/components/ui/feedback';
 import { fontFamily } from '@/theme';
 import { useSession } from '@/hooks/use-session';
@@ -44,11 +44,16 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: theme.surface,
           borderTopColor: theme.border,
+          paddingBottom: 4,
+          paddingTop: 4,
+          height: Platform.select({ ios: 56, android: 64 }) ?? 60,
         },
         tabBarLabelStyle: {
           fontFamily: fontFamily.sans.medium,
-          fontSize: 12,
+          fontSize: 11,
+          marginTop: 2,
         },
+        tabBarIconStyle: { marginTop: 2 },
         headerStyle: { backgroundColor: theme.canvas },
         headerShadowVisible: false,
         headerTitleStyle: {
@@ -86,13 +91,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <IconWallet color={color} size={size} />,
         }}
       />
-      <Tabs.Screen
-        name="categories"
-        options={{
-          title: 'Categories',
-          tabBarIcon: ({ color, size }) => <IconTag color={color} size={size} />,
-        }}
-      />
+
       <Tabs.Screen
         name="settings"
         options={{

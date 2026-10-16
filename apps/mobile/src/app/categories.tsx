@@ -1,17 +1,3 @@
-/**
- * Categories — the web's "Tags" page.
- *
- * A category is a colour, a name and a count. The list is one card; creating
- * and renaming happen in a bottom sheet, so the screen is the categories
- * themselves rather than a permanently-open form. Tapping a row opens that
- * category's expenses in Activity, the same drill-down Budgets and the Reports
- * breakdown use.
- *
- * Delete is guarded in the client rather than by the server's 409: a category
- * still holding expenses cannot be removed, so the button explains why instead
- * of firing a request that can only fail.
- */
-
 import { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';

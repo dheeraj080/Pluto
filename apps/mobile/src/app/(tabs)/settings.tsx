@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -7,7 +8,7 @@ import { ErrorNote, Spinner } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Select } from '@/components/ui/select';
-import { IconSwap } from '@/components/icons';
+import { IconSwap, IconTag } from '@/components/icons';
 import { borderWidth, layout, radius, spacing, tabularNums, text } from '@/theme';
 import { useSupportedCurrencies } from '@/hooks/use-currencies';
 import { usePair } from '@/hooks/use-pair';
@@ -102,6 +103,19 @@ export default function SettingsScreen() {
         <Text numberOfLines={1} style={[text.body, { color: theme.muted }]}>
           {user?.email ?? '—'}
         </Text>
+      </Card>
+
+      <Card>
+        <Text style={[text.overline, { color: theme.muted }]}>MANAGE</Text>
+        <Text style={[text.body, { color: theme.muted }]}>
+          Configure your categories for grouping expenses and reports.
+        </Text>
+        <Button
+          label="Manage categories"
+          variant="secondary"
+          icon={(color) => <IconTag size={16} color={color} />}
+          onPress={() => router.push('/categories')}
+        />
       </Card>
 
       <Card>
