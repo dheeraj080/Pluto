@@ -102,6 +102,17 @@ if (googleIosScheme) {
   plugins.push(['@react-native-google-signin/google-signin', { iosUrlScheme: googleIosScheme }]);
 }
 
+// Registered only when crash reporting is switched on (see
+// `src/lib/crash-reporting.ts`): the plugin wires the *native* build —
+// sourcemap upload on EAS, properties for the pre-JS half of a crash — which is
+// pointless without a DSN to send to, and would warn about a missing
+// organization/project on every `expo config` evaluation in repos that never
+// set those. `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` are read
+// from the build environment, never from here.
+if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
+  plugins.push('@sentry/react-native');
+}
+
 const config: ExpoConfig = {
   name: 'Pluto',
   slug: 'pluto',
