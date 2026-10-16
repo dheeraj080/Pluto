@@ -128,24 +128,53 @@ jobs:
         working-directory: apps/mobile/android
         run: ./gradlew assembleDebug --no-daemon
 
-      - name: Report the signing fingerprint
+      # The fingerprint must come from the APK, not from the keystore file we
+      # hoped Gradle would use: those are only the same thing if the generated
+      # template's debug signingConfig actually points at android/app. Reading
+      # the artifact makes the run self-checking, and a build that quietly
+      # signed with some other key fails here instead of on a phone as
+      # DEVELOPER_ERROR (status 10) — the symptom that costs the most time,
+      # because it looks like a Console problem.
+      - name: Verify and report the signing fingerprint
         id: fingerprint
         working-directory: apps/mobile
         run: |
           package=$(sed -n "s/^\s*package: '\([^']*\)'.*/\1/p" app.config.ts | head -n 1)
+          apk=$(ls android/app/build/outputs/apk/debug/*.apk | head -n 1)
 
-          # Report the key Gradle actually signed with: the template's
-          # android/app storeFile when present, otherwise the ~/.android default.
-          keystore="android/app/debug.keystore"
-          [ -f "$keystore" ] || keystore="$HOME/.android/debug.keystore"
-          sha1=$(keytool -list -v -keystore "$keystore" \
-            -alias androiddebugkey -storepass android -keypass android 2>/dev/null \
-            | sed -n 's/^\s*SHA1: //p' | tr -d '[:space:]')
-
-          if [ -z "$package" ] || [ -z "$sha1" ]; then
-            echo "::error::Could not read the fingerprint (package='$package', sha1='$sha1')."
+          if [ -z "$package" ] || [ -z "$apk" ]; then
+            echo "::error::Could not find the inputs (package='$package', apk='$apk')."
             exit 1
           fi
+
+          # keytool cannot read the v2/v3 signatures AGP emits, so use the
+          # Android SDK's own reader. Digests come out lowercase, unseparated.
+          sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          build_tools=$(ls -d "$sdk"/build-tools/*/ | sort -V | tail -n 1)
+          apk_sha1=$("$build_tools/apksigner" verify --print-certs "$apk" \
+            | sed -n 's/^Signer #1 certificate SHA-1 digest: //p' \
+            | tr -d '[:space:]' | tr 'A-Z' 'a-z')
+
+          if [ -z "$apk_sha1" ]; then
+            echo "::error::Could not read a signing certificate from '$apk'."
+            exit 1
+          fi
+
+          # What we asked Gradle to sign with: the template's android/app
+          # storeFile when present, otherwise the ~/.android default.
+          keystore="android/app/debug.keystore"
+          [ -f "$keystore" ] || keystore="$HOME/.android/debug.keystore"
+          key_sha1=$(keytool -list -v -keystore "$keystore" \
+            -alias androiddebugkey -storepass android -keypass android 2>/dev/null \
+            | sed -n 's/^\s*SHA1: //p' | tr -d '[:space:]' | tr 'A-Z' 'a-z')
+
+          if [ -n "$key_sha1" ] && [ "$apk_sha1" != "$key_sha1" ]; then
+            echo "::error::The APK is NOT signed with the pinned keystore, so the fingerprint below the fold is not the one that matters. apk=$apk_sha1 pinned=$key_sha1"
+            exit 1
+          fi
+
+          # Report it the way Google Cloud Console wants it typed in.
+          sha1=$(printf '%s' "$apk_sha1" | tr 'a-z' 'A-Z' | sed 's/\(..\)/\1:/g; s/:$//')
 
           echo "package=$package" >> "$GITHUB_OUTPUT"
           echo "sha1=$sha1" >> "$GITHUB_OUTPUT"
