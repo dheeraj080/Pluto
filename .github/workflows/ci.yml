@@ -28,6 +28,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  migrations:
+    name: Migrations apply and no drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pluto_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pluto_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Use the repo's pinned npm
+        run: npm install --global npm@11.16.0 && npm --version
+      - name: Install the monorepo
+        run: npm ci
+      - name: Generate the Prisma client
+        run: npm run prisma:generate --workspace pluto-server
+      - name: Apply committed migrations to a fresh database
+        run: npm run prisma:migrate:deploy --workspace pluto-server
+      - name: No drift between the committed migrations and schema.prisma
+        run: npm run prisma:migrate:drift --workspace pluto-server
   checks:
     name: Lint, typecheck, test
     runs-on: ubuntu-latest
@@ -47,6 +82,11 @@ jobs:
           node-version: 20.19
           cache: npm
           cache-dependency-path: package-lock.json
+
+      # Cheapest, fastest gate first: a committed credential has to be revoked,
+      # not merely deleted, so finding one should not wait on the build queue.
+      - name: Check no secrets are tracked
+        run: npm run secrets:check
 
       # Same reason as the Android workflow: package.json pins npm@11.16.0, and
       # Node 20.19 ships npm 10.8. Installing with a different npm than the one
