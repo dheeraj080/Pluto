@@ -16,6 +16,7 @@ import { IconPlus } from '@/components/icons';
 import { layout, spacing } from '@/theme';
 import { useCategories, type ExpenseCategory } from '@/hooks/use-categories';
 import { useDeleteCategory } from '@/hooks/use-category-mutations';
+import { useScreenPadding } from '@/hooks/use-screen-padding';
 import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/errors';
 import { queryKeys } from '@/lib/query-keys';
@@ -23,6 +24,7 @@ import { activityHref } from '@/lib/routes';
 
 export default function CategoriesScreen() {
   const theme = useTheme();
+  const screenPadding = useScreenPadding('stack');
   const queryClient = useQueryClient();
   const categories = useCategories();
   const remove = useDeleteCategory();
@@ -73,7 +75,7 @@ export default function CategoriesScreen() {
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, screenPadding]}
         refreshControl={
           <RefreshControl
             refreshing={categories.isFetching}
@@ -160,7 +162,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     padding: layout.gutter,
-    paddingBottom: layout.tabBarInset + spacing.xl,
     gap: spacing.lg,
   },
 });

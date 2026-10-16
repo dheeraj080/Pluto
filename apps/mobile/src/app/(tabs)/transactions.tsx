@@ -22,6 +22,7 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useExpenseList } from '@/hooks/use-expenses';
 import { usePair } from '@/hooks/use-pair';
 import { useRateSnapshot } from '@/hooks/use-rates';
+import { useScreenPadding } from '@/hooks/use-screen-padding';
 import { useTheme } from '@/hooks/use-theme';
 import { groupExpensesByDate } from '@/lib/date-grouping';
 import { errorMessage } from '@/lib/errors';
@@ -54,6 +55,7 @@ function dateChipLabel(range: ActivityDateRange): string {
 
 export default function ActivityScreen() {
   const theme = useTheme();
+  const screenPadding = useScreenPadding('tab');
   const [now] = useState(() => new Date());
 
   const [search, setSearch] = useState('');
@@ -183,7 +185,7 @@ export default function ActivityScreen() {
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, screenPadding]}
         ItemSeparatorComponent={Divider}
         renderItem={({ item }) => (
           <Pressable onPress={() => router.push(expenseHref(item.id))}>
@@ -302,7 +304,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     padding: layout.gutter,
-    paddingBottom: layout.tabBarInset + spacing.xl,
   },
   header: {
     gap: spacing.md,

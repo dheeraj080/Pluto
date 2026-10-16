@@ -35,12 +35,14 @@ import {
   useSkipOccurrence,
   type RecurringExpense,
 } from '@/hooks/use-recurring';
+import { useScreenPadding } from '@/hooks/use-screen-padding';
 import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/errors';
 import { queryKeys } from '@/lib/query-keys';
 
 export default function RecurringScreen() {
   const theme = useTheme();
+  const screenPadding = useScreenPadding('stack');
   const queryClient = useQueryClient();
 
   const rules = useRecurringRules();
@@ -95,7 +97,7 @@ export default function RecurringScreen() {
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, screenPadding]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -219,7 +221,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     padding: layout.gutter,
-    paddingBottom: layout.tabBarInset + spacing.xl,
     gap: spacing.lg,
   },
 });

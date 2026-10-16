@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import { Platform, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconChart, IconHome, IconReceipt, IconSettings, IconWallet } from '@/components/icons';
 import { Spinner } from '@/components/ui/feedback';
@@ -23,6 +24,7 @@ import { useTheme } from '@/hooks/use-theme';
 export default function TabsLayout() {
   const { status } = useSession();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   if (status === 'loading') {
     return (
@@ -44,9 +46,14 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: theme.surface,
           borderTopColor: theme.border,
-          paddingBottom: 4,
+          // Edge-to-edge: the bar sits on the window's bottom edge, so it has to
+          // lift itself clear of the navigation bar. A numeric `height` replaces
+          // the bar's own inset handling, so the inset is added here and the
+          // labels are padded clear of the system buttons by the same amount —
+          // which keeps 56pt of content, as before.
+          height: (Platform.select({ ios: 56, android: 64 }) ?? 60) + insets.bottom,
+          paddingBottom: insets.bottom + 4,
           paddingTop: 4,
-          height: Platform.select({ ios: 56, android: 64 }) ?? 60,
         },
         tabBarLabelStyle: {
           fontFamily: fontFamily.sans.medium,
@@ -54,13 +61,7 @@ export default function TabsLayout() {
           marginTop: 2,
         },
         tabBarIconStyle: { marginTop: 2 },
-        headerStyle: { backgroundColor: theme.canvas },
-        headerShadowVisible: false,
-        headerTitleStyle: {
-          color: theme.ink,
-          fontFamily: fontFamily.display.semibold,
-          fontSize: 20,
-        },
+        headerShown: false,
       }}
     >
       <Tabs.Screen

@@ -32,6 +32,7 @@ import { IconPlus } from '@/components/icons';
 import { layout, spacing } from '@/theme';
 import { useBudgetStatus, useDeleteBudget, type BudgetStatus } from '@/hooks/use-budgets';
 import { usePair } from '@/hooks/use-pair';
+import { useScreenPadding } from '@/hooks/use-screen-padding';
 import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/errors';
 import { currentMonth, formatMonth } from '@/lib/format';
@@ -41,6 +42,7 @@ import { activityHref } from '@/lib/routes';
 
 export default function BudgetsScreen() {
   const theme = useTheme();
+  const screenPadding = useScreenPadding('tab');
   const queryClient = useQueryClient();
   const { base, second } = usePair();
 
@@ -107,7 +109,7 @@ export default function BudgetsScreen() {
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, screenPadding]}
         refreshControl={
           <RefreshControl
             refreshing={status.isFetching}
@@ -191,7 +193,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     padding: layout.gutter,
-    paddingBottom: layout.tabBarInset + spacing.xl,
     gap: spacing.lg,
   },
 });

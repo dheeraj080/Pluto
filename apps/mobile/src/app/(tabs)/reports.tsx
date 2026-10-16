@@ -46,6 +46,7 @@ import {
   useReportComparison,
   useReportSeries,
 } from '@/hooks/use-reports';
+import { useScreenPadding } from '@/hooks/use-screen-padding';
 import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/errors';
 import { shareExpensesCsv } from '@/lib/export';
@@ -62,6 +63,7 @@ const TAB_OPTIONS: { value: Tab; label: string }[] = [
 
 export default function ReportsScreen() {
   const theme = useTheme();
+  const screenPadding = useScreenPadding('tab');
   const { base, second } = usePair();
   const queryClient = useQueryClient();
 
@@ -197,7 +199,7 @@ export default function ReportsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: screenPadding.paddingTop }]}>
         <AppPageHeader title="Reports">
           <Pressable
             accessibilityRole="button"
@@ -255,7 +257,7 @@ export default function ReportsScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: screenPadding.paddingBottom }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -360,7 +362,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     paddingHorizontal: layout.gutter,
-    paddingTop: spacing.lg,
     paddingBottom: spacing.md,
     gap: spacing.md,
   },
@@ -394,7 +395,6 @@ const styles = StyleSheet.create({
   content: {
     padding: layout.gutter,
     paddingTop: 0,
-    paddingBottom: layout.tabBarInset + spacing.xl,
     gap: spacing.lg,
   },
   cards: { gap: spacing.lg },

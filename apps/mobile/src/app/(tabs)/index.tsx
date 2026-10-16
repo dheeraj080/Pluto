@@ -5,11 +5,13 @@
  *
  *  1. how much have I spent this month, and am I on budget? — the month card
  *  2. what did I buy recently?                             — the recent card
- *  3. what is today's rate?                                — the rate line
+ *  3. where is the money going?                            — the top categories card
+ *  4. what is today's rate, and can I flip the pair?       — the pair card
  *
- * The deeper analysis — spending over time, the category breakdown, the weekday
- * profile — belongs to the Reports tab, so the dashboard draws no charts and
- * does not repeat them. Each card is a full-width surface in one column.
+ * The deeper analysis — spending over time, the full category breakdown, the
+ * weekday profile — belongs to the Reports tab, so the dashboard draws no
+ * charts and does not repeat them. Each card is a full-width surface in one
+ * column.
  *
  * Every converted figure comes from the server aggregates; the per-row previews
  * are display-only, and a window that cannot be converted reads "—" rather than
@@ -18,28 +20,31 @@
 
 import { useCallback } from 'react';
 import { router } from 'expo-router';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { RateLine } from '@/components/dashboard/rate-line';
+import { PairCard } from '@/components/dashboard/pair-card';
 import { RecentCard } from '@/components/dashboard/recent-card';
 import { ThisMonthCard } from '@/components/dashboard/this-month-card';
+import { TopCategoriesCard } from '@/components/dashboard/top-categories-card';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ConversionNote } from '@/components/ui/conversion-note';
 import { EmptyState } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
-import { IconCalendar, IconPlus } from '@/components/icons';
+import { IconAlert, IconCalendar, IconPlus } from '@/components/icons';
 import { borderWidth, controlHeight, layout, radius, spacing, text } from '@/theme';
 import { useBudgetStatus } from '@/hooks/use-budgets';
 import { comparisonDeltaPct, useMonthComparison } from '@/hooks/use-dashboard';
 import { useExpenseList } from '@/hooks/use-expenses';
 import { usePair } from '@/hooks/use-pair';
 import { useRateSnapshot } from '@/hooks/use-rates';
+import { useScreenPadding } from '@/hooks/use-screen-padding';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateRange } from '@/lib/format';
 
 export default function DashboardScreen() {
   const theme = useTheme();
+  const screenPadding = useScreenPadding('tab');
   const { base, second } = usePair();
 
   const month = useMonthComparison(base, second);
@@ -64,6 +69,12 @@ export default function DashboardScreen() {
   // the Budgets screen.
   const budget = budgetStatus.data?.items.find((item) => item.categoryId == null) ?? null;
 
+  // Per-category budgets over their limit this month. The dashboard points at
+  // the Budgets screen rather than repeating every row here.
+  const overCategoryCount =
+    budgetStatus.data?.items.filter((item) => item.categoryId != null && item.overBudget)
+      .length ?? 0;
+
   const refreshing = month.loading || budgetStatus.isPending || recent.isRefetching;
 
   const onRefresh = useCallback(() => {
@@ -80,7 +91,7 @@ export default function DashboardScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.canvas }]}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, screenPadding]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -141,6 +152,8 @@ export default function DashboardScreen() {
             onBudgetRetry={() => void budgetStatus.refetch()}
           />
 
+          {overCategoryCount > 0 ? <OverBudgetNudge count={overCategoryCount} /> : null}
+
           <RecentCard
             items={recent.items}
             loading={recent.isPending}
@@ -152,7 +165,17 @@ export default function DashboardScreen() {
             onRetry={() => void recent.refetch()}
           />
 
-          <RateLine
+          <TopCategoriesCard
+            entries={summary?.byCategory ?? []}
+            count={summary?.count ?? 0}
+            loading={month.loading}
+            base={baseCurrency}
+            second={second}
+            snapshot={snapshot.data ?? null}
+            window={month.window}
+          />
+
+          <PairCard
             base={baseCurrency}
             second={second}
             snapshot={snapshot.data ?? null}
@@ -168,7 +191,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     padding: layout.gutter,
-    paddingBottom: layout.tabBarInset + spacing.xl,
     gap: spacing.lg,
   },
   cards: { gap: spacing.lg },
@@ -181,4 +203,46 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: borderWidth.hairline,
   },
+  nudge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: borderWidth.hairline,
+  },
+  nudgeText: { flex: 1 },
+  nudgePressed: { opacity: 0.7 },
 });
+
+/**
+ * The "a category is over budget" nudge.
+ *
+ * A single warning-toned line rather than a full card: the dashboard points at
+ * the Budgets screen, where each over-limit row can be acted on.
+ */
+function OverBudgetNudge({ count }: { count: number }) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${count} ${
+        count === 1 ? 'category is' : 'categories are'
+      } over budget. Open Budgets.`}
+      onPress={() => router.push('/budgets')}
+      style={({ pressed }) => [
+        styles.nudge,
+        { backgroundColor: theme.warningSubtle, borderColor: theme.warning },
+        pressed && styles.nudgePressed,
+      ]}
+    >
+      <IconAlert size={16} color={theme.warning} />
+      <Text style={[text.bodyMedium, styles.nudgeText, { color: theme.ink }]}>
+        {count} {count === 1 ? 'category is' : 'categories are'} over budget.
+      </Text>
+      <Text style={[text.captionMedium, { color: theme.primary }]}>Budgets →</Text>
+    </Pressable>
+  );
+}
