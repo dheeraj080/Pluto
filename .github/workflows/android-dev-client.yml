@@ -156,6 +156,11 @@ jobs:
           echo "PLUTO_ANDROID_PACKAGE=$package"
           echo "PLUTO_ANDROID_SHA1=$sha1"
           echo "PLUTO_ANDROID_KEYSTORE=$keystore"
+          # The log endpoint needs authentication and the job summary is not in
+          # the run page's HTML, but check-run annotations are readable on a
+          # public repo. An annotation is therefore the only way to read the
+          # fingerprint back out of CI without credentials.
+          echo "::notice title=Android OAuth fingerprint::package=$package sha1=$sha1"
           {
             echo "## Android OAuth registration"
             echo ""
