@@ -13,6 +13,7 @@
     "lint": "expo lint",
     "assets:brand": "node ./scripts/generate-brand-assets.mjs",
     "check:theme": "node ./scripts/check-theme-parity.mjs",
+    "apk:fingerprint": "node ./scripts/apk-fingerprint.mjs",
     "typecheck": "npm run check:theme && tsc --noEmit",
     "eas:build:dev": "npx eas-cli@latest build --profile development",
     "eas:build:preview": "npx eas-cli@latest build --profile preview",

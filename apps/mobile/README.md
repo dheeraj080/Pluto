@@ -262,7 +262,7 @@ Two ways in:
 | **Google Sign-In** | every build | `POST /v1/auth/google` |
 | Development login | `__DEV__` builds only | `POST /v1/auth/dev-login`, needs `ENABLE_DEV_AUTH=true` |
 
-Google runs through `src/lib/google-signin.ts`: the native SDK yields an ID
+Google runs through `src/lib/google-sign-in.ts`: the native SDK yields an ID
 token, which is posted to the same endpoint the web client uses. The SDK is
 imported **lazily**, so a session with no native module (Expo Go) still renders
 the screen and reports why sign-in cannot start, instead of dying at launch.
@@ -278,10 +278,13 @@ Two client IDs are involved and are easy to mix up:
   Google config plugin in `app.config.ts`, which is added *only* when this is
   set — the plugin refuses to run with neither that option nor Firebase files.
 
-The Android client is a third, separate credential (keyed on the package name
-`com.pluto.app` plus the release **SHA-1** fingerprint in Google Cloud Console).
-The SDK configures the platform itself rather than being handed it, but it must
-also be listed in `GOOGLE_ALLOWED_CLIENT_IDS`.
+The Android client is a third, separate credential, keyed on the package name
+(`com.pluto.app`) plus the **SHA-1** of the certificate that signed the installed
+APK. The native SDK resolves it from the running app rather than being handed it,
+so it is not an ID-token audience and does **not** belong in
+`GOOGLE_ALLOWED_CLIENT_IDS` — only client IDs that can appear as the token's
+`aud` (the web client, and the iOS client when iOS ships) go there. A missing or
+stale Android client is the usual cause of `DEVELOPER_ERROR` (status `10`).
 
 The web target resolves `src/lib/google-sign-in.web.ts` instead, which points at
 the web app — so the mobile bundle never pulls a native module in.
@@ -327,10 +330,30 @@ Set the **`ANDROID_DEBUG_KEYSTORE_B64`** repository secret to the base64 of a
 `keytool` command that generates it is in the workflow's header comment. Without
 it the workflow warns that the reported SHA-1 will not survive the next run.
 
-The **Report the signing fingerprint** step prints `PLUTO_ANDROID_PACKAGE=` and
+The **Verify and report the signing fingerprint** step prints `PLUTO_ANDROID_PACKAGE=` and
 `PLUTO_ANDROID_SHA1=` and writes both to the run's *Summary*. Register that pair
 on the Android client, or the native SDK fails with `DEVELOPER_ERROR` (status
 code `10`) — which looks like a broken app but is really an unregistered build.
+
+To read the same pair off *any* APK — a local build, an EAS build, or one pulled
+from a device — without an Android SDK:
+
+```bash
+npm run apk:fingerprint --workspace pluto-mobile -- ../../internal/app-debug.apk
+```
+
+It prints the package name and the SHA-1/SHA-256 of every signing certificate in
+the APK, in the form Console wants. It reads the v2/v3 signing block directly,
+because a modern APK no longer carries the v1 JAR signature that
+`keytool -printcert -jarfile` looks for, and the library's own `config-doctor`
+needs a paid licence. The app also names this command itself: a
+`DEVELOPER_ERROR` is rewritten on the sign-in screen into the two values to
+compare.
+
+CI runs this same reader (`--sha1`) against the built APK and fails the job if
+the artifact's certificate cannot be read or does not match the pinned key — so
+a green run reporting `PLUTO_ANDROID_SHA1_SOURCE=apk` means the artifact really
+is signed with that key, not merely that a keystore file was present.
 
 This is a *debug* key: right for dev clients, never for a release build. A
 release build needs its own key (see below); if you enable Play App Signing, the
