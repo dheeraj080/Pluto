@@ -208,13 +208,11 @@ model Budget {
   @@unique([userId, categoryId, period])
   @@index([userId, period])
   @@map("budgets")
-}
-
-model BudgetOverallUnique {
-  userId String
-  period BudgetPeriod
-  @@unique([userId, period], name: "budgets_overall_userId_period_key")
-  @@map("budgets_overall_unique")
+  // The uniqueness of overall budgets (categoryId = NULL) cannot be expressed
+  // in PSL (it needs a partial index `WHERE "categoryId" IS NULL`), so it
+  // lives only as the migration that created
+  // `budgets_overall_userId_period_key` on `budgets`. See the migration that
+  // adds it if this constraint is ever renamed or removed.
 }
 
 model RecurringExpense {
