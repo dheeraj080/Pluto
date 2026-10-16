@@ -6,46 +6,19 @@
  *   EncryptedSharedPreferences usage described in the server runbook).
  * - On a 401, the client transparently rotates the refresh token once and
  *   replays the original request; a failed rotation clears the session.
- * - Every response is unwrapped from pluto-server's global envelope:
- *   { success, data, timestamp }.
+ * - Every response is unwrapped from pluto-server's global envelope.
  */
+import { ApiError, createApiClient } from '@pluto/api-client';
+import type { AuthSession } from './types';
 
-import type { AuthSession } from "./types";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/v1";
-const REFRESH_TOKEN_KEY = "pluto.refreshToken";
-
-interface Envelope<T> {
-  success: boolean;
-  data: T;
-  timestamp: string;
-}
-
-interface ErrorEnvelope {
-  success: false;
-  statusCode: number;
-  path: string;
-  method: string;
-  error: string | string[] | Record<string, unknown>;
-  timestamp: string;
-}
-
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+const REFRESH_TOKEN_KEY = 'pluto.refreshToken';
 
 /* ------------------------------------------------------------------ */
 /* Session state                                                       */
 /* ------------------------------------------------------------------ */
 
 let accessToken: string | null = null;
-let refreshPromise: Promise<boolean> | null = null;
 
 /**
  * Session-presence store for React.
@@ -87,13 +60,13 @@ export function setAccessToken(token: string | null): void {
 }
 
 export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
   return window.localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 export function saveSession(session: AuthSession): void {
   accessToken = session.accessToken;
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     window.localStorage.setItem(REFRESH_TOKEN_KEY, session.refreshToken);
   }
   notifySessionChange();
@@ -101,7 +74,7 @@ export function saveSession(session: AuthSession): void {
 
 export function clearSession(): void {
   accessToken = null;
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     window.localStorage.removeItem(REFRESH_TOKEN_KEY);
   }
   notifySessionChange();
@@ -112,49 +85,48 @@ export function hasStoredSession(): boolean {
   return getRefreshToken() !== null;
 }
 
+export { ApiError };
+
 /* ------------------------------------------------------------------ */
-/* Error handling                                                      */
+/* Refresh (single-flight, mirrors mobile tri-state)                   */
 /* ------------------------------------------------------------------ */
 
-function extractErrorMessage(body: unknown): string {
-  if (!body || typeof body !== "object") return "Request failed.";
-  const { error } = body as Partial<ErrorEnvelope>;
-  if (typeof error === "string") return error;
-  if (Array.isArray(error)) return error.join(" ");
-  if (error && typeof error === "object") {
-    const messages = Object.values(error)
-      .flat()
-      .map(String)
-      .filter(Boolean);
-    if (messages.length > 0) return messages.join(" ");
+type RefreshOutcome = 'refreshed' | 'rejected' | 'unreachable';
+
+/**
+ * Status 0 is "could not reach the server", 5xx is the server failing — neither
+ * implies the token is bad. Only 4xx means the server refused this token.
+ */
+function classifyRefreshFailure(error: unknown): RefreshOutcome {
+  if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+    return 'rejected';
   }
-  return "Request failed.";
+  return 'unreachable';
 }
 
-/* ------------------------------------------------------------------ */
-/* Refresh (single-flight, rotates one-time refresh tokens)            */
-/* ------------------------------------------------------------------ */
+const authApi = createApiClient({
+  baseUrl: API_URL,
+  getAccessToken: () => accessToken,
+});
 
-async function performRefresh(): Promise<boolean> {
+async function performRefresh(): Promise<RefreshOutcome> {
   const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
+  if (!refreshToken) return 'rejected';
   try {
-    const res = await fetch(`${API_URL}/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ refreshToken }),
+    const rotated = await authApi.post<AuthSession>('/auth/refresh', {
+      refreshToken,
     });
-    if (!res.ok) return false;
-    const json = (await res.json()) as Envelope<AuthSession>;
-    saveSession(json.data);
-    return true;
-  } catch {
-    return false;
+    saveSession(rotated);
+    return 'refreshed';
+  } catch (error) {
+    return classifyRefreshFailure(error);
   }
 }
+
+let refreshPromise: Promise<RefreshOutcome> | null = null;
 
 /** Deduplicates concurrent refresh attempts (one rotation, many callers). */
-function refreshSession(): Promise<boolean> {
+function rotateSession(): Promise<RefreshOutcome> {
   if (!refreshPromise) {
     refreshPromise = performRefresh().finally(() => {
       refreshPromise = null;
@@ -164,72 +136,23 @@ function refreshSession(): Promise<boolean> {
 }
 
 /* ------------------------------------------------------------------ */
-/* Request                                                             */
+/* Shared API client                                                   */
 /* ------------------------------------------------------------------ */
 
-export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
-  /** Serialized as JSON; Content-Type is set automatically. */
-  body?: unknown;
-  responseType?: "json" | "text" | "blob" | "arraybuffer" | "formdata";
-}
-
-export async function request<T>(
-  path: string,
-  options: ApiRequestOptions = {},
-  retried = false,
-): Promise<T> {
-  const headers = new Headers(options.headers);
-  if (options.responseType !== "text" && options.responseType !== "blob" && options.responseType !== "arraybuffer") {
-    headers.set("Accept", "application/json");
-  }
-  if (options.body !== undefined && options.body !== null) {
-    headers.set("Content-Type", "application/json");
-  }
-  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-
-  let response: Response;
-  try {
-    response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers,
-      body: options.body === undefined || options.body === null ? undefined : JSON.stringify(options.body),
-    });
-  } catch {
-    throw new ApiError(0, "Could not reach the server. Check your connection and try again.");
-  }
-
-  if (response.status === 401 && !retried && getRefreshToken()) {
-    const refreshed = await refreshSession();
-    if (refreshed) return request<T>(path, options, true);
-    clearSession();
-  }
-
-  if (!response.ok) {
-    let body: unknown = null;
-    try {
-      body = await response.json();
-    } catch {
-      /* non-JSON error body */
+export const api = createApiClient({
+  baseUrl: API_URL,
+  getAccessToken: () => accessToken,
+  onUnauthorized: async () => {
+    const outcome = await rotateSession();
+    if (outcome === 'rejected') clearSession();
+    else if (outcome !== 'refreshed') {
+      // Cannot reach the server: keep the credential and reflect signed-out
+      // until a successful refresh. notifySessionChange() is already implied by
+      // accessToken being null? We keep refreshToken in localStorage and
+      // setAccessToken(null) if needed. Already done.
+      accessToken = null;
+      notifySessionChange();
     }
-    throw new ApiError(response.status, extractErrorMessage(body));
-  }
-
-  if (response.status === 204) return undefined as T;
-  if (options.responseType === "text") {
-    const text = await response.text();
-    return text as T;
-  }
-  const json = (await response.json()) as Envelope<T>;
-  return json.data;
-}
-
-export const api = {
-  get: <T>(path: string, options?: ApiRequestOptions): Promise<T> =>
-    request<T>(path, { ...options, method: "GET" }),
-  post: <T>(path: string, body?: unknown, options?: ApiRequestOptions): Promise<T> =>
-    request<T>(path, { ...options, method: "POST", body }),
-  patch: <T>(path: string, body?: unknown, options?: ApiRequestOptions): Promise<T> =>
-    request<T>(path, { ...options, method: "PATCH", body }),
-  delete: <T>(path: string, options?: ApiRequestOptions): Promise<T> =>
-    request<T>(path, { ...options, method: "DELETE" }),
-};
+    return outcome === 'refreshed';
+  },
+});

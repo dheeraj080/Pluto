@@ -12,6 +12,14 @@
  *
  * Both files are hand-written, so the parsers are deliberately simple. A
  * reflowed file fails loudly rather than silently skipping a token.
+ *
+ * The remaining scales — spacing, radii, control heights and type — are
+ * declared nowhere in the web app: it uses Tailwind's utilities, so
+ * `tailwindcss/theme.css` is their source of truth, with any `@theme` override
+ * in `globals.css` layered on top. `src/theme/tokens.ts` and
+ * `src/theme/typography.ts` mirror those, and the handful of tokens that
+ * deliberately do not are listed in `DEVIATIONS`, so an accidental drift still
+ * fails while an intentional one stays visible.
  */
 
 import { readFile } from 'node:fs/promises';
@@ -23,6 +31,10 @@ const repoRoot = path.resolve(here, '..', '..', '..');
 
 const CSS_FILE = path.join(repoRoot, 'apps/web/src/app/globals.css');
 const PALETTE_FILE = path.join(repoRoot, 'apps/mobile/src/theme/palette.ts');
+const TOKENS_FILE = path.join(repoRoot, 'apps/mobile/src/theme/tokens.ts');
+const TYPOGRAPHY_FILE = path.join(repoRoot, 'apps/mobile/src/theme/typography.ts');
+/** Tailwind v4's default theme: the source of the spacing, type and radius scales. */
+const TAILWIND_THEME_FILE = path.join(repoRoot, 'node_modules/tailwindcss/theme.css');
 
 /** CSS custom property -> key path inside the palette (dots for nesting). */
 const MAP = {
@@ -174,9 +186,123 @@ function lookup(object, keyPath) {
   return keyPath.split('.').reduce((node, key) => (node == null ? undefined : node[key]), object);
 }
 
-const [cssSource, paletteSource] = await Promise.all([
+/* ------------------------------------------------------------------ */
+/* The numeric scales (spacing, radii, controls, type)                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Where each mobile token lands on Tailwind's scale. The value is the Tailwind
+ * step number for spacing/controls (e.g. `4` is `gap-4`) or the token name for
+ * radii and type (e.g. `lg` is `rounded-lg` / `text-lg`).
+ */
+const ROOT_FONT_PX = 16;
+
+const SPACING_STEPS = { none: 0, xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 6, xxxl: 8, huge: 12 };
+const CONTROL_STEPS = { sm: 8, md: 10, lg: 11 };
+const RADIUS_TOKENS = { xs: 'md', sm: 'lg', lg: 'xl', xl: '2xl', xxxl: '3xl' };
+const TEXT_TOKENS = { xs: 'xs', sm: 'sm', md: 'base', lg: 'lg', xl: 'xl', xxl: '2xl', xxxl: '3xl' };
+
+/**
+ * Tokens that deliberately do not mirror Tailwind, and why. These are reported
+ * but never compared, so a conscious deviation does not read as a bug — while
+ * anything *not* listed here still has to match. Each arbitrary value is one
+ * the web app also spells out (`rounded-[10px]`, `text-[15px]`, …).
+ */
+const DEVIATIONS = {
+  spacing: {},
+  controlHeight: {},
+  radius: {
+    md: 'rounded-[10px] (segmented options)',
+    xxl: 'rounded-[20px] (chart cards)',
+    pill: 'RN has no `rounded-full`/infinity radius',
+  },
+  fontSize: { base: 'text-[15px] (the big button)' },
+  lineHeight: {
+    base: 'follows text-[15px]',
+    lg: 'mobile display leading; `amount.tsx` pins the same 26 by hand',
+  },
+};
+
+/** Removes CSS comments so a commented-out property is never read. */
+function stripComments(css) {
+  return css.replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+/** Flattens every `--name: value;` declaration in a stylesheet. */
+function parseCustomProperties(css) {
+  const tokens = {};
+  const pattern = /--([a-z0-9-]+)\s*:\s*([^;]+);/g;
+  let token;
+  while ((token = pattern.exec(css)) !== null) tokens[token[1]] = token[2].trim();
+  return tokens;
+}
+
+/** `0.25rem` / `4px` / `0` -> pixels. Returns null for anything else. */
+function lengthToPx(value) {
+  const rem = /^(-?[\d.]+)rem$/.exec(value);
+  if (rem) return Number(rem[1]) * ROOT_FONT_PX;
+  const px = /^(-?[\d.]+)px$/.exec(value);
+  if (px) return Number(px[1]);
+  if (value === '0') return 0;
+  return null;
+}
+
+/** `calc(1.5 / 1)` or a bare number -> a unitless ratio. */
+function ratioOf(value) {
+  const calc = /^calc\(\s*([\d.]+)\s*\/\s*([\d.]+)\s*\)$/.exec(value);
+  if (calc) return Number(calc[1]) / Number(calc[2]);
+  const bare = Number(value);
+  return Number.isFinite(bare) ? bare : null;
+}
+
+/** Reads `export const NAME = { key: number, ... }` out of a token file. */
+function parseNumericObject(source, exportName, file) {
+  const start = source.indexOf(`export const ${exportName}`);
+  if (start < 0) throw new Error(`Could not find \`${exportName}\` in ${file}`);
+
+  const open = source.indexOf('{', start);
+  const close = source.indexOf('}', open);
+  if (open < 0 || close < 0) throw new Error(`Could not find a body for \`${exportName}\` in ${file}`);
+
+  const values = {};
+  for (const raw of source.slice(open + 1, close).split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) continue;
+
+    const pair = /^(\w+)\s*:\s*(-?[\d.]+),$/.exec(line);
+    if (pair) {
+      values[pair[1]] = Number(pair[2]);
+      continue;
+    }
+
+    throw new Error(`Unparsed line in \`${exportName}\` (${file}): ${line}`);
+  }
+
+  return values;
+}
+
+/** Compares one mirrored scale against Tailwind, reporting any drift. */
+function checkScale(label, mobile, expectedFor, deviations, problems) {
+  for (const [key, value] of Object.entries(mobile)) {
+    if (Object.prototype.hasOwnProperty.call(deviations, key)) continue;
+
+    const expected = expectedFor(key);
+    if (expected === undefined) {
+      problems.push(`[${label}] ${key} (${value}) has no Tailwind mapping here`);
+    } else if (expected === null) {
+      problems.push(`[${label}] could not read the Tailwind value for ${key}`);
+    } else if (Math.abs(value - expected) > 0.01) {
+      problems.push(`[${label}] ${key} mismatch: mobile has ${value}, Tailwind has ${expected}`);
+    }
+  }
+}
+
+const [cssSource, paletteSource, tokensSource, typographySource, tailwindSource] = await Promise.all([
   readFile(CSS_FILE, 'utf8'),
   readFile(PALETTE_FILE, 'utf8'),
+  readFile(TOKENS_FILE, 'utf8'),
+  readFile(TYPOGRAPHY_FILE, 'utf8'),
+  readFile(TAILWIND_THEME_FILE, 'utf8'),
 ]);
 
 const problems = [];
@@ -207,14 +333,91 @@ for (const theme of THEMES) {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Scale parity                                                        */
+/* ------------------------------------------------------------------ */
+
+/** Tailwind's defaults, with any `@theme` override in globals.css layered on top. */
+const tailwind = parseCustomProperties(stripComments(tailwindSource));
+for (const block of stripComments(cssSource).matchAll(/@theme[^{]*\{([\s\S]*?)\}/g)) {
+  Object.assign(tailwind, parseCustomProperties(block[1]));
+}
+
+const spacingPx = lengthToPx(tailwind.spacing ?? '');
+if (spacingPx === null) throw new Error(`Could not read --spacing from ${TAILWIND_THEME_FILE}`);
+
+const mobileSpacing = parseNumericObject(tokensSource, 'spacing', TOKENS_FILE);
+const mobileRadius = parseNumericObject(tokensSource, 'radius', TOKENS_FILE);
+const mobileControlHeight = parseNumericObject(tokensSource, 'controlHeight', TOKENS_FILE);
+const mobileFontSize = parseNumericObject(typographySource, 'fontSize', TYPOGRAPHY_FILE);
+const mobileLineHeight = parseNumericObject(typographySource, 'lineHeight', TYPOGRAPHY_FILE);
+
+/** Tailwind spacing utilities are `calc(var(--spacing) * n)`. */
+const stepPx = (step) => (step === undefined ? undefined : step * spacingPx);
+
+checkScale('spacing', mobileSpacing, (key) => stepPx(SPACING_STEPS[key]), DEVIATIONS.spacing, problems);
+checkScale(
+  'controlHeight',
+  mobileControlHeight,
+  (key) => stepPx(CONTROL_STEPS[key]),
+  DEVIATIONS.controlHeight,
+  problems,
+);
+checkScale(
+  'radius',
+  mobileRadius,
+  (key) => {
+    const token = RADIUS_TOKENS[key];
+    return token === undefined ? undefined : lengthToPx(tailwind[`radius-${token}`] ?? '');
+  },
+  DEVIATIONS.radius,
+  problems,
+);
+checkScale(
+  'fontSize',
+  mobileFontSize,
+  (key) => {
+    const token = TEXT_TOKENS[key];
+    return token === undefined ? undefined : lengthToPx(tailwind[`text-${token}`] ?? '');
+  },
+  DEVIATIONS.fontSize,
+  problems,
+);
+checkScale(
+  'lineHeight',
+  mobileLineHeight,
+  (key) => {
+    const token = TEXT_TOKENS[key];
+    if (token === undefined) return undefined;
+    const size = lengthToPx(tailwind[`text-${token}`] ?? '');
+    const ratio = ratioOf(tailwind[`text-${token}--line-height`] ?? '');
+    return size === null || ratio === null ? null : size * ratio;
+  },
+  DEVIATIONS.lineHeight,
+  problems,
+);
+
+const scaleCount = [mobileSpacing, mobileRadius, mobileControlHeight, mobileFontSize, mobileLineHeight]
+  .reduce((total, scale) => total + Object.keys(scale).length, 0);
+const deviationNames = Object.entries(DEVIATIONS).flatMap(([scale, group]) =>
+  Object.keys(group).map((key) => `${scale}.${key}`),
+);
+
 if (problems.length > 0) {
   console.error(`Theme parity check failed (${problems.length} problem${problems.length === 1 ? '' : 's'}):`);
   for (const problem of problems) console.error(`  - ${problem}`);
   console.error(
-    `\nBoth palettes must mirror apps/web/src/app/globals.css. Update apps/mobile/src/theme/palette.ts.`,
+    `\nColours must mirror apps/web/src/app/globals.css (src/theme/palette.ts); ` +
+      `scales must mirror Tailwind (src/theme/tokens.ts, src/theme/typography.ts).`,
   );
   process.exit(1);
 }
 
-const tokenCount = Object.keys(MAP).length;
-console.log(`Theme parity OK — ${tokenCount} tokens match globals.css in ${THEMES.length} themes.`);
+const colourCount = Object.keys(MAP).length;
+console.log(
+  `Theme parity OK — ${colourCount} colour tokens across ${THEMES.length} themes, ` +
+    `${scaleCount - deviationNames.length} scale tokens match Tailwind.`,
+);
+if (deviationNames.length > 0) {
+  console.log(`Deliberately off-scale (${deviationNames.length}): ${deviationNames.join(', ')}.`);
+}

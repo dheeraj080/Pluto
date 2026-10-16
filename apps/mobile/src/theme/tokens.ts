@@ -6,7 +6,7 @@
  * grid.
  */
 
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 /** 4pt grid. */
 export const spacing = {
@@ -63,8 +63,6 @@ export const borderWidth = {
 } as const;
 
 export const layout = {
-  /** Clearance for the tab bar, so the last list row is never hidden. */
-  tabBarInset: Platform.select({ ios: 50, android: 70 }) ?? 0,
   /** Horizontal page gutter, matching the web's `px-4`. */
   gutter: spacing.lg,
   /** Long-form content stops widening here (the web uses `max-w-*`). */

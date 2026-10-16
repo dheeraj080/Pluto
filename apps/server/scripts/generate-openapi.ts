@@ -19,8 +19,8 @@ async function main(): Promise<void> {
 
   const { NestFactory } = await import('@nestjs/core');
   const { SwaggerModule } = await import('@nestjs/swagger');
-  const { writeFileSync } = await import('node:fs');
-  const { resolve } = await import('node:path');
+  const fs = await import('node:fs');
+  const path = await import('node:path');
   const { AppModule } = await import('../src/app.module');
   const { buildSwaggerDocumentConfig } = await import('../src/config/swagger.config');
 
@@ -29,16 +29,15 @@ async function main(): Promise<void> {
 
   const document = SwaggerModule.createDocument(app, buildSwaggerDocumentConfig());
 
-  const outFile = resolve(__dirname, '..', 'openapi.json');
-  writeFileSync(outFile, `${JSON.stringify(document, null, 2)}\n`);
+  const outFile = path.resolve(__dirname, '..', 'openapi.json');
+  fs.writeFileSync(outFile, `${JSON.stringify(document, null, 2)}\n`);
 
   await app.close();
-  // eslint-disable-next-line no-console
+
   console.log(`OpenAPI document written to ${outFile}`);
 }
 
 main().catch((error: unknown) => {
-  // eslint-disable-next-line no-console
   console.error('Failed to generate the OpenAPI document:', error);
   process.exit(1);
 });

@@ -9,35 +9,64 @@ import * as session from './session';
  * `onUnauthorized` rotates the refresh token once and asks the client to replay
  * the original request; a failed rotation signs the user out. This is the same
  * contract as the web client, but sourced from the generated OpenAPI types.
+ *
+ * A rotation that cannot reach the server does *not* sign the user out: the
+ * credential is kept, so opening the app offline does not cost a fresh sign-in.
  */
 export const api = createApiClient({
   baseUrl: API_URL,
   getAccessToken: () => session.getAccessToken(),
   onUnauthorized: async () => {
-    const refreshed = await refreshSession();
-    if (!refreshed) session.clearSession();
-    return refreshed;
+    const outcome = await rotateSession();
+    if (outcome === 'rejected') session.clearSession();
+    else if (outcome !== 'refreshed') session.markSignedOut();
+    return outcome === 'refreshed';
   },
 });
 
-let refreshPromise: Promise<boolean> | null = null;
+/**
+ * Rotation runs on a client without the 401 interceptor.
+ *
+ * A refused refresh token answers 401, and the intercepted client would answer
+ * that by calling `onUnauthorized` — which would await the very rotation
+ * promise that is waiting on it. This is the same reason the web client builds
+ * its refresh request by hand.
+ */
+const authApi = createApiClient({
+  baseUrl: API_URL,
+  getAccessToken: () => session.getAccessToken(),
+});
 
-async function performRefresh(): Promise<boolean> {
+type RefreshOutcome = 'refreshed' | 'rejected' | 'unreachable';
+
+/**
+ * Status 0 is the client's "could not reach the server" and a 5xx is the server
+ * failing — neither says anything about the token, so the credential is kept.
+ * Only a 4xx means the server refused this token.
+ */
+function classifyRefreshFailure(error: unknown): RefreshOutcome {
+  const refused = error instanceof ApiError && error.status >= 400 && error.status < 500;
+  return refused ? 'rejected' : 'unreachable';
+}
+
+async function performRefresh(): Promise<RefreshOutcome> {
   const token = session.getRefreshToken() ?? (await session.loadRefreshToken());
-  if (!token) return false;
+  if (!token) return 'rejected';
   try {
-    const rotated = await api.post<Schemas['AuthResponseDto']>('/auth/refresh', {
+    const rotated = await authApi.post<Schemas['AuthResponseDto']>('/auth/refresh', {
       refreshToken: token,
     });
     session.saveSession(rotated);
-    return true;
-  } catch {
-    return false;
+    return 'refreshed';
+  } catch (error) {
+    return classifyRefreshFailure(error);
   }
 }
 
+let refreshPromise: Promise<RefreshOutcome> | null = null;
+
 /** Deduplicates concurrent rotations (one-time tokens must not race). */
-export function refreshSession(): Promise<boolean> {
+function rotateSession(): Promise<RefreshOutcome> {
   if (!refreshPromise) {
     refreshPromise = performRefresh().finally(() => {
       refreshPromise = null;
@@ -48,7 +77,11 @@ export function refreshSession(): Promise<boolean> {
 
 /**
  * Restores a session on launch: read the persisted refresh token, then
- * exchange it for a fresh pair. Falls back to signed-out on any failure.
+ * exchange it for a fresh pair.
+ *
+ * A token the server refuses is discarded. An unreachable server is not, so a
+ * launch without connectivity leaves the credential in place for the next one
+ * instead of forcing the user to sign in again.
  */
 export async function bootstrapSession(): Promise<void> {
   const stored = await session.loadRefreshToken();
@@ -56,8 +89,11 @@ export async function bootstrapSession(): Promise<void> {
     session.markSignedOut();
     return;
   }
-  const restored = await refreshSession();
-  if (!restored) session.clearSession();
+
+  const outcome = await rotateSession();
+  if (outcome === 'refreshed') return;
+  if (outcome === 'rejected') session.clearSession();
+  else session.markSignedOut();
 }
 
 /**

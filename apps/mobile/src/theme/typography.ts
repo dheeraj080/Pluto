@@ -9,8 +9,10 @@
  *
  * Sizes and line heights mirror the Tailwind scale the web app actually uses
  * in the signed-in product (`text-sm` body, `text-xs` captions, `text-2xl`
- * page and stat titles). Geist Mono is only used on admin and marketing
- * screens, so mobile falls back to the platform monospace.
+ * page and stat titles). The two exceptions — the 15px button size and the
+ * 18px display leading — are listed in `scripts/check-theme-parity.mjs`
+ * alongside the web class each one stands in for. Geist Mono is only used on
+ * admin and marketing screens, so mobile falls back to the platform monospace.
  */
 
 import { Platform, type TextStyle } from 'react-native';
@@ -48,6 +50,7 @@ export const lineHeight = {
   sm: 20,
   base: 22,
   md: 24,
+  /** 26, not `text-lg`'s 28, so the 18px display and subtitle share one leading. */
   lg: 26,
   xl: 28,
   xxl: 32,

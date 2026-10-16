@@ -1,0 +1,87 @@
+# Continuous integration for the monorepo.
+#
+# `android-dev-client.yml` builds an installable dev client; this workflow is
+# the gate that keeps the three apps agreeing with each other, which is the
+# thing that has actually broken in practice (a native Google client id used as
+# the web audience; a stale committed OpenAPI snapshot).
+#
+# It runs the same turbo tasks a developer runs, then asserts the tree is
+# unchanged. That last step is what makes the checks load-bearing:
+#   - `apps/server` lints with `eslint --fix`, so a fixable problem exits 0 and
+#     would otherwise pass review silently — the diff catches it.
+#   - `packages/api-client/src/schema.d.ts` is generated from
+#     `apps/server/openapi.json`, and both are committed. Regenerating here
+#     fails the run when a controller changed but the snapshot did not.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, typecheck, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # The server validates its environment as the module graph loads. Unit
+      # tests never reach a database, so hand them the same throwaway values the
+      # OpenAPI generator uses instead of provisioning one.
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pluto_db
+      JWT_ACCESS_SECRET: ci-placeholder-jwt-access-secret-min-32-chars
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # Same reason as the Android workflow: package.json pins npm@11.16.0, and
+      # Node 20.19 ships npm 10.8. Installing with a different npm than the one
+      # that wrote the lockfile is how an install passes locally and fails here.
+      - name: Use the repo's pinned npm
+        run: npm install --global npm@11.16.0 && npm --version
+
+      - name: Install the monorepo
+        run: npm ci
+
+      # Nothing runs `prisma generate` automatically, and the server's tests and
+      # the OpenAPI generator both import the generated client.
+      - name: Generate the Prisma client
+        run: npm run prisma:generate --workspace pluto-server
+
+      # turbo covers all three apps: each now has a `typecheck` script (the web
+      # one runs `next typegen` first, which is how Next 16 materialises
+      # `next-env.d.ts` and the route types).
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      # Recreate the committed contract snapshots. The next step fails if either
+      # moved, i.e. if the server's routes and the generated types disagree.
+      - name: Regenerate the API contract
+        run: npm run api:generate
+
+      - name: Fail if linting or generation changed the tree
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::The working tree changed. Commit the result of 'npm run lint' and 'npm run api:generate'."
+            exit 1
+          fi
