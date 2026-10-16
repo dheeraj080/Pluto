@@ -270,9 +270,13 @@ the screen and reports why sign-in cannot start, instead of dying at launch.
 Two client IDs are involved and are easy to mix up:
 
 - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` — the *web* client, the audience Google
-  stamps on the ID token. **`apps/server` must list the same ID in
-  `GOOGLE_ALLOWED_CLIENT_IDS`**, or `/auth/google` rejects every token. This is
-  the usual cause of a 401 after a successful-looking sign-in.
+  stamps on the ID token. It must be a **Web application** client: the native SDK
+  hands this value to `requestIdToken`, so a native (Android/iOS) client ID here
+  makes Google reject the sign-in intent as an invalid audience, which surfaces as
+  the same `DEVELOPER_ERROR` (status `10`) as an unregistered Android client — see
+  below. **`apps/server` must list the same ID in `GOOGLE_ALLOWED_CLIENT_IDS`**, or
+  `/auth/google` rejects every token. This is the usual cause of a 401 after a
+  successful-looking sign-in.
 - `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` — the iOS client. Its reversed form
   (`com.googleusercontent.apps.<id>`) is registered as a URL scheme by the
   Google config plugin in `app.config.ts`, which is added *only* when this is
@@ -283,8 +287,28 @@ The Android client is a third, separate credential, keyed on the package name
 APK. The native SDK resolves it from the running app rather than being handed it,
 so it is not an ID-token audience and does **not** belong in
 `GOOGLE_ALLOWED_CLIENT_IDS` — only client IDs that can appear as the token's
-`aud` (the web client, and the iOS client when iOS ships) go there. A missing or
-stale Android client is the usual cause of `DEVELOPER_ERROR` (status `10`).
+`aud` (the web client, and the iOS client when iOS ships) go there.
+
+`DEVELOPER_ERROR` (status `10`) has **two** causes, and the picker fails before
+either is obvious:
+
+1. no Android client matches the package name plus the installed APK's SHA-1;
+2. `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is not a *Web application* client.
+
+Both put a bad value in the same sign-in intent, so the status code alone cannot
+tell them apart. Which client types a Console credential is can be checked on the
+**Credentials** page — the type is printed under each client ID — and from the
+command line without Console access, since a Web client requires a
+`client_secret` while a native one does not:
+
+```bash
+# Web clients are confidential and demand a secret; native clients are not.
+curl -s https://oauth2.googleapis.com/token \
+  -d grant_type=authorization_code -d code=x \
+  -d redirect_uri=http://localhost -d client_id="$CLIENT_ID"
+#   "client_secret is missing"  -> Web client  (correct for this variable)
+#   "Malformed auth code"       -> Android/iOS (belongs on the Android client)
+```
 
 The web target resolves `src/lib/google-sign-in.web.ts` instead, which points at
 the web app — so the mobile bundle never pulls a native module in.
