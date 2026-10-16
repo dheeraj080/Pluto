@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { ExpensesService } from './expenses.service';
 import { ExpensesReportsService } from './expenses-reports.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
@@ -288,6 +289,7 @@ export class ExpensesController {
   }
 
   @Get('export.csv')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({
     summary: 'Export expenses as CSV',
     description: 'Returns a CSV file of expenses filtered by the provided query parameters.',
