@@ -7,11 +7,19 @@
 # com.pluto.app on the Android OAuth client, and that SHA-1 does not exist
 # until a signing key does.
 #
-# Signing key: GitHub's runners are ephemeral, so a key generated here would
-# differ on every run and every SHA-1 would have to be re-registered with Google
-# each time. Set the ANDROID_DEBUG_KEYSTORE_B64 repository secret — a base64
-# encoding of a debug.keystore using the conventional alias/password
-# (`androiddebugkey` / `android`) — and the fingerprint stays stable.
+# Signing key: GitHub's runners are ephemeral, so without a pinned key each run
+# signs with a throwaway one and its SHA-1 changes every time. Set the
+# ANDROID_DEBUG_KEYSTORE_B64 repository secret (a base64 of a debug.keystore —
+# alias `androiddebugkey`, storepass/keypass `android`) and the fingerprint is
+# stable across runs. Generate one with:
+#
+#   keytool -genkeypair -v -keystore debug.keystore -storetype JKS \
+#     -storepass android -keypass android -alias androiddebugkey \
+#     -keyalg RSA -keysize 2048 -validity 10000 \
+#     -dname "CN=Android Debug,O=Android,C=US"
+#   base64 -w0 debug.keystore        # that string is the secret value
+#
+# This is a *debug* key: right for dev clients, never for a release build.
 
 name: Android dev client
 
@@ -54,7 +62,7 @@ jobs:
         run: npm install --global npm@11.16.0 && npm --version
 
       # React Native 0.86 / Expo SDK 57 build against JDK 17.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -90,15 +98,31 @@ jobs:
           mkdir -p "$HOME/.android"
           if [ -n "$ANDROID_DEBUG_KEYSTORE_B64" ]; then
             printf '%s' "$ANDROID_DEBUG_KEYSTORE_B64" | base64 -d > "$HOME/.android/debug.keystore"
+            chmod 600 "$HOME/.android/debug.keystore"
             echo "Restored the pinned signing key."
           else
+            # No keystore: Gradle creates a debug one on first use. Not an error,
+            # but the fingerprint will differ on the next run.
             echo "::warning::ANDROID_DEBUG_KEYSTORE_B64 is not set, so this run signs with a throwaway key — the SHA-1 below will not match the next run."
           fi
-          chmod 600 "$HOME/.android/debug.keystore"
 
       - name: Generate the native Android project
         working-directory: apps/mobile
         run: npx expo prebuild --platform android --no-install
+
+      # Prebuild has just regenerated android/, so the pinned key is copied in
+      # afterwards — before it, the copy would be thrown away. It goes to both
+      # places Gradle might look: the template's explicit `android/app`
+      # signingConfigs.debug storeFile, and Gradle's default ~/.android location.
+      - name: Pin the signing key where Gradle looks
+        run: |
+          if [ -f "$HOME/.android/debug.keystore" ]; then
+            mkdir -p apps/mobile/android/app
+            cp "$HOME/.android/debug.keystore" apps/mobile/android/app/debug.keystore
+            echo "Pinned the restored key as android/app/debug.keystore."
+          else
+            echo "No pinned key, so Gradle generates its own debug keystore."
+          fi
 
       - name: Build the dev client APK
         working-directory: apps/mobile/android
@@ -109,7 +133,12 @@ jobs:
         working-directory: apps/mobile
         run: |
           package=$(sed -n "s/^\s*package: '\([^']*\)'.*/\1/p" app.config.ts | head -n 1)
-          sha1=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" \
+
+          # Report the key Gradle actually signed with: the template's
+          # android/app storeFile when present, otherwise the ~/.android default.
+          keystore="android/app/debug.keystore"
+          [ -f "$keystore" ] || keystore="$HOME/.android/debug.keystore"
+          sha1=$(keytool -list -v -keystore "$keystore" \
             -alias androiddebugkey -storepass android -keypass android 2>/dev/null \
             | sed -n 's/^\s*SHA1: //p' | tr -d '[:space:]')
 
@@ -120,11 +149,13 @@ jobs:
 
           echo "package=$package" >> "$GITHUB_OUTPUT"
           echo "sha1=$sha1" >> "$GITHUB_OUTPUT"
+          echo "keystore=$keystore" >> "$GITHUB_OUTPUT"
           # Also to the log itself: step outputs and the job summary are not
           # readable from the run's log, so this is the only line that lets the
           # fingerprint be read back out of CI without downloading anything.
           echo "PLUTO_ANDROID_PACKAGE=$package"
           echo "PLUTO_ANDROID_SHA1=$sha1"
+          echo "PLUTO_ANDROID_KEYSTORE=$keystore"
           {
             echo "## Android OAuth registration"
             echo ""
