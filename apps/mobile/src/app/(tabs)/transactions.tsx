@@ -8,12 +8,14 @@ import {
   dateRangeForPreset,
   type ActivityDateRange,
 } from '@/components/sheets/date-range-sheet';
+import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { Divider } from '@/components/ui/divider';
 import { EmptyState, ErrorNote, Spinner } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
 import { Select } from '@/components/ui/select';
 import { TextField } from '@/components/ui/text-field';
+import { IconRefresh } from '@/components/icons';
 import { layout, spacing, text } from '@/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
@@ -25,7 +27,7 @@ import { groupExpensesByDate } from '@/lib/date-grouping';
 import { errorMessage } from '@/lib/errors';
 import { formatDateRange } from '@/lib/format';
 import { SORT_OPTIONS, type ExpenseSort } from '@/lib/query-keys';
-import { expenseHref } from '@/lib/routes';
+import { expenseHref, RECURRING } from '@/lib/routes';
 
 /**
  * The expense list: debounced search, sort, and date/category filters.
@@ -203,7 +205,15 @@ export default function ActivityScreen() {
         }
         ListHeaderComponent={
           <View style={styles.header}>
-            <AppPageHeader title="Activity" subtitle={countLabel} />
+            <AppPageHeader title="Activity" subtitle={countLabel}>
+              <Button
+                label="Recurring"
+                size="sm"
+                variant="secondary"
+                icon={(color) => <IconRefresh size={15} color={color} />}
+                onPress={() => router.push(RECURRING)}
+              />
+            </AppPageHeader>
 
             <TextField
               accessibilityLabel="Search"

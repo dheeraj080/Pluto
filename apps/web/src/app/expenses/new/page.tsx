@@ -36,6 +36,7 @@ export default function NewExpensePage() {
           currencies={currencies}
           onSaved={back}
           onCancel={back}
+          allowRecurrence
         />
       )}
     </div>

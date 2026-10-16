@@ -34,6 +34,14 @@ export class ExpenseDto {
   @ApiPropertyOptional({ example: 'CARD', nullable: true, type: String })
   paymentMethod!: string | null;
 
+  @ApiPropertyOptional({
+    description: 'The recurring rule that generated this expense, if any',
+    example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+    nullable: true,
+    type: String,
+  })
+  recurringExpenseId!: string | null;
+
   @ApiProperty({ example: '2026-10-10T08:15:00.000Z' })
   createdAt!: Date;
 

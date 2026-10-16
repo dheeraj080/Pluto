@@ -18,6 +18,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { Schemas } from '@pluto/api-client';
 
 import { DualAmount } from '@/components/amount';
+import { IconRefresh } from '@/components/icons';
 import { spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { recordedAmounts, type RateSnapshot } from '@/lib/convert';
@@ -53,9 +54,17 @@ export function ExpenseRow({
       <View style={[styles.dot, { backgroundColor: expense.categoryColor }]} />
 
       <View style={styles.details}>
-        <Text numberOfLines={1} style={[text.bodyStrong, { color: theme.ink }]}>
-          {title}
-        </Text>
+        <View style={styles.titleRow}>
+          {expense.recurringExpenseId ? (
+            <IconRefresh size={13} color={theme.muted} />
+          ) : null}
+          <Text
+            numberOfLines={1}
+            style={[text.bodyStrong, styles.title, { color: theme.ink }]}
+          >
+            {title}
+          </Text>
+        </View>
         <Text numberOfLines={1} style={[text.caption, { color: theme.muted }]}>
           {meta}
         </Text>
@@ -91,5 +100,11 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xs / 2,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  title: { flexShrink: 1 },
   amount: { flexShrink: 0 },
 });

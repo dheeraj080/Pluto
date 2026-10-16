@@ -39,6 +39,7 @@ export default function NewExpenseScreen() {
             busy={create.isPending}
             submitError={errorMessage(create.error)}
             defaultCurrency={user?.baseCurrency ?? 'USD'}
+            allowRecurrence
           />
         </ScrollView>
       </KeyboardAvoidingView>

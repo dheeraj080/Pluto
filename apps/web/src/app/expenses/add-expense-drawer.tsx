@@ -79,6 +79,7 @@ export function AddExpenseDrawer({
               currencies={currencies}
               onSaved={onSaved}
               onCancel={onClose}
+              allowRecurrence
             />
           )}
         </div>

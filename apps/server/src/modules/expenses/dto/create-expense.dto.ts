@@ -9,7 +9,9 @@ import {
   Length,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { RecurrenceInputDto } from './recurring-expense.dto';
 
 export class CreateExpenseDto {
   @ApiProperty({
@@ -66,4 +68,14 @@ export class CreateExpenseDto {
   @IsString()
   @MaxLength(32)
   paymentMethod?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Turn this expense into the first occurrence of a recurring rule in one step. The saved expense is linked to the new rule as a confirmed occurrence.',
+    type: () => RecurrenceInputDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RecurrenceInputDto)
+  recurrence?: RecurrenceInputDto;
 }

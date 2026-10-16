@@ -25,6 +25,9 @@ export function editExpenseHref(id: string): Href {
   return `/expense/${id}/edit` as unknown as Href;
 }
 
+/** The Recurring screen: rules and the pending occurrences they produce. */
+export const RECURRING = '/recurring' as unknown as Href;
+
 /** The filters a Reports drill-down can hand to the Activity list. */
 export interface ActivityHrefParams {
   /** Pre-select one category (`GET /expenses?categoryId=`). */

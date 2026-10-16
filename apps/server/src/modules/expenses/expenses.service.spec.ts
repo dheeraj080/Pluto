@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { BudgetPeriod, Prisma } from '@prisma/client';
+import { BudgetPeriod, Prisma, RecurrenceFrequency } from '@prisma/client';
 import { ExpensesService } from './expenses.service';
 import { CurrencyConverterService } from './currency-converter.service';
 import { PrismaService } from '../../database/prisma.service';
@@ -36,6 +36,7 @@ function makeExpense(overrides: Record<string, unknown> = {}) {
     description: 'Groceries',
     incurredOn: new Date('2026-10-03T00:00:00.000Z'),
     paymentMethod: 'CARD',
+    recurringExpenseId: null,
     createdAt: new Date('2026-10-03T09:00:00.000Z'),
     updatedAt: new Date('2026-10-03T09:00:00.000Z'),
     category,
@@ -71,6 +72,25 @@ describe('ExpensesService', () => {
       update: jest.fn(),
       delete: jest.fn(),
       deleteMany: jest.fn(),
+    },
+    recurringExpense: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+    },
+    recurringExpenseOccurrence: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      createMany: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      deleteMany: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
     },
     // `jest.fn()` + `.mockImplementation` rather than an inline function: the
     // latter makes the mock's type infer from a body that references its own
@@ -273,6 +293,78 @@ describe('ExpensesService', () => {
       expect(dto.incurredOn).toBe('2026-10-03');
       expect(dto.categoryName).toBe('Food & Dining');
       expect(typeof dto.createdAt).toBe('object');
+    });
+  });
+
+  describe('createExpense with an inline recurrence', () => {
+    it('records the expense, seeds a rule and a confirmed occurrence', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(makeCategory());
+      mockPrismaService.expense.create.mockResolvedValue(makeExpense());
+      mockPrismaService.expense.update.mockResolvedValue(
+        makeExpense({ recurringExpenseId: 'dddddddd-0000-4000-8000-000000000001' }),
+      );
+      mockPrismaService.recurringExpense.create.mockResolvedValue({
+        id: 'dddddddd-0000-4000-8000-000000000001',
+      });
+      mockPrismaService.recurringExpenseOccurrence.create.mockResolvedValue({});
+
+      const dto = await service.createExpense(USER_A, {
+        categoryId: makeCategory().id,
+        amount: 12.5,
+        currency: 'USD',
+        incurredOn: '2020-01-15',
+        recurrence: { frequency: RecurrenceFrequency.MONTHLY },
+      });
+
+      // The expense is linked back to the rule it seeded.
+      expect(mockPrismaService.expense.update.mock.calls[0][0].data).toEqual({
+        recurringExpenseId: 'dddddddd-0000-4000-8000-000000000001',
+      });
+      expect(dto.recurringExpenseId).toBe('dddddddd-0000-4000-8000-000000000001');
+
+      // The rule copies the expense snapshot and anchors on its incurred date.
+      const ruleData = mockPrismaService.recurringExpense.create.mock.calls[0][0].data;
+      expect(ruleData.frequency).toBe(RecurrenceFrequency.MONTHLY);
+      expect(ruleData.interval).toBe(1);
+      expect(ruleData.startDate.toISOString()).toBe('2020-01-15T00:00:00.000Z');
+
+      // The first occurrence is the expense itself, already confirmed.
+      const occurrenceData =
+        mockPrismaService.recurringExpenseOccurrence.create.mock.calls[0][0].data;
+      expect(occurrenceData.status).toBe('CONFIRMED');
+      expect(occurrenceData.dueOn.toISOString()).toBe('2020-01-15T00:00:00.000Z');
+      expect(occurrenceData.expenseId).toBe('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+    });
+
+    it('seeds the cursor to the current period so a back-dated expense does not back-fill', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(makeCategory());
+      mockPrismaService.expense.create.mockResolvedValue(makeExpense());
+      mockPrismaService.expense.update.mockResolvedValue(
+        makeExpense({ recurringExpenseId: 'dddddddd-0000-4000-8000-000000000001' }),
+      );
+      mockPrismaService.recurringExpense.create.mockResolvedValue({
+        id: 'dddddddd-0000-4000-8000-000000000001',
+      });
+      mockPrismaService.recurringExpenseOccurrence.create.mockResolvedValue({});
+
+      await service.createExpense(USER_A, {
+        categoryId: makeCategory().id,
+        amount: 12.5,
+        currency: 'USD',
+        // Years in the past: without the cursor clamp, generation would emit
+        // every intervening month as a pending occurrence.
+        incurredOn: '2020-01-15',
+        recurrence: { frequency: RecurrenceFrequency.MONTHLY },
+      });
+
+      const ruleData = mockPrismaService.recurringExpense.create.mock.calls[0][0].data;
+      const now = new Date();
+      // The last day of the previous calendar month.
+      const expectedCursor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
+      expect(ruleData.lastGeneratedOn.toISOString()).toBe(expectedCursor.toISOString());
+      expect(ruleData.lastGeneratedOn.getTime()).toBeGreaterThan(
+        new Date('2020-01-15T00:00:00.000Z').getTime(),
+      );
     });
   });
 

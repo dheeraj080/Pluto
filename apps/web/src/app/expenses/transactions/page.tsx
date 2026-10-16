@@ -461,6 +461,11 @@ export default function TransactionsPage() {
                                 className="font-medium text-ink underline-offset-2 hover:text-primary hover:underline"
                               >
                                 {expense.description ?? "—"}
+                                {expense.recurringExpenseId && (
+                                  <span className="ml-1 inline-flex align-middle text-muted" aria-label="Recurring expense">
+                                    ↻
+                                  </span>
+                                )}
                               </Link>
                               {expense.paymentMethod && (
                                 <p className="text-xs text-muted">{expense.paymentMethod}</p>
@@ -519,6 +524,11 @@ export default function TransactionsPage() {
                               <CategorySwatch color={expense.categoryColor} size={9} />
                               <span className="truncate text-sm font-medium text-ink">
                                 {expense.description || expense.categoryName}
+                                {expense.recurringExpenseId && (
+                                  <span className="ml-1 inline-flex align-middle text-muted" aria-label="Recurring expense">
+                                    ↻
+                                  </span>
+                                )}
                               </span>
                             </span>
                             <span className="mt-0.5 block text-xs text-muted">

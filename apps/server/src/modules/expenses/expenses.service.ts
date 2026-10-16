@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { BudgetPeriod, Prisma } from '@prisma/client';
+import { BudgetPeriod, OccurrenceStatus, Prisma, RecurringRuleStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { CurrencyConverterService } from './currency-converter.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
@@ -14,6 +14,7 @@ import {
   PaginatedExpensesResponseDto,
 } from './dto/expense-response.dto';
 import { formatDate, toUtcDate } from './expenses.utils';
+import { addDays, startOfPeriod } from './recurring-schedule.util';
 import { DEFAULT_CATEGORIES, DEFAULT_CATEGORY_COLOR } from './expense-defaults';
 
 const CATEGORY_SELECT = { name: true, color: true } as const;
@@ -99,10 +100,20 @@ export class ExpensesService {
     const category = await this.findOwnedCategory(userId, id);
 
     const inUse = await this.prisma.expense.count({ where: { categoryId: category.id } });
-    if (inUse > 0) {
+    const rulesInUse = await this.prisma.recurringExpense.count({
+      where: { userId, categoryId: category.id },
+    });
+
+    if (inUse > 0 || rulesInUse > 0) {
       if (!reassignTo) {
+        const parts: string[] = [];
+        if (inUse > 0) parts.push(`${inUse} expense${inUse === 1 ? '' : 's'}`);
+        if (rulesInUse > 0) {
+          parts.push(`${rulesInUse} recurring expense${rulesInUse === 1 ? '' : 's'}`);
+        }
+        const verb = inUse + rulesInUse === 1 ? 'uses' : 'use';
         throw new ConflictException(
-          `Cannot delete '${category.name}': ${inUse} expense${inUse === 1 ? '' : 's'} still ${inUse === 1 ? 'uses' : 'use'} it. Reassign them first.`,
+          `Cannot delete '${category.name}': ${parts.join(' and ')} still ${verb} it. Reassign them first.`,
         );
       }
       if (reassignTo === id) {
@@ -112,6 +123,16 @@ export class ExpensesService {
       await this.prisma.$transaction([
         this.prisma.expense.updateMany({
           where: { userId, categoryId: category.id },
+          data: { categoryId: target.id },
+        }),
+        // Rules and their not-yet-confirmed occurrences move too, so the
+        // deleted category leaves no dangling references behind.
+        this.prisma.recurringExpense.updateMany({
+          where: { userId, categoryId: category.id },
+          data: { categoryId: target.id },
+        }),
+        this.prisma.recurringExpenseOccurrence.updateMany({
+          where: { categoryId: category.id },
           data: { categoryId: target.id },
         }),
         this.prisma.budget.deleteMany({ where: { userId, categoryId: category.id } }),
@@ -128,24 +149,136 @@ export class ExpensesService {
 
   // ------------------------------------------------------------------ expenses
 
-  async createExpense(userId: string, dto: CreateExpenseDto): Promise<ExpenseDto> {
-    const category = await this.findOwnedCategory(userId, dto.categoryId, 'Category not found');
-    const currency = this.currencyConverter.assertValidCode(dto.currency);
+  /**
+   * Creates an expense from an already-resolved payload.
+   *
+   * Shared by the public create path and by confirming a recurring occurrence
+   * (which passes its own transaction client so the claim and the insert commit
+   * together). The category is re-checked for ownership here so neither caller
+   * can write into a foreign category.
+   */
+  async createExpenseRecord(
+    userId: string,
+    input: {
+      categoryId: string;
+      amount: number;
+      currency: string;
+      description?: string | null;
+      paymentMethod?: string | null;
+      /** Already normalised to UTC midnight. */
+      incurredOn: Date;
+      recurringExpenseId?: string | null;
+    },
+    client: Prisma.TransactionClient = this.prisma,
+  ): Promise<ExpenseDto> {
+    const category = await client.expenseCategory.findFirst({
+      where: { id: input.categoryId, userId },
+      select: { id: true },
+    });
+    if (!category) throw new NotFoundException('Category not found');
 
-    const created = await this.prisma.expense.create({
+    const currency = this.currencyConverter.assertValidCode(input.currency);
+    const created = await client.expense.create({
       data: {
         userId,
         categoryId: category.id,
-        amount: new Prisma.Decimal(dto.amount.toFixed(2)),
+        amount: new Prisma.Decimal(input.amount.toFixed(2)),
         currency,
-        description: dto.description,
-        paymentMethod: dto.paymentMethod,
-        incurredOn: toUtcDate(dto.incurredOn),
+        description: input.description ?? undefined,
+        paymentMethod: input.paymentMethod ?? undefined,
+        incurredOn: input.incurredOn,
+        recurringExpenseId: input.recurringExpenseId ?? undefined,
       },
       include: { category: { select: CATEGORY_SELECT } },
     });
 
     return this.toExpenseDto(created);
+  }
+
+  async createExpense(userId: string, dto: CreateExpenseDto): Promise<ExpenseDto> {
+    const incurredOn = toUtcDate(dto.incurredOn);
+
+    if (!dto.recurrence) {
+      return this.createExpenseRecord(userId, {
+        categoryId: dto.categoryId,
+        amount: dto.amount,
+        currency: dto.currency,
+        description: dto.description,
+        paymentMethod: dto.paymentMethod,
+        incurredOn,
+      });
+    }
+
+    // "Repeat this expense": record it and seed a rule whose first occurrence is
+    // already confirmed, so one request produces a coherent rule + history.
+    const category = await this.findOwnedCategory(userId, dto.categoryId, 'Category not found');
+    const currency = this.currencyConverter.assertValidCode(dto.currency);
+    const endDate = dto.recurrence.endDate ? toUtcDate(dto.recurrence.endDate) : null;
+    const frequency = dto.recurrence.frequency;
+
+    // Seed the generation cursor the same way an explicit rule does: from the
+    // current period (or a later anchor), so a back-dated expense never
+    // back-fills the periods between it and today.
+    const today = toUtcDate(formatDate(new Date()));
+    const periodStart = startOfPeriod(today, frequency);
+    const anchor = incurredOn.getTime() >= periodStart.getTime() ? incurredOn : periodStart;
+    const lastGeneratedOn = addDays(anchor, -1);
+
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.expense.create({
+        data: {
+          userId,
+          categoryId: category.id,
+          amount: new Prisma.Decimal(dto.amount.toFixed(2)),
+          currency,
+          description: dto.description,
+          paymentMethod: dto.paymentMethod,
+          incurredOn,
+        },
+        include: { category: { select: CATEGORY_SELECT } },
+      });
+
+      const rule = await tx.recurringExpense.create({
+        data: {
+          userId,
+          categoryId: category.id,
+          amount: new Prisma.Decimal(dto.amount.toFixed(2)),
+          currency,
+          description: dto.description,
+          paymentMethod: dto.paymentMethod,
+          frequency,
+          interval: dto.recurrence!.interval ?? 1,
+          startDate: incurredOn,
+          endDate,
+          status: RecurringRuleStatus.ACTIVE,
+          lastGeneratedOn,
+        },
+        select: { id: true },
+      });
+
+      const linked = await tx.expense.update({
+        where: { id: created.id },
+        data: { recurringExpenseId: rule.id },
+        include: { category: { select: CATEGORY_SELECT } },
+      });
+
+      await tx.recurringExpenseOccurrence.create({
+        data: {
+          recurringExpenseId: rule.id,
+          dueOn: incurredOn,
+          status: OccurrenceStatus.CONFIRMED,
+          confirmedAt: new Date(),
+          amount: new Prisma.Decimal(dto.amount.toFixed(2)),
+          currency,
+          categoryId: category.id,
+          description: dto.description,
+          paymentMethod: dto.paymentMethod,
+          expenseId: created.id,
+        },
+      });
+
+      return this.toExpenseDto(linked);
+    });
   }
 
   async listExpenses(
@@ -309,6 +442,7 @@ export class ExpensesService {
 
     if (query.categoryId) where.categoryId = query.categoryId;
     if (query.currency) where.currency = query.currency.toUpperCase();
+    if (query.recurringExpenseId) where.recurringExpenseId = query.recurringExpenseId;
     if (query.search) {
       where.description = { contains: query.search, mode: 'insensitive' };
     }
@@ -415,6 +549,7 @@ export class ExpensesService {
       description: expense.description,
       incurredOn: formatDate(expense.incurredOn),
       paymentMethod: expense.paymentMethod,
+      recurringExpenseId: expense.recurringExpenseId,
       createdAt: expense.createdAt,
       updatedAt: expense.updatedAt,
     };

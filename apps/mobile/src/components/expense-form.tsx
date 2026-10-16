@@ -3,7 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { IconSwap } from '@/components/icons';
 import { Button } from '@/components/ui/button';
+import { Chip } from '@/components/ui/chip';
 import { ErrorNote, Spinner } from '@/components/ui/feedback';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Select } from '@/components/ui/select';
 import { TextField } from '@/components/ui/text-field';
 import { borderWidth, radius, spacing, tabularNums, text } from '@/theme';
@@ -12,6 +14,7 @@ import { useSupportedCurrencies } from '@/hooks/use-currencies';
 import { usePair } from '@/hooks/use-pair';
 import { useRateSnapshot } from '@/hooks/use-rates';
 import { useTheme } from '@/hooks/use-theme';
+import type { RecurrenceFrequency } from '@/hooks/use-recurring';
 import { buildConversionPreview } from '@/lib/convert';
 import { formatMoney, isValidIsoDate, parseAmount, todayIso } from '@/lib/format';
 
@@ -23,6 +26,16 @@ export interface ExpenseDraft {
   incurredOn: string;
   description?: string;
   paymentMethod?: string;
+  /**
+   * Present only when the user turned on "Repeat this expense" while creating
+   * one. The API reads it as "record this expense and make it the first,
+   * already-confirmed occurrence of a new rule".
+   */
+  recurrence?: {
+    frequency: RecurrenceFrequency;
+    interval: number;
+    endDate?: string;
+  };
 }
 
 export interface ExpenseFormInitial {
@@ -35,6 +48,12 @@ export interface ExpenseFormInitial {
 }
 
 const PAYMENT_METHODS = ['CARD', 'CASH', 'UPI', 'OTHER'];
+
+const FREQUENCIES: { value: RecurrenceFrequency; label: string }[] = [
+  { value: 'WEEKLY', label: 'Weekly' },
+  { value: 'MONTHLY', label: 'Monthly' },
+  { value: 'YEARLY', label: 'Yearly' },
+];
 
 /**
  * The create/edit form.
@@ -53,6 +72,7 @@ export function ExpenseForm({
   busy = false,
   submitError,
   defaultCurrency = 'USD',
+  allowRecurrence = false,
 }: {
   initial?: ExpenseFormInitial;
   submitLabel: string;
@@ -61,6 +81,11 @@ export function ExpenseForm({
   /** Error from the write itself, e.g. a rejected category. */
   submitError?: string | null;
   defaultCurrency?: string;
+  /**
+   * Show the "Repeat this expense" toggle. Create-only: the update endpoint has
+   * no recurrence field, so the edit screen leaves this off.
+   */
+  allowRecurrence?: boolean;
 }) {
   const theme = useTheme();
   const categories = useCategories();
@@ -76,6 +101,9 @@ export function ExpenseForm({
   const [incurredOn, setIncurredOn] = useState(initial?.incurredOn ?? todayIso());
   const [description, setDescription] = useState(initial?.description ?? '');
   const [paymentMethod, setPaymentMethod] = useState(initial?.paymentMethod ?? '');
+  const [repeat, setRepeat] = useState(false);
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>('MONTHLY');
+  const [interval, setInterval] = useState('1');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const parsedAmount = parseAmount(amount);
@@ -107,6 +135,12 @@ export function ExpenseForm({
       nextErrors.currency = 'Use a 3-letter currency code.';
     }
 
+    const step = Number(interval);
+    const repeats = allowRecurrence && repeat;
+    if (repeats && (!Number.isInteger(step) || step < 1 || step > 12)) {
+      nextErrors.interval = 'Repeat every 1 to 12 periods.';
+    }
+
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0 || parsed === null) return;
 
@@ -117,6 +151,7 @@ export function ExpenseForm({
       incurredOn,
       description: description.trim() || undefined,
       paymentMethod: paymentMethod.trim() || undefined,
+      ...(repeats ? { recurrence: { frequency, interval: step } } : {}),
     });
   }
 
@@ -236,6 +271,43 @@ export function ExpenseForm({
         />
       </View>
 
+      {allowRecurrence ? (
+        <View style={styles.group}>
+          <View style={styles.repeatRow}>
+            <Text style={[text.bodyMedium, { color: theme.ink }]}>Repeat this expense</Text>
+            <Chip
+              label={repeat ? 'Repeating' : 'Off'}
+              selected={repeat}
+              onPress={() => setRepeat((value) => !value)}
+            />
+          </View>
+
+          {repeat ? (
+            <>
+              <Text style={[text.caption, { color: theme.muted }]}>
+                This expense is saved now, and the schedule below produces future occurrences to
+                confirm.
+              </Text>
+              <SegmentedControl
+                label="Frequency"
+                options={FREQUENCIES}
+                value={frequency}
+                onChange={setFrequency}
+              />
+              <TextField
+                label="Every"
+                hint="Periods between occurrences (1 = every period)."
+                value={interval}
+                onChangeText={setInterval}
+                keyboardType="number-pad"
+                error={errors.interval}
+                editable={!busy}
+              />
+            </>
+          ) : null}
+        </View>
+      ) : null}
+
       {submitError ? <ErrorNote message={submitError} /> : null}
 
       <Button label={submitLabel} onPress={handleSubmit} busy={busy} />
@@ -258,6 +330,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
+    gap: spacing.sm,
+  },
+  repeatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: spacing.sm,
   },
 });

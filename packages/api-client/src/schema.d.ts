@@ -101,6 +101,132 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/expenses/recurring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recurring expense rules
+         * @description Catching up every active rule to today first, so a due occurrence always shows up. Includes each rule’s pending count and next due date.
+         */
+        get: operations["RecurringExpensesController_listRules"];
+        put?: never;
+        /** Create a recurring expense rule */
+        post: operations["RecurringExpensesController_createRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/expenses/recurring/occurrences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recurring occurrences
+         * @description Pending occurrences awaiting confirmation or skip, plus confirmed and skipped history. Catching up active rules to today first.
+         */
+        get: operations["RecurringExpensesController_listOccurrences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/expenses/recurring/occurrences/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm several pending occurrences at once
+         * @description Posts one expense per pending occurrence. Omit `ids` to confirm every pending occurrence.
+         */
+        post: operations["RecurringExpensesController_confirmMany"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/expenses/recurring/occurrences/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a pending occurrence
+         * @description Records an expense for the occurrence, applying any overrides in the body. The occurrence is claimed atomically, so a double submit yields a conflict rather than a duplicate expense.
+         */
+        post: operations["RecurringExpensesController_confirmOccurrence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/expenses/recurring/occurrences/{id}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip a pending occurrence
+         * @description Marks the occurrence as skipped without recording an expense.
+         */
+        post: operations["RecurringExpensesController_skipOccurrence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/expenses/recurring/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a recurring expense rule */
+        get: operations["RecurringExpensesController_getRule"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a recurring expense rule
+         * @description Removes the rule and its occurrences. Expenses it already produced are kept as ordinary history.
+         */
+        delete: operations["RecurringExpensesController_deleteRule"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a recurring expense rule
+         * @description Payload edits (amount, currency, category, description, payment method) also resync pending occurrences, which are not history yet. Occurrences already confirmed or skipped keep the values they were recorded with.
+         */
+        patch: operations["RecurringExpensesController_updateRule"];
+        trace?: never;
+    };
     "/v1/expenses/categories": {
         parameters: {
             query?: never;
@@ -859,6 +985,265 @@ export interface components {
              */
             refreshToken: string;
         };
+        RecurringExpenseDto: {
+            /** @example f47ac10b-58cc-4372-a567-0e02b2c3d479 */
+            id: string;
+            /** @example b2f1c3de-1111-2222-3333-444455556666 */
+            categoryId: string;
+            /** @example Housing */
+            categoryName: string;
+            /** @example #f59e0b */
+            categoryColor: string;
+            /**
+             * @description Amount due each occurrence
+             * @example 1500
+             */
+            amount: number;
+            /** @example USD */
+            currency: string;
+            /** @example Rent */
+            description?: string | null;
+            /** @example CARD */
+            paymentMethod?: string | null;
+            /**
+             * @example MONTHLY
+             * @enum {string}
+             */
+            frequency: "WEEKLY" | "MONTHLY" | "YEARLY";
+            /** @example 1 */
+            interval: number;
+            /** @example 2026-10-01 */
+            startDate: string;
+            /** @example 2027-10-01 */
+            endDate?: string | null;
+            /**
+             * @example ACTIVE
+             * @enum {string}
+             */
+            status: "ACTIVE" | "PAUSED" | "ENDED";
+            /**
+             * @description Earliest pending occurrence, else the next scheduled date
+             * @example 2026-11-01
+             */
+            nextDueOn?: string | null;
+            /**
+             * @description Number of occurrences awaiting confirmation
+             * @example 1
+             */
+            pendingCount: number;
+            /**
+             * Format: date-time
+             * @example 2026-10-01
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @example 2026-10-01T10:00:00.000Z
+             */
+            updatedAt: string;
+        };
+        CreateRecurringExpenseDto: {
+            /**
+             * @description Identifier of an expense category owned by the caller
+             * @example f47ac10b-58cc-4372-a567-0e02b2c3d479
+             */
+            categoryId: string;
+            /**
+             * @description Amount due each occurrence, in the rule currency
+             * @example 1500
+             */
+            amount: number;
+            /**
+             * @description ISO 4217 currency code
+             * @example USD
+             */
+            currency: string;
+            /**
+             * @example MONTHLY
+             * @enum {string}
+             */
+            frequency: "WEEKLY" | "MONTHLY" | "YEARLY";
+            /**
+             * @description Every Nth period
+             * @default 1
+             * @example 1
+             */
+            interval: number;
+            /**
+             * @description Anchor date the cadence counts from; a past date only anchors the schedule
+             * @example 2026-10-01
+             */
+            startDate: string;
+            /**
+             * @description Stop generating occurrences after this date
+             * @example 2027-10-01
+             */
+            endDate?: string;
+            /**
+             * @description Free-form note
+             * @example Rent
+             */
+            description?: string;
+            /**
+             * @description How the expense is settled
+             * @example CARD
+             */
+            paymentMethod?: string;
+        };
+        RecurringOccurrenceDto: {
+            /** @example a1b2c3d4-0000-1111-2222-333344445555 */
+            id: string;
+            /** @example f47ac10b-58cc-4372-a567-0e02b2c3d479 */
+            recurringExpenseId: string;
+            /**
+             * @description Date the occurrence is due
+             * @example 2026-11-01
+             */
+            dueOn: string;
+            /**
+             * @example PENDING
+             * @enum {string}
+             */
+            status: "PENDING" | "CONFIRMED" | "SKIPPED";
+            /** @example 1500 */
+            amount: number;
+            /** @example USD */
+            currency: string;
+            /** @example b2f1c3de-1111-2222-3333-444455556666 */
+            categoryId: string;
+            /** @example Housing */
+            categoryName: string;
+            /** @example #f59e0b */
+            categoryColor: string;
+            /** @example Rent */
+            description?: string | null;
+            /** @example CARD */
+            paymentMethod?: string | null;
+            /**
+             * @description The expense created when this occurrence was confirmed
+             * @example c9d8e7f6-aaaa-bbbb-cccc-ddddeeeeffff
+             */
+            expenseId?: string | null;
+            /**
+             * Format: date-time
+             * @example 2026-11-01T09:00:00.000Z
+             */
+            confirmedAt?: string | null;
+            /**
+             * Format: date-time
+             * @example 2026-10-16T10:00:00.000Z
+             */
+            createdAt: string;
+        };
+        PaginatedOccurrencesResponseDto: {
+            items: components["schemas"]["RecurringOccurrenceDto"][];
+            /** @example 1 */
+            page: number;
+            /** @example 20 */
+            limit: number;
+            /** @example 4 */
+            total: number;
+        };
+        ConfirmManyOccurrencesDto: {
+            /** @description Specific occurrence ids to confirm. Omit to confirm every pending occurrence. */
+            ids?: string[];
+        };
+        ConfirmOccurrencesResponseDto: {
+            /**
+             * @description How many pending occurrences were turned into expenses
+             * @example 3
+             */
+            confirmed: number;
+        };
+        ConfirmOccurrenceDto: {
+            /** @description Override the recorded amount */
+            amount?: number;
+            /** @description Override the ISO 4217 currency code */
+            currency?: string;
+            /** @description Override the category */
+            categoryId?: string;
+            /**
+             * @description Override the incurred date
+             * @example 2026-10-01
+             */
+            incurredOn?: string;
+            /** @description Override the note */
+            description?: string;
+            /** @description Override the payment method */
+            paymentMethod?: string;
+        };
+        ExpenseDto: {
+            /** @example f47ac10b-58cc-4372-a567-0e02b2c3d479 */
+            id: string;
+            /** @example b2f1c3de-1111-2222-3333-444455556666 */
+            categoryId: string;
+            /** @example Food & Dining */
+            categoryName: string;
+            /** @example #f59e0b */
+            categoryColor: string;
+            /**
+             * @description Amount in the expense currency
+             * @example 12.5
+             */
+            amount: number;
+            /**
+             * @description ISO 4217 currency code
+             * @example USD
+             */
+            currency: string;
+            /** @example Lunch with team */
+            description?: string | null;
+            /**
+             * @description Date the expense was incurred
+             * @example 2026-10-10
+             */
+            incurredOn: string;
+            /** @example CARD */
+            paymentMethod?: string | null;
+            /**
+             * @description The recurring rule that generated this expense, if any
+             * @example f47ac10b-58cc-4372-a567-0e02b2c3d479
+             */
+            recurringExpenseId?: string | null;
+            /**
+             * Format: date-time
+             * @example 2026-10-10T08:15:00.000Z
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @example 2026-10-10T09:00:00.000Z
+             */
+            updatedAt: string;
+        };
+        UpdateRecurringExpenseDto: {
+            /** @description Identifier of an expense category owned by the caller */
+            categoryId?: string;
+            /** @description Amount due each occurrence */
+            amount?: number;
+            /** @description ISO 4217 currency code */
+            currency?: string;
+            /** @enum {string} */
+            frequency?: "WEEKLY" | "MONTHLY" | "YEARLY";
+            /** @description Every Nth period */
+            interval?: number;
+            /**
+             * @description Anchor date the cadence counts from
+             * @example 2026-10-01
+             */
+            startDate?: string;
+            /** @description Stop generating occurrences after this date, or null to clear */
+            endDate?: Record<string, never>;
+            /** @description Free-form note */
+            description?: string;
+            /** @description How the expense is settled */
+            paymentMethod?: string;
+            /**
+             * @description Pause or resume the rule. `PAUSED` suppresses generation; `ACTIVE` resumes.
+             * @enum {string}
+             */
+            status?: "ACTIVE" | "PAUSED" | "ENDED";
+        };
         ExpenseCategoryDto: {
             /** @example b2f1c3de-1111-2222-3333-444455556666 */
             id: string;
@@ -1445,45 +1830,6 @@ export interface components {
              */
             startDate?: string;
         };
-        ExpenseDto: {
-            /** @example f47ac10b-58cc-4372-a567-0e02b2c3d479 */
-            id: string;
-            /** @example b2f1c3de-1111-2222-3333-444455556666 */
-            categoryId: string;
-            /** @example Food & Dining */
-            categoryName: string;
-            /** @example #f59e0b */
-            categoryColor: string;
-            /**
-             * @description Amount in the expense currency
-             * @example 12.5
-             */
-            amount: number;
-            /**
-             * @description ISO 4217 currency code
-             * @example USD
-             */
-            currency: string;
-            /** @example Lunch with team */
-            description?: string | null;
-            /**
-             * @description Date the expense was incurred
-             * @example 2026-10-10
-             */
-            incurredOn: string;
-            /** @example CARD */
-            paymentMethod?: string | null;
-            /**
-             * Format: date-time
-             * @example 2026-10-10T08:15:00.000Z
-             */
-            createdAt: string;
-            /**
-             * Format: date-time
-             * @example 2026-10-10T09:00:00.000Z
-             */
-            updatedAt: string;
-        };
         PaginatedExpensesResponseDto: {
             items: components["schemas"]["ExpenseDto"][];
             /** @example 1 */
@@ -1492,6 +1838,24 @@ export interface components {
             limit: number;
             /** @example 42 */
             total: number;
+        };
+        RecurrenceInputDto: {
+            /**
+             * @example MONTHLY
+             * @enum {string}
+             */
+            frequency: "WEEKLY" | "MONTHLY" | "YEARLY";
+            /**
+             * @description Every Nth period
+             * @default 1
+             * @example 1
+             */
+            interval: number;
+            /**
+             * @description Stop generating occurrences after this date
+             * @example 2027-10-01
+             */
+            endDate?: string;
         };
         CreateExpenseDto: {
             /**
@@ -1524,6 +1888,8 @@ export interface components {
              * @example CARD
              */
             paymentMethod?: string;
+            /** @description Turn this expense into the first occurrence of a recurring rule in one step. The saved expense is linked to the new rule as a confirmed occurrence. */
+            recurrence?: components["schemas"]["RecurrenceInputDto"];
         };
         UpdateExpenseDto: {
             /**
@@ -2026,6 +2392,293 @@ export interface operations {
         responses: {
             /** @description Session successfully revoked */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringExpensesController_listRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recurring rules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpenseDto"][];
+                };
+            };
+        };
+    };
+    RecurringExpensesController_createRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRecurringExpenseDto"];
+            };
+        };
+        responses: {
+            /** @description Rule created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpenseDto"];
+                };
+            };
+            /** @description Malformed cadence or unsupported currency */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Category not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringExpensesController_listOccurrences: {
+        parameters: {
+            query?: {
+                /** @description Filter by occurrence status */
+                status?: "PENDING" | "CONFIRMED" | "SKIPPED";
+                /** @description Only occurrences due on or after this date */
+                from?: string;
+                /** @description Only occurrences due on or before this date */
+                to?: string;
+                /** @description Restrict to a single rule */
+                recurringExpenseId?: string;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Occurrences */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedOccurrencesResponseDto"];
+                };
+            };
+        };
+    };
+    RecurringExpensesController_confirmMany: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmManyOccurrencesDto"];
+            };
+        };
+        responses: {
+            /** @description Count confirmed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmOccurrencesResponseDto"];
+                };
+            };
+        };
+    };
+    RecurringExpensesController_confirmOccurrence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmOccurrenceDto"];
+            };
+        };
+        responses: {
+            /** @description Expense recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseDto"];
+                };
+            };
+            /** @description Occurrence not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Occurrence already confirmed or skipped */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringExpensesController_skipOccurrence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Occurrence skipped */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Occurrence not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Occurrence already confirmed or skipped */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringExpensesController_getRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpenseDto"];
+                };
+            };
+            /** @description Recurring expense not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringExpensesController_deleteRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rule deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Recurring expense not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringExpensesController_updateRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRecurringExpenseDto"];
+            };
+        };
+        responses: {
+            /** @description Rule updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpenseDto"];
+                };
+            };
+            /** @description Malformed cadence or unsupported currency */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Recurring expense not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2643,6 +3296,8 @@ export interface operations {
                 currency?: string;
                 /** @description Case-insensitive search over description */
                 search?: string;
+                /** @description Restrict to expenses generated by a single recurring rule */
+                recurringExpenseId?: string;
                 sort?: "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
             };
             header?: never;

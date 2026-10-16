@@ -170,6 +170,433 @@
         ]
       }
     },
+    "/v1/expenses/recurring": {
+      "get": {
+        "description": "Catching up every active rule to today first, so a due occurrence always shows up. Includes each rule’s pending count and next due date.",
+        "operationId": "RecurringExpensesController_listRules",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Recurring rules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecurringExpenseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List recurring expense rules",
+        "tags": [
+          "Recurring expenses"
+        ]
+      },
+      "post": {
+        "operationId": "RecurringExpensesController_createRule",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecurringExpenseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Rule created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpenseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed cadence or unsupported currency"
+          },
+          "404": {
+            "description": "Category not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Create a recurring expense rule",
+        "tags": [
+          "Recurring expenses"
+        ]
+      }
+    },
+    "/v1/expenses/recurring/occurrences": {
+      "get": {
+        "description": "Pending occurrences awaiting confirmation or skip, plus confirmed and skipped history. Catching up active rules to today first.",
+        "operationId": "RecurringExpensesController_listOccurrences",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by occurrence status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "CONFIRMED",
+                "SKIPPED"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Only occurrences due on or after this date",
+            "schema": {
+              "example": "2026-10-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Only occurrences due on or before this date",
+            "schema": {
+              "example": "2026-10-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "recurringExpenseId",
+            "required": false,
+            "in": "query",
+            "description": "Restrict to a single rule",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Occurrences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedOccurrencesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List recurring occurrences",
+        "tags": [
+          "Recurring expenses"
+        ]
+      }
+    },
+    "/v1/expenses/recurring/occurrences/confirm": {
+      "post": {
+        "description": "Posts one expense per pending occurrence. Omit `ids` to confirm every pending occurrence.",
+        "operationId": "RecurringExpensesController_confirmMany",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmManyOccurrencesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Count confirmed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmOccurrencesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Confirm several pending occurrences at once",
+        "tags": [
+          "Recurring expenses"
+        ]
+      }
+    },
+    "/v1/expenses/recurring/occurrences/{id}/confirm": {
+      "post": {
+        "description": "Records an expense for the occurrence, applying any overrides in the body. The occurrence is claimed atomically, so a double submit yields a conflict rather than a duplicate expense.",
+        "operationId": "RecurringExpensesController_confirmOccurrence",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmOccurrenceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Expense recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Occurrence not found"
+          },
+          "409": {
+            "description": "Occurrence already confirmed or skipped"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Confirm a pending occurrence",
+        "tags": [
+          "Recurring expenses"
+        ]
+      }
+    },
+    "/v1/expenses/recurring/occurrences/{id}/skip": {
+      "post": {
+        "description": "Marks the occurrence as skipped without recording an expense.",
+        "operationId": "RecurringExpensesController_skipOccurrence",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Occurrence skipped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Occurrence not found"
+          },
+          "409": {
+            "description": "Occurrence already confirmed or skipped"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Skip a pending occurrence",
+        "tags": [
+          "Recurring expenses"
+        ]
+      }
+    },
+    "/v1/expenses/recurring/{id}": {
+      "get": {
+        "operationId": "RecurringExpensesController_getRule",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpenseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurring expense not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get a recurring expense rule",
+        "tags": [
+          "Recurring expenses"
+        ]
+      },
+      "patch": {
+        "description": "Payload edits (amount, currency, category, description, payment method) also resync pending occurrences, which are not history yet. Occurrences already confirmed or skipped keep the values they were recorded with.",
+        "operationId": "RecurringExpensesController_updateRule",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRecurringExpenseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rule updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpenseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed cadence or unsupported currency"
+          },
+          "404": {
+            "description": "Recurring expense not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Update a recurring expense rule",
+        "tags": [
+          "Recurring expenses"
+        ]
+      },
+      "delete": {
+        "description": "Removes the rule and its occurrences. Expenses it already produced are kept as ordinary history.",
+        "operationId": "RecurringExpensesController_deleteRule",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rule deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurring expense not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete a recurring expense rule",
+        "tags": [
+          "Recurring expenses"
+        ]
+      }
+    },
     "/v1/expenses/categories": {
       "get": {
         "description": "Returns the caller's categories ordered by sort order. Seeds a default set on first call for a new account.",
@@ -1398,6 +1825,16 @@
             "description": "Case-insensitive search over description",
             "schema": {
               "example": "grocer",
+              "type": "string"
+            }
+          },
+          {
+            "name": "recurringExpenseId",
+            "required": false,
+            "in": "query",
+            "description": "Restrict to expenses generated by a single recurring rule",
+            "schema": {
+              "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
               "type": "string"
             }
           },
@@ -2656,6 +3093,496 @@
           "refreshToken"
         ]
       },
+      "RecurringExpenseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "categoryId": {
+            "type": "string",
+            "example": "b2f1c3de-1111-2222-3333-444455556666"
+          },
+          "categoryName": {
+            "type": "string",
+            "example": "Housing"
+          },
+          "categoryColor": {
+            "type": "string",
+            "example": "#f59e0b"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount due each occurrence",
+            "example": 1500
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "description": {
+            "type": "string",
+            "example": "Rent",
+            "nullable": true
+          },
+          "paymentMethod": {
+            "type": "string",
+            "example": "CARD",
+            "nullable": true
+          },
+          "frequency": {
+            "type": "string",
+            "enum": [
+              "WEEKLY",
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "example": "MONTHLY"
+          },
+          "interval": {
+            "type": "number",
+            "example": 1
+          },
+          "startDate": {
+            "type": "string",
+            "example": "2026-10-01"
+          },
+          "endDate": {
+            "type": "string",
+            "example": "2027-10-01",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "PAUSED",
+              "ENDED"
+            ],
+            "example": "ACTIVE"
+          },
+          "nextDueOn": {
+            "type": "string",
+            "description": "Earliest pending occurrence, else the next scheduled date",
+            "example": "2026-11-01",
+            "nullable": true
+          },
+          "pendingCount": {
+            "type": "number",
+            "description": "Number of occurrences awaiting confirmation",
+            "example": 1
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-01"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-01T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "categoryId",
+          "categoryName",
+          "categoryColor",
+          "amount",
+          "currency",
+          "frequency",
+          "interval",
+          "startDate",
+          "status",
+          "pendingCount",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateRecurringExpenseDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "description": "Identifier of an expense category owned by the caller",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount due each occurrence, in the rule currency",
+            "example": 1500,
+            "minimum": 0.01
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code",
+            "example": "USD",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "frequency": {
+            "type": "string",
+            "enum": [
+              "WEEKLY",
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "example": "MONTHLY"
+          },
+          "interval": {
+            "type": "number",
+            "description": "Every Nth period",
+            "example": 1,
+            "default": 1,
+            "minimum": 1
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Anchor date the cadence counts from; a past date only anchors the schedule",
+            "example": "2026-10-01"
+          },
+          "endDate": {
+            "type": "string",
+            "description": "Stop generating occurrences after this date",
+            "example": "2027-10-01"
+          },
+          "description": {
+            "type": "string",
+            "description": "Free-form note",
+            "example": "Rent",
+            "maxLength": 280
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "How the expense is settled",
+            "example": "CARD",
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "categoryId",
+          "amount",
+          "currency",
+          "frequency",
+          "startDate"
+        ]
+      },
+      "RecurringOccurrenceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a1b2c3d4-0000-1111-2222-333344445555"
+          },
+          "recurringExpenseId": {
+            "type": "string",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "dueOn": {
+            "type": "string",
+            "description": "Date the occurrence is due",
+            "example": "2026-11-01"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "CONFIRMED",
+              "SKIPPED"
+            ],
+            "example": "PENDING"
+          },
+          "amount": {
+            "type": "number",
+            "example": 1500
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "categoryId": {
+            "type": "string",
+            "example": "b2f1c3de-1111-2222-3333-444455556666"
+          },
+          "categoryName": {
+            "type": "string",
+            "example": "Housing"
+          },
+          "categoryColor": {
+            "type": "string",
+            "example": "#f59e0b"
+          },
+          "description": {
+            "type": "string",
+            "example": "Rent",
+            "nullable": true
+          },
+          "paymentMethod": {
+            "type": "string",
+            "example": "CARD",
+            "nullable": true
+          },
+          "expenseId": {
+            "type": "string",
+            "description": "The expense created when this occurrence was confirmed",
+            "example": "c9d8e7f6-aaaa-bbbb-cccc-ddddeeeeffff",
+            "nullable": true
+          },
+          "confirmedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-11-01T09:00:00.000Z",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-16T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "recurringExpenseId",
+          "dueOn",
+          "status",
+          "amount",
+          "currency",
+          "categoryId",
+          "categoryName",
+          "categoryColor",
+          "createdAt"
+        ]
+      },
+      "PaginatedOccurrencesResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecurringOccurrenceDto"
+            }
+          },
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "example": 20
+          },
+          "total": {
+            "type": "number",
+            "example": 4
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total"
+        ]
+      },
+      "ConfirmManyOccurrencesDto": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "description": "Specific occurrence ids to confirm. Omit to confirm every pending occurrence.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ConfirmOccurrencesResponseDto": {
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": "number",
+            "description": "How many pending occurrences were turned into expenses",
+            "example": 3
+          }
+        },
+        "required": [
+          "confirmed"
+        ]
+      },
+      "ConfirmOccurrenceDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": "Override the recorded amount",
+            "minimum": 0.01
+          },
+          "currency": {
+            "type": "string",
+            "description": "Override the ISO 4217 currency code",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "categoryId": {
+            "type": "string",
+            "description": "Override the category"
+          },
+          "incurredOn": {
+            "type": "string",
+            "description": "Override the incurred date",
+            "example": "2026-10-01"
+          },
+          "description": {
+            "type": "string",
+            "description": "Override the note",
+            "maxLength": 280
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "Override the payment method",
+            "maxLength": 32
+          }
+        }
+      },
+      "ExpenseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "categoryId": {
+            "type": "string",
+            "example": "b2f1c3de-1111-2222-3333-444455556666"
+          },
+          "categoryName": {
+            "type": "string",
+            "example": "Food & Dining"
+          },
+          "categoryColor": {
+            "type": "string",
+            "example": "#f59e0b"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount in the expense currency",
+            "example": 12.5
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code",
+            "example": "USD",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "description": {
+            "type": "string",
+            "example": "Lunch with team",
+            "nullable": true
+          },
+          "incurredOn": {
+            "type": "string",
+            "description": "Date the expense was incurred",
+            "example": "2026-10-10"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "example": "CARD",
+            "nullable": true
+          },
+          "recurringExpenseId": {
+            "type": "string",
+            "description": "The recurring rule that generated this expense, if any",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-10T08:15:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-10-10T09:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "categoryId",
+          "categoryName",
+          "categoryColor",
+          "amount",
+          "currency",
+          "incurredOn",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateRecurringExpenseDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "description": "Identifier of an expense category owned by the caller"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount due each occurrence",
+            "minimum": 0.01
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "frequency": {
+            "type": "string",
+            "enum": [
+              "WEEKLY",
+              "MONTHLY",
+              "YEARLY"
+            ]
+          },
+          "interval": {
+            "type": "number",
+            "description": "Every Nth period",
+            "minimum": 1
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Anchor date the cadence counts from",
+            "example": "2026-10-01"
+          },
+          "endDate": {
+            "type": "object",
+            "description": "Stop generating occurrences after this date, or null to clear"
+          },
+          "description": {
+            "type": "string",
+            "description": "Free-form note",
+            "maxLength": 280
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "How the expense is settled",
+            "maxLength": 32
+          },
+          "status": {
+            "type": "string",
+            "description": "Pause or resume the rule. `PAUSED` suppresses generation; `ACTIVE` resumes.",
+            "enum": [
+              "ACTIVE",
+              "PAUSED",
+              "ENDED"
+            ]
+          }
+        }
+      },
       "ExpenseCategoryDto": {
         "type": "object",
         "properties": {
@@ -3751,75 +4678,6 @@
           "amount"
         ]
       },
-      "ExpenseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-          },
-          "categoryId": {
-            "type": "string",
-            "example": "b2f1c3de-1111-2222-3333-444455556666"
-          },
-          "categoryName": {
-            "type": "string",
-            "example": "Food & Dining"
-          },
-          "categoryColor": {
-            "type": "string",
-            "example": "#f59e0b"
-          },
-          "amount": {
-            "type": "number",
-            "description": "Amount in the expense currency",
-            "example": 12.5
-          },
-          "currency": {
-            "type": "string",
-            "description": "ISO 4217 currency code",
-            "example": "USD",
-            "minLength": 3,
-            "maxLength": 3
-          },
-          "description": {
-            "type": "string",
-            "example": "Lunch with team",
-            "nullable": true
-          },
-          "incurredOn": {
-            "type": "string",
-            "description": "Date the expense was incurred",
-            "example": "2026-10-10"
-          },
-          "paymentMethod": {
-            "type": "string",
-            "example": "CARD",
-            "nullable": true
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string",
-            "example": "2026-10-10T08:15:00.000Z"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string",
-            "example": "2026-10-10T09:00:00.000Z"
-          }
-        },
-        "required": [
-          "id",
-          "categoryId",
-          "categoryName",
-          "categoryColor",
-          "amount",
-          "currency",
-          "incurredOn",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
       "PaginatedExpensesResponseDto": {
         "type": "object",
         "properties": {
@@ -3847,6 +4705,35 @@
           "page",
           "limit",
           "total"
+        ]
+      },
+      "RecurrenceInputDto": {
+        "type": "object",
+        "properties": {
+          "frequency": {
+            "type": "string",
+            "enum": [
+              "WEEKLY",
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "example": "MONTHLY"
+          },
+          "interval": {
+            "type": "number",
+            "description": "Every Nth period",
+            "example": 1,
+            "default": 1,
+            "minimum": 1
+          },
+          "endDate": {
+            "type": "string",
+            "description": "Stop generating occurrences after this date",
+            "example": "2027-10-01"
+          }
+        },
+        "required": [
+          "frequency"
         ]
       },
       "CreateExpenseDto": {
@@ -3886,6 +4773,14 @@
             "description": "How the expense was settled",
             "example": "CARD",
             "maxLength": 32
+          },
+          "recurrence": {
+            "description": "Turn this expense into the first occurrence of a recurring rule in one step. The saved expense is linked to the new rule as a confirmed occurrence.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RecurrenceInputDto"
+              }
+            ]
           }
         },
         "required": [

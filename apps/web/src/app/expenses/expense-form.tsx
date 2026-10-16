@@ -18,7 +18,7 @@ import { IconSwap } from "@/components/icons";
 import { expensesApi } from "@/lib/expenses";
 import { buildConversionPreview, dualAmounts } from "@/lib/convert";
 import { formatMoney } from "@/lib/format";
-import type { Expense, ExpenseCategory, SupportedCurrency } from "@/lib/types";
+import type { Expense, ExpenseCategory, RecurrenceFrequency, SupportedCurrency } from "@/lib/types";
 import { usePair, useRateSnapshot } from "./use-expenses";
 
 /** UTC "today", matching the YYYY-MM-DD the server stores for `incurredOn`. */
@@ -33,6 +33,7 @@ export function ExpenseForm({
   onSaved,
   onCancel,
   variant = "card",
+  allowRecurrence = false,
 }: {
   /** Present when editing; absent when creating. */
   expense?: Expense;
@@ -42,6 +43,8 @@ export function ExpenseForm({
   onCancel: () => void;
   /** "card" is the standalone page shell; "panel" drops it for drawers/modals. */
   variant?: "card" | "panel";
+  /** Show the "Repeat this expense" toggle for create flows. */
+  allowRecurrence?: boolean;
 }) {
   const isEditing = expense !== undefined;
   const { base, second } = usePair();
@@ -53,6 +56,10 @@ export function ExpenseForm({
   const [incurredOn, setIncurredOn] = useState(expense?.incurredOn ?? todayIso());
   const [description, setDescription] = useState(expense?.description ?? "");
   const [paymentMethod, setPaymentMethod] = useState(expense?.paymentMethod ?? "");
+
+  const [repeat, setRepeat] = useState(false);
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>("MONTHLY");
+  const [interval, setInterval] = useState("1");
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +98,14 @@ export function ExpenseForm({
       incurredOn,
       description: description.trim() || undefined,
       paymentMethod: paymentMethod.trim() || undefined,
+      ...(allowRecurrence && !isEditing && repeat
+        ? {
+            recurrence: {
+              frequency,
+              interval: Number(interval) > 0 ? Number(interval) : 1,
+            },
+          }
+        : {}),
     };
 
     try {
@@ -223,6 +238,63 @@ export function ExpenseForm({
             />
           </Field>
         </div>
+
+        {allowRecurrence && !isEditing && (
+          <div className="rounded-2xl border border-border p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-ink">Repeat this expense</p>
+                <p className="mt-0.5 text-xs text-muted">
+                  Recorded now, then confirm each occurrence when it falls due.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRepeat((value) => !value)}
+                className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-medium transition-colors ${
+                  repeat
+                    ? "bg-primary-subtle text-primary"
+                    : "border border-border bg-surface-muted text-muted hover:text-ink"
+                }`}
+                aria-pressed={repeat}
+              >
+                {repeat ? "Repeating" : "Off"}
+              </button>
+            </div>
+
+            {repeat && (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Frequency" htmlFor="recurrence-frequency">
+                  <Select
+                    id="recurrence-frequency"
+                    value={frequency}
+                    onChange={(value) => setFrequency(value as RecurrenceFrequency)}
+                  >
+                    <option value="WEEKLY">Weekly</option>
+                    <option value="MONTHLY">Monthly</option>
+                    <option value="YEARLY">Yearly</option>
+                  </Select>
+                </Field>
+                <Field
+                  label="Every"
+                  htmlFor="recurrence-interval"
+                  hint="Periods between occurrences (1 = every period)."
+                >
+                  <Input
+                    id="recurrence-interval"
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max="12"
+                    step="1"
+                    value={interval}
+                    onChange={(event) => setInterval(event.target.value)}
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-3 border-t border-border pt-5">
           <Button type="submit" variant="primary" loading={saving} disabled={!canSubmit}>

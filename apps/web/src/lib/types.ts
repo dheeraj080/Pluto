@@ -176,6 +176,8 @@ export interface Expense {
   /** Date the expense was incurred, as YYYY-MM-DD. */
   incurredOn: string;
   paymentMethod: string | null;
+  /** Set when the expense was posted by confirming a recurring occurrence. */
+  recurringExpenseId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -193,6 +195,68 @@ export interface Budget {
   /** Date the budget first applies, as YYYY-MM-DD. */
   startDate: string;
   createdAt: string;
+}
+
+export type RecurrenceFrequency = "WEEKLY" | "MONTHLY" | "YEARLY";
+export type RecurringRuleStatus = "ACTIVE" | "PAUSED" | "ENDED";
+export type OccurrenceStatus = "PENDING" | "CONFIRMED" | "SKIPPED";
+
+/** A repeating template; confirming its occurrences is what posts expenses. */
+export interface RecurringExpense {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  categoryColor: string;
+  /** Amount due each occurrence, in the rule currency. */
+  amount: number;
+  currency: string;
+  description: string | null;
+  paymentMethod: string | null;
+  frequency: RecurrenceFrequency;
+  /** Every Nth period; 1 means every period. */
+  interval: number;
+  /** Anchor date the cadence counts from, as YYYY-MM-DD. */
+  startDate: string;
+  /** Last date occurrences are generated for, as YYYY-MM-DD, or null for none. */
+  endDate: string | null;
+  status: RecurringRuleStatus;
+  /** Earliest pending occurrence, else the next scheduled date. */
+  nextDueOn: string | null;
+  /** Number of occurrences awaiting confirmation. */
+  pendingCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One dated charge a rule produced, awaiting a decision. */
+export interface RecurringOccurrence {
+  id: string;
+  recurringExpenseId: string;
+  /** Date the occurrence is due, as YYYY-MM-DD. */
+  dueOn: string;
+  status: OccurrenceStatus;
+  amount: number;
+  currency: string;
+  categoryId: string;
+  categoryName: string;
+  categoryColor: string;
+  description: string | null;
+  paymentMethod: string | null;
+  /** The expense created when this occurrence was confirmed. */
+  expenseId: string | null;
+  confirmedAt: string | null;
+  createdAt: string;
+}
+
+export interface PaginatedOccurrences {
+  items: RecurringOccurrence[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+export interface ConfirmOccurrencesResponse {
+  confirmed: number;
 }
 
 export interface CategoryBreakdown {

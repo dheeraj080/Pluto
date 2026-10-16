@@ -1,5 +1,7 @@
 /** Small display formatters. All callers render client-side after fetch. */
 
+import type { RecurrenceFrequency } from "./types";
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB", "TB"];
@@ -149,4 +151,26 @@ export function formatBucket(bucket: string): string {
     day: "numeric",
     timeZone: "UTC",
   });
+}
+
+const CADENCE_SIMPLE: Record<RecurrenceFrequency, string> = {
+  WEEKLY: "Weekly",
+  MONTHLY: "Monthly",
+  YEARLY: "Yearly",
+};
+
+const CADENCE_UNIT: Record<RecurrenceFrequency, string> = {
+  WEEKLY: "weeks",
+  MONTHLY: "months",
+  YEARLY: "years",
+};
+
+/**
+ * The cadence in words: "Monthly" for every period, "Every 3 months" for a
+ * wider interval. The server stores the period and the step separately and the
+ * UI never shows the raw enum, so the wording lives here.
+ */
+export function describeCadence(frequency: RecurrenceFrequency, interval: number): string {
+  if (interval <= 1) return CADENCE_SIMPLE[frequency];
+  return `Every ${interval} ${CADENCE_UNIT[frequency]}`;
 }

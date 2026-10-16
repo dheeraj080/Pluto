@@ -24,6 +24,24 @@ enum BudgetPeriod {
   YEARLY
 }
 
+enum RecurrenceFrequency {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum RecurringRuleStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum OccurrenceStatus {
+  PENDING
+  CONFIRMED
+  SKIPPED
+}
+
 model User {
   id           String           @id @default(uuid())
   email        String           @unique
@@ -40,6 +58,7 @@ model User {
   expenseCategories  ExpenseCategory[]
   expenses           Expense[]
   budgets            Budget[]
+  recurringExpenses  RecurringExpense[]
 
   @@map("users")
 }
@@ -138,9 +157,10 @@ model ExpenseCategory {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expenses  Expense[]
-  budgets   Budget[]
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses          Expense[]
+  budgets           Budget[]
+  recurringExpenses RecurringExpense[]
 
   @@unique([userId, name])
   @@index([userId, sortOrder])
@@ -148,22 +168,26 @@ model ExpenseCategory {
 }
 
 model Expense {
-  id            String   @id @default(uuid())
-  userId        String
-  categoryId    String
-  amount        Decimal  @db.Decimal(18, 2)
-  currency      String   @db.VarChar(3)
-  description   String?
-  incurredOn    DateTime @db.Date
-  paymentMethod String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  userId             String
+  categoryId         String
+  amount             Decimal  @db.Decimal(18, 2)
+  currency           String   @db.VarChar(3)
+  description        String?
+  incurredOn         DateTime @db.Date
+  paymentMethod      String?
+  recurringExpenseId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category      ExpenseCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  user                User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category            ExpenseCategory             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  recurringExpense    RecurringExpense?           @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+  recurringOccurrence RecurringExpenseOccurrence?
 
   @@index([userId, incurredOn])
   @@index([userId, categoryId])
+  @@index([recurringExpenseId])
   @@map("expenses")
 }
 
@@ -191,4 +215,54 @@ model BudgetOverallUnique {
   period BudgetPeriod
   @@unique([userId, period], name: "budgets_overall_userId_period_key")
   @@map("budgets_overall_unique")
+}
+
+model RecurringExpense {
+  id              String              @id @default(uuid())
+  userId          String
+  categoryId      String
+  amount          Decimal             @db.Decimal(18, 2)
+  currency        String              @db.VarChar(3)
+  description     String?
+  paymentMethod   String?
+  frequency       RecurrenceFrequency
+  interval        Int                 @default(1)
+  startDate       DateTime            @db.Date
+  endDate         DateTime?           @db.Date
+  status          RecurringRuleStatus @default(ACTIVE)
+  lastGeneratedOn DateTime?           @db.Date
+  pausedAt        DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  user        User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    ExpenseCategory             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  occurrences RecurringExpenseOccurrence[]
+  expenses    Expense[]
+
+  @@index([userId, status])
+  @@map("recurring_expenses")
+}
+
+model RecurringExpenseOccurrence {
+  id                 String           @id @default(uuid())
+  recurringExpenseId String
+  dueOn              DateTime         @db.Date
+  status             OccurrenceStatus @default(PENDING)
+  amount             Decimal          @db.Decimal(18, 2)
+  currency           String           @db.VarChar(3)
+  categoryId         String
+  description        String?
+  paymentMethod      String?
+  expenseId          String?          @unique
+  confirmedAt        DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  recurringExpense RecurringExpense @relation(fields: [recurringExpenseId], references: [id], onDelete: Cascade)
+  expense          Expense?         @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  @@unique([recurringExpenseId, dueOn])
+  @@index([status, dueOn])
+  @@map("recurring_expense_occurrences")
 }

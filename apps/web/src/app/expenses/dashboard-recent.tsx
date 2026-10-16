@@ -128,7 +128,9 @@ export function RecentTransactions({
                 href={`/expenses/${expense.id}`}
                 color={expense.categoryColor}
                 title={expense.description || expense.categoryName}
-                meta={`${expense.categoryName} · ${formatDate(expense.incurredOn)}`}
+                meta={`${expense.categoryName} · ${formatDate(expense.incurredOn)}${
+                  expense.recurringExpenseId ? " · recurring" : ""
+                }`}
                 amount={primaryAmount}
                 currency={primaryCurrency}
                 paid={paid}

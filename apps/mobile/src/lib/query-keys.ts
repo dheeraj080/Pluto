@@ -100,6 +100,11 @@ export const queryKeys = {
     detail: (id: string) => ['expenses', 'detail', id] as const,
     summary: (params: ExpenseSummaryParams) => ['expenses', 'summary', params] as const,
   },
+  recurring: {
+    all: ['recurring'] as const,
+    rules: () => ['recurring', 'rules'] as const,
+    occurrences: (status?: string) => ['recurring', 'occurrences', status ?? 'all'] as const,
+  },
   categories: {
     all: ['categories'] as const,
     list: () => ['categories', 'list'] as const,
