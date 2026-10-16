@@ -8,17 +8,19 @@ import { ErrorNote, Spinner } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Select } from '@/components/ui/select';
-import { IconSwap, IconTag } from '@/components/icons';
+import { IconSwap, IconTag, IconTrash } from '@/components/icons';
 import { borderWidth, layout, radius, spacing, tabularNums, text } from '@/theme';
 import { useSupportedCurrencies } from '@/hooks/use-currencies';
 import { usePair } from '@/hooks/use-pair';
 import { useRateSnapshot } from '@/hooks/use-rates';
+import { useScreenPadding } from '@/hooks/use-screen-padding';
 import { useSession } from '@/hooks/use-session';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemePreference } from '@/hooks/use-theme-preference';
 import { signOut } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { formatMoney } from '@/lib/format';
+import { DELETE_ACCOUNT } from '@/lib/routes';
 import { writeThemePreference, type ThemePreference } from '@/lib/theme-preference';
 
 /** The illustrative amount used for the live pair preview. */
@@ -42,6 +44,7 @@ const APPEARANCE_OPTIONS: ReadonlyArray<{ value: ThemePreference; label: string 
  */
 export default function SettingsScreen() {
   const theme = useTheme();
+  const screenPadding = useScreenPadding('tab');
   const themePreference = useThemePreference();
   const { user } = useSession();
   const currencies = useSupportedCurrencies();
@@ -91,7 +94,7 @@ export default function SettingsScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.canvas }]}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, screenPadding]}
     >
       <AppPageHeader title="Settings" subtitle="Your account and preferences." />
 
@@ -217,6 +220,21 @@ export default function SettingsScreen() {
           busy={signingOut}
         />
       </Card>
+
+      <Card>
+        <Text style={[text.overline, { color: theme.danger }]}>DANGER ZONE</Text>
+        <Text style={[text.body, { color: theme.muted }]}>
+          Permanently deletes your account, every cloud backup and all active sessions. This
+          cannot be undone.
+        </Text>
+        <Button
+          label="Delete account"
+          variant="danger"
+          icon={(color) => <IconTrash size={16} color={color} />}
+          onPress={() => router.push(DELETE_ACCOUNT)}
+          style={styles.deleteAccount}
+        />
+      </Card>
     </ScrollView>
   );
 }
@@ -225,7 +243,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     padding: layout.gutter,
-    paddingBottom: layout.tabBarInset + spacing.xl,
     gap: spacing.lg,
   },
   spinner: { alignSelf: 'flex-start' },
@@ -235,6 +252,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   swap: { alignSelf: 'flex-start' },
+  deleteAccount: { alignSelf: 'flex-start' },
   preview: {
     gap: spacing.xs,
     marginTop: spacing.xs,

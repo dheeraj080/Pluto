@@ -116,6 +116,10 @@ export const queryKeys = {
     all: ['budgets'] as const,
     status: (params: BudgetStatusParams) => ['budgets', 'status', params] as const,
   },
+  backups: {
+    all: ['backups'] as const,
+    list: () => ['backups', 'list'] as const,
+  },
   reports: {
     all: ['reports'] as const,
     comparison: (params: ReportQueryParams) => ['reports', 'comparison', params] as const,

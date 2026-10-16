@@ -125,3 +125,20 @@ export async function signOut(): Promise<void> {
   }
   session.clearSession();
 }
+
+/**
+ * Permanently deletes the signed-in account (web parity: `/delete-account`).
+ *
+ * `DELETE /v1/users/me` cascades the profile, cloud backups and refresh
+ * sessions on the server, so — unlike `signOut` — there is no token left to
+ * revoke afterwards: the best-effort `/auth/logout` call the web client makes
+ * would only 404 against a row that no longer exists. The local session is
+ * cleared only once the server confirms, so a failed delete (S3 unreachable,
+ * for instance, which the server refuses to half-do) leaves the user signed in
+ * and able to retry rather than stranded with a live account they think is
+ * gone.
+ */
+export async function deleteAccount(): Promise<void> {
+  await api.delete<{ success: boolean; message: string }>('/users/me');
+  session.clearSession();
+}

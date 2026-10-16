@@ -28,6 +28,15 @@ export function editExpenseHref(id: string): Href {
 /** The Recurring screen: rules and the pending occurrences they produce. */
 export const RECURRING = '/recurring' as unknown as Href;
 
+/**
+ * The Delete-account screen.
+ *
+ * Cast like its neighbours: the generated typed-routes union only picks this up
+ * after the next `expo start` regenerates `.expo/types/router.d.ts`, and this
+ * keeps `tsc` honest in the meantime. The URL itself is the canonical one.
+ */
+export const DELETE_ACCOUNT = '/delete-account' as unknown as Href;
+
 /** The filters a Reports drill-down can hand to the Activity list. */
 export interface ActivityHrefParams {
   /** Pre-select one category (`GET /expenses?categoryId=`). */

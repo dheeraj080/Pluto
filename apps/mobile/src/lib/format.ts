@@ -19,6 +19,22 @@ export function formatMoney(amount: number, currency: string): string {
   }
 }
 
+/**
+ * `1536` → `1.5 KB`. Mirrors `apps/web/src/lib/format.ts`: the backup list is
+ * the only place either client shows a byte count, and the two must agree.
+ */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let value = bytes / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i += 1;
+  }
+  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[i]}`;
+}
+
 /** `2026-10-10` → `10 Oct 2026`, without depending on locale data. */
 export function formatDate(iso: string): string {
   const date = new Date(`${iso}T00:00:00Z`);
