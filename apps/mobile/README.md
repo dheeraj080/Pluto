@@ -297,8 +297,50 @@ script, so `turbo run test` skips it today.
 
 ## Building and releasing
 
-Builds are EAS builds (`eas.json`); there is no local signing setup. Install the
-CLI once and sign in with the Expo account that owns the project:
+There are two paths: the **Android development client** is built by GitHub
+Actions and needs no local toolchain and no Expo account; **release builds** go
+through EAS.
+
+### Android dev client (GitHub Actions)
+
+`.github/workflows/android-dev-client.yml` runs `expo prebuild` and
+`gradlew assembleDebug` on a GitHub runner and uploads the APK as the
+`pluto-android-dev-client` artifact. Trigger it from **Actions → Android dev
+client → Run workflow**, or push to `main` with a change under `apps/mobile/**`.
+Nothing is installed on your machine; download the artifact and `adb install` it.
+
+A development client loads its JavaScript from Metro, so `EXPO_PUBLIC_*` values
+still come from `.env` on the machine running `expo start` — restart Metro after
+changing them. (Only release builds bake the bundle in.) The APK's *signing*,
+however, is fixed at build time, which is why the key below matters.
+
+#### The signing key, and why the SHA-1 matters
+
+Google rejects Android sign-in unless the Cloud Console **Android** OAuth client
+lists the app's package name (`com.pluto.app`) *and* the SHA-1 of the certificate
+that signed the installed APK. Runner filesystems are discarded after each job,
+so unless a key is pinned, every run signs with a throwaway one and both the
+SHA-1 and the registration go stale.
+
+Set the **`ANDROID_DEBUG_KEYSTORE_B64`** repository secret to the base64 of a
+`debug.keystore` (alias `androiddebugkey`, storepass/keypass `android`); the
+`keytool` command that generates it is in the workflow's header comment. Without
+it the workflow warns that the reported SHA-1 will not survive the next run.
+
+The **Report the signing fingerprint** step prints `PLUTO_ANDROID_PACKAGE=` and
+`PLUTO_ANDROID_SHA1=` and writes both to the run's *Summary*. Register that pair
+on the Android client, or the native SDK fails with `DEVELOPER_ERROR` (status
+code `10`) — which looks like a broken app but is really an unregistered build.
+
+This is a *debug* key: right for dev clients, never for a release build. A
+release build needs its own key (see below); if you enable Play App Signing, the
+fingerprint that matters is Google's app-signing one, which only exists after the
+first upload.
+
+### Release builds (EAS)
+
+Release builds go through EAS (`eas.json`); there is no local signing setup.
+Install the CLI once and sign in with the Expo account that owns the project:
 
 ```bash
 npm install -g eas-cli      # or call `npx eas-cli@latest` directly
