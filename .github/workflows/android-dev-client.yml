@@ -161,12 +161,15 @@ jobs:
           fi
 
           # What we asked Gradle to sign with: the template's android/app
-          # storeFile when present, otherwise the ~/.android default.
+          # storeFile when present, otherwise the ~/.android default. Both sides
+          # are normalized the same way — colonless, lowercase — because keytool
+          # and the APK reader emit colons in different places, and comparing two
+          # spellings of one fingerprint would fail a build that is fine.
           keystore="android/app/debug.keystore"
           [ -f "$keystore" ] || keystore="$HOME/.android/debug.keystore"
           key_sha1=$(keytool -list -v -keystore "$keystore" \
             -alias androiddebugkey -storepass android -keypass android 2>/dev/null \
-            | sed -n 's/^\s*SHA1: //p' | tr -d '[:space:]' | tr 'A-Z' 'a-z')
+            | sed -n 's/^\s*SHA1: //p' | tr -d '[:space:]:' | tr 'A-Z' 'a-z')
 
           if [ -z "$apk_sha1" ]; then
             # Never report a fingerprint that did not come off the artifact: that
