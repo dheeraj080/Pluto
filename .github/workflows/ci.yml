@@ -74,6 +74,12 @@ jobs:
       - name: Test
         run: npm run test
 
+      # `turbo run build` only builds the packages that define a `build` script
+      # (server: `nest build`, web: `next build`), so this catches compile-time
+      # regressions the typecheck can miss (bundling, Next's production build).
+      - name: Build (server & web)
+        run: npm run build
+
       # Recreate the committed contract snapshots. The next step fails if either
       # moved, i.e. if the server's routes and the generated types disagree.
       - name: Regenerate the API contract

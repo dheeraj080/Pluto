@@ -231,7 +231,7 @@ export const expensesApi = {
     search?: string;
     base?: string;
     secondary?: string;
-  }) => api.get<string>(`/expenses/export.csv${buildQuery(query)}`, { responseType: "text" }),
+  }) => api.get<string>(`/expenses/export.csv${buildQuery(query)}`),
 
   /* budgets */
   listBudgets: () => api.get<Budget[]>("/expenses/budgets"),
