@@ -31,8 +31,8 @@ npm run dev:lan --workspace pluto-mobile
 
 Plain `npm run dev --workspace pluto-mobile` also works, but only uses whatever
 `.env` already holds. Then press `a` (Android) or `i` (iOS) in the Expo CLI, or
-scan the QR code. `npm run typecheck` and `npm run lint` run from this directory
-(or via Turbo).
+scan the QR code. `npm run typecheck`, `npm run lint` and `npm run test` run from
+this directory (or via Turbo).
 
 ### Expo Go or a development build
 
@@ -98,6 +98,7 @@ Routes live in `src/app` (Expo Router, typed routes enabled):
 | `expense/new` | Create (modal) |
 | `expense/[id]/index` | Detail, with edit and delete |
 | `expense/[id]/edit` | Edit |
+| `delete-account` | In-app account deletion (see below) |
 
 Reports is the one web surface still missing a tab. Its loaders
 (`src/hooks/use-reports.ts`) and date helpers (`src/lib/ranges.ts`) are in place,
@@ -317,10 +318,77 @@ the web app — so the mobile bundle never pulls a native module in.
 > client is ever submitted for OAuth verification that restricts displayed
 > branding, swap in `GoogleSigninButton`.
 
+## Account deletion
+
+Google Play requires an app that offers account creation to offer account
+*deletion* without leaving the app. `src/app/delete-account.tsx` is that surface,
+linked from the **Danger zone** card on Settings; the website answers the same
+requirement with `apps/web/src/app/(public)/delete-account/page.tsx`, and the
+mobile flow mirrors it step for step:
+
+1. **What will be erased** — the profile, every cloud backup, and all sessions.
+2. **Download a copy (optional)** — the completed backups are listed and each is
+   opened through its presigned URL (`openBrowserAsync`).
+3. **Type `DELETE`** — the destructive button stays disabled until the phrase
+   matches. A tap alone is too little consent for the one irreversible action in
+   the app.
+4. `DELETE /v1/users/me` — the server cascades the profile, backups and refresh
+   sessions (deleting the S3 objects first), so a failure leaves the account
+   intact and retryable.
+
+`deleteAccount()` in `src/lib/api.ts` clears the local session **only once the
+server confirms**. Unlike `signOut()` it skips the web client's best-effort
+`/auth/logout` call first: there is no session row left to revoke. The done state
+returns to `/sign-in`.
+
+## Crash reporting
+
+Sentry, behind `EXPO_PUBLIC_SENTRY_DSN`. `src/lib/crash-reporting.ts` wraps the
+SDK so that **every export is a no-op when the DSN is unset**: local development,
+Expo Go and CI run identically with no Sentry project, and a release opts in by
+setting the variable on its EAS profile. The native config plugin in
+`app.config.ts` is registered under the same condition, so a repo that never sets
+a DSN never sees a missing-organization warning from `expo config`.
+
+- `initCrashReporting()` runs at module scope in `src/app/_layout.tsx` — before
+  the first render, and idempotent — so a crash in the layout itself is caught.
+- `Sentry.ErrorBoundary` wraps the providers rather than sitting inside them, so a
+  crash in a provider is reported; its fallback paints from module-level theme
+  values because it cannot use hooks.
+- `setCrashReportingUser()` attaches **only the user id**, never the email or
+  name: an opaque id is enough to say "one account or many?" without shipping PII
+  to a third party.
+- `captureException()` is for errors the app *recovers* from (a failed export, a
+  dropped request); render errors reach Sentry through the boundary.
+
 ## Testing
 
-Not set up yet. React Native uses Jest; the mobile workspace has no `test`
-script, so `turbo run test` skips it today.
+Vitest — the runner the other workspaces use; the app's config is
+`vitest.config.ts`. From this directory (or via Turbo):
+
+```bash
+npm run test          # vitest run
+npm run test:watch    # vitest
+```
+
+The suite is deliberately node-only (`environment: 'node'`): no component
+renderer and no native modules, because the logic worth pinning does not need a
+device. What each file holds still:
+
+| File | What it pins down |
+| :--- | :--- |
+| `ranges.test.ts` | the window math — month-to-date against *the same days of last month*, equal-length trailing windows, granularity thresholds |
+| `format.test.ts` | `parseAmount` / `isValidIsoDate` / `formatBytes` — the contract with the DTOs and the backup list |
+| `date.test.ts`, `date-grouping.test.ts` | Today/Yesterday labelling and Activity list bucketing |
+| `recurrence.test.ts`, `errors.test.ts` | cadence wording and error-message extraction |
+| `session.test.ts` | a sign-out drops the token *and* the query cache |
+| `api.test.ts` | `401 → refresh → replay`, refused vs unreachable rotation, and that `deleteAccount` clears the session only once the server confirms |
+| `crash-reporting.test.ts` | every reporting call is a no-op without `EXPO_PUBLIC_SENTRY_DSN` |
+| `app.config.test.ts` | the production guard — https API URL, a real host, a Google client ID — and that the Sentry config plugin registers only with a DSN |
+
+`@pluto/api-client` is aliased straight to its TypeScript source and the
+secure-store boundary is mocked, so the suite needs no device, network or native
+build.
 
 ## Building and releasing
 
@@ -413,6 +481,11 @@ the server's token check matches against.
 
 Set both as **EAS environment variables** scoped to each non-development profile
 (`eas env:create`), pointing at the deployed API over HTTPS.
+
+`EXPO_PUBLIC_SENTRY_DSN` turns on crash reporting (see above) and is inlined the
+same way. When it is set, EAS also needs `SENTRY_ORG`, `SENTRY_PROJECT` and
+`SENTRY_AUTH_TOKEN` so the config plugin can upload sourcemaps; those are read
+from the build environment and are never written into the app config.
 
 `app.config.ts` refuses a `production` build whose `EXPO_PUBLIC_API_URL` is
 missing, plain `http`, or a development host — or whose
