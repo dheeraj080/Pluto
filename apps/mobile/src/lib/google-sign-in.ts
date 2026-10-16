@@ -84,19 +84,22 @@ export async function requestGoogleIdToken(): Promise<string | null> {
 /**
  * Turns the one failure whose message cannot be acted on into instructions.
  *
- * `DEVELOPER_ERROR` means Google could not match a registered Android OAuth
- * client to this build's package name and signing SHA-1 — a Console mismatch,
- * not a broken app. There is nothing to fix in JS, so the best this can do is
- * say which pair to compare and how to read it off the APK that is installed.
+ * `DEVELOPER_ERROR` is raised by Google's own sign-in intent, and it is raised
+ * for two different reasons: no *Android* OAuth client matches this build's
+ * package name and signing SHA-1, or the requested ID token audience is not a
+ * *Web* client in that same project. Only the first is obvious, so both are
+ * named — otherwise a correct SHA-1 is debugged over and over.
  */
 function explainSignInFailure(cause: unknown, sdk: Sdk): Error {
   if (sdk.isErrorWithCode(cause) && cause.code === DEVELOPER_ERROR_CODE) {
     return new Error(
-      'Google could not match this build to an Android OAuth client ' +
-        '(DEVELOPER_ERROR). Register this build\'s package name and signing SHA-1 ' +
-        'on an *Android* OAuth client in the same Google Cloud project as the web ' +
-        'client, then reinstall. Read the pair from the APK with ' +
-        '`npm run apk:fingerprint --workspace pluto-mobile -- <path-to.apk>`.',
+      'Google rejected this build at sign-in (DEVELOPER_ERROR). Two separate ' +
+        'things cause it, and either alone is enough: (1) no *Android* OAuth ' +
+        "client lists this build's package name and signing SHA-1; (2) the ID " +
+        `token audience "${GOOGLE_WEB_CLIENT_ID}" is not a *Web* client in that ` +
+        'same project. Read the APK\'s exact pair with ' +
+        '`npm run apk:fingerprint --workspace pluto-mobile -- <path-to.apk>`, ' +
+        'and reinstall after editing Console.',
     );
   }
   return cause instanceof Error ? cause : new Error(String(cause));
