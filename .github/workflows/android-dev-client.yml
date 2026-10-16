@@ -147,17 +147,17 @@ jobs:
             exit 1
           fi
 
-          # keytool cannot read the v2/v3 signatures AGP emits, so use the
-          # Android SDK's own reader. Digests come out lowercase, unseparated.
-          sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          build_tools=$(ls -d "$sdk"/build-tools/*/ | sort -V | tail -n 1)
-          apk_sha1=$("$build_tools/apksigner" verify --print-certs "$apk" \
-            | sed -n 's/^Signer #1 certificate SHA-1 digest: //p' \
-            | tr -d '[:space:]' | tr 'A-Z' 'a-z')
-
-          if [ -z "$apk_sha1" ]; then
-            echo "::error::Could not read a signing certificate from '$apk'."
-            exit 1
+          # Read the signature off the artifact itself, never off the keystore we
+          # hoped Gradle used — only then does the mismatch check below prove
+          # anything. scripts/apk-fingerprint.mjs parses the v2/v3 signing block
+          # directly, so it needs no Android SDK (this job installs none) and does
+          # not hinge on another tool's output format. The previous reader shelled
+          # out to apksigner, whose format is not guaranteed, and came back empty
+          # on a genuinely signed APK — a false alarm on a check that must not lie.
+          reader_log=$(mktemp)
+          apk_sha1=''
+          if raw=$(node scripts/apk-fingerprint.mjs "$apk" --sha1 2>"$reader_log"); then
+            apk_sha1=$(printf '%s' "$raw" | tr -d '[:space:]:' | tr 'A-Z' 'a-z')
           fi
 
           # What we asked Gradle to sign with: the template's android/app
@@ -168,28 +168,47 @@ jobs:
             -alias androiddebugkey -storepass android -keypass android 2>/dev/null \
             | sed -n 's/^\s*SHA1: //p' | tr -d '[:space:]' | tr 'A-Z' 'a-z')
 
-          if [ -n "$key_sha1" ] && [ "$apk_sha1" != "$key_sha1" ]; then
-            echo "::error::The APK is NOT signed with the pinned keystore, so the fingerprint below the fold is not the one that matters. apk=$apk_sha1 pinned=$key_sha1"
+          if [ -z "$apk_sha1" ]; then
+            # Never report a fingerprint that did not come off the artifact: that
+            # is how a run goes green while the phone still says DEVELOPER_ERROR.
+            # The reader's own message goes out as annotations too, because the
+            # Actions log endpoint needs authentication but annotations do not.
+            echo "::error::Could not read a signing certificate from '$apk'."
+            while IFS= read -r line; do
+              [ -n "$line" ] && echo "::error::apk reader: ${line//'%'/'%25'}"
+            done < "$reader_log"
             exit 1
           fi
 
+          if [ -n "$key_sha1" ] && [ "$apk_sha1" != "$key_sha1" ]; then
+            echo "::error::The APK is NOT signed with the pinned keystore, so the Console entry cannot match. apk=$apk_sha1 pinned=$key_sha1"
+            exit 1
+          fi
+
+          # It came off the artifact, and it matches the key we pinned (or the
+          # keystore could not be read, leaving nothing to compare against).
+          source=apk
+          digest=$apk_sha1
+
           # Report it the way Google Cloud Console wants it typed in.
-          sha1=$(printf '%s' "$apk_sha1" | tr 'a-z' 'A-Z' | sed 's/\(..\)/\1:/g; s/:$//')
+          sha1=$(printf '%s' "$digest" | tr 'a-z' 'A-Z' | sed 's/\(..\)/\1:/g; s/:$//')
 
           echo "package=$package" >> "$GITHUB_OUTPUT"
           echo "sha1=$sha1" >> "$GITHUB_OUTPUT"
+          echo "source=$source" >> "$GITHUB_OUTPUT"
           echo "keystore=$keystore" >> "$GITHUB_OUTPUT"
           # Also to the log itself: step outputs and the job summary are not
           # readable from the run's log, so this is the only line that lets the
           # fingerprint be read back out of CI without downloading anything.
           echo "PLUTO_ANDROID_PACKAGE=$package"
           echo "PLUTO_ANDROID_SHA1=$sha1"
+          echo "PLUTO_ANDROID_SHA1_SOURCE=$source"
           echo "PLUTO_ANDROID_KEYSTORE=$keystore"
           # The log endpoint needs authentication and the job summary is not in
           # the run page's HTML, but check-run annotations are readable on a
           # public repo. An annotation is therefore the only way to read the
           # fingerprint back out of CI without credentials.
-          echo "::notice title=Android OAuth fingerprint::package=$package sha1=$sha1"
+          echo "::notice title=Android OAuth fingerprint::package=$package sha1=$sha1 source=$source"
           {
             echo "## Android OAuth registration"
             echo ""
