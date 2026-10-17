@@ -48,6 +48,45 @@ export interface CategoryStore {
   refresh(): Promise<ExpenseCategoryDto[]>;
 }
 
+export type BudgetDto = Schemas['BudgetDto'];
+export type BudgetPeriod = BudgetDto['period'];
+
+/**
+ * The create payload.
+ *
+ * Hand-written rather than reusing `Schemas['CreateBudgetDto']`: the spec types
+ * `categoryId` as a nullable uuid, and the generator renders that as
+ * `Record<string, never>`. The store passes it straight through to the API.
+ */
+export interface CreateBudgetInput {
+  /** Omit (or null) for an overall, whole-account budget. */
+  categoryId?: string | null;
+  amount: number;
+  currency: string;
+  period: BudgetPeriod;
+  /** Defaults to today when omitted. */
+  startDate?: string;
+}
+
+export interface UpdateBudgetInput {
+  amount: number;
+  startDate?: string;
+}
+
+/**
+ * The budget write seam.
+ *
+ * Native records the create/edit/delete in the local mirror and queues it for
+ * the sync engine, so budgets are written offline just like expenses; web is a
+ * direct request, exactly as it was before the seam existed. Reads are not here
+ * — the Budgets screen renders from the report store's status payload.
+ */
+export interface BudgetStore {
+  create(input: CreateBudgetInput): Promise<BudgetDto>;
+  update(id: string, input: UpdateBudgetInput): Promise<BudgetDto>;
+  remove(id: string): Promise<void>;
+}
+
 export type BudgetStatusResponse = Schemas['BudgetStatusResponseDto'];
 
 /** An inclusive date range a report is computed over. */

@@ -8,6 +8,7 @@ import { SyncChangeDto } from './dto/sync.dto';
 const USER_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const USER_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const EXPENSE_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const BUDGET_ID = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
 const OTHER_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const CATEGORY_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
@@ -18,6 +19,14 @@ const basePayload = {
   description: 'Groceries',
   paymentMethod: 'CARD',
   incurredOn: '2026-10-03',
+};
+
+const baseBudgetPayload = {
+  categoryId: CATEGORY_ID,
+  amount: 400,
+  currency: 'USD',
+  period: 'MONTHLY' as const,
+  startDate: '2026-10-01',
 };
 
 function makeChange(overrides: Partial<SyncChangeDto> = {}): SyncChangeDto {
@@ -31,6 +40,17 @@ function makeChange(overrides: Partial<SyncChangeDto> = {}): SyncChangeDto {
   };
 }
 
+function makeBudgetChange(overrides: Partial<SyncChangeDto> = {}): SyncChangeDto {
+  return {
+    entity: 'budget',
+    id: BUDGET_ID,
+    op: 'create',
+    clientUpdatedAt: '2026-10-03T09:00:00.000Z',
+    data: { ...baseBudgetPayload },
+    ...overrides,
+  };
+}
+
 describe('SyncService', () => {
   let service: SyncService;
 
@@ -40,6 +60,12 @@ describe('SyncService', () => {
       findMany: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
+    },
+    budget: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      upsert: jest.fn(),
+      delete: jest.fn(),
     },
     expenseCategory: { findFirst: jest.fn() },
   };
@@ -58,6 +84,12 @@ describe('SyncService', () => {
     mockPrismaService.expense.update.mockResolvedValue({
       updatedAt: new Date('2026-10-03T10:00:00.000Z'),
     });
+    mockPrismaService.budget.findUnique.mockResolvedValue(null);
+    mockPrismaService.budget.findFirst.mockResolvedValue(null);
+    mockPrismaService.budget.upsert.mockResolvedValue({
+      updatedAt: new Date('2026-10-03T10:00:00.000Z'),
+    });
+    mockPrismaService.budget.delete.mockResolvedValue({ id: BUDGET_ID });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -182,6 +214,104 @@ describe('SyncService', () => {
 
       expect(result.results[0].status).toBe('failed');
       expect(result.results[1].status).toBe('applied');
+    });
+  });
+
+  describe('push budgets', () => {
+    it('upserts a client-identified budget', async () => {
+      const result = await service.push(USER_A, [makeBudgetChange()]);
+
+      expect(mockPrismaService.budget.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: BUDGET_ID },
+          create: expect.objectContaining({
+            id: BUDGET_ID,
+            userId: USER_A,
+            categoryId: CATEGORY_ID,
+            currency: 'USD',
+            period: 'MONTHLY',
+            clientUpdatedAt: new Date('2026-10-03T09:00:00.000Z'),
+          }),
+        }),
+      );
+      expect(result.results[0]).toMatchObject({ id: BUDGET_ID, status: 'applied' });
+    });
+
+    it('allows an overall budget with no category', async () => {
+      const result = await service.push(USER_A, [
+        makeBudgetChange({ data: { ...baseBudgetPayload, categoryId: null } }),
+      ]);
+
+      expect(mockPrismaService.expenseCategory.findFirst).not.toHaveBeenCalled();
+      expect(mockPrismaService.budget.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ create: expect.objectContaining({ categoryId: null }) }),
+      );
+      expect(result.results[0].status).toBe('applied');
+    });
+
+    it('skips a stale replay via last-write-wins', async () => {
+      mockPrismaService.budget.findUnique.mockResolvedValue({
+        userId: USER_A,
+        clientUpdatedAt: new Date('2026-10-05T00:00:00.000Z'),
+      });
+
+      const result = await service.push(USER_A, [makeBudgetChange()]);
+
+      expect(mockPrismaService.budget.upsert).not.toHaveBeenCalled();
+      expect(result.results[0]).toMatchObject({ status: 'skipped', reason: 'stale' });
+    });
+
+    it("refuses to touch another account's budget", async () => {
+      mockPrismaService.budget.findUnique.mockResolvedValue({
+        userId: USER_B,
+        clientUpdatedAt: new Date('2026-10-01T00:00:00.000Z'),
+      });
+
+      const result = await service.push(USER_A, [makeBudgetChange({ op: 'update' })]);
+
+      expect(mockPrismaService.budget.upsert).not.toHaveBeenCalled();
+      expect(result.results[0]).toMatchObject({ status: 'failed', reason: 'not-found' });
+    });
+
+    it('skips a create whose (category, period) slot is already taken', async () => {
+      mockPrismaService.budget.findFirst.mockResolvedValue({ id: OTHER_ID });
+
+      const result = await service.push(USER_A, [makeBudgetChange()]);
+
+      expect(mockPrismaService.budget.upsert).not.toHaveBeenCalled();
+      expect(result.results[0]).toMatchObject({ status: 'skipped', reason: 'duplicate' });
+    });
+
+    it('hard-deletes a budget when the clock is newer', async () => {
+      mockPrismaService.budget.findUnique.mockResolvedValue({
+        userId: USER_A,
+        clientUpdatedAt: new Date('2026-10-01T00:00:00.000Z'),
+      });
+
+      const result = await service.push(USER_A, [
+        makeBudgetChange({ op: 'delete', data: undefined }),
+      ]);
+
+      expect(mockPrismaService.budget.delete).toHaveBeenCalledWith({ where: { id: BUDGET_ID } });
+      expect(result.results[0].status).toBe('applied');
+    });
+
+    it('treats a delete for an unsynced budget as a no-op', async () => {
+      const result = await service.push(USER_A, [
+        makeBudgetChange({ op: 'delete', data: undefined }),
+      ]);
+
+      expect(mockPrismaService.budget.delete).not.toHaveBeenCalled();
+      expect(result.results[0]).toMatchObject({ status: 'applied', reason: 'noop' });
+    });
+
+    it('fails a budget whose category is not owned by the caller', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(null);
+
+      const result = await service.push(USER_A, [makeBudgetChange()]);
+
+      expect(mockPrismaService.budget.upsert).not.toHaveBeenCalled();
+      expect(result.results[0]).toMatchObject({ status: 'failed' });
     });
   });
 

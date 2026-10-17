@@ -1,32 +1,21 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { Schemas } from '@pluto/api-client';
 
-import { api } from '@/lib/api';
-import { reportStore } from '@/lib/store';
+import {
+  budgetStore,
+  reportStore,
+  type CreateBudgetInput,
+  type UpdateBudgetInput,
+} from '@/lib/store';
 import { queryKeys, type BudgetStatusParams } from '@/lib/query-keys';
 import { useSession } from '@/hooks/use-session';
+
+export type { CreateBudgetInput } from '@/lib/store';
 
 export type Budget = Schemas['BudgetDto'];
 export type BudgetStatus = Schemas['BudgetStatusDto'];
 export type BudgetStatusResponse = Schemas['BudgetStatusResponseDto'];
 export type BudgetPeriod = Budget['period'];
-
-/**
- * The create payload.
- *
- * Declared here rather than reusing `Schemas['CreateBudgetDto']`: the spec types
- * `categoryId` as a nullable uuid, and the generator renders that as
- * `Record<string, never>`. The mutation body is typed `unknown` by the client
- * anyway, so a hand-written shape is both accurate and honest about the null.
- */
-export interface CreateBudgetInput {
-  /** Omit (or null) for an overall, whole-account budget. */
-  categoryId?: string | null;
-  amount: number;
-  currency: string;
-  period: BudgetPeriod;
-  startDate?: string;
-}
 
 /**
  * How the current month is tracking against each budget.
@@ -57,7 +46,7 @@ export function useCreateBudget() {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: CreateBudgetInput) => api.post<Budget>('/expenses/budgets', body),
+    mutationFn: (body: CreateBudgetInput) => budgetStore.create(body),
     onSuccess: () => invalidateBudgets(client),
   });
 }
@@ -66,8 +55,8 @@ export function useUpdateBudget() {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, body }: { id: string; body: Schemas['UpdateBudgetDto'] }) =>
-      api.patch<Budget>(`/expenses/budgets/${id}`, body),
+    mutationFn: ({ id, body }: { id: string; body: UpdateBudgetInput }) =>
+      budgetStore.update(id, body),
     onSuccess: () => invalidateBudgets(client),
   });
 }
@@ -76,7 +65,7 @@ export function useDeleteBudget() {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => api.delete<Record<string, never>>(`/expenses/budgets/${id}`),
+    mutationFn: (id: string) => budgetStore.remove(id),
     onSuccess: () => invalidateBudgets(client),
   });
 }

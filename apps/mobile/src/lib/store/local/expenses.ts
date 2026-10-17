@@ -7,11 +7,11 @@ import { randomUuid } from '@/lib/uuid';
 import type { CreateExpenseInput, ExpenseDto } from '../types';
 import {
   deleteActionFor,
-  deleteExpenseMutations,
+  deleteMutations,
   editOp,
-  getPendingExpenseOp,
-  hasPendingExpenseMutation,
-  replaceExpenseMutation,
+  getPendingOp,
+  hasPendingMutation,
+  replaceMutation,
   type ExpenseMutationPayload,
   type PendingMutation,
 } from './mutations';
@@ -182,7 +182,7 @@ export async function createLocalExpense(
         now,
       ],
     );
-    await replaceExpenseMutation(txn, {
+    await replaceMutation(txn, 'expense', {
       entityId: id,
       op: 'create',
       clientUpdatedAt: now,
@@ -220,7 +220,7 @@ export async function updateLocalExpense(
 
     // Keep the row a `create` while it has never reached the server, so the
     // queued change stays a single upsert rather than a create-then-update pair.
-    const op = editOp(await getPendingExpenseOp(txn, id));
+    const op = editOp(await getPendingOp(txn, 'expense', id));
 
     await txn.runAsync(
       `UPDATE expenses
@@ -239,7 +239,7 @@ export async function updateLocalExpense(
         id,
       ],
     );
-    await replaceExpenseMutation(txn, {
+    await replaceMutation(txn, 'expense', {
       entityId: id,
       op,
       clientUpdatedAt: now,
@@ -264,10 +264,10 @@ export async function deleteLocalExpense(
 
     // A row the server never saw needs no tombstone: dropping it (and its
     // queued create) leaves both sides agreeing without a pointless round trip.
-    const queuedOp = await getPendingExpenseOp(txn, id);
+    const queuedOp = await getPendingOp(txn, 'expense', id);
     if (deleteActionFor(queuedOp) === 'drop') {
       await txn.runAsync('DELETE FROM expenses WHERE id = ?', [id]);
-      await deleteExpenseMutations(txn, id);
+      await deleteMutations(txn, 'expense', id);
       return;
     }
 
@@ -277,7 +277,7 @@ export async function deleteLocalExpense(
        WHERE id = ?`,
       [now, now, now, id],
     );
-    await replaceExpenseMutation(txn, {
+    await replaceMutation(txn, 'expense', {
       entityId: id,
       op: 'delete',
       clientUpdatedAt: now,
@@ -321,7 +321,7 @@ export async function applyPulledExpenses(
   // interleave with a user write landing between those two statements.
   await database.withExclusiveTransactionAsync(async (txn) => {
     for (const remote of expenses) {
-      const hasQueuedChange = await hasPendingExpenseMutation(txn, remote.id);
+      const hasQueuedChange = await hasPendingMutation(txn, 'expense', remote.id);
       const action = pullActionFor(remote, hasQueuedChange);
       if (action === 'skip') continue;
 
@@ -387,7 +387,7 @@ export async function resolvePushedMutation(
   await database.withExclusiveTransactionAsync(async (txn) => {
     await txn.runAsync('DELETE FROM mutations WHERE id = ?', [mutation.id]);
 
-    const stillQueued = await hasPendingExpenseMutation(txn, mutation.entityId);
+    const stillQueued = await hasPendingMutation(txn, 'expense', mutation.entityId);
     if (stillQueued) return;
 
     if (mutation.op === 'delete') {

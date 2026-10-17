@@ -217,6 +217,13 @@ model Budget {
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 
+  // Client-controlled last-write-wins clock, mirroring Expense: the phone
+  // stamps it on every offline change and the sync endpoint replays stale edits
+  // as no-ops. Deletions are hard, not tombstoned — budgets have a unique
+  // (userId, categoryId, period) key, so a soft delete would block recreating a
+  // budget the user deliberately removed, and the phone is the only writer.
+  clientUpdatedAt DateTime @default(now())
+
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   category   ExpenseCategory?  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 

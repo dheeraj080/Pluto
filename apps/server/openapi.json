@@ -5460,19 +5460,60 @@
           "incurredOn"
         ]
       },
+      "SyncBudgetPayloadDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "description": "Category to budget for; omit (or null) for an overall budget",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+            "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "description": "Budget limit in `currency`",
+            "example": 400
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code",
+            "example": "USD"
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "example": "MONTHLY"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "First day the budget applies, inclusive",
+            "example": "2026-10-01"
+          }
+        },
+        "required": [
+          "amount",
+          "currency",
+          "period",
+          "startDate"
+        ]
+      },
       "SyncChangeDto": {
         "type": "object",
         "properties": {
           "entity": {
             "type": "string",
             "enum": [
-              "expense"
+              "expense",
+              "budget"
             ],
             "example": "expense"
           },
           "id": {
             "type": "string",
-            "description": "Client-generated UUID; doubles as the canonical expense id",
+            "description": "Client-generated UUID; doubles as the canonical entity id",
             "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
           },
           "op": {
@@ -5490,10 +5531,13 @@
             "example": "2026-10-10T08:15:00.000Z"
           },
           "data": {
-            "description": "Required for create/update, ignored for delete",
-            "allOf": [
+            "description": "Required for create/update, ignored for delete; an expense or budget payload, by `entity`",
+            "oneOf": [
               {
                 "$ref": "#/components/schemas/SyncExpensePayloadDto"
+              },
+              {
+                "$ref": "#/components/schemas/SyncBudgetPayloadDto"
               }
             ]
           }

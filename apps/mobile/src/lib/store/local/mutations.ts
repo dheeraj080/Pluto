@@ -2,8 +2,11 @@ import type * as SQLite from 'expo-sqlite';
 
 export type MutationOp = 'create' | 'update' | 'delete';
 
+/** The entity kinds the sync queue can carry. Mirrors the server's `entity`. */
+export type SyncEntity = 'expense' | 'budget';
+
 /**
- * The payload the sync API expects for a create/update.
+ * The payload the sync API expects for an expense create/update.
  *
  * Mirrors `SyncExpensePayloadDto`, but with the nullable fields *required*:
  * the store always writes an explicit `null` rather than `undefined`, which
@@ -19,23 +22,38 @@ export interface ExpenseMutationPayload {
   recurringExpenseId: string | null;
 }
 
+/** The payload `POST /sync/push` expects for a budget create/update. */
+/** The two periods the server accepts, matching its Prisma enum. */
+export type BudgetPeriodValue = 'MONTHLY' | 'YEARLY';
+
+export interface BudgetMutationPayload {
+  categoryId: string | null;
+  amount: number;
+  currency: string;
+  period: BudgetPeriodValue;
+  startDate: string;
+}
+
+/** A create/update payload; the queued row's `entity` selects which it is. */
+export type MutationPayload = ExpenseMutationPayload | BudgetMutationPayload;
+
 export interface PendingMutation {
   id: number;
+  entity: SyncEntity;
   entityId: string;
   op: MutationOp;
   clientUpdatedAt: string;
-  payload: ExpenseMutationPayload | null;
+  payload: MutationPayload | null;
 }
 
 interface MutationRow {
   id: number;
+  entity: SyncEntity;
   entity_id: string;
   op: MutationOp;
   client_updated_at: string;
   payload: string | null;
 }
-
-const EXPENSE = 'expense';
 
 /**
  * Replaces any queued change for a row with a single new one.
@@ -45,24 +63,25 @@ const EXPENSE = 'expense';
  * that has not synced yet can simply rewrite the pending create instead of
  * stacking a follow-up; likewise an edit removes a stale pending delete.
  */
-export async function replaceExpenseMutation(
+export async function replaceMutation(
   database: SQLite.SQLiteDatabase,
+  entity: SyncEntity,
   mutation: {
     entityId: string;
     op: MutationOp;
     clientUpdatedAt: string;
-    payload: ExpenseMutationPayload | null;
+    payload: MutationPayload | null;
   },
 ): Promise<void> {
   await database.runAsync(`DELETE FROM mutations WHERE entity = ? AND entity_id = ?`, [
-    EXPENSE,
+    entity,
     mutation.entityId,
   ]);
   await database.runAsync(
     `INSERT INTO mutations (entity, entity_id, op, client_updated_at, payload, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [
-      EXPENSE,
+      entity,
       mutation.entityId,
       mutation.op,
       mutation.clientUpdatedAt,
@@ -72,24 +91,26 @@ export async function replaceExpenseMutation(
   );
 }
 
-export async function deleteExpenseMutations(
+export async function deleteMutations(
   database: SQLite.SQLiteDatabase,
+  entity: SyncEntity,
   entityId: string,
 ): Promise<void> {
   await database.runAsync(`DELETE FROM mutations WHERE entity = ? AND entity_id = ?`, [
-    EXPENSE,
+    entity,
     entityId,
   ]);
 }
 
 /** The op currently queued for a row, or null when it has no pending change. */
-export async function getPendingExpenseOp(
+export async function getPendingOp(
   database: SQLite.SQLiteDatabase,
+  entity: SyncEntity,
   entityId: string,
 ): Promise<MutationOp | null> {
   const row = await database.getFirstAsync<{ op: MutationOp }>(
     `SELECT op FROM mutations WHERE entity = ? AND entity_id = ? LIMIT 1`,
-    [EXPENSE, entityId],
+    [entity, entityId],
   );
   return row?.op ?? null;
 }
@@ -116,15 +137,33 @@ export function deleteActionFor(queuedOp: MutationOp | null): 'drop' | 'tombston
 }
 
 /** True when the row still has a queued change this device has not pushed. */
-export async function hasPendingExpenseMutation(
+export async function hasPendingMutation(
   database: SQLite.SQLiteDatabase,
+  entity: SyncEntity,
   entityId: string,
 ): Promise<boolean> {
   const row = await database.getFirstAsync<{ id: number }>(
     `SELECT id FROM mutations WHERE entity = ? AND entity_id = ? LIMIT 1`,
-    [EXPENSE, entityId],
+    [entity, entityId],
   );
   return row !== null;
+}
+
+/**
+ * The ids of every row with a queued change for `entity`.
+ *
+ * Used to protect locally-owned rows when the server list is mirrored wholesale
+ * (budgets): a row the device has not pushed yet must survive the overwrite.
+ */
+export async function listPendingEntityIds(
+  database: SQLite.SQLiteDatabase,
+  entity: SyncEntity,
+): Promise<Set<string>> {
+  const rows = await database.getAllAsync<{ entity_id: string }>(
+    `SELECT entity_id FROM mutations WHERE entity = ?`,
+    [entity],
+  );
+  return new Set(rows.map((row) => row.entity_id));
 }
 
 /** The queued changes, oldest first, ready to be replayed through `POST /sync/push`. */
@@ -132,15 +171,15 @@ export async function listPendingMutations(
   database: SQLite.SQLiteDatabase,
 ): Promise<PendingMutation[]> {
   const rows = await database.getAllAsync<MutationRow>(
-    `SELECT id, entity_id, op, client_updated_at, payload FROM mutations WHERE entity = ? ORDER BY id ASC`,
-    [EXPENSE],
+    `SELECT id, entity, entity_id, op, client_updated_at, payload FROM mutations ORDER BY id ASC`,
   );
 
   return rows.map((row) => ({
     id: row.id,
+    entity: row.entity,
     entityId: row.entity_id,
     op: row.op,
     clientUpdatedAt: row.client_updated_at,
-    payload: row.payload ? (JSON.parse(row.payload) as ExpenseMutationPayload) : null,
+    payload: row.payload ? (JSON.parse(row.payload) as MutationPayload) : null,
   }));
 }

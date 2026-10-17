@@ -1,7 +1,8 @@
 import type { Schemas } from '@pluto/api-client';
 
 import { api } from '@/lib/api';
-import type { CategoryStore, ExpenseCategoryDto, ExpenseStore } from '../types';
+import type { BudgetStore, CategoryStore, ExpenseCategoryDto, ExpenseStore } from '../types';
+import { createLocalBudget, deleteLocalBudget, updateLocalBudget } from './budgets';
 import { listLocalCategories, replaceLocalCategories } from './categories';
 import { getDatabase } from './database';
 import {
@@ -26,6 +27,16 @@ export const localExpenseStore: ExpenseStore = {
   create: async (input) => createLocalExpense(await getDatabase(), input),
   update: async (id, input) => updateLocalExpense(await getDatabase(), id, input),
   remove: async (id) => deleteLocalExpense(await getDatabase(), id),
+};
+
+/**
+ * Native budget writes: the local mirror is written immediately and the change
+ * is queued, so a budget can be created or edited with no connection.
+ */
+export const localBudgetStore: BudgetStore = {
+  create: async (input) => createLocalBudget(await getDatabase(), input),
+  update: async (id, input) => updateLocalBudget(await getDatabase(), id, input),
+  remove: async (id) => deleteLocalBudget(await getDatabase(), id),
 };
 
 export const localCategoryStore: CategoryStore = {

@@ -1,21 +1,27 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
+import { Type, plainToInstance } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
   IsDateString,
   IsIn,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
   Length,
   MaxLength,
   Min,
+  Validate,
   ValidateNested,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  validateSync,
+  type ValidationArguments,
 } from 'class-validator';
 
-export const SYNC_ENTITIES = ['expense'] as const;
+export const SYNC_ENTITIES = ['expense', 'budget'] as const;
 export type SyncEntity = (typeof SYNC_ENTITIES)[number];
 
 export const SYNC_OPERATIONS = ['create', 'update', 'delete'] as const;
@@ -23,6 +29,10 @@ export type SyncOperation = (typeof SYNC_OPERATIONS)[number];
 
 export const SYNC_STATUSES = ['applied', 'skipped', 'failed'] as const;
 export type SyncStatus = (typeof SYNC_STATUSES)[number];
+
+/** Mirrors the Prisma `BudgetPeriod` enum; kept local so the DTO owns its enum. */
+export const BUDGET_PERIODS = ['MONTHLY', 'YEARLY'] as const;
+export type BudgetPeriodValue = (typeof BUDGET_PERIODS)[number];
 
 /**
  * The full state of an expense as held by the device.
@@ -82,19 +92,85 @@ export class SyncExpensePayloadDto {
 }
 
 /**
+ * The full state of a budget as held by the device.
+ *
+ * `update` on the REST API accepts only the amount and start date, but sync is
+ * whole-row-wins like expenses: the device always sends every field so a single
+ * `create`/`update` mutation converges regardless of what changed.
+ */
+export class SyncBudgetPayloadDto {
+  @ApiPropertyOptional({
+    description: 'Category to budget for; omit (or null) for an overall budget',
+    example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+    nullable: true,
+    type: String,
+  })
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string | null;
+
+  @ApiProperty({ description: 'Budget limit in `currency`', example: 400 })
+  @IsNumber()
+  @Min(0.01)
+  amount!: number;
+
+  @ApiProperty({ description: 'ISO 4217 currency code', example: 'USD' })
+  @IsString()
+  @Length(3, 3)
+  currency!: string;
+
+  @ApiProperty({ enum: BUDGET_PERIODS, example: 'MONTHLY' })
+  @IsIn(BUDGET_PERIODS)
+  period!: BudgetPeriodValue;
+
+  @ApiProperty({
+    description: 'First day the budget applies, inclusive',
+    example: '2026-10-01',
+  })
+  @IsDateString()
+  startDate!: string;
+}
+
+/**
+ * Validates `SyncChangeDto.data` against the payload class `entity` selects.
+ *
+ * The payload shape depends on the discriminated `entity` field, which a single
+ * `@ValidateNested()` cannot express. Re-validating here keeps the whole batch's
+ * 400 behaviour — a malformed payload is a client bug, not a per-op failure.
+ */
+@ValidatorConstraint({ name: 'syncChangeData', async: false })
+class SyncChangeDataConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown, args: ValidationArguments): boolean {
+    const { entity } = args.object as SyncChangeDto;
+    const payloadClass: new () => object =
+      entity === 'budget' ? SyncBudgetPayloadDto : SyncExpensePayloadDto;
+    const instance = plainToInstance(payloadClass, value);
+    return validateSync(instance, { whitelist: true, forbidNonWhitelisted: true }).length === 0;
+  }
+
+  defaultMessage(args: ValidationArguments): string {
+    return `data must be a valid '${(args.object as SyncChangeDto).entity}' payload`;
+  }
+}
+
+/**
  * One queued mutation replayed from the device.
  *
  * `clientUpdatedAt` is the device's logical clock and is the sole arbiter of
  * last-write-wins: the server only applies a change strictly newer than the
  * stored `clientUpdatedAt`, which makes replaying the queue idempotent.
+ *
+ * `@ApiExtraModels` forces both payload shapes into `components.schemas`; the
+ * `oneOf` below references them by `$ref` and would otherwise leave them out.
  */
+@ApiExtraModels(SyncExpensePayloadDto, SyncBudgetPayloadDto)
 export class SyncChangeDto {
   @ApiProperty({ enum: SYNC_ENTITIES, example: 'expense' })
   @IsIn(SYNC_ENTITIES)
   entity!: SyncEntity;
 
   @ApiProperty({
-    description: 'Client-generated UUID; doubles as the canonical expense id',
+    description: 'Client-generated UUID; doubles as the canonical entity id',
     example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
   })
   @IsUUID()
@@ -112,13 +188,17 @@ export class SyncChangeDto {
   clientUpdatedAt!: string;
 
   @ApiPropertyOptional({
-    description: 'Required for create/update, ignored for delete',
-    type: SyncExpensePayloadDto,
+    description:
+      'Required for create/update, ignored for delete; an expense or budget payload, by `entity`',
+    oneOf: [
+      { $ref: getSchemaPath(SyncExpensePayloadDto) },
+      { $ref: getSchemaPath(SyncBudgetPayloadDto) },
+    ],
   })
   @IsOptional()
-  @ValidateNested()
-  @Type(() => SyncExpensePayloadDto)
-  data?: SyncExpensePayloadDto;
+  @IsObject()
+  @Validate(SyncChangeDataConstraint)
+  data?: SyncExpensePayloadDto | SyncBudgetPayloadDto;
 }
 
 export class SyncPushDto {

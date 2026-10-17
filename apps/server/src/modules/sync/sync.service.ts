@@ -5,6 +5,7 @@ import { CurrencyConverterService } from '../expenses/currency-converter.service
 import { formatDate, toUtcDate } from '../expenses/expenses.utils';
 import {
   SYNC_EPOCH,
+  SyncBudgetPayloadDto,
   SyncChangeDto,
   SyncExpensePayloadDto,
   SyncPullResponseDto,
@@ -36,8 +37,10 @@ type SyncableExpense = {
  * The phone is the primary writer and its local store is authoritative while it
  * is offline, so the protocol is deliberately simple: the device replays its
  * queue through {@link push} and mirrors server state through {@link pull}.
- * Conflicts resolve by last-write-wins on `clientUpdatedAt` and deletions are
- * soft tombstones, which keeps replaying the queue safe at any time.
+ * Conflicts resolve by last-write-wins on `clientUpdatedAt`; expense deletions
+ * are soft tombstones and budget deletions are hard, both of which keep
+ * replaying the queue safe at any time. `pull` only carries expenses — budgets
+ * are small enough that the device refreshes them wholesale from the REST list.
  */
 @Injectable()
 export class SyncService {
@@ -103,19 +106,23 @@ export class SyncService {
   }
 
   private async applyChange(userId: string, change: SyncChangeDto): Promise<SyncPushResultDto> {
-    if (change.entity !== 'expense') {
-      return {
-        id: change.id,
-        status: 'failed',
-        reason: `Unsupported entity '${String(change.entity)}'`,
-      };
-    }
-
     const clientUpdatedAt = new Date(change.clientUpdatedAt);
     if (Number.isNaN(clientUpdatedAt.getTime())) {
       return { id: change.id, status: 'failed', reason: 'Invalid clientUpdatedAt' };
     }
 
+    if (change.entity === 'budget') {
+      return this.applyBudgetChange(userId, change, clientUpdatedAt);
+    }
+    return this.applyExpenseChange(userId, change, clientUpdatedAt);
+  }
+
+  /** Applies one queued expense change (soft-deleted via tombstones). */
+  private async applyExpenseChange(
+    userId: string,
+    change: SyncChangeDto,
+    clientUpdatedAt: Date,
+  ): Promise<SyncPushResultDto> {
     const existing = await this.prisma.expense.findUnique({
       where: { id: change.id },
       select: { userId: true, clientUpdatedAt: true },
@@ -150,7 +157,11 @@ export class SyncService {
     }
 
     try {
-      const data = await this.buildExpenseData(userId, change.data, clientUpdatedAt);
+      const data = await this.buildExpenseData(
+        userId,
+        change.data as SyncExpensePayloadDto,
+        clientUpdatedAt,
+      );
       const saved = await this.prisma.expense.upsert({
         where: { id: change.id },
         create: { id: change.id, userId, ...data },
@@ -164,6 +175,109 @@ export class SyncService {
       this.logger.warn(`Sync push rejected expense ${change.id}: ${reason}`);
       return { id: change.id, status: 'failed', reason };
     }
+  }
+
+  /**
+   * Applies one queued budget change.
+   *
+   * Budgets are hard-deleted rather than tombstoned: a soft delete would keep
+   * the unique (userId, categoryId, period) row alive and block the user from
+   * recreating a budget they deliberately removed. The phone is the only writer,
+   * so the resurrection a tombstone guards against cannot happen here.
+   */
+  private async applyBudgetChange(
+    userId: string,
+    change: SyncChangeDto,
+    clientUpdatedAt: Date,
+  ): Promise<SyncPushResultDto> {
+    const existing = await this.prisma.budget.findUnique({
+      where: { id: change.id },
+      select: { userId: true, clientUpdatedAt: true },
+    });
+
+    if (existing && existing.userId !== userId) {
+      return { id: change.id, status: 'failed', reason: 'not-found' };
+    }
+
+    // Last-write-wins: anything not strictly newer is a stale replay.
+    if (existing && existing.clientUpdatedAt.getTime() >= clientUpdatedAt.getTime()) {
+      return { id: change.id, status: 'skipped', reason: 'stale' };
+    }
+
+    if (change.op === 'delete') {
+      if (!existing) return { id: change.id, status: 'applied', reason: 'noop' };
+
+      await this.prisma.budget.delete({ where: { id: change.id } });
+      return { id: change.id, status: 'applied' };
+    }
+
+    const payload = change.data as SyncBudgetPayloadDto | undefined;
+    if (!payload) {
+      return { id: change.id, status: 'failed', reason: 'Missing payload' };
+    }
+
+    // Only one budget per (category, period) is allowed. A *different* row
+    // already holding the slot means this create is redundant — skip it rather
+    // than failing the queue forever; the device retires it and adopts the
+    // winner from the next mirror refresh.
+    const categoryId = payload.categoryId ?? null;
+    const conflict = await this.prisma.budget.findFirst({
+      where: {
+        userId,
+        categoryId,
+        period: payload.period,
+        id: { not: change.id },
+      },
+      select: { id: true },
+    });
+    if (conflict) {
+      return { id: change.id, status: 'skipped', reason: 'duplicate' };
+    }
+
+    try {
+      const data = await this.buildBudgetData(userId, payload, clientUpdatedAt);
+      const saved = await this.prisma.budget.upsert({
+        where: { id: change.id },
+        create: { id: change.id, userId, ...data },
+        update: data,
+        select: { updatedAt: true },
+      });
+      return { id: change.id, status: 'applied', serverUpdatedAt: saved.updatedAt.toISOString() };
+    } catch (error) {
+      // The pre-check above cannot close the race between two simultaneous
+      // pushes; the unique indexes are the real arbiter. Losing that race is the
+      // same duplicate, not a failure.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return { id: change.id, status: 'skipped', reason: 'duplicate' };
+      }
+      const reason = this.describeError(error, change.id);
+      this.logger.warn(`Sync push rejected budget ${change.id}: ${reason}`);
+      return { id: change.id, status: 'failed', reason };
+    }
+  }
+
+  private async buildBudgetData(
+    userId: string,
+    payload: SyncBudgetPayloadDto,
+    clientUpdatedAt: Date,
+  ): Promise<Omit<Prisma.BudgetUncheckedCreateInput, 'id' | 'userId'>> {
+    const categoryId = payload.categoryId ?? null;
+    if (categoryId) {
+      const category = await this.prisma.expenseCategory.findFirst({
+        where: { id: categoryId, userId },
+        select: { id: true },
+      });
+      if (!category) throw new BadRequestException('Category not found');
+    }
+
+    return {
+      categoryId,
+      amount: new Prisma.Decimal(payload.amount.toFixed(2)),
+      currency: this.currencyConverter.assertValidCode(payload.currency),
+      period: payload.period,
+      startDate: toUtcDate(payload.startDate),
+      clientUpdatedAt,
+    };
   }
 
   private async buildExpenseData(

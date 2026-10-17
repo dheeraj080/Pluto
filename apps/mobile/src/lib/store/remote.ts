@@ -8,7 +8,7 @@ import type {
   ExpenseSeries,
 } from '@/lib/report-types';
 import { expenseQueryParams } from '@/lib/query-keys';
-import type { CategoryStore, ExpenseStore, ReportStore } from './types';
+import type { BudgetStore, CategoryStore, ExpenseStore, ReportStore } from './types';
 
 type ExpenseCategoryDto = Schemas['ExpenseCategoryDto'];
 
@@ -35,6 +35,13 @@ export const remoteExpenseStore: ExpenseStore = {
 export const remoteCategoryStore: CategoryStore = {
   list: () => api.get<ExpenseCategoryDto[]>('/expenses/categories'),
   refresh: () => api.get<ExpenseCategoryDto[]>('/expenses/categories'),
+};
+
+/** Web fallback for budget writes: the original online-only requests. */
+export const remoteBudgetStore: BudgetStore = {
+  create: (input) => api.post<Schemas['BudgetDto']>('/expenses/budgets', input),
+  update: (id, input) => api.patch<Schemas['BudgetDto']>(`/expenses/budgets/${id}`, input),
+  remove: (id) => api.delete<unknown>(`/expenses/budgets/${id}`).then(() => undefined),
 };
 
 /**

@@ -232,18 +232,21 @@ and every report and budget figure is computed on-device. The web build stays
 online-only.
 
 **Native.** `src/lib/store/local/` keeps a SQLite mirror (`pluto.db`) behind the
-same `ExpenseStore` / `CategoryStore` / `ReportStore` seams the web build
-satisfies with direct requests (`src/lib/store/remote.ts`); the platform picks
-one in `src/lib/store/index.ts`, and screens never branch.
+same `ExpenseStore` / `CategoryStore` / `BudgetStore` / `ReportStore` seams the
+web build satisfies with direct requests (`src/lib/store/remote.ts`); the
+platform picks one in `src/lib/store/index.ts`, and screens never branch.
 
-- Every write lands locally first and appends to a **write-ahead queue**
-  (`mutations`). An edit to a row that has never reached the server rewrites its
-  queued `create` instead of stacking a second op; deleting such a row drops it.
+- Every write — expense or budget — lands locally first and appends to a
+  **write-ahead queue** (`mutations`). An edit to a row that has never reached
+  the server rewrites its queued `create` instead of stacking a second op;
+  deleting such a row drops it.
 - `src/lib/sync/sync-engine.ts` reconciles in the background: it pushes the
   queue to `POST /sync/push`, then pulls changes with
   `GET /sync/pull?since=<cursor>`. Conflicts are last-write-wins on
-  `clientUpdatedAt` and deletes are tombstones, so the phone — the primary writer
-  — always converges. A superseded push clears the cursor to force a full pull.
+  `clientUpdatedAt`; expense deletes are soft tombstones and budget deletes are
+  hard, so the phone — the primary writer — always converges. A superseded
+  *expense* push clears the cursor to force a full pull (budgets are not
+  cursor-based).
 - `src/lib/sync/background-sync.ts` syncs on sign-in, when connectivity returns
   (`@react-native-community/netinfo`), on foreground and on a slow timer, and
   purges the mirror on sign-out.

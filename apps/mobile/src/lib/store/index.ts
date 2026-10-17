@@ -1,10 +1,27 @@
 import { Platform } from 'react-native';
 
-import { localCategoryStore, localExpenseStore, localReportStore } from './local';
-import { remoteCategoryStore, remoteExpenseStore, remoteReportStore } from './remote';
-import type { CategoryStore, ExpenseStore, ReportStore } from './types';
+import {
+  localBudgetStore,
+  localCategoryStore,
+  localExpenseStore,
+  localReportStore,
+} from './local';
+import {
+  remoteBudgetStore,
+  remoteCategoryStore,
+  remoteExpenseStore,
+  remoteReportStore,
+} from './remote';
+import type { BudgetStore, CategoryStore, ExpenseStore, ReportStore } from './types';
 
-export type { CategoryStore, ExpenseStore, ReportStore } from './types';
+export type {
+  BudgetStore,
+  CategoryStore,
+  CreateBudgetInput,
+  ExpenseStore,
+  ReportStore,
+  UpdateBudgetInput,
+} from './types';
 
 /**
  * Whether writes go to the on-device store.
@@ -22,5 +39,9 @@ export const expenseStore: ExpenseStore = localStoreEnabled
 export const categoryStore: CategoryStore = localStoreEnabled
   ? localCategoryStore
   : remoteCategoryStore;
+
+export const budgetStore: BudgetStore = localStoreEnabled
+  ? localBudgetStore
+  : remoteBudgetStore;
 
 export const reportStore: ReportStore = localStoreEnabled ? localReportStore : remoteReportStore;

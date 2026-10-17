@@ -7,8 +7,12 @@ import { queryKeys } from '@/lib/query-keys';
 import { getQueryClient } from '@/lib/query-client';
 import { getSessionState } from '@/lib/session';
 import { categoryStore, localStoreEnabled } from '@/lib/store';
+import { resolvePushedBudgetMutation } from '@/lib/store/local/budgets';
 import { getDatabase } from '@/lib/store/local/database';
-import { applyPulledExpenses, resolvePushedMutation } from '@/lib/store/local/expenses';
+import {
+  applyPulledExpenses,
+  resolvePushedMutation as resolvePushedExpenseMutation,
+} from '@/lib/store/local/expenses';
 import {
   clearSyncMeta,
   getSyncMeta,
@@ -71,10 +75,11 @@ async function runSync(): Promise<SyncOutcome> {
     pushed = pushResult.pushed;
     failed = pushResult.failed;
 
-    // A superseded change means the server holds a newer row than this device.
-    // That row's `updatedAt` can predate the cursor, so a delta pull would miss
-    // it — drop the cursor to take a full snapshot and converge.
-    if (pushResult.skipped > 0) {
+    // A superseded *expense* means the server holds a newer row than this
+    // device. That row's `updatedAt` can predate the cursor, so a delta pull
+    // would miss it — drop the cursor to take a full snapshot and converge.
+    // Budgets are not cursor-based, so their skips need no reset.
+    if (pushResult.skippedExpense > 0) {
       await clearSyncMeta(database, SYNC_CURSOR_KEY);
     }
 
@@ -95,27 +100,34 @@ async function runSync(): Promise<SyncOutcome> {
       getSessionState().user?.baseCurrency ?? DEFAULT_BASE_CURRENCY,
     );
   } catch (error) {
-    if (pushed > 0 || pulled > 0) invalidateExpenseQueries();
+    if (pushed > 0 || pulled > 0) invalidateSyncedQueries();
     return { pushed, pulled, failed, disabled: false, error };
   }
 
-  if (pushed > 0 || pulled > 0) invalidateExpenseQueries();
+  if (pushed > 0 || pulled > 0) invalidateSyncedQueries();
   return { pushed, pulled, failed, disabled: false };
 }
 
-function invalidateExpenseQueries(): void {
-  void getQueryClient().invalidateQueries({ queryKey: queryKeys.expenses.all });
+/** A sync may have changed expenses and/or budgets; refetch whichever screens are mounted. */
+function invalidateSyncedQueries(): void {
+  const client = getQueryClient();
+  void client.invalidateQueries({ queryKey: queryKeys.expenses.all });
+  void client.invalidateQueries({ queryKey: queryKeys.budgets.all });
 }
 
-async function pushPending(
-  database: SQLite.SQLiteDatabase,
-): Promise<{ pushed: number; failed: number; skipped: number }> {
+async function pushPending(database: SQLite.SQLiteDatabase): Promise<{
+  pushed: number;
+  failed: number;
+  skipped: number;
+  /** Skips of *expense* changes; only these invalidate the delta-pull cursor. */
+  skippedExpense: number;
+}> {
   const pending = await listPendingMutations(database);
-  if (pending.length === 0) return { pushed: 0, failed: 0, skipped: 0 };
+  if (pending.length === 0) return { pushed: 0, failed: 0, skipped: 0, skippedExpense: 0 };
 
   const body: Schemas['SyncPushDto'] = {
     changes: pending.map((mutation) => ({
-      entity: 'expense',
+      entity: mutation.entity,
       id: mutation.entityId,
       op: mutation.op,
       clientUpdatedAt: mutation.clientUpdatedAt,
@@ -130,18 +142,27 @@ async function pushPending(
   let pushed = 0;
   let failed = 0;
   let skipped = 0;
+  let skippedExpense = 0;
   for (const mutation of pending) {
     const result = results.get(mutation.entityId);
     if (!result || result.status === 'failed') {
       failed += 1;
       continue;
     }
-    if (result.status === 'skipped') skipped += 1;
-    await resolvePushedMutation(database, mutation, result);
+    if (result.status === 'skipped') {
+      skipped += 1;
+      if (mutation.entity === 'expense') skippedExpense += 1;
+    }
+
+    if (mutation.entity === 'budget') {
+      await resolvePushedBudgetMutation(database, mutation, result);
+    } else {
+      await resolvePushedExpenseMutation(database, mutation, result);
+    }
     pushed += 1;
   }
 
-  return { pushed, failed, skipped };
+  return { pushed, failed, skipped, skippedExpense };
 }
 
 async function pullChanges(database: SQLite.SQLiteDatabase): Promise<number> {

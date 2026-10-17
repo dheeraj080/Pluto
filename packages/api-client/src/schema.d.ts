@@ -2265,14 +2265,41 @@ export interface components {
              */
             recurringExpenseId?: string | null;
         };
+        SyncBudgetPayloadDto: {
+            /**
+             * @description Category to budget for; omit (or null) for an overall budget
+             * @example f47ac10b-58cc-4372-a567-0e02b2c3d479
+             */
+            categoryId?: string | null;
+            /**
+             * @description Budget limit in `currency`
+             * @example 400
+             */
+            amount: number;
+            /**
+             * @description ISO 4217 currency code
+             * @example USD
+             */
+            currency: string;
+            /**
+             * @example MONTHLY
+             * @enum {string}
+             */
+            period: "MONTHLY" | "YEARLY";
+            /**
+             * @description First day the budget applies, inclusive
+             * @example 2026-10-01
+             */
+            startDate: string;
+        };
         SyncChangeDto: {
             /**
              * @example expense
              * @enum {string}
              */
-            entity: "expense";
+            entity: "expense" | "budget";
             /**
-             * @description Client-generated UUID; doubles as the canonical expense id
+             * @description Client-generated UUID; doubles as the canonical entity id
              * @example f47ac10b-58cc-4372-a567-0e02b2c3d479
              */
             id: string;
@@ -2286,8 +2313,8 @@ export interface components {
              * @example 2026-10-10T08:15:00.000Z
              */
             clientUpdatedAt: string;
-            /** @description Required for create/update, ignored for delete */
-            data?: components["schemas"]["SyncExpensePayloadDto"];
+            /** @description Required for create/update, ignored for delete; an expense or budget payload, by `entity` */
+            data?: components["schemas"]["SyncExpensePayloadDto"] | components["schemas"]["SyncBudgetPayloadDto"];
         };
         SyncPushDto: {
             changes: components["schemas"]["SyncChangeDto"][];
