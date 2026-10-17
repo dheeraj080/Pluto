@@ -10,7 +10,7 @@
  * Deep links from Reports carry `?categoryId` / `?from` / `?to`.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { expensesApi, type ExpenseSort } from "@/lib/expenses";
 import { formatDate, formatDateRange } from "@/lib/format";
@@ -40,6 +40,7 @@ import { CategorySwatch } from "@/components/category-swatch";
 import { downloadTextFile } from "@/lib/download";
 import { IconPlus, IconReceipt, IconSearch } from "@/components/icons";
 import { useExpenseSetup, usePair, useRateSnapshot } from "../use-expenses";
+import { useDebouncedValue } from "../use-debounced-value";
 import { AddExpenseDrawer } from "../add-expense-drawer";
 import { ConversionAlert, ConversionPill } from "../conversion-notice";
 
@@ -90,7 +91,18 @@ export default function TransactionsPage() {
     [period, customFrom, customTo],
   );
 
+  // The chip and the input stay on `search`; only the request waits for typing
+  // to settle, so the list never fires once per keystroke.
+  const debouncedSearch = useDebouncedValue(search);
+
+  // Every `load` takes a ticket, and only the newest ticket may write state: a
+  // slower earlier request that resolves late would otherwise clobber the
+  // results the user is now looking at (deleting a row mid-search, a filter
+  // changed while the previous page was still in flight).
+  const latestRequest = useRef(0);
+
   const load = useCallback(async () => {
+    const request = ++latestRequest.current;
     setError(null);
     try {
       const [summaryResult, listResult, topResult] = await Promise.all([
@@ -107,7 +119,7 @@ export default function TransactionsPage() {
           currency: currency || undefined,
           from: range.from,
           to: range.to,
-          search: search || undefined,
+          search: debouncedSearch || undefined,
           sort,
         }),
         expensesApi.getTop({
@@ -118,13 +130,15 @@ export default function TransactionsPage() {
           secondary: second ?? undefined,
         }),
       ]);
+      if (request !== latestRequest.current) return;
       setSummary(summaryResult);
       setList(listResult);
       setTop(topResult);
     } catch (err) {
+      if (request !== latestRequest.current) return;
       setError(err instanceof Error ? err.message : "Failed to load expenses.");
     }
-  }, [base, second, categoryId, currency, pageNumber, range, search, sort]);
+  }, [base, second, categoryId, currency, pageNumber, range, debouncedSearch, sort]);
 
   const exportCsv = useCallback(async () => {
     setExporting(true);
@@ -135,7 +149,7 @@ export default function TransactionsPage() {
         to: range.to,
         categoryId: categoryId || undefined,
         currency: currency || undefined,
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         base: base ?? undefined,
         secondary: second ?? undefined,
       });
@@ -145,7 +159,7 @@ export default function TransactionsPage() {
     } finally {
       setExporting(false);
     }
-  }, [base, second, categoryId, currency, range, search]);
+  }, [base, second, categoryId, currency, range, debouncedSearch]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
