@@ -66,6 +66,24 @@ append `?pgbouncer=true`. If you hit prepared-statement errors during a deploy
 migration, add a `directUrl` to `apps/server/prisma/schema.prisma` pointing at
 the direct host.
 
+## Local development
+
+Local dev runs against the Docker Postgres from `apps/server/docker-compose.yml`
+(`postgres:17-alpine`, `localhost:5432`, database `pluto_db`) so it never touches
+a hosted branch. `apps/server/.env` points `DATABASE_URL` at it; the production
+Neon URL stays commented out in that file for reference.
+
+```bash
+docker compose -p pluto-server -f apps/server/docker-compose.yml up -d postgres
+npm run prisma:migrate:deploy -w pluto-server
+npm run start:dev -w pluto-server
+```
+
+The compose file also defines a MinIO service for object storage. If its image
+cannot be pulled (`pull access denied for minio/minio` usually means Docker Hub is
+rate-limiting anonymous pulls), either `docker login` first or start Postgres on
+its own with `up -d postgres` — object storage is optional for local dev.
+
 ## Server — Render
 
 `apps/server/render.yaml` defines two services:
@@ -218,7 +236,8 @@ reversed form becomes the app's URL scheme (see `apps/mobile/app.config.ts`).
 ## Enabling this (checklist)
 
 - [ ] Create Neon `dev` and `staging` branches; note their pooled URLs.
-- [ ] Update your local `apps/server/.env` to the `dev` branch (or local Docker).
+- [x] Point local dev at its own database — the Docker Postgres (see
+      [Local development](#local-development)).
 - [ ] `render blueprints validate apps/server/render.yaml`.
 - [ ] Sync the Blueprint; fill in the `sync: false` secrets for both services.
 - [ ] Deploy migrations to the **Neon** `staging` branch (the git `staging`
