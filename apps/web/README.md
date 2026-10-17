@@ -95,7 +95,9 @@ The dev server intentionally runs on **port 3001** to avoid clashing with pluto-
 | `NEXT_PUBLIC_API_URL` | Base URL of pluto-server including the version prefix (e.g. `http://localhost:3000/v1`) |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth 2.0 **Web** Client ID. Must also be listed in the server's `GOOGLE_ALLOWED_CLIENT_IDS`, and this origin (e.g. `http://localhost:3001`) must be in the client's *Authorized JavaScript origins* |
 | `NEXT_PUBLIC_ENABLE_DEV_AUTH` | No longer used (dev UI removed). Can be omitted. |
-| `NEXT_PUBLIC_SITE_URL` | Absolute site URL for metadata/OpenGraph |
+| `NEXT_PUBLIC_SITE_URL` | Absolute site URL for metadata/OpenGraph, and the origin written into `robots.txt` and `sitemap.xml` |
+
+> `NEXT_PUBLIC_*` values are inlined into the client bundle at **build** time, not read at runtime. Set them when `next build` runs (locally in `.env.local`, or as Docker build args — see [Deployment](#deployment)).
 
 ### Server-side configuration checklist (pluto-server)
 
@@ -135,12 +137,107 @@ npm run lint    # ESLint (Next 16 + react-hooks strict rules)
   effect-driven refetch and no hydration mismatch from reading `window` during render.
 - **Legal pages** are drafts derived from the implemented data flows — have counsel
   review before launch (flagged `DRAFT` in source).
+- **Error boundaries** (`src/app/error.tsx`, `src/app/global-error.tsx`): route
+  errors render a recoverable fallback (Next 16's `retry()`), and `global-error`
+  covers a failure in the root layout itself — it renders its own document with
+  inline styles, since it does not inherit `globals.css`.
+- **Crawl policy**: `src/app/robots.ts` disallows the signed-in surfaces
+  (`/admin`, `/expenses`, `/onboarding`) and points at the sitemap;
+  `src/app/sitemap.ts` lists only the public pages. Both are anchored to
+  `NEXT_PUBLIC_SITE_URL`.
+- **Security headers** (`next.config.ts`): `nosniff`, `X-Frame-Options: DENY`,
+  a referrer policy, a restrictive `Permissions-Policy`, HSTS, and
+  `X-Robots-Tag: noindex` on `/admin/**` and `/expenses/**` as defence-in-depth
+  alongside `robots.ts`. `poweredByHeader` is off. A Content-Security-Policy is
+  intentionally **not** set here — Next injects inline bootstrap scripts, so a
+  correct CSP needs per-request nonces and belongs at the edge/reverse proxy.
+
+## Deployment
+
+### Vercel (recommended)
+
+Vercel ships a first-party (verified) Next.js adapter, so deployment is
+zero-config beyond project settings:
+
+1. Import the repository into Vercel.
+2. Set **Root Directory** to `apps/web`. Vercel detects the npm workspace and
+   installs from the repository root; leave the build command auto-detected.
+3. Add the variables below **per Vercel environment** (Production / Preview /
+   Development). `NEXT_PUBLIC_*` are inlined at build time, so each environment
+   must build with its own values.
+
+| Variable | Production | Preview / staging |
+| :--- | :--- | :--- |
+| `NEXT_PUBLIC_API_URL` | `https://api.pluto.example/v1` | `https://pluto-server-staging.onrender.com/v1` |
+| `NEXT_PUBLIC_SITE_URL` | `https://pluto.example` | `https://staging.pluto.example` |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | production Web client ID | staging Web client ID |
+
+Every pull request then gets a preview deployment automatically. See
+[`docs/ENVIRONMENTS.md`](../../docs/ENVIRONMENTS.md) for the cross-app picture.
+
+> **Standalone output is disabled on Vercel.** `next.config.ts` sets
+> `output: "standalone"` only when `process.env.VERCEL` is unset. On Next 16.3+
+> a standalone build breaks Vercel's `onBuildComplete` (it can no longer find
+> `.next/next-server.js.nft.json`); Vercel produces its own output instead.
+
+`vercel.json` sets the **Ignored Build Step** so a commit that does not touch
+`pluto-web` (or a package it depends on) skips the build:
+
+```
+turbo query affected --base=$VERCEL_GIT_PREVIOUS_SHA --packages pluto-web --exit-code
+```
+
+Vercel provides `turbo` globally, and treats exit `0` as *skip* / `≥1` as
+*build* — so an error or missing `VERCEL_GIT_PREVIOUS_SHA` results in a normal
+build, never a wrongly-skipped one.
+
+#### CORS with preview deployments
+
+Preview URLs are unique per commit (`pluto-web-git-<branch>-<team>.vercel.app`)
+and the API's `CORS_ORIGIN` is an explicit list — a wildcard is rejected in
+production and per-commit origins cannot be enumerated ahead of time. Rather
+than chasing preview URLs:
+
+- Assign a **stable domain** to the staging branch in Vercel (e.g.
+  `staging.pluto.example`) and add that one origin to the *staging* API's
+  `CORS_ORIGIN`.
+- Add the production domain to the *production* API's `CORS_ORIGIN`.
+
+Each origin must also be registered on its Google Web client's *Authorized
+JavaScript origins*.
+
+### Docker / self-hosting (alternative)
+
+The app also builds to a self-contained Next.js **standalone** server
+(`output: "standalone"` in `next.config.ts`) and ships as a small image. The
+build context is the **repository root** (npm workspaces):
+
+```bash
+docker build -f apps/web/Dockerfile \
+  --build-arg NEXT_PUBLIC_API_URL=https://api.example.com/v1 \
+  --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://app.example.com \
+  -t pluto-web .
+
+docker run -p 3001:3001 pluto-web
+```
+
+`NEXT_PUBLIC_*` must be supplied as build args: they are baked into the bundle,
+so passing them to `docker run` has no effect. The runtime image runs as the
+non-root `node` user and serves on `PORT=3001`. (Build locally — the Docker
+image needs `output: "standalone"`, which the `VERCEL` guard skips only inside
+Vercel's build environment.)
 
 ## Launch checklist
 
 - [ ] Replace `support@pluto.app` placeholders in `/privacy`, `/terms`, `/support`
 - [ ] Fill in governing law in `/terms` §11
 - [ ] Replace the Play Store URL in `src/app/(public)/page.tsx`
-- [ ] Real Google Web Client ID + Authorized JavaScript origins
-- [ ] `NEXT_PUBLIC_SITE_URL` for the production domain
+- [ ] Real Google Web Client ID + Authorized JavaScript origins (per environment)
+- [ ] Vercel project with **Root Directory = `apps/web`**
+- [ ] `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_SITE_URL` / `NEXT_PUBLIC_GOOGLE_CLIENT_ID` set per Vercel environment
+- [ ] A stable staging domain assigned + added to the staging API's `CORS_ORIGIN`
+- [ ] Production domain added to the production API's `CORS_ORIGIN`
 - [ ] Submit `/delete-account` as the data-deletion URL in Google Play Console
+- [ ] If using the Docker image instead: build it with real `NEXT_PUBLIC_*` **build args**
+- [ ] Verify `/robots.txt` and `/sitemap.xml` resolve against each environment's `NEXT_PUBLIC_SITE_URL`
