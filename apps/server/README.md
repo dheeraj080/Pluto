@@ -71,7 +71,7 @@ graph TD
 
     subgraph External & Persistence
         AuthMod -->|Verify ID Token| GoogleOAuth[Google Identity Services]
-        RatesMod -->|Fetch Rates| Frankfurter[Frankfurter ECB Provider]
+        RatesMod -->|Fetch Rates| Frankfurter[Frankfurter v2 Provider]
         BackupMod -->|Presigned URLs| S3[AWS S3 / MinIO Storage]
         AuthMod --> Prisma[(PostgreSQL Database)]
         RatesMod --> Prisma

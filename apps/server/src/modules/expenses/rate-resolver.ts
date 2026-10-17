@@ -51,15 +51,39 @@ export class RateResolver {
 
     if (index >= 0) {
       const table = this.sorted[index];
-      const gapDays = Math.floor((date - this.parse(table.effectiveDate)) / 86_400_000);
-      const policy = gapDays <= this.lookbackDays ? 'historical' : 'estimate';
-      return { table, policy };
+      return { table, policy: this.policyFor(table.effectiveDate, dateIso) };
     }
 
     // The expense predates the first snapshot; use the earliest snapshot and
     // say so. Not a true historical cycle, but still clearly labeled and far
     // better than silently quoting today's rate.
     return { table: this.sorted[0], policy: 'estimate' };
+  }
+
+  /**
+   * Observation date of a single currency within a table.
+   *
+   * v2 blends sources that publish on staggered schedules, so a currency may be
+   * older than the table's `effectiveDate`. Legacy tables carry no per-row
+   * dates and fall back to the table date.
+   */
+  rateDateFor(table: RateTableDto, currency: string): string {
+    return table.dates?.[currency] ?? table.effectiveDate;
+  }
+
+  /**
+   * Classifies an observation date against an expense date. A rate observed
+   * *after* the expense can never be historical (a future rate is not the rate
+   * that applied), and anything staler than the lookback is an `estimate`.
+   */
+  policyFor(rateDate: string, dateIso: string): RatePolicy {
+    const expense = this.parse(dateIso);
+    const observed = this.parse(rateDate);
+    if (observed > expense) {
+      return 'estimate';
+    }
+    const gapDays = Math.floor((expense - observed) / 86_400_000);
+    return gapDays <= this.lookbackDays ? 'historical' : 'estimate';
   }
 
   private parse(isoDate: string): number {

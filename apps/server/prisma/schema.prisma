@@ -105,6 +105,10 @@ model ExchangeRate {
   snapshotId    String
   quoteCurrency String
   rate          Decimal      @db.Decimal(18, 6)
+  // Date this specific quote was observed. v2 blends staggered sources, so a
+  // row can be older than its snapshot's effectiveDate. Non-null from the
+  // migration on; legacy rows are backfilled from their snapshot.
+  effectiveDate DateTime     @db.Date
 
   snapshot      RateSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
 

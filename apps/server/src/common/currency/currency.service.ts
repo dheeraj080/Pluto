@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   CurrencyMeta,
+  DEFAULT_SUPPORTED_CURRENCIES,
   getCurrencyMeta,
   isKnownCurrencyCode,
   normalizeCurrencyCode,
@@ -13,13 +14,17 @@ import {
  *
  * These two questions are deliberately decoupled:
  * - *Recording* only needs a registry-valid ISO 4217 code (`isValid` /
- *   `assertValid`). A traveller must be able to log a Thai Baht or Vietnamese
- *   Dong even though the rate provider may never quote it.
+ *   `assertValid`). A traveller must be able to log a currency even though the
+ *   rate provider may never quote it.
  * - *Reporting bases* additionally require the code to be in the configured
  *   `SUPPORTED_CURRENCIES` list (`isSupportedReporting` /
  *   `assertSupportedReporting`), which mirrors what the exchange-rate provider
  *   actually serves. Asking for a report in a currency the provider cannot
  *   quote must fail loudly rather than silently producing an empty figure.
+ *
+ * By default the reporting set is the whole registry (Frankfurter v2 quotes
+ * almost all of it), so the two sets usually coincide; operators can pin a
+ * narrower set via `SUPPORTED_CURRENCIES` when their provider is smaller.
  */
 @Injectable()
 export class CurrencyService {
@@ -30,7 +35,7 @@ export class CurrencyService {
   constructor(private readonly configService: ConfigService) {
     const raw = this.configService.get<string>(
       'SUPPORTED_CURRENCIES',
-      'AUD,BRL,CAD,CHF,CNY,CZK,DKK,EUR,GBP,HKD,HUF,IDR,ILS,INR,ISK,JPY,KRW,MXN,MYR,NOK,NZD,PHP,PLN,RON,SEK,SGD,THB,TRY,USD,ZAR',
+      DEFAULT_SUPPORTED_CURRENCIES.join(','),
     );
     this.supportedReporting = raw
       .split(',')

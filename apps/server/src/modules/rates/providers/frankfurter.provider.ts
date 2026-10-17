@@ -2,9 +2,28 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   IExchangeRateProvider,
+  ProviderRateRow,
   ProviderRatesResponse,
 } from '../interfaces/exchange-rate-provider.interface';
 
+/**
+ * Frankfurter v2 adapter.
+ *
+ * v2 blends 223 currencies from 104 central banks and official sources (v1 was
+ * ECB-only, ~30 currencies). The public API needs no key, has no quotas and
+ * explicitly permits caching and commercial use; the project is MIT and
+ * self-hostable. The historical (implicit) default is EUR, but the `base`
+ * query parameter makes any supported code a base.
+ *
+ * Response shape differs from v1: v2 returns a flat array of
+ * `{ date, base, quote, rate }` rows rather than a `rates` dictionary, and each
+ * row carries its own observation date. The adapter normalises that into
+ * {@link ProviderRatesResponse}.
+ *
+ * We deliberately fetch every quote (no `quotes=` filter): this provider feeds
+ * the canonical snapshot, which must be complete so cross-rates can be derived
+ * for any reporting base later.
+ */
 @Injectable()
 export class FrankfurterProvider implements IExchangeRateProvider {
   readonly providerName = 'frankfurter';
@@ -14,7 +33,7 @@ export class FrankfurterProvider implements IExchangeRateProvider {
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = this.configService.get<string>(
       'EXCHANGE_RATE_BASE_URL',
-      'https://api.frankfurter.dev/v1',
+      'https://api.frankfurter.dev/v2',
     );
   }
 
@@ -22,10 +41,16 @@ export class FrankfurterProvider implements IExchangeRateProvider {
     baseCurrency: string,
     targetCurrencies: string[],
   ): Promise<ProviderRatesResponse> {
-    const symbols = targetCurrencies.filter((c) => c !== baseCurrency).join(',');
-    const url = `${this.baseUrl}/latest?base=${encodeURIComponent(baseCurrency)}&symbols=${encodeURIComponent(symbols)}`;
+    const base = baseCurrency.toUpperCase();
+    // v2 route is `/rates` (v1's `/latest` no longer exists).
+    const url = `${this.baseUrl}/rates?base=${encodeURIComponent(base)}`;
 
-    this.logger.log(`Fetching latest exchange rates from ${this.providerName}: ${url}`);
+    // We intentionally fetch the provider's full set rather than passing
+    // `quotes=`, because the canonical snapshot must be complete; the caller's
+    // target list is advisory only. Log its size so the intent is visible.
+    this.logger.log(
+      `Fetching latest exchange rates from ${this.providerName}: ${url} (${targetCurrencies.length} target(s) requested)`,
+    );
 
     let lastError: Error | null = null;
     const maxRetries = 3;
@@ -49,26 +74,47 @@ export class FrankfurterProvider implements IExchangeRateProvider {
           throw new Error(`Exchange rate provider HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const data = (await response.json()) as {
-          amount: number;
-          base: string;
+        const payload = (await response.json()) as Array<{
           date: string;
-          rates: Record<string, number>;
-        };
+          base: string;
+          quote: string;
+          rate: number;
+        }>;
 
-        if (!data || !data.rates || typeof data.rates !== 'object') {
-          throw new Error('Malformed provider payload: missing rates dictionary');
+        if (!Array.isArray(payload) || payload.length === 0) {
+          throw new Error('Malformed provider payload: expected a non-empty rate array');
         }
 
-        const normalizedRates: Record<string, number> = {
-          ...data.rates,
-          [baseCurrency]: 1.0, // Ensure base rate equals 1
-        };
+        // Providers return their own codes; normalise and drop anything without
+        // a usable quote. Individual currencies may legitimately be absent.
+        const rows: ProviderRateRow[] = [];
+        let asOf: string | null = null;
+        for (const entry of payload) {
+          if (!entry || typeof entry.quote !== 'string' || typeof entry.rate !== 'number') {
+            continue;
+          }
+          const quoteCurrency = entry.quote.toUpperCase();
+          if (!Number.isFinite(entry.rate) || entry.rate <= 0) {
+            continue;
+          }
+          const effectiveDate = entry.date;
+          rows.push({ quoteCurrency, rate: entry.rate, effectiveDate });
+          if (asOf === null || effectiveDate > asOf) asOf = effectiveDate;
+        }
+
+        if (rows.length === 0 || asOf === null) {
+          throw new Error('Provider payload contained no positive, dated rates');
+        }
+
+        // Guarantee the base quotes exactly 1.0 even if the provider omitted it.
+        if (!rows.some((r) => r.quoteCurrency === base)) {
+          rows.push({ quoteCurrency: base, rate: 1.0, effectiveDate: asOf });
+        }
 
         return {
-          baseCurrency: data.base || baseCurrency,
-          effectiveDate: data.date,
-          rates: normalizedRates,
+          baseCurrency: base,
+          effectiveDate: asOf,
+          rates: rows,
           provider: this.providerName,
         };
       } catch (err) {
@@ -78,8 +124,10 @@ export class FrankfurterProvider implements IExchangeRateProvider {
         );
 
         if (attempt < maxRetries) {
-          // Exponential backoff
-          await new Promise((res) => setTimeout(res, attempt * 1000));
+          // Exponential backoff with jitter so retries from many instances do
+          // not synchronise into a thundering herd against the provider.
+          const backoff = attempt * 1000 + Math.floor(Math.random() * 500);
+          await new Promise((res) => setTimeout(res, backoff));
         }
       }
     }

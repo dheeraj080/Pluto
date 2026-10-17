@@ -11,7 +11,8 @@ import { MockExchangeRateProvider } from './providers/mock.provider';
 /**
  * Chooses the concrete exchange-rate provider from `EXCHANGE_RATE_PROVIDER`.
  *
- * - `frankfurter` — default; ECB reference rates via the Frankfurter API.
+ * - `frankfurter` — default; Frankfurter v2 (blended central-bank rates,
+ *   ~148 currencies). Storage is canonical-base (USD by default).
  * - `mock`        — deterministic offline rates for dev/demo/tests.
  * - `exchangerate_host` — intentionally NOT implemented: throwing at bootstrap
  *   (fail fast) is deliberate. Nothing may silently fall back to another

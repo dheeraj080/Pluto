@@ -38,12 +38,13 @@ describe('CurrencyService', () => {
     return module.get(CurrencyService);
   }
 
-  it('defaults to the expanded provider-backed reporting set', async () => {
+  it('defaults to the broad registry-backed reporting set', async () => {
     service = await build({});
     expect(service.supportedReportingCurrencies).toContain('THB');
     expect(service.supportedReportingCurrencies).toContain('KRW');
-    // VND stays recordable but is not convertible.
-    expect(service.supportedReportingCurrencies).not.toContain('VND');
+    // VND is now convertible too: Frankfurter v2 quotes it.
+    expect(service.supportedReportingCurrencies).toContain('VND');
+    expect(service.supportedReportingCurrencies).toContain('BGN');
     expect(service.defaultReportingCurrency).toBe('USD');
   });
 
@@ -52,9 +53,10 @@ describe('CurrencyService', () => {
     expect(service.supportedReportingCurrencies).toEqual(['USD', 'THB', 'AED']);
   });
 
-  it('assertValid accepts a valid but unconvertible code', async () => {
-    service = await build({});
+  it('assertValid accepts a registry code even when a pinned reporting set excludes it', async () => {
+    service = await build({ SUPPORTED_CURRENCIES: 'USD,EUR' });
     expect(service.assertValid(' vnd ')).toBe('VND');
+    expect(service.isSupportedReporting('VND')).toBe(false);
     expect(service.isValid('THB')).toBe(true);
   });
 

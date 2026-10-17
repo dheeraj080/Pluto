@@ -178,6 +178,18 @@ export const CURRENCY_REGISTRY: Record<string, CurrencyMeta> = {
   ZWL: { name: 'Zimbabwean Dollar', symbol: 'Z$', decimals: 2 },
 };
 
+/**
+ * Default convertible set: every registry code.
+ *
+ * Historically this was a hand-maintained ~30-code list mirroring the ECB-only
+ * Frankfurter v1 universe. Frankfurter v2 blends ~148 of these codes from 104
+ * sources, so the default now simply follows the registry. Currencies a
+ * provider happens not to quote (e.g. BGN/ZWL on v2) still *record* fine and
+ * reports degrade to `unavailable` for them rather than crashing. Operators can
+ * still pin a narrower set via the `SUPPORTED_CURRENCIES` env var.
+ */
+export const DEFAULT_SUPPORTED_CURRENCIES: readonly string[] = Object.keys(CURRENCY_REGISTRY);
+
 /** True for a syntactically plausible three-letter code (not yet registry-validated). */
 export function isIsoCodeShape(value: string): boolean {
   return /^[A-Za-z]{3}$/.test(value.trim());

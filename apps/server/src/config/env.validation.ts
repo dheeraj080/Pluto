@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_SUPPORTED_CURRENCIES } from '../common/currency/currency.registry';
 
 export const envSchema = z
   .object({
@@ -37,15 +38,18 @@ export const envSchema = z
       .enum(['frankfurter', 'exchangerate_host', 'mock'])
       .default('frankfurter'),
     EXCHANGE_RATE_API_KEY: z.string().optional().default(''),
-    EXCHANGE_RATE_BASE_URL: z.string().default('https://api.frankfurter.dev/v1'),
+    // Frankfurter v2 blends ~148 currencies from 104 sources. v1 was ECB-only.
+    EXCHANGE_RATE_BASE_URL: z.string().default('https://api.frankfurter.dev/v2'),
+    // Default reporting currency requested by clients when `?base=` is omitted.
     EXCHANGE_RATE_BASE_CURRENCY: z.string().default('USD'),
-    // The reporting/conversion universe. Must stay within what the selected
-    // provider actually serves (Frankfurter: the ECB reference set below).
-    SUPPORTED_CURRENCIES: z
-      .string()
-      .default(
-        'AUD,BRL,CAD,CHF,CNY,CZK,DKK,EUR,GBP,HKD,HUF,IDR,ILS,INR,ISK,JPY,KRW,MXN,MYR,NOK,NZD,PHP,PLN,RON,SEK,SGD,THB,TRY,USD,ZAR',
-      ),
+    // Base snapshots are *stored* against this single canonical currency; every
+    // other reporting base is derived from it by dividing cross rates. Must be
+    // one the provider quotes (USD is always quoted).
+    EXCHANGE_RATE_CANONICAL_BASE: z.string().default('USD'),
+    // The reporting/conversion universe. Defaults to the whole registry, which
+    // Frankfurter v2 almost entirely quotes; pin a narrower list if your
+    // provider is smaller.
+    SUPPORTED_CURRENCIES: z.string().default(DEFAULT_SUPPORTED_CURRENCIES.join(',')),
     EXCHANGE_RATE_SCHEDULE: z.string().default('0 4 * * *'), // Default 4 AM UTC daily
     // Maximum age (in days) of a snapshot before a transaction-date rate is
     // relabeled from `historical` to a clearly-labeled `estimate`.

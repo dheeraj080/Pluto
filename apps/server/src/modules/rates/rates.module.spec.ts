@@ -78,20 +78,31 @@ describe('MockExchangeRateProvider', () => {
 
   it('quotes the requested base at exactly 1.0', async () => {
     const res = await provider.fetchLatestRates('THB');
-    expect(res.rates['THB']).toBe(1.0);
+    const baseRow = res.rates.find((r) => r.quoteCurrency === 'THB');
+    expect(baseRow?.rate).toBe(1.0);
     expect(res.baseCurrency).toBe('THB');
     expect(res.provider).toBe('mock');
   });
 
-  it('is deterministic and covers the whole Frankfurter universe', async () => {
+  it('is deterministic and dates every row', async () => {
     const first = await provider.fetchLatestRates('EUR');
     const second = await provider.fetchLatestRates('EUR');
     expect(first.rates).toEqual(second.rates);
-    for (const [currency, rate] of Object.entries(first.rates)) {
-      expect(typeof rate).toBe('number');
-      expect(Number.isFinite(rate)).toBe(true);
-      expect(rate).toBeGreaterThan(0);
-      expect(currency).toMatch(/^[A-Z]{3}$/);
+    for (const row of first.rates) {
+      expect(typeof row.rate).toBe('number');
+      expect(Number.isFinite(row.rate)).toBe(true);
+      expect(row.rate).toBeGreaterThan(0);
+      expect(row.quoteCurrency).toMatch(/^[A-Z]{3}$/);
+      expect(row.effectiveDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
+
+  it('covers the requested target currencies (broad registry set)', async () => {
+    const targets = ['VND', 'THB', 'KRW', 'BGN'];
+    const res = await provider.fetchLatestRates('USD', targets);
+    const quoted = new Set(res.rates.map((r) => r.quoteCurrency));
+    for (const code of targets) {
+      expect(quoted.has(code)).toBe(true);
     }
   });
 

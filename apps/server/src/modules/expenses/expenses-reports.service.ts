@@ -278,12 +278,19 @@ export class ExpensesReportsService {
         }
       }
 
+      // Provenance follows the *staler* of the two legs: the row for the source
+      // currency and the row for the reporting base. v2 dates each quote
+      // independently, so a pair is only as fresh as its older component.
+      const codeDate = ctx.resolver.rateDateFor(resolved.table, code);
+      const baseDate = ctx.resolver.rateDateFor(resolved.table, ctx.base);
+      const rateDate = codeDate < baseDate ? codeDate : baseDate;
+
       return {
         convertible: true,
         value,
         secondaryValue,
-        rateDate: resolved.table.effectiveDate,
-        policy: resolved.policy,
+        rateDate,
+        policy: ctx.resolver.policyFor(rateDate, dateIso),
         rate: Number(toRateRaw) / Number(fromRateRaw),
       };
     } catch {

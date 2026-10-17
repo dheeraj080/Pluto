@@ -76,9 +76,12 @@ envVarGroups:
         value: frankfurter
 
       - key: EXCHANGE_RATE_BASE_URL
-        value: https://api.frankfurter.dev/v1
+        value: https://api.frankfurter.dev/v2
 
       - key: EXCHANGE_RATE_BASE_CURRENCY
+        value: USD
+
+      - key: EXCHANGE_RATE_CANONICAL_BASE
         value: USD
 
       - key: EXCHANGE_RATE_SCHEDULE

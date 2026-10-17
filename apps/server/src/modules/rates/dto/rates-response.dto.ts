@@ -100,6 +100,16 @@ export class RateTableDto {
     example: { USD: '1.000000', EUR: '0.923400' },
   })
   rates!: Record<string, string>;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Per-currency observation date (YYYY-MM-DD) for each entry in `rates`. v2 blends ' +
+      'staggered sources, so a currency may be older than the snapshot `effectiveDate`; ' +
+      'reports use this to label stale rows `estimate` accurately. Omitted for legacy tables.',
+    example: { USD: '2026-10-09', EUR: '2026-10-09', VND: '2026-10-08' },
+  })
+  dates?: Record<string, string>;
 }
 
 /** One dated point on a currency pair's exchange-rate history. */

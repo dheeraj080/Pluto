@@ -54,19 +54,12 @@ describe('RatesService', () => {
       baseCurrency: 'USD',
       effectiveDate: '2026-10-09',
       provider: 'frankfurter',
-      rates: {
-        USD: 1.0,
-        EUR: 0.92,
-        GBP: 0.78,
-        INR: 86.4,
-        JPY: 152.0,
-        CNY: 7.24,
-        CAD: 1.38,
-        AUD: 1.54,
-        CHF: 0.88,
-        SGD: 1.34,
-        NZD: 1.67,
-      },
+      rates: [
+        { quoteCurrency: 'USD', rate: 1.0, effectiveDate: '2026-10-09' },
+        { quoteCurrency: 'EUR', rate: 0.92, effectiveDate: '2026-10-09' },
+        { quoteCurrency: 'GBP', rate: 0.78, effectiveDate: '2026-10-09' },
+        { quoteCurrency: 'JPY', rate: 152.0, effectiveDate: '2026-10-09' },
+      ],
     });
 
     mockPrismaService.rateSnapshot.create.mockResolvedValue({
@@ -139,7 +132,10 @@ describe('RatesService', () => {
       baseCurrency: 'USD',
       effectiveDate: '2026-10-10',
       provider: 'mock',
-      rates: { USD: 1.0, EUR: 0.93 },
+      rates: [
+        { quoteCurrency: 'USD', rate: 1.0, effectiveDate: '2026-10-10' },
+        { quoteCurrency: 'EUR', rate: 0.93, effectiveDate: '2026-10-10' },
+      ],
     });
     // No snapshot exists yet → both callers share a single on-demand sync.
     mockPrismaService.rateSnapshot.findFirst.mockResolvedValue(null);
@@ -218,7 +214,7 @@ describe('RatesService', () => {
       baseCurrency: 'USD',
       effectiveDate: '2026-10-10',
       provider: 'mock',
-      rates: { USD: 1.0 },
+      rates: [{ quoteCurrency: 'USD', rate: 1.0, effectiveDate: '2026-10-10' }],
     });
     const newSnapshot = {
       id: 'snap-new',
@@ -397,5 +393,107 @@ describe('RatesService', () => {
     expect(history.to).toBe(expectedTo);
     expect(history.from).toBe(start.toISOString().slice(0, 10));
     expect(history.points).toEqual([]);
+  });
+
+  it('carries forward currencies the provider did not refresh, preserving their date', async () => {
+    mockRateProvider.fetchLatestRates.mockResolvedValue({
+      baseCurrency: 'USD',
+      effectiveDate: '2026-10-10',
+      provider: 'frankfurter',
+      rates: [
+        { quoteCurrency: 'USD', rate: 1.0, effectiveDate: '2026-10-10' },
+        { quoteCurrency: 'EUR', rate: 0.93, effectiveDate: '2026-10-10' },
+      ],
+    });
+    // Previous snapshot refreshed EUR on the 9th but last saw VND on the 8th.
+    mockPrismaService.rateSnapshot.findFirst.mockResolvedValue({
+      id: 'snap-prev',
+      version: 7,
+      effectiveDate: new Date('2026-10-09'),
+      etag: 'W/"rates-USD-2026-10-09-prev"',
+      rates: [
+        {
+          quoteCurrency: 'USD',
+          rate: new Prisma.Decimal('1.000000'),
+          effectiveDate: new Date('2026-10-09'),
+        },
+        {
+          quoteCurrency: 'VND',
+          rate: new Prisma.Decimal('25000.000000'),
+          effectiveDate: new Date('2026-10-08'),
+        },
+      ],
+    });
+    mockPrismaService.rateSnapshot.create.mockResolvedValue({
+      id: 'snap-cf',
+      version: 8,
+      baseCurrency: 'USD',
+      effectiveDate: new Date('2026-10-10'),
+      provider: 'frankfurter',
+      etag: 'W/"rates-USD-2026-10-10-cf"',
+      isPublished: true,
+    });
+    mockPrismaService.rateSnapshot.findUnique.mockResolvedValue({
+      id: 'snap-cf',
+      version: 8,
+      baseCurrency: 'USD',
+      effectiveDate: new Date('2026-10-10'),
+      fetchedAt: new Date(),
+      provider: 'frankfurter',
+      etag: 'W/"rates-USD-2026-10-10-cf"',
+      rates: [
+        { quoteCurrency: 'EUR', rate: new Prisma.Decimal('0.930000') },
+        { quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') },
+        { quoteCurrency: 'VND', rate: new Prisma.Decimal('25000.000000') },
+      ],
+    });
+
+    await ratesService.syncExchangeRates('USD');
+
+    const rows = mockPrismaService.exchangeRate.createMany.mock.calls[0][0].data as Array<{
+      quoteCurrency: string;
+      effectiveDate: Date;
+    }>;
+    const vnd = rows.find((r) => r.quoteCurrency === 'VND');
+    expect(vnd).toBeDefined();
+    // VND was not refreshed today, so it keeps its own (older) observation date.
+    expect(vnd!.effectiveDate.toISOString().slice(0, 10)).toBe('2026-10-08');
+  });
+
+  it('derives a non-canonical base from the canonical snapshot', async () => {
+    mockPrismaService.rateSnapshot.findFirst.mockResolvedValue({ id: 'snap-canon' });
+    mockPrismaService.rateSnapshot.findUnique.mockResolvedValue({
+      id: 'snap-canon',
+      version: 3,
+      baseCurrency: 'USD',
+      effectiveDate: new Date('2026-10-09'),
+      fetchedAt: new Date(),
+      provider: 'frankfurter',
+      etag: 'W/"rates-USD-2026-10-09-canon"',
+      rates: [
+        {
+          quoteCurrency: 'EUR',
+          rate: new Prisma.Decimal('0.920000'),
+          effectiveDate: new Date('2026-10-09'),
+        },
+        {
+          quoteCurrency: 'JPY',
+          rate: new Prisma.Decimal('152.000000'),
+          effectiveDate: new Date('2026-10-09'),
+        },
+        {
+          quoteCurrency: 'USD',
+          rate: new Prisma.Decimal('1.000000'),
+          effectiveDate: new Date('2026-10-09'),
+        },
+      ],
+    });
+
+    const dto = await ratesService.getLatestRates('EUR');
+
+    expect(dto.baseCurrency).toBe('EUR');
+    expect(dto.rates.EUR).toBe('1.000000');
+    expect(dto.rates.USD).toBe('1.086957'); // 1 / 0.92
+    expect(dto.rates.JPY).toBe('165.217391'); // 152 / 0.92
   });
 });
