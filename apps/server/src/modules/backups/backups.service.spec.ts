@@ -153,6 +153,48 @@ describe('BackupsService', () => {
     );
   });
 
+  it('should reap the oldest snapshot on completion once retention is exceeded', async () => {
+    // The completion path itself must enforce retention: a user who keeps
+    // uploading must never accumulate unbounded snapshots, and the prune is
+    // best-effort-after-success, so nothing else would remove the oldest.
+    mockPrismaService.backup.findUnique.mockResolvedValue({
+      id: 'backup-uuid-4',
+      userId: 'user-1',
+      status: BackupStatus.PENDING,
+      storageKey: 'backups/user-1/backup-uuid-4.snap',
+      checksumSha256: 'a'.repeat(64),
+      sequenceNumber: 4,
+    });
+    mockStorageService.headObject.mockResolvedValue({ contentLength: 500000 });
+    mockStorageService.verifyObjectChecksum.mockResolvedValue({
+      matches: true,
+      actualChecksumSha256: 'a'.repeat(64),
+      actualBytes: 500000,
+    });
+    mockPrismaService.backup.update.mockResolvedValue({
+      id: 'backup-uuid-1',
+      userId: 'user-1',
+      status: BackupStatus.COMPLETED,
+      sequenceNumber: 4,
+      schemaVersion: '1.0.0',
+      appVersion: '2.0.0',
+      fileSizeBytes: BigInt(500000),
+      checksumSha256: 'a'.repeat(64),
+      completedAt: new Date(),
+      createdAt: new Date(),
+    });
+    mockPrismaService.backup.findMany.mockResolvedValue([
+      { id: 'b-4', sequenceNumber: 4, storageKey: 'key-4' },
+      { id: 'b-3', sequenceNumber: 3, storageKey: 'key-3' },
+      { id: 'b-2', sequenceNumber: 2, storageKey: 'key-2' }, // Oldest beyond the quota of 2
+    ]);
+
+    await backupsService.completeBackup('user-1', 'backup-uuid-1');
+
+    expect(mockStorageService.deleteObject).toHaveBeenCalledWith('key-2');
+    expect(mockPrismaService.backup.delete).toHaveBeenCalledWith({ where: { id: 'b-2' } });
+  });
+
   it('should reject completion and mark backup FAILED when checksum does not match', async () => {
     mockPrismaService.backup.findUnique.mockResolvedValue({
       id: 'backup-uuid-1',
