@@ -2182,6 +2182,66 @@
         ]
       }
     },
+    "/v1/rates/tables": {
+      "get": {
+        "description": "Returns the latest published rate table before `from` plus every table in `[from, to]` (default: the trailing 90 days), oldest first. Clients mirror this window on-device so report conversion works offline; older dates fall back to the online report endpoints.",
+        "operationId": "RatesController_getRateTables",
+        "parameters": [
+          {
+            "name": "base",
+            "required": false,
+            "in": "query",
+            "description": "ISO 4217 3-letter base currency code to derive against",
+            "schema": {
+              "example": "USD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive lower bound (YYYY-MM-DD); defaults to 90 days before `to`",
+            "schema": {
+              "example": "2026-07-20",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive upper bound (YYYY-MM-DD); defaults to today",
+            "schema": {
+              "example": "2026-10-18",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Point-in-time rate tables",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RateTableDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported base currency or malformed window"
+          }
+        },
+        "summary": "List immutable rate snapshots over a bounded window",
+        "tags": [
+          "Rates"
+        ]
+      }
+    },
     "/v1/rates/versions": {
       "get": {
         "description": "Returns version metadata for recent published exchange rate snapshots.",
@@ -5054,6 +5114,52 @@
           "from",
           "to",
           "points"
+        ]
+      },
+      "RateTableDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "example": 42
+          },
+          "baseCurrency": {
+            "type": "string",
+            "example": "USD"
+          },
+          "effectiveDate": {
+            "type": "string",
+            "example": "2026-10-09",
+            "description": "Provider market date (YYYY-MM-DD)"
+          },
+          "provider": {
+            "type": "string",
+            "example": "frankfurter"
+          },
+          "rates": {
+            "type": "object",
+            "description": "Rates against 1 unit of baseCurrency, serialized as exact decimal strings",
+            "example": {
+              "USD": "1.000000",
+              "EUR": "0.923400"
+            }
+          },
+          "dates": {
+            "type": "object",
+            "description": "Per-currency observation date (YYYY-MM-DD) for each entry in `rates`. v2 blends staggered sources, so a currency may be older than the snapshot `effectiveDate`; reports use this to label stale rows `estimate` accurately. Omitted for legacy tables.",
+            "example": {
+              "USD": "2026-10-09",
+              "EUR": "2026-10-09",
+              "VND": "2026-10-08"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "baseCurrency",
+          "effectiveDate",
+          "provider",
+          "rates"
         ]
       },
       "RateSnapshotVersionDto": {

@@ -4,11 +4,13 @@ import { Request, Response } from 'express';
 import { RatesService } from './rates.service';
 import { LatestRatesQueryDto } from './dto/latest-rates-query.dto';
 import { RateHistoryQueryDto } from './dto/rate-history-query.dto';
+import { RateTablesQueryDto } from './dto/rate-tables-query.dto';
 import {
   RateSnapshotResponseDto,
   SupportedCurrencyDto,
   RateSnapshotVersionDto,
   RateHistoryResponseDto,
+  RateTableDto,
 } from './dto/rates-response.dto';
 import { Public } from '../../common/decorators/public.decorator';
 
@@ -84,6 +86,23 @@ export class RatesController {
   @ApiResponse({ status: 400, description: 'Unsupported currency or malformed date' })
   async getRateHistory(@Query() query: RateHistoryQueryDto): Promise<RateHistoryResponseDto> {
     return this.ratesService.getRateHistory(query);
+  }
+
+  @Public()
+  @Get('tables')
+  @ApiOperation({
+    summary: 'List immutable rate snapshots over a bounded window',
+    description:
+      'Returns the latest published rate table before `from` plus every table in `[from, to]` (default: the trailing 90 days), oldest first. Clients mirror this window on-device so report conversion works offline; older dates fall back to the online report endpoints.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Point-in-time rate tables',
+    type: [RateTableDto],
+  })
+  @ApiResponse({ status: 400, description: 'Unsupported base currency or malformed window' })
+  async getRateTables(@Query() query: RateTablesQueryDto): Promise<RateTableDto[]> {
+    return this.ratesService.getRateTables(query);
   }
 
   @Public()

@@ -24,6 +24,7 @@ import {
   RateHistoryResponseDto,
 } from './dto/rates-response.dto';
 import { RateHistoryQueryDto } from './dto/rate-history-query.dto';
+import { RateTablesQueryDto } from './dto/rate-tables-query.dto';
 
 /** How long a served snapshot/table is trusted before re-reading the DB. */
 const SNAPSHOT_CACHE_TTL_MS = 60_000;
@@ -375,6 +376,88 @@ export class RatesService {
       .filter((t): t is RateTableDto => t !== null);
     this.cacheTables(cacheKey, tables);
     return tables;
+  }
+
+  /**
+   * Bounded version of {@link getRateTablesForRange} for clients that mirror a
+   * window on-device. Returns the latest snapshot strictly before `from` (the
+   * "carry-in" that lets a row dated on the lower bound still resolve
+   * historically) followed by every snapshot in `[from, to]`, oldest first.
+   */
+  async getRateTablesBetween(
+    baseCurrency: string | undefined,
+    from: Date,
+    to: Date,
+  ): Promise<RateTableDto[]> {
+    const base = (baseCurrency || this.defaultBaseCurrency).toUpperCase();
+    if (!this.supportedCurrencies.includes(base)) {
+      throw new BadRequestException(
+        `Unsupported base currency: ${base}. Supported: ${this.supportedCurrencies.join(', ')}`,
+      );
+    }
+
+    const cacheKey = `${base}:${from.toISOString().slice(0, 10)}:${to.toISOString().slice(0, 10)}`;
+    const cached = this.getCachedTables(cacheKey);
+    if (cached) return cached;
+
+    const canonicalBase = this.canonicalBaseCurrency;
+    const anySnapshot = await this.prisma.rateSnapshot.findFirst({
+      where: { baseCurrency: canonicalBase, isPublished: true },
+      select: { id: true },
+    });
+    if (!anySnapshot) {
+      try {
+        await this.syncExchangeRates();
+      } catch (err) {
+        this.logger.warn(
+          `On-demand rate sync for ${canonicalBase} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    const [carryIn, inRange] = await Promise.all([
+      this.prisma.rateSnapshot.findFirst({
+        where: { baseCurrency: canonicalBase, isPublished: true, effectiveDate: { lt: from } },
+        orderBy: { effectiveDate: 'desc' },
+        include: { rates: true },
+      }),
+      this.prisma.rateSnapshot.findMany({
+        where: {
+          baseCurrency: canonicalBase,
+          isPublished: true,
+          effectiveDate: { gte: from, lte: to },
+        },
+        orderBy: { effectiveDate: 'asc' },
+        include: { rates: true },
+      }),
+    ]);
+
+    const snapshots = carryIn ? [carryIn, ...inRange] : inRange;
+    const tables = snapshots
+      .map((s) => this.toRateTable(base, s))
+      .filter((t): t is RateTableDto => t !== null);
+
+    this.cacheTables(cacheKey, tables);
+    return tables;
+  }
+
+  /** Resolves a tables query's defaults (base, trailing 90-day window). */
+  async getRateTables(query: RateTablesQueryDto): Promise<RateTableDto[]> {
+    const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
+    const to = query.to ? new Date(`${query.to}T00:00:00.000Z`) : today;
+    const from = query.from
+      ? new Date(`${query.from}T00:00:00.000Z`)
+      : (() => {
+          const start = new Date(to);
+          start.setUTCDate(start.getUTCDate() - 90);
+          return start;
+        })();
+
+    if (from.getTime() > to.getTime()) {
+      throw new BadRequestException('`from` must not be after `to`');
+    }
+
+    return this.getRateTablesBetween(query.base, from, to);
   }
 
   private getCachedTables(key: string): RateTableDto[] | null {

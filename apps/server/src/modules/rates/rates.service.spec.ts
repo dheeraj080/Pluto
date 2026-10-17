@@ -313,6 +313,115 @@ describe('RatesService', () => {
     expect(tables).toEqual([]);
   });
 
+  it('builds a bounded window with the carry-in snapshot before `from`', async () => {
+    mockPrismaService.rateSnapshot.findFirst.mockReset();
+    mockPrismaService.rateSnapshot.findMany.mockReset();
+    mockPrismaService.rateSnapshot.findFirst
+      .mockResolvedValueOnce({ id: 'exists' }) // existence check
+      .mockResolvedValueOnce({
+        // carry-in: latest snapshot strictly before `from`
+        id: 'carry',
+        version: 1,
+        baseCurrency: 'USD',
+        effectiveDate: new Date('2026-09-30'),
+        provider: 'mock',
+        rates: [{ quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') }],
+      });
+    mockPrismaService.rateSnapshot.findMany.mockResolvedValue([
+      {
+        id: 'w1',
+        version: 2,
+        baseCurrency: 'USD',
+        effectiveDate: new Date('2026-10-05'),
+        provider: 'mock',
+        rates: [{ quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') }],
+      },
+    ]);
+
+    const tables = await ratesService.getRateTablesBetween(
+      'USD',
+      new Date('2026-10-01T00:00:00.000Z'),
+      new Date('2026-10-31T00:00:00.000Z'),
+    );
+
+    expect(tables.map((t) => t.effectiveDate)).toEqual(['2026-09-30', '2026-10-05']);
+  });
+
+  it('defaults the tables window to the trailing 90 days', async () => {
+    mockPrismaService.rateSnapshot.findFirst.mockReset();
+    mockPrismaService.rateSnapshot.findMany.mockReset();
+    mockPrismaService.rateSnapshot.findFirst
+      .mockResolvedValueOnce({ id: 'exists' })
+      .mockResolvedValueOnce(null);
+    mockPrismaService.rateSnapshot.findMany.mockResolvedValue([]);
+
+    await ratesService.getRateTables({ base: 'USD' });
+
+    const where = mockPrismaService.rateSnapshot.findMany.mock.calls[0][0].where;
+    const spanDays =
+      (where.effectiveDate.lte.getTime() - where.effectiveDate.gte.getTime()) / 86_400_000;
+    expect(spanDays).toBe(90);
+  });
+
+  it('builds a bounded window with the carry-in snapshot before `from`', async () => {
+    mockPrismaService.rateSnapshot.findFirst.mockReset();
+    mockPrismaService.rateSnapshot.findMany.mockReset();
+    mockPrismaService.rateSnapshot.findFirst
+      .mockResolvedValueOnce({ id: 'snap-any' }) // existence check
+      .mockResolvedValueOnce({
+        // carry-in: latest snapshot strictly before `from`
+        id: 's0',
+        version: 1,
+        baseCurrency: 'USD',
+        effectiveDate: new Date('2026-07-19'),
+        provider: 'mock',
+        rates: [{ quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') }],
+      });
+    mockPrismaService.rateSnapshot.findMany.mockResolvedValue([
+      {
+        id: 's1',
+        version: 2,
+        baseCurrency: 'USD',
+        effectiveDate: new Date('2026-07-20'),
+        provider: 'mock',
+        rates: [{ quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') }],
+      },
+    ]);
+
+    const tables = await ratesService.getRateTablesBetween(
+      'USD',
+      new Date('2026-07-20T00:00:00.000Z'),
+      new Date('2026-10-18T00:00:00.000Z'),
+    );
+
+    expect(tables.map((t) => t.effectiveDate)).toEqual(['2026-07-19', '2026-07-20']);
+  });
+
+  it('defaults the tables window to the trailing 90 days', async () => {
+    mockPrismaService.rateSnapshot.findFirst
+      .mockResolvedValueOnce({ id: 'snap-any' })
+      .mockResolvedValueOnce(null);
+    mockPrismaService.rateSnapshot.findMany.mockResolvedValue([]);
+
+    const tables = await ratesService.getRateTables({ base: 'USD' });
+
+    expect(tables).toEqual([]);
+    const where = mockPrismaService.rateSnapshot.findMany.mock.calls[0][0].where;
+    const spanDays =
+      (where.effectiveDate.lte.getTime() - where.effectiveDate.gte.getTime()) / 86_400_000;
+    expect(spanDays).toBe(90);
+  });
+
+  it('rejects an unsupported base for the tables window', async () => {
+    await expect(
+      ratesService.getRateTablesBetween(
+        'ZZZ',
+        new Date('2026-07-20T00:00:00.000Z'),
+        new Date('2026-10-18T00:00:00.000Z'),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('builds ascending rate-history points for a currency pair', async () => {
     mockPrismaService.rateSnapshot.findFirst.mockResolvedValue({ id: 'snap-any' });
     mockPrismaService.rateSnapshot.findMany.mockResolvedValue([

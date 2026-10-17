@@ -605,6 +605,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/rates/tables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List immutable rate snapshots over a bounded window
+         * @description Returns the latest published rate table before `from` plus every table in `[from, to]` (default: the trailing 90 days), oldest first. Clients mirror this window on-device so report conversion works offline; older dates fall back to the online report endpoints.
+         */
+        get: operations["RatesController_getRateTables"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/rates/versions": {
         parameters: {
             query?: never;
@@ -2050,6 +2070,36 @@ export interface components {
             to: string;
             /** @description One point per published snapshot in range, oldest first */
             points: components["schemas"]["RateHistoryPointDto"][];
+        };
+        RateTableDto: {
+            /** @example 42 */
+            version: number;
+            /** @example USD */
+            baseCurrency: string;
+            /**
+             * @description Provider market date (YYYY-MM-DD)
+             * @example 2026-10-09
+             */
+            effectiveDate: string;
+            /** @example frankfurter */
+            provider: string;
+            /**
+             * @description Rates against 1 unit of baseCurrency, serialized as exact decimal strings
+             * @example {
+             *       "USD": "1.000000",
+             *       "EUR": "0.923400"
+             *     }
+             */
+            rates: Record<string, never>;
+            /**
+             * @description Per-currency observation date (YYYY-MM-DD) for each entry in `rates`. v2 blends staggered sources, so a currency may be older than the snapshot `effectiveDate`; reports use this to label stale rows `estimate` accurately. Omitted for legacy tables.
+             * @example {
+             *       "USD": "2026-10-09",
+             *       "EUR": "2026-10-09",
+             *       "VND": "2026-10-08"
+             *     }
+             */
+            dates?: Record<string, never>;
         };
         RateSnapshotVersionDto: {
             /** @example 42 */
@@ -3701,6 +3751,40 @@ export interface operations {
                 };
             };
             /** @description Unsupported currency or malformed date */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RatesController_getRateTables: {
+        parameters: {
+            query?: {
+                /** @description ISO 4217 3-letter base currency code to derive against */
+                base?: string;
+                /** @description Inclusive lower bound (YYYY-MM-DD); defaults to 90 days before `to` */
+                from?: string;
+                /** @description Inclusive upper bound (YYYY-MM-DD); defaults to today */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Point-in-time rate tables */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateTableDto"][];
+                };
+            };
+            /** @description Unsupported base currency or malformed window */
             400: {
                 headers: {
                     [name: string]: unknown;
