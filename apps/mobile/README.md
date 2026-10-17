@@ -225,12 +225,43 @@ The month comparison is **month-to-date against the same days of last month**,
 never a partial month against a whole one; that pairing lives in
 `monthToDate()` in `src/lib/ranges.ts`.
 
-## Offline cache
+## Offline store
 
-The server is the source of truth: every read is a request, and **no write is
-queued offline**. What the app does keep is the last successful read, on disk, so
-a launch without a connection paints the last-known dashboard, list and budgets
-instead of an error.
+Native builds are offline-first: expenses can be **written with no connection**
+and every report and budget figure is computed on-device. The web build stays
+online-only.
+
+**Native.** `src/lib/store/local/` keeps a SQLite mirror (`pluto.db`) behind the
+same `ExpenseStore` / `CategoryStore` / `ReportStore` seams the web build
+satisfies with direct requests (`src/lib/store/remote.ts`); the platform picks
+one in `src/lib/store/index.ts`, and screens never branch.
+
+- Every write lands locally first and appends to a **write-ahead queue**
+  (`mutations`). An edit to a row that has never reached the server rewrites its
+  queued `create` instead of stacking a second op; deleting such a row drops it.
+- `src/lib/sync/sync-engine.ts` reconciles in the background: it pushes the
+  queue to `POST /sync/push`, then pulls changes with
+  `GET /sync/pull?since=<cursor>`. Conflicts are last-write-wins on
+  `clientUpdatedAt` and deletes are tombstones, so the phone — the primary writer
+  — always converges. A superseded push clears the cursor to force a full pull.
+- `src/lib/sync/background-sync.ts` syncs on sign-in, when connectivity returns
+  (`@react-native-community/netinfo`), on foreground and on a slow timer, and
+  purges the mirror on sign-out.
+- Reports and budgets are aggregated by the shared engine in `@pluto/domain`
+  (`src/lib/store/local/reports.ts`), so an offline total equals the server's
+  once synced. The engine converts at each row's own date, so the sync also
+  mirrors a trailing window of rate snapshots (`GET /rates/tables`) and the
+  account's budgets. A range older than the mirrored window falls back to the
+  API; that boundary is decided by `planRateRefresh` in
+  `src/lib/store/local/rate-mirror-policy.ts`.
+
+**Web.** The browser has no local database (`expo-sqlite` needs COOP/COEP headers
+the static web target does not serve), so `src/lib/store/index.ts` routes reads
+and writes to the API. The last-known-read cache below still applies.
+
+**Last-known-read cache (both platforms).** The app keeps the last successful
+read on disk so a launch without a connection paints known figures instead of an
+error.
 
 - `src/lib/query-persistence.ts` dehydrates the query cache and writes it through
   `src/lib/query-cache-storage.ts` — the document directory on device

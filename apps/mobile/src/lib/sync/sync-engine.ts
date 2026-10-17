@@ -5,6 +5,7 @@ import type { Schemas } from '@pluto/api-client';
 import { api } from '@/lib/api';
 import { queryKeys } from '@/lib/query-keys';
 import { getQueryClient } from '@/lib/query-client';
+import { getSessionState } from '@/lib/session';
 import { categoryStore, localStoreEnabled } from '@/lib/store';
 import { getDatabase } from '@/lib/store/local/database';
 import { applyPulledExpenses, resolvePushedMutation } from '@/lib/store/local/expenses';
@@ -15,6 +16,7 @@ import {
   SYNC_CURSOR_KEY,
 } from '@/lib/store/local/meta';
 import { listPendingMutations } from '@/lib/store/local/mutations';
+import { refreshReportMirrors } from '@/lib/store/local/report-mirror';
 
 export interface SyncOutcome {
   /** Queued changes the server accepted (or superseded). */
@@ -30,6 +32,9 @@ export interface SyncOutcome {
 }
 
 const DISABLED: SyncOutcome = { pushed: 0, pulled: 0, failed: 0, disabled: true };
+
+/** The server's reporting default, used until the profile supplies a base. */
+const DEFAULT_BASE_CURRENCY = 'USD';
 
 /** Guards against overlapping runs: a timer tick and a reconnect can race. */
 let inFlight: Promise<SyncOutcome> | null = null;
@@ -82,6 +87,13 @@ async function runSync(): Promise<SyncOutcome> {
     } catch {
       /* Offline or transient: keep the cached mirror. */
     }
+
+    // Rate + budget mirrors: what the Reports and Budgets tabs convert with
+    // when the device is offline. Best-effort, like the category refresh.
+    await refreshReportMirrors(
+      database,
+      getSessionState().user?.baseCurrency ?? DEFAULT_BASE_CURRENCY,
+    );
   } catch (error) {
     if (pushed > 0 || pulled > 0) invalidateExpenseQueries();
     return { pushed, pulled, failed, disabled: false, error };

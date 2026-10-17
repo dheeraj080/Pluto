@@ -1,14 +1,8 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { api } from '@/lib/api';
+import { reportStore } from '@/lib/store';
 import { queryKeys, type ReportQueryParams, type ReportSeriesParams } from '@/lib/query-keys';
-import type {
-  ByDayOfWeekResponse,
-  CategorySeries,
-  ExpenseComparison,
-  ExpenseSeries,
-} from '@/lib/report-types';
 import { withPrevious, type ReportGranularity } from '@/lib/ranges';
 import { useSession } from '@/hooks/use-session';
 
@@ -68,9 +62,9 @@ export function useReportComparison(params: RangeParams) {
   return useQuery({
     queryKey: queryKeys.reports.comparison(query),
     enabled: status === 'signed-in' && (params.enabled ?? true),
-    queryFn: () =>
-      api.get<ExpenseComparison>('/expenses/comparison', {
-        query: {
+    queryFn: ({ signal }) =>
+      reportStore.comparison(
+        {
           currentFrom: window.from,
           currentTo: window.to,
           previousFrom: window.prevFrom,
@@ -78,7 +72,8 @@ export function useReportComparison(params: RangeParams) {
           base: query.base,
           secondary: query.secondary,
         },
-      }),
+        { signal },
+      ),
   });
 }
 
@@ -90,7 +85,7 @@ export function useReportByDayOfWeek(params: RangeParams) {
   return useQuery({
     queryKey: queryKeys.reports.byDayOfWeek(query),
     enabled: status === 'signed-in' && (params.enabled ?? true),
-    queryFn: () => api.get<ByDayOfWeekResponse>('/expenses/by-day-of-week', { query }),
+    queryFn: ({ signal }) => reportStore.byDayOfWeek(query, { signal }),
   });
 }
 
@@ -110,10 +105,8 @@ export function useReportSeries(params: RangeParams & { granularity: ReportGranu
   return useQuery({
     queryKey: queryKeys.reports.series(keyed),
     enabled: status === 'signed-in' && (params.enabled ?? true),
-    queryFn: () =>
-      api.get<ExpenseSeries>('/expenses/series', {
-        query: { ...query, granularity: params.granularity },
-      }),
+    queryFn: ({ signal }) =>
+      reportStore.series({ ...query, granularity: params.granularity }, { signal }),
   });
 }
 
@@ -126,9 +119,7 @@ export function useReportCategorySeries(params: RangeParams & { granularity: Rep
   return useQuery({
     queryKey: queryKeys.reports.categorySeries(keyed),
     enabled: status === 'signed-in' && (params.enabled ?? true),
-    queryFn: () =>
-      api.get<CategorySeries>('/expenses/category-series', {
-        query: { ...query, granularity: params.granularity },
-      }),
+    queryFn: ({ signal }) =>
+      reportStore.categorySeries({ ...query, granularity: params.granularity }, { signal }),
   });
 }

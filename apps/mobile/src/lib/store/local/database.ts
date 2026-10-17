@@ -1,8 +1,18 @@
 import * as SQLite from 'expo-sqlite';
 
-import { SCHEMA_V1, SCHEMA_VERSION } from './schema';
+import { SCHEMA_V1, SCHEMA_V2, SCHEMA_VERSION } from './schema';
 
 const DATABASE_NAME = 'pluto.db';
+
+/**
+ * The ordered schema steps. Each statement is written to be safe to re-run
+ * (`CREATE TABLE IF NOT EXISTS`), but a step only executes when the stored
+ * `user_version` is behind it, so an upgrade applies exactly the new steps.
+ */
+const MIGRATIONS: readonly { version: number; sql: string }[] = [
+  { version: 1, sql: SCHEMA_V1 },
+  { version: 2, sql: SCHEMA_V2 },
+];
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -27,8 +37,10 @@ async function openDatabase(): Promise<SQLite.SQLiteDatabase> {
     (await database.getFirstAsync<{ user_version: number }>('PRAGMA user_version;'))?.user_version ??
     0;
 
+  for (const migration of MIGRATIONS) {
+    if (version < migration.version) await database.execAsync(migration.sql);
+  }
   if (version < SCHEMA_VERSION) {
-    await database.execAsync(SCHEMA_V1);
     await database.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
   }
 
@@ -45,6 +57,6 @@ async function openDatabase(): Promise<SQLite.SQLiteDatabase> {
 export async function clearLocalDatabase(): Promise<void> {
   const database = await getDatabase();
   await database.execAsync(
-    'DELETE FROM mutations; DELETE FROM expenses; DELETE FROM categories; DELETE FROM sync_meta;',
+    'DELETE FROM mutations; DELETE FROM expenses; DELETE FROM categories; DELETE FROM rate_tables; DELETE FROM budgets; DELETE FROM sync_meta;',
   );
 }

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import type { Schemas } from '@pluto/api-client';
 
 import { api } from '@/lib/api';
+import { reportStore } from '@/lib/store';
 import { queryKeys, type BudgetStatusParams } from '@/lib/query-keys';
 import { useSession } from '@/hooks/use-session';
 
@@ -40,14 +41,11 @@ export function useBudgetStatus(params: BudgetStatusParams) {
   return useQuery({
     queryKey: queryKeys.budgets.status(params),
     enabled: status === 'signed-in',
-    queryFn: () =>
-      api.get<BudgetStatusResponse>('/expenses/budgets/status', {
-        query: {
-          month: params.month,
-          base: params.base,
-          secondary: params.secondary,
-        },
-      }),
+    queryFn: ({ signal }) =>
+      reportStore.budgetStatus(
+        { month: params.month, base: params.base, secondary: params.secondary },
+        { signal },
+      ),
   });
 }
 

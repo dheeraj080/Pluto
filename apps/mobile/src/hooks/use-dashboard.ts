@@ -16,7 +16,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { api } from '@/lib/api';
+import { reportStore } from '@/lib/store';
 import { queryKeys } from '@/lib/query-keys';
 import type { ExpenseComparison } from '@/lib/report-types';
 import { monthToDate, type MonthWindow } from '@/lib/ranges';
@@ -63,9 +63,9 @@ export function useMonthComparison(base: string | null, second: string | null): 
   const query = useQuery({
     queryKey: queryKeys.dashboard.comparison(key),
     enabled: status === 'signed-in',
-    queryFn: () =>
-      api.get<ExpenseComparison>('/expenses/comparison', {
-        query: {
+    queryFn: ({ signal }) =>
+      reportStore.comparison(
+        {
           currentFrom: window.from,
           currentTo: window.to,
           previousFrom: window.prevFrom,
@@ -73,7 +73,8 @@ export function useMonthComparison(base: string | null, second: string | null): 
           base: key.base,
           secondary: key.secondary,
         },
-      }),
+        { signal },
+      ),
   });
 
   return {

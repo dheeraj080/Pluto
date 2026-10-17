@@ -8,7 +8,7 @@
  *   row's edits rewrite its queued `create` instead of stacking an `update`.
  * - `mutations` is the write-ahead queue that survives a crash or a kill.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const SCHEMA_V1 = `
 CREATE TABLE IF NOT EXISTS expenses (
@@ -53,5 +53,42 @@ CREATE INDEX IF NOT EXISTS mutations_entity_idx ON mutations (entity, entity_id)
 CREATE TABLE IF NOT EXISTS sync_meta (
   key TEXT PRIMARY KEY NOT NULL,
   value TEXT
+);
+`;
+
+/**
+ * Report mirrors (v2).
+ *
+ * `rate_tables` holds the immutable exchange-rate snapshots a report needs to
+ * convert on-device, keyed by the reporting base so a base change keeps its own
+ * window. `rates`/`dates` are the snapshot's maps serialized as JSON — the
+ * engine hands them straight back to `RateResolver`:
+ *
+ * - `rates` maps a quote currency to decimal strings, `dates` to its observation
+ *   date when it differs from `effective_date`.
+ *
+ * `budgets` mirrors the account's budgets so budget-vs-actual can be computed
+ * offline. It stores only the fields the engine needs; the category name and
+ * colour come from the `categories` mirror.
+ */
+export const SCHEMA_V2 = `
+CREATE TABLE IF NOT EXISTS rate_tables (
+  base_currency TEXT NOT NULL,
+  effective_date TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  provider TEXT NOT NULL,
+  rates TEXT NOT NULL,
+  dates TEXT,
+  PRIMARY KEY (base_currency, effective_date)
+);
+
+CREATE TABLE IF NOT EXISTS budgets (
+  id TEXT PRIMARY KEY NOT NULL,
+  category_id TEXT,
+  amount REAL NOT NULL,
+  currency TEXT NOT NULL,
+  period TEXT NOT NULL,
+  start_date TEXT NOT NULL,
+  created_at TEXT NOT NULL
 );
 `;

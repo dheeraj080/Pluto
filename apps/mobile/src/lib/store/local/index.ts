@@ -11,6 +11,9 @@ import {
   listLocalExpenses,
   updateLocalExpense,
 } from './expenses';
+import { localReportStore } from './reports';
+
+export { localReportStore };
 
 /**
  * Native implementation of the expense seam: SQLite is the source of truth and
