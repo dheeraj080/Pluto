@@ -1,7 +1,7 @@
 "use client";
 
 import { formatDate } from "@/lib/format";
-import { rateBetween } from "@/lib/convert";
+import { formatRateValue, rateBetween } from "@/lib/convert";
 import { InfoPill } from "@/components/pill";
 import type { ConversionStatus, RateProvenance, RateSnapshot } from "@/lib/types";
 
@@ -52,7 +52,7 @@ export function RateAsOfPill({
 }
 
 function formatRate(value: number): string {
-  return value.toFixed(value >= 100 ? 2 : 4);
+  return formatRateValue(value);
 }
 
 /**

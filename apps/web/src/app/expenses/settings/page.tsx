@@ -15,6 +15,7 @@ import { ThemeToggle } from "@/components/theme";
 import { Button, ErrorNote, Field, Select } from "@/components/ui";
 import { IconSwap } from "@/components/icons";
 import { formatMoney } from "@/lib/format";
+import { formatRateValue } from "@/lib/convert";
 import { useExpenseSetup, usePair, useRateSnapshot } from "../use-expenses";
 
 /** The illustrative amount used for the live pair preview. */
@@ -123,7 +124,7 @@ export default function SettingsPage() {
             </p>
             {Number.isFinite(rate) && (
               <p className="mt-1 text-xs text-muted">
-                1 {base} = <span className="tabular-nums">{rate.toFixed(4)}</span> {second}, at the
+                1 {base} = <span className="tabular-nums">{formatRateValue(rate)}</span> {second}, at the
                 latest published rate.
               </p>
             )}

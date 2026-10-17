@@ -20,7 +20,7 @@ import { DualAmount } from "@/components/amount";
 import { CategorySwatch } from "@/components/category-swatch";
 import { IconArrowLeft, IconEdit, IconTrash } from "@/components/icons";
 import { formatDate } from "@/lib/format";
-import { buildConversionPreview, dualAmounts } from "@/lib/convert";
+import { buildConversionPreview, dualAmounts, formatRateValue } from "@/lib/convert";
 import { ConfirmDialog } from "@/components/dialog";
 import { usePair, useRateSnapshot } from "../use-expenses";
 
@@ -165,14 +165,14 @@ export default function ExpenseDetailPage() {
               <p className="mt-3 text-xs text-muted">
                 {toBase && (
                   <>
-                    1 {toBase.from} = {toBase.rate.toFixed(4)} {toBase.to} · {toBase.provider}{" "}
+                    1 {toBase.from} = {formatRateValue(toBase.rate)} {toBase.to} · {toBase.provider}{" "}
                     {toBase.effectiveDate}
                   </>
                 )}
                 {toBase && baseToSecond && " · "}
                 {baseToSecond && !toBase && (
                   <>
-                    1 {baseToSecond.from} = {baseToSecond.rate.toFixed(4)} {baseToSecond.to} ·{" "}
+                    1 {baseToSecond.from} = {formatRateValue(baseToSecond.rate)} {baseToSecond.to} ·{" "}
                     {baseToSecond.provider} {baseToSecond.effectiveDate}
                   </>
                 )}

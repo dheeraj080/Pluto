@@ -1,10 +1,14 @@
 /**
  * Minimal formatting helpers for the mobile UI.
  *
- * `apps/web/src/lib/format.ts` holds the richer versions; the plan calls for
- * lifting the pure parts into a shared `packages/domain` so both clients agree.
- * Until then this mirrors the money formatting exactly.
+ * The platform-neutral pieces (bytes, percentages, the current month bucket and
+ * the local "today" anchor) live in `@pluto/domain` so both clients agree; they
+ * are re-exported here to keep the `@/lib/format` import path stable. The
+ * locale-aware money and date formatters stay local: Hermes ships without full
+ * ICU, so they need a fallback the browser does not.
  */
+
+export { currentMonth, formatBytes, formatPercent, todayIso } from '@pluto/domain';
 
 export function formatMoney(amount: number, currency: string): string {
   try {
@@ -17,22 +21,6 @@ export function formatMoney(amount: number, currency: string): string {
     // Hermes without full ICU, or an unknown currency code.
     return `${amount.toFixed(2)} ${currency}`;
   }
-}
-
-/**
- * `1536` → `1.5 KB`. Mirrors `apps/web/src/lib/format.ts`: the backup list is
- * the only place either client shows a byte count, and the two must agree.
- */
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let value = bytes / 1024;
-  let i = 0;
-  while (value >= 1024 && i < units.length - 1) {
-    value /= 1024;
-    i += 1;
-  }
-  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[i]}`;
 }
 
 /** `2026-10-10` → `10 Oct 2026`, without depending on locale data. */
@@ -49,19 +37,6 @@ export function formatDate(iso: string): string {
   } catch {
     return iso;
   }
-}
-
-/**
- * Today as `YYYY-MM-DD`, in the device's local time zone.
- *
- * Local rather than UTC on purpose: the user's "today" is what their calendar
- * says. Date *ranges* built from this bound are plain calendar dates, so they
- * stay zone-free once computed.
- */
-export function todayIso(now: Date = new Date()): string {
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${now.getFullYear()}-${month}-${day}`;
 }
 
 /**
@@ -82,11 +57,6 @@ export function formatMonth(month: string): string {
   } catch {
     return month;
   }
-}
-
-/** Today as a `YYYY-MM` bucket, in UTC. */
-export function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
 }
 
 /**
@@ -133,17 +103,7 @@ export function formatDateRange(from: string, to: string): string {
   return `${new Intl.DateTimeFormat(undefined, dayMonth).format(start)} - ${new Intl.DateTimeFormat(undefined, dayMonth).format(end)}`;
 }
 
-/** `0.5` → `0.5%`, `12` → `12%` — only adds a decimal when there is one. */
-export function formatPercent(value: number): string {
-  return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
-}
-
-/**
- * True for a `YYYY-MM-DD` string that is also a real calendar date.
- *
- * The shape check alone would accept `2026-02-31`; the server validates with
- * `IsDateString` and would reject it, so catching it here gives a better error.
- */
+/** `2026-10-16` → `Today`, `2026-10-15` → `Yesterday`, else a short date. */
 export function formatRelativeDate(iso: string, now: Date = new Date()): string {
   const date = new Date(`${iso}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) return iso;
@@ -166,6 +126,12 @@ export function formatRelativeDate(iso: string, now: Date = new Date()): string 
   }
 }
 
+/**
+ * True for a `YYYY-MM-DD` string that is also a real calendar date.
+ *
+ * The shape check alone would accept `2026-02-31`; the server validates with
+ * `IsDateString` and would reject it, so catching it here gives a better error.
+ */
 export function isValidIsoDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);

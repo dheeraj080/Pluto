@@ -21,6 +21,7 @@
 
 import Link from "next/link";
 import { formatMoney } from "@/lib/format";
+import { formatRateValue } from "@/lib/convert";
 
 export interface TransactionRowProps {
   href: string;
@@ -140,5 +141,5 @@ export function TransactionRow({
 /** Rates need more digits when a single unit is worth very little. */
 function formatRate(value: number): string {
   if (!Number.isFinite(value)) return "—";
-  return value.toFixed(value >= 100 ? 2 : 4);
+  return formatRateValue(value);
 }

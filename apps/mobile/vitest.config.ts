@@ -11,6 +11,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'src'),
       '@pluto/api-client': path.resolve(__dirname, '../../packages/api-client/src/index.ts'),
+      '@pluto/domain': path.resolve(__dirname, '../../packages/domain/src/index.ts'),
     },
   },
 });

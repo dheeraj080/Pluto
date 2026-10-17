@@ -16,15 +16,11 @@ import { useState, type FormEvent } from "react";
 import { Button, ErrorNote, Field, Input, Select } from "@/components/ui";
 import { IconSwap } from "@/components/icons";
 import { expensesApi } from "@/lib/expenses";
-import { buildConversionPreview, dualAmounts } from "@/lib/convert";
+import { buildConversionPreview, dualAmounts, formatRateValue } from "@/lib/convert";
 import { formatMoney } from "@/lib/format";
+import { todayIso } from "@/lib/ranges";
 import type { Expense, ExpenseCategory, RecurrenceFrequency, SupportedCurrency } from "@/lib/types";
 import { usePair, useRateSnapshot } from "./use-expenses";
-
-/** UTC "today", matching the YYYY-MM-DD the server stores for `incurredOn`. */
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export function ExpenseForm({
   expense,
@@ -187,7 +183,7 @@ export function ExpenseForm({
                   <span className="font-normal text-muted">in your pair</span>
                 </span>
                 <span className="text-xs text-muted">
-                  1 {toBase.from} = {toBase.rate.toFixed(4)} {toBase.to} · {toBase.provider}{" "}
+                  1 {toBase.from} = {formatRateValue(toBase.rate)} {toBase.to} · {toBase.provider}{" "}
                   {toBase.effectiveDate}
                 </span>
               </div>

@@ -2,17 +2,11 @@
 
 import type { RecurrenceFrequency } from "./types";
 
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let value = bytes / 1024;
-  let i = 0;
-  while (value >= 1024 && i < units.length - 1) {
-    value /= 1024;
-    i += 1;
-  }
-  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[i]}`;
-}
+/**
+ * Byte and percentage formatting are identical on both clients, so they live
+ * in `@pluto/domain`; re-exported here to keep the `@/lib/format` path stable.
+ */
+export { currentMonth, formatBytes, formatPercent } from "@pluto/domain";
 
 export function formatDateTime(iso: string | Date): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -84,11 +78,6 @@ export function formatMoney(amount: number, currency: string, locale?: string): 
   }
 }
 
-/** Formats a number as a percentage, e.g. `82.5%`. */
-export function formatPercent(value: number): string {
-  return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
-}
-
 /**
  * Renders a `YYYY-MM` bucket as a short month label, e.g. `Oct 2026`.
  * Anchored to UTC so a December/January boundary cannot shift the label.
@@ -101,11 +90,6 @@ export function formatMonth(month: string): string {
     year: "numeric",
     timeZone: "UTC",
   });
-}
-
-/** Today as a `YYYY-MM` bucket, in UTC. */
-export function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
 }
 
 /**

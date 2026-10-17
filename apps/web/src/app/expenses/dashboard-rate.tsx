@@ -13,7 +13,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { formatAsOf, formatMoney } from "@/lib/format";
-import { rateBetween } from "@/lib/convert";
+import { formatRateValue, rateBetween } from "@/lib/convert";
 import { ChartFrame, Sparkline, type TrendRow } from "@/components/charts";
 import { IconSwap } from "@/components/icons";
 import { Skeleton } from "@/components/ui";
@@ -140,5 +140,5 @@ export function RateConverterCard({
 }
 
 function rateDigits(rate: number): string {
-  return rate.toFixed(rate >= 100 ? 2 : 4);
+  return formatRateValue(rate);
 }

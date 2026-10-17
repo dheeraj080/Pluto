@@ -28,6 +28,7 @@
     "@expo-google-fonts/space-grotesk": "^0.4.1",
     "@expo/ui": "~57.0.23",
     "@pluto/api-client": "*",
+    "@pluto/domain": "*",
     "@react-native-google-signin/google-signin": "^16.1.5",
     "@sentry/react-native": "^8.31.0",
     "@tanstack/react-query": "^5.104.2",

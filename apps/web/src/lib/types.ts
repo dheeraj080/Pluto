@@ -29,15 +29,11 @@ export interface HealthReport {
   };
 }
 
-export interface RateSnapshot {
-  version: number;
-  baseCurrency: string;
-  effectiveDate: string;
-  fetchedAt: string;
-  provider: string;
-  etag: string;
-  rates: Record<string, string>;
-}
+/**
+ * Re-exported from the shared domain: the shape must match what both clients
+ * read off `/rates/latest`.
+ */
+export type { RateSnapshot } from "@pluto/domain";
 
 export type BackupStatus = "PENDING" | "COMPLETED" | "FAILED" | "DELETED";
 
