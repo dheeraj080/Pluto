@@ -99,7 +99,9 @@ export class ExpensesService {
   ): Promise<{ success: boolean; message: string }> {
     const category = await this.findOwnedCategory(userId, id);
 
-    const inUse = await this.prisma.expense.count({ where: { categoryId: category.id } });
+    const inUse = await this.prisma.expense.count({
+      where: { categoryId: category.id, deletedAt: null },
+    });
     const rulesInUse = await this.prisma.recurringExpense.count({
       where: { userId, categoryId: category.id },
     });
@@ -333,6 +335,9 @@ export class ExpensesService {
       data: {
         categoryId,
         currency,
+        // Stamp the logical clock so an online edit takes part in the same
+        // last-write-wins ordering as a device push.
+        clientUpdatedAt: new Date(),
         ...(dto.amount !== undefined ? { amount: new Prisma.Decimal(dto.amount.toFixed(2)) } : {}),
         ...(dto.incurredOn !== undefined ? { incurredOn: toUtcDate(dto.incurredOn) } : {}),
         ...(dto.description !== undefined ? { description: dto.description } : {}),
@@ -346,7 +351,13 @@ export class ExpensesService {
 
   async deleteExpense(userId: string, id: string): Promise<{ success: boolean; message: string }> {
     const expense = await this.findOwnedExpense(userId, id);
-    await this.prisma.expense.delete({ where: { id: expense.id } });
+    // Soft delete: the row becomes a tombstone the device mirrors through sync
+    // so an offline copy cannot resurrect it on the next push. Hard deletes
+    // would leave no trace to propagate.
+    await this.prisma.expense.update({
+      where: { id: expense.id },
+      data: { deletedAt: new Date(), clientUpdatedAt: new Date() },
+    });
     return { success: true, message: 'Expense deleted successfully' };
   }
 
@@ -452,7 +463,7 @@ export class ExpensesService {
    * are structurally impossible rather than merely guarded.
    */
   private buildExpenseFilter(userId: string, query: ExpenseQueryDto): Prisma.ExpenseWhereInput {
-    const where: Prisma.ExpenseWhereInput = { userId };
+    const where: Prisma.ExpenseWhereInput = { userId, deletedAt: null };
 
     if (query.categoryId) where.categoryId = query.categoryId;
     if (query.currency) where.currency = query.currency.toUpperCase();
@@ -495,7 +506,8 @@ export class ExpensesService {
     return this.prisma.expenseCategory.findMany({
       where: { userId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-      include: { _count: { select: { expenses: true } } },
+      // Tombstoned expenses must not inflate the category counts users see.
+      include: { _count: { select: { expenses: { where: { deletedAt: null } } } } },
     });
   }
 
@@ -525,7 +537,7 @@ export class ExpensesService {
 
   private async findOwnedExpense(userId: string, id: string): Promise<ExpenseWithCategory> {
     const expense = await this.prisma.expense.findFirst({
-      where: { id, userId },
+      where: { id, userId, deletedAt: null },
       include: { category: { select: CATEGORY_SELECT } },
     });
     // 404 (not 403) so a foreign id is indistinguishable from a missing one.

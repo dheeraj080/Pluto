@@ -11,6 +11,7 @@ import { UsersModule } from './modules/users/users.module';
 import { RatesModule } from './modules/rates/rates.module';
 import { BackupsModule } from './modules/backups/backups.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
+import { SyncModule } from './modules/sync/sync.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
@@ -35,6 +36,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     RatesModule,
     BackupsModule,
     ExpensesModule,
+    SyncModule,
     AdminModule,
   ],
   providers: [

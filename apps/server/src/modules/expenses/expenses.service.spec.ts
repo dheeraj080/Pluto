@@ -379,6 +379,8 @@ describe('ExpensesService', () => {
 
       const where = mockPrismaService.expense.findMany.mock.calls[0][0].where;
       expect(where.userId).toBe(USER_A);
+      // Tombstones stay out of every list read.
+      expect(where.deletedAt).toBeNull();
     });
 
     it('applies filters and maps them to Prisma conditions', async () => {
@@ -439,6 +441,37 @@ describe('ExpensesService', () => {
     });
   });
 
+  describe('deleteExpense', () => {
+    it('soft-deletes so the tombstone can sync to devices', async () => {
+      mockPrismaService.expense.findFirst.mockResolvedValue(makeExpense());
+      mockPrismaService.expense.update.mockResolvedValue(makeExpense());
+
+      const result = await service.deleteExpense(USER_A, makeExpense().id);
+
+      // A hard delete would leave nothing for a device to mirror.
+      expect(mockPrismaService.expense.delete).not.toHaveBeenCalled();
+      const args = mockPrismaService.expense.update.mock.calls[0][0];
+      expect(args.where).toEqual({ id: makeExpense().id });
+      expect(args.data.deletedAt).toBeInstanceOf(Date);
+      expect(args.data.clientUpdatedAt).toBeInstanceOf(Date);
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('updateExpense', () => {
+    it('stamps clientUpdatedAt so online edits take part in last-write-wins', async () => {
+      mockPrismaService.expense.findFirst.mockResolvedValue(makeExpense());
+      mockPrismaService.expense.update.mockResolvedValue(
+        makeExpense({ amount: new Prisma.Decimal('20.00') }),
+      );
+
+      await service.updateExpense(USER_A, makeExpense().id, { amount: 20 });
+
+      const args = mockPrismaService.expense.update.mock.calls[0][0];
+      expect(args.data.clientUpdatedAt).toBeInstanceOf(Date);
+    });
+  });
+
   describe('ownership', () => {
     it("returns 404 for another user's expense rather than 403", async () => {
       mockPrismaService.expense.findFirst.mockResolvedValue(null);
@@ -448,7 +481,9 @@ describe('ExpensesService', () => {
       ).rejects.toThrow(NotFoundException);
 
       expect(mockPrismaService.expense.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: expect.any(String), userId: USER_B } }),
+        expect.objectContaining({
+          where: { id: expect.any(String), userId: USER_B, deletedAt: null },
+        }),
       );
     });
 

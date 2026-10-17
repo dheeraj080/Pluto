@@ -332,7 +332,7 @@ export class ExpensesReportsService {
     const ctx = await this.buildRateContext(baseCurrency, end);
 
     const rows = await this.prisma.expense.findMany({
-      where: { userId, incurredOn: { gte: start, lte: end } },
+      where: { userId, deletedAt: null, incurredOn: { gte: start, lte: end } },
       select: { amount: true, currency: true, incurredOn: true, categoryId: true },
     });
 
@@ -476,7 +476,7 @@ export class ExpensesReportsService {
     const ctx = await this.buildRateContext(baseCurrency, end);
 
     const rows = await this.prisma.expense.findMany({
-      where: { userId, incurredOn: { gte: start, lte: end } },
+      where: { userId, deletedAt: null, incurredOn: { gte: start, lte: end } },
       select: { amount: true, currency: true, incurredOn: true },
     });
 
@@ -578,7 +578,7 @@ export class ExpensesReportsService {
     const ctx = await this.buildRateContext(baseCurrency, end);
 
     const rows = await this.prisma.expense.findMany({
-      where: { userId, incurredOn: { gte: start, lte: end } },
+      where: { userId, deletedAt: null, incurredOn: { gte: start, lte: end } },
       select: { amount: true, currency: true, incurredOn: true },
     });
 
@@ -676,7 +676,7 @@ export class ExpensesReportsService {
     const ctx = await this.buildRateContext(baseCurrency, end);
 
     const rows = await this.prisma.expense.findMany({
-      where: { userId, incurredOn: { gte: start, lte: end } },
+      where: { userId, deletedAt: null, incurredOn: { gte: start, lte: end } },
       select: { amount: true, currency: true, incurredOn: true, categoryId: true },
     });
 
@@ -818,7 +818,7 @@ export class ExpensesReportsService {
     const ctx = await this.buildRateContext(baseCurrency, end);
 
     const rows = await this.prisma.expense.findMany({
-      where: { userId, incurredOn: { gte: start, lte: end } },
+      where: { userId, deletedAt: null, incurredOn: { gte: start, lte: end } },
       select: { amount: true, currency: true, incurredOn: true, categoryId: true },
     });
 
@@ -959,7 +959,7 @@ export class ExpensesReportsService {
     const ctx = await this.buildRateContext(baseCurrency, rangeEnd);
 
     const expenses = await this.prisma.expense.findMany({
-      where: { userId, incurredOn: { gte: rangeStart, lte: rangeEnd } },
+      where: { userId, deletedAt: null, incurredOn: { gte: rangeStart, lte: rangeEnd } },
       select: { amount: true, currency: true, categoryId: true, incurredOn: true },
     });
 
@@ -1227,7 +1227,7 @@ export class ExpensesReportsService {
     const ctx = await this.buildRateContext(baseCurrency, end);
 
     const expenses = await this.prisma.expense.findMany({
-      where: { userId, incurredOn: { gte: start, lte: end } },
+      where: { userId, deletedAt: null, incurredOn: { gte: start, lte: end } },
       include: { category: { select: { name: true } } },
       orderBy: [{ amount: 'desc' }, { incurredOn: 'desc' }],
       take: query.limit ?? 10,
@@ -1287,7 +1287,7 @@ export class ExpensesReportsService {
     const ctx = await this.buildRateContext(baseCurrency, end);
 
     const expenses = await this.prisma.expense.findMany({
-      where: { userId, incurredOn: { gte: start, lte: end } },
+      where: { userId, deletedAt: null, incurredOn: { gte: start, lte: end } },
       select: { amount: true, currency: true, incurredOn: true },
     });
 
@@ -1350,7 +1350,7 @@ export class ExpensesReportsService {
   async exportCsv(userId: string, query: ExportQueryDto): Promise<string> {
     const baseCurrency = this.currencyConverter.resolveBase(query.base);
 
-    const where: Prisma.ExpenseWhereInput = { userId };
+    const where: Prisma.ExpenseWhereInput = { userId, deletedAt: null };
     const { start, end } = resolveRange(query.from, query.to);
     where.incurredOn = { gte: start, lte: end };
     if (query.categoryId) where.categoryId = query.categoryId;

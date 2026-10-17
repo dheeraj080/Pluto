@@ -184,6 +184,16 @@ model Expense {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  // Soft-delete tombstone. Offline (and web) deletes set this instead of removing
+  // the row, so a device that deleted while offline propagates the removal through
+  // the sync pull rather than resurrecting the expense on its next push.
+  deletedAt DateTime?
+
+  // Client-controlled last-write-wins clock. `updatedAt` is server-managed and
+  // Prisma will not let a client set it, so conflict ordering uses this column —
+  // the phone stamps it on every local edit. Replaying an older change is a no-op.
+  clientUpdatedAt DateTime @default(now())
+
   user                User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
   category            ExpenseCategory             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   recurringExpense    RecurringExpense?           @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
@@ -191,6 +201,7 @@ model Expense {
 
   @@index([userId, incurredOn])
   @@index([userId, categoryId])
+  @@index([userId, updatedAt])
   @@index([recurringExpenseId])
   @@map("expenses")
 }
