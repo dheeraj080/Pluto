@@ -93,6 +93,7 @@ Routes live in `src/app` (Expo Router, typed routes enabled):
 | `(tabs)/index` | Dashboard — spending, budget, comparison, recent, categories, rate |
 | `(tabs)/transactions` | Activity — full list, search, sort, category filter, infinite scroll |
 | `(tabs)/budgets` | Budgets — per-category and whole-account limits, month by month |
+| `(tabs)/reports` | Reports — one range control over a summary, a trend, the category split and the currencies paid in |
 | `(tabs)/categories` | Categories — create, rename, recolour, delete |
 | `(tabs)/settings` | Profile, base currency, sign out |
 | `expense/new` | Create (modal) |
@@ -100,10 +101,11 @@ Routes live in `src/app` (Expo Router, typed routes enabled):
 | `expense/[id]/edit` | Edit |
 | `delete-account` | In-app account deletion (see below) |
 
-Reports is the one web surface still missing a tab. Its loaders
-(`src/hooks/use-reports.ts`) and date helpers (`src/lib/ranges.ts`) are in place,
-and the charts it needs now exist in `src/components/charts.tsx`, so the screen
-is the remaining piece rather than the foundation.
+`(tabs)/reports` is a deliberate mobile adaptation of the web's report page: one
+range control drives everything, and the figures a hover tooltip would reveal are
+stated in a per-card chart/table toggle instead — a touch screen has no pointer.
+The `GET /expenses/comparison` response is the single source for both its tabs,
+so they can never disagree with each other or with the "vs previous" pills.
 
 `(tabs)/_layout.tsx` guards the whole shell: `loading` shows a spinner and
 `signed-out` redirects to `/sign-in`, so no tab ever mounts and fires an
@@ -222,6 +224,29 @@ request degrades one card rather than the page.
 The month comparison is **month-to-date against the same days of last month**,
 never a partial month against a whole one; that pairing lives in
 `monthToDate()` in `src/lib/ranges.ts`.
+
+## Offline cache
+
+The server is the source of truth: every read is a request, and **no write is
+queued offline**. What the app does keep is the last successful read, on disk, so
+a launch without a connection paints the last-known dashboard, list and budgets
+instead of an error.
+
+- `src/lib/query-persistence.ts` dehydrates the query cache and writes it through
+  `src/lib/query-cache-storage.ts` — the document directory on device
+  (`expo-file-system`), `localStorage` on web — debounced behind cache changes.
+- Only **successful queries** are stored. Mutations, pending queries and errors
+  never are, so nothing on disk can be replayed at the server.
+- Restored queries keep their original `dataUpdatedAt`, so they arrive already
+  stale and refetch in the background as screens mount. Offline that refetch
+  fails quietly: a card shows its error state only when it has nothing to show,
+  so last-known figures outrank a retry prompt.
+- A snapshot older than 24h, or one that cannot be parsed, is discarded at
+  startup rather than trusted.
+- It is restored **only while a refresh token is held**, and the file is deleted
+  when the cache empties — which is what `clearSession()` does on sign-out and on
+  account deletion — so a signed-out device never boots from another account's
+  figures.
 
 ## Monorepo notes
 
@@ -379,16 +404,27 @@ device. What each file holds still:
 | :--- | :--- |
 | `ranges.test.ts` | the window math — month-to-date against *the same days of last month*, equal-length trailing windows, granularity thresholds |
 | `format.test.ts` | `parseAmount` / `isValidIsoDate` / `formatBytes` — the contract with the DTOs and the backup list |
+| `convert.test.ts` | `rateBetween` / `recordedAmounts` / `summaryAmounts` — the display-only conversion, and its null paths |
+| `report-utils.test.ts` | report bucket bounds (incl. leap February), Monday-first weekday rows, effective rates |
 | `date.test.ts`, `date-grouping.test.ts` | Today/Yesterday labelling and Activity list bucketing |
 | `recurrence.test.ts`, `errors.test.ts` | cadence wording and error-message extraction |
 | `session.test.ts` | a sign-out drops the token *and* the query cache |
+| `query-persistence.test.ts` | which reads reach the disk cache, that an emptied cache deletes the file, and that stale or unreadable snapshots are dropped |
 | `api.test.ts` | `401 → refresh → replay`, refused vs unreachable rotation, and that `deleteAccount` clears the session only once the server confirms |
+| `export.test.ts` | the CSV share boundary — the availability check, the request shape, and the file handed to `expo-sharing` |
 | `crash-reporting.test.ts` | every reporting call is a no-op without `EXPO_PUBLIC_SENTRY_DSN` |
 | `app.config.test.ts` | the production guard — https API URL, a real host, a Google client ID — and that the Sentry config plugin registers only with a DSN |
 
 `@pluto/api-client` is aliased straight to its TypeScript source and the
 secure-store boundary is mocked, so the suite needs no device, network or native
 build.
+
+There is also a device layer, because none of the above can catch a screen that
+renders nothing: `.maestro/smoke.yaml` signs in and walks all five tabs, and
+`.maestro/delete-account.yaml` proves the destructive action is gated behind the
+typed confirmation. It is run by name (`npm run e2e --workspace pluto-mobile`),
+not through the root `test:e2e` task, which stays a device-free command — see
+`.maestro/README.md` for the prerequisites.
 
 ## Building and releasing
 
