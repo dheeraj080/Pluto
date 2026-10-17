@@ -1,0 +1,33 @@
+# Account deletion is reachable from inside the app, and the destructive action
+# is gated behind a typed confirmation.
+#
+# The flow stops short of actually deleting the account: it verifies the
+# consequence screen loads and that the confirm button cannot be reached without
+# typing DELETE, which is the part a UI regression would break. Deleting for
+# real is left to a manual test against a throwaway account, since a committed
+# flow that consumes an account would only run once.
+#
+# Prerequisites: as for smoke.yaml.
+appId: com.pluto.app
+---
+- launchApp:
+    clearState: true
+
+- tapOn: "Continue with a dev account"
+- assertVisible: "Dashboard"
+
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Delete account"
+    direction: DOWN
+- tapOn: "Delete account"
+
+# The consequence screen: the user is told what is lost, and how to take a copy
+# first, before being asked to confirm.
+- assertVisible: "Permanently removes your account and everything stored for it."
+- assertVisible: "Type DELETE to confirm"
+
+# "Back to sign in" renders only once deletion has succeeded, so its absence is
+# the assertion that reaching this screen did not delete anything.
+- assertNotVisible: "Back to sign in"

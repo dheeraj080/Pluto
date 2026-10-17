@@ -17,6 +17,7 @@
     "typecheck": "npm run check:theme && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "maestro test .maestro",
     "eas:build:dev": "npx eas-cli@latest build --profile development",
     "eas:build:preview": "npx eas-cli@latest build --profile preview",
     "eas:build:prod": "npx eas-cli@latest build --profile production",

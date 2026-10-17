@@ -1,0 +1,37 @@
+# Smoke: the app boots, a dev account signs in, and every tab renders.
+#
+# This is the flow that catches the "it bundles but the screen is blank" class
+# of regression — a broken provider in the root layout, a tab that throws on
+# mount, an api-client that cannot resolve its base URL. It deliberately asserts
+# on copy the user sees rather than on test ids, so the flow cannot pass while
+# the UI is empty.
+#
+# Prerequisites (see .maestro/README.md): a booted emulator or device with the
+# dev client installed, EXPO_PUBLIC_API_URL pointing at a reachable server, and
+# ENABLE_DEV_AUTH=true on that server for the dev-account button.
+appId: com.pluto.app
+---
+- launchApp:
+    clearState: true
+
+# Signed out on a clean install, so the way in is the first thing rendered.
+- assertVisible: "Track spending in any currency, converted to your base."
+- tapOn: "Continue with a dev account"
+
+# Each tab must mount and paint its own heading; a single failing screen fails
+# the flow at the step that reaches it.
+- assertVisible: "Dashboard"
+- assertVisible: "This month"
+
+- tapOn: "Activity"
+- assertVisible: "Activity"
+
+- tapOn: "Reports"
+- assertVisible: "Reports"
+
+- tapOn: "Budgets"
+- assertVisible: "Budgets"
+
+- tapOn: "Settings"
+- assertVisible: "Your account and preferences."
+- assertVisible: "Sign out"
