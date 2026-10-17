@@ -26,6 +26,8 @@ import {
 } from '@/lib/crash-reporting';
 import { hydrateSecondaryCurrency } from '@/lib/pair-storage';
 import { getQueryClient } from '@/lib/query-client';
+import { restoreQueryCache, startQueryPersistence } from '@/lib/query-persistence';
+import { getRefreshToken } from '@/lib/session';
 import { hydrateThemePreference } from '@/lib/theme-preference';
 import { fontFamily, palettes, text } from '@/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -63,16 +65,38 @@ export default function RootLayout() {
   const [restored, setRestored] = useState(false);
 
   useEffect(() => {
-    // Restore the persisted session before revealing the UI so the sign-in
-    // screen never flashes for an already-authenticated user, and the pair and
-    // appearance preference before the first report or palette paints.
-    void Promise.all([
-      bootstrapSession(),
-      hydrateSecondaryCurrency(),
-      hydrateThemePreference(),
-    ]).finally(() => {
+    const client = getQueryClient();
+    let cancelled = false;
+    let stopPersistence: (() => void) | null = null;
+
+    void (async () => {
+      // Appearance and the pair are independent of the session, so they are
+      // restored alongside it; the session settles first only because it
+      // decides whether the disk cache below may be used at all.
+      await Promise.all([hydrateSecondaryCurrency(), hydrateThemePreference()]);
+      await bootstrapSession();
+
+      if (cancelled) return;
+      // Restore only while a refresh token is still held: the cache is one
+      // account's figures and a signed-out launch must not boot from them.
+      // Connectivity is deliberately not consulted — an unreachable server
+      // keeps the credential (so the cache survives an offline launch) while a
+      // rejected one has already cleared it.
+      if (getRefreshToken()) {
+        await restoreQueryCache(client);
+      }
+      if (cancelled) return;
+
+      // Persistence starts only after the restore, so the debounced writer can
+      // never delete the snapshot in the window before it has been read back.
+      stopPersistence = startQueryPersistence(client);
       setRestored(true);
-    });
+    })();
+
+    return () => {
+      cancelled = true;
+      stopPersistence?.();
+    };
   }, []);
 
   const fontsReady = fontsLoaded || Boolean(fontError);
