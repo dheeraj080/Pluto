@@ -19,6 +19,12 @@ const storage = vi.hoisted(() => ({
   deleteRefreshToken: vi.fn<() => Promise<void>>(async () => {}),
 }));
 
+// `session.clearSession` also drops the disk read-cache, whose storage layer is
+// native (`expo-file-system`) and unavailable here — mocked like SecureStore.
+vi.mock('./query-persistence', () => ({
+  clearPersistedQueryCache: vi.fn<() => Promise<void>>(async () => {}),
+}));
+
 function response(status: number, body: unknown): Response {
   return {
     ok: status >= 200 && status < 300,

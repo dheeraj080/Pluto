@@ -18,6 +18,13 @@ const storage = vi.hoisted(() => ({
   deleteRefreshToken: vi.fn<() => Promise<void>>(async () => {}),
 }));
 
+// Sign-out also deletes the disk read-cache, and that module reaches for
+// `expo-file-system` — the same native seam `query-persistence.test.ts` mocks.
+// Replaced here so `session.ts` can be imported without a device behind it.
+const persistence = vi.hoisted(() => ({
+  clearPersistedQueryCache: vi.fn<() => Promise<void>>(async () => {}),
+}));
+
 function authResponse(overrides: Partial<Schemas['AuthResponseDto']> = {}): Schemas['AuthResponseDto'] {
   return {
     accessToken: 'access-',
@@ -42,11 +49,14 @@ describe('session store', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.doMock('./session-storage', () => storage);
+    vi.doMock('./query-persistence', () => persistence);
 
     storage.readRefreshToken.mockReset();
     storage.readRefreshToken.mockResolvedValue(null);
     storage.writeRefreshToken.mockReset();
     storage.deleteRefreshToken.mockReset();
+    persistence.clearPersistedQueryCache.mockReset();
+    persistence.clearPersistedQueryCache.mockResolvedValue(undefined);
 
     // Import after `doMock` so the store binds to the mocked storage.
     session = await import('./session');
@@ -83,6 +93,27 @@ describe('session store', () => {
     expect(session.getSessionState().status).toBe('signed-out');
     expect(storage.deleteRefreshToken).toHaveBeenCalled();
     expect(clearSpy).toHaveBeenCalled();
+  });
+
+  it('deletes the persisted snapshot immediately, not via the debounce', () => {
+    session.saveSession(authResponse());
+
+    session.clearSession();
+
+    // The debounced writer would reach the file 1.5s later; a kill inside that
+    // window is exactly the case this call closes.
+    expect(persistence.clearPersistedQueryCache).toHaveBeenCalledTimes(1);
+  });
+
+  it('signs out even when the snapshot cannot be deleted', () => {
+    session.saveSession(authResponse());
+    persistence.clearPersistedQueryCache.mockRejectedValue(new Error('disk gone'));
+
+    // The rejection is swallowed inside `clearSession`, so nothing escapes and
+    // the tokens are dropped regardless.
+    expect(() => session.clearSession()).not.toThrow();
+    expect(session.getSessionState().status).toBe('signed-out');
+    expect(storage.deleteRefreshToken).toHaveBeenCalled();
   });
 
   it('holds the previous state until saveSession, even after reading a token', async () => {
