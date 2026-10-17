@@ -1,0 +1,49 @@
+import type { Schemas } from '@pluto/api-client';
+
+import { api } from '@/lib/api';
+import type { CategoryStore, ExpenseCategoryDto, ExpenseStore } from '../types';
+import { listLocalCategories, replaceLocalCategories } from './categories';
+import { getDatabase } from './database';
+import {
+  createLocalExpense,
+  deleteLocalExpense,
+  getLocalExpense,
+  listLocalExpenses,
+  updateLocalExpense,
+} from './expenses';
+
+/**
+ * Native implementation of the expense seam: SQLite is the source of truth and
+ * the sync engine reconciles it with the server in the background.
+ */
+export const localExpenseStore: ExpenseStore = {
+  list: async (filters, page, limit) =>
+    listLocalExpenses(await getDatabase(), filters, page, limit),
+  get: async (id) => getLocalExpense(await getDatabase(), id),
+  create: async (input) => createLocalExpense(await getDatabase(), input),
+  update: async (id, input) => updateLocalExpense(await getDatabase(), id, input),
+  remove: async (id) => deleteLocalExpense(await getDatabase(), id),
+};
+
+export const localCategoryStore: CategoryStore = {
+  list: async () => {
+    const database = await getDatabase();
+    const cached = await listLocalCategories(database);
+    if (cached.length > 0) return cached;
+
+    // Nothing mirrored yet (first run): fetch once so the expense form is
+    // usable, then keep the result. The server seeds its defaults on this call.
+    try {
+      const remote = await api.get<ExpenseCategoryDto[]>('/expenses/categories');
+      await replaceLocalCategories(database, remote);
+      return remote;
+    } catch {
+      return cached;
+    }
+  },
+  refresh: async () => {
+    const categories = await api.get<Schemas['ExpenseCategoryDto'][]>('/expenses/categories');
+    await replaceLocalCategories(await getDatabase(), categories);
+    return categories;
+  },
+};

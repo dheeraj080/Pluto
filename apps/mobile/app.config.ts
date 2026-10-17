@@ -79,6 +79,9 @@ const googleIosScheme = iosUrlScheme(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_I
 const plugins: NonNullable<ExpoConfig['plugins']> = [
   'expo-router',
   'expo-secure-store',
+  // Provides the on-device store that makes offline expense entry possible.
+  // `@react-native-community/netinfo` needs no plugin; it is autolinked.
+  'expo-sqlite',
   [
     'expo-splash-screen',
     {

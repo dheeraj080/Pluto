@@ -28,6 +28,7 @@ import { hydrateSecondaryCurrency } from '@/lib/pair-storage';
 import { getQueryClient } from '@/lib/query-client';
 import { restoreQueryCache, startQueryPersistence } from '@/lib/query-persistence';
 import { getRefreshToken } from '@/lib/session';
+import { startBackgroundSync } from '@/lib/sync/background-sync';
 import { hydrateThemePreference } from '@/lib/theme-preference';
 import { fontFamily, palettes, text } from '@/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -68,6 +69,7 @@ export default function RootLayout() {
     const client = getQueryClient();
     let cancelled = false;
     let stopPersistence: (() => void) | null = null;
+    let stopSync: (() => void) | null = null;
 
     void (async () => {
       // Appearance and the pair are independent of the session, so they are
@@ -90,12 +92,20 @@ export default function RootLayout() {
       // Persistence starts only after the restore, so the debounced writer can
       // never delete the snapshot in the window before it has been read back.
       stopPersistence = startQueryPersistence(client);
+
+      // Reconcile the on-device store with the server. Started last so the
+      // first sync's cache invalidation lands on an already-hydrated client;
+      // on web this is a no-op. It watches the session itself, so it waits for
+      // sign-in and stops on sign-out.
+      stopSync = startBackgroundSync();
+
       setRestored(true);
     })();
 
     return () => {
       cancelled = true;
       stopPersistence?.();
+      stopSync?.();
     };
   }, []);
 
@@ -137,7 +147,7 @@ export default function RootLayout() {
           <Text style={[text.subtitle, { color: palette.ink }]}>Something went wrong</Text>
           <Text style={[text.body, styles.crashBody, { color: palette.muted }]}>
             Pluto hit an unexpected error and stopped rendering. Restart the app to continue —
-            your data is safe on the server.
+            your entries are saved on this device.
           </Text>
         </View>
       }

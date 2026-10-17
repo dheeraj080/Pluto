@@ -2,23 +2,20 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { Schemas } from '@pluto/api-client';
 
 import { api } from '@/lib/api';
-import {
-  expenseQueryParams,
-  queryKeys,
-  type ExpenseListFilters,
-  type ExpenseSummaryParams,
-} from '@/lib/query-keys';
+import { expenseStore } from '@/lib/store';
+import { queryKeys, type ExpenseListFilters, type ExpenseSummaryParams } from '@/lib/query-keys';
 import { useSession } from '@/hooks/use-session';
 
-/** The server caps `limit` at 50. */
+/** Page size for the expense list. */
 const PAGE_SIZE = 20;
 
 /**
  * Paged, filtered expense list.
  *
- * The next page is derived from `total` rather than "a short page means the
- * end", because `limit` is clamped server-side and a page can legitimately come
- * back shorter than requested.
+ * Reads the local store on native — so it works offline and reflects a write the
+ * moment it is made — and the API on web. The next page is still derived from
+ * `total` rather than "a short page means the end", because `limit` can be
+ * clamped server-side and a page can legitimately come back shorter.
  */
 export function useExpenseList(filters: ExpenseListFilters) {
   const { status } = useSession();
@@ -28,10 +25,7 @@ export function useExpenseList(filters: ExpenseListFilters) {
     enabled: status === 'signed-in',
     initialPageParam: 1,
     queryFn: ({ pageParam, signal }) =>
-      api.get<Schemas['PaginatedExpensesResponseDto']>('/expenses', {
-        query: expenseQueryParams(filters, pageParam, PAGE_SIZE),
-        signal,
-      }),
+      expenseStore.list(filters, pageParam, PAGE_SIZE, { signal }),
     getNextPageParam: (last) =>
       last.page * last.limit < last.total ? last.page + 1 : undefined,
   });
@@ -43,6 +37,12 @@ export function useExpenseList(filters: ExpenseListFilters) {
   };
 }
 
+/**
+ * Server-computed totals for the dashboard.
+ *
+ * Still a request in this phase (reports move on-device later), so it needs a
+ * connection and reflects synced expenses only.
+ */
 export function useExpenseSummary(params: ExpenseSummaryParams = {}) {
   const { status } = useSession();
 

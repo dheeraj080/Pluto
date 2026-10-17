@@ -2,6 +2,7 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import type { Schemas } from '@pluto/api-client';
 
 import { api } from '@/lib/api';
+import { categoryStore, localStoreEnabled } from '@/lib/store';
 import { queryKeys } from '@/lib/query-keys';
 
 /**
@@ -16,13 +17,27 @@ function invalidateCategories(client: QueryClient): Promise<void> {
   ]).then(() => undefined);
 }
 
+/**
+ * Realigns the category mirror after a server-side change.
+ *
+ * On native the list is served from the mirror, so invalidating alone would just
+ * re-read the stale copy — refreshing first makes the change visible. A refresh
+ * failure is ignored: invalidating still re-reads whatever the mirror holds.
+ */
+async function refreshCategories(client: QueryClient): Promise<void> {
+  if (localStoreEnabled) {
+    await categoryStore.refresh().catch(() => undefined);
+  }
+  await invalidateCategories(client);
+}
+
 export function useCreateCategory() {
   const client = useQueryClient();
 
   return useMutation({
     mutationFn: (body: Schemas['CreateCategoryDto']) =>
       api.post<Schemas['ExpenseCategoryDto']>('/expenses/categories', body),
-    onSuccess: () => invalidateCategories(client),
+    onSuccess: () => refreshCategories(client),
   });
 }
 
@@ -32,7 +47,7 @@ export function useUpdateCategory() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: Schemas['UpdateCategoryDto'] }) =>
       api.patch<Schemas['ExpenseCategoryDto']>(`/expenses/categories/${id}`, body),
-    onSuccess: () => invalidateCategories(client),
+    onSuccess: () => refreshCategories(client),
   });
 }
 
@@ -51,6 +66,6 @@ export function useDeleteCategory() {
       api.delete<Record<string, never>>(`/expenses/categories/${id}`, {
         query: reassignTo ? { reassignTo } : undefined,
       }),
-    onSuccess: () => invalidateCategories(client),
+    onSuccess: () => refreshCategories(client),
   });
 }

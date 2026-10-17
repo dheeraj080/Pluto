@@ -75,6 +75,9 @@ export function markSignedOut(): void {
  * expenses. The disk copy is deleted here rather than left to the debounced
  * persistence writer: a kill inside the debounce window would otherwise leave
  * this account's snapshot on disk for the next one to hydrate.
+ *
+ * The on-device store is purged alongside it, from the native-only sync module
+ * that watches this state — see `src/lib/sync/background-sync.ts`.
  */
 export function clearSession(): void {
   markSignedOut();
