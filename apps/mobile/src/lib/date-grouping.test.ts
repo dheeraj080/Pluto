@@ -1,9 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupExpensesByDate } from './date-grouping';
 
 type Expense = { id: string; incurredOn?: string; date?: string };
 
 describe('groupExpensesByDate', () => {
+  // Bucket titles come from `dateLabel`, which reads the device clock - so pin
+  // it. Otherwise the expectations below ("Today", "Yesterday") hold only on
+  // the day the fixture dates happen to be, and the suite rots overnight.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 16, 12, 0, 0));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const a: Expense = { id: '1', incurredOn: '2026-10-16' };
   const b: Expense = { id: '2', incurredOn: '2026-10-16' };
   const c: Expense = { id: '3', incurredOn: '2026-10-15' };
