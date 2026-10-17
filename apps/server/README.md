@@ -226,20 +226,22 @@ All environment variables are validated at startup via Zod in [src/config/env.va
 | `NODE_ENV` | Application environment (`development`, `production`, `test`) | `development` | No |
 | `PORT` | HTTP port to listen on | `3000` | No |
 | `API_PREFIX` | Global route prefix | `v1` | No |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:postgres_password@localhost:5432/pluto_db?schema=public` | **Yes** |
-| `JWT_SECRET` | Secret key for signing access tokens (min 32 chars in production) | — | **Yes** |
-| `JWT_ACCESS_TOKEN_TTL` | Access token lifetime (e.g. `15m`, `1h`) | `15m` | No |
-| `JWT_REFRESH_TOKEN_TTL_DAYS` | Refresh token session lifetime in days | `30` | No |
-| `GOOGLE_ALLOWED_CLIENT_IDS` | Comma-separated list of permitted Google OAuth Client IDs (Android, iOS, Web) | `test-client-id.apps.googleusercontent.com` | **Yes** |
-| `S3_ENDPOINT` | Custom endpoint for MinIO / LocalStack (empty for AWS S3) | `http://localhost:9000` | No |
-| `S3_REGION` | S3 Region | `us-east-1` | **Yes** |
-| `S3_BUCKET_NAME` | S3 bucket for storing mobile backups | `pluto-backups` | **Yes** |
-| `S3_ACCESS_KEY_ID` | AWS / MinIO Access Key | `minioadmin` | **Yes** |
-| `S3_SECRET_ACCESS_KEY` | AWS / MinIO Secret Key | `minioadmin_password` | **Yes** |
-| `S3_FORCE_PATH_STYLE` | Set `true` for MinIO path style routing | `true` | No |
-| `MAX_BACKUPS_PER_USER` | Maximum retained backups per user before automatic FIFO pruning | `10` | No |
-| `BACKUP_UPLOAD_URL_TTL_SECONDS` | Lifetime of presigned upload URLs (seconds) | `900` (15 min) | No |
-| `BACKUP_DOWNLOAD_URL_TTL_SECONDS` | Lifetime of presigned download URLs (seconds) | `300` (5 min) | No |
+| `CORS_ORIGIN` | Comma-separated allowed browser origins. A wildcard is rejected at boot in production. | `*` | No |
+| `TRUST_PROXY` | Honour `X-Forwarded-*` headers from a trusted reverse proxy | `true` | No |
+| `DATABASE_URL` | PostgreSQL connection string | — | **Yes** |
+| `JWT_ACCESS_SECRET` | Secret key for signing access tokens (min 32 chars in production) | — | **Yes** |
+| `ACCESS_TOKEN_TTL` | Access token lifetime (e.g. `15m`, `1h`) | `15m` | No |
+| `REFRESH_TOKEN_TTL_DAYS` | Refresh token session lifetime in days | `30` | No |
+| `GOOGLE_ALLOWED_CLIENT_IDS` | Comma-separated list of permitted Google OAuth Client IDs (Android, iOS, Web) | `""` | **Yes** (prod) |
+| `OBJECT_STORAGE_ENDPOINT` | Custom endpoint for MinIO / LocalStack / R2 (empty for AWS S3) | — | No |
+| `OBJECT_STORAGE_REGION` | Object storage region | `us-east-1` | No |
+| `OBJECT_STORAGE_BUCKET` | Bucket for storing mobile backups | `pluto-backups` | No |
+| `OBJECT_STORAGE_ACCESS_KEY_ID` | Object storage access key | `minioadmin` | No |
+| `OBJECT_STORAGE_SECRET_ACCESS_KEY` | Object storage secret key | `minioadmin` | No |
+| `OBJECT_STORAGE_FORCE_PATH_STYLE` | Set `true` for MinIO path style routing | `true` | No |
+| `BACKUP_RETENTION_COUNT` | Maximum retained backups per user before automatic FIFO pruning | `5` | No |
+| `BACKUP_UPLOAD_URL_TTL` | Lifetime of presigned upload URLs (seconds) | `900` (15 min) | No |
+| `BACKUP_DOWNLOAD_URL_TTL` | Lifetime of presigned download URLs (seconds) | `900` (15 min) | No |
 | `THROTTLE_TTL` | Rate limiter window in seconds | `60` | No |
 | `THROTTLE_LIMIT` | Global maximum requests per window per IP | `100` | No |
 | `ADMIN_EMAILS` | Comma-separated e-mail addresses promoted to the `ADMIN` role on sign-in (grants access to `/v1/admin/*`) | `""` | No |
@@ -838,8 +840,19 @@ All test suites execute without dependencies on running databases or external ne
 ## Production Deployment
 
 ### 1. Build Production Docker Image
+
+The image is built from the **monorepo root** so the workspace lockfile is
+available; the Dockerfile lives in `apps/server`:
+
 ```powershell
-docker build -t pluto-server:latest .
+docker build -f apps/server/Dockerfile -t pluto-server:latest .
+```
+
+Apply migrations before starting new containers (`docker-compose`/Render run
+this as a deploy step):
+
+```powershell
+npm run prisma:migrate:deploy --workspace pluto-server
 ```
 
 ### 2. Run Container in Production

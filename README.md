@@ -32,6 +32,14 @@ Each app keeps its own env file (never committed):
 
 The web dev server runs on **:3001** to avoid clashing with the API on :3000.
 
+## Environments
+
+Development, staging and production each get their **own database and secrets** —
+never share a `DATABASE_URL` or `JWT_ACCESS_SECRET` between tiers. See
+[`docs/ENVIRONMENTS.md`](docs/ENVIRONMENTS.md) for the full model (Neon branches,
+the Render staging service, per-environment `NEXT_PUBLIC_*`, and the EAS
+profiles).
+
 ## Per-app docs
 
 - API reference, runbooks, deployment: [`apps/server/README.md`](apps/server/README.md)

@@ -2,6 +2,12 @@
 
 This document outlines the minimal production setup and common pitfalls. It's intentionally concise; expand as needed.
 
+For how development, staging and production are separated (databases, secrets,
+the Render staging service, EAS profiles), see
+[`docs/ENVIRONMENTS.md`](../../../docs/ENVIRONMENTS.md). Staging runs with
+`NODE_ENV=production` — it enforces the same guards below, just against
+different data.
+
 ## Database Migrations
 
 **Always** run migrations with the deploy command in production:
@@ -32,14 +38,14 @@ Production must override defaults in `.env`. Key requirements enforced by valida
 ## Security
 
 - **CORS**: Tightened to explicit origins. If behind a CDN/proxy, ensure the `Origin` header is passed through correctly.
-- **Rate Limiting**: Global via `@nestjs/throttler` (`THROTTLE_TTL`/`THROTTLE_LIMIT`). Auth endpoints use stricter limits (`AUTH_THROTTLE_LIMIT`). `GET /expenses/export.csv` is throttled to 10/min. Consider adding more for heavy endpoints as needed.
+- **Rate Limiting**: Global via `@nestjs/throttler` (`THROTTLE_TTL`/`THROTTLE_LIMIT`). Auth endpoints declare their own stricter per-route limits (10/min for `POST /auth/google`, 30/min for the dev-only login, 20/min for `POST /auth/refresh`). `GET /expenses/export.csv` is throttled to 10/min. Consider adding more for heavy endpoints as needed.
 - **Headers**: The app sets basic security headers (X-Content-Type-Options, X-Frame-Options, HSTS, Referrer-Policy). Add CSP/Permissions-Policy at the edge (reverse proxy/CDN) for stronger control.
 - **Secrets**: Store in your cloud secret manager (AWS Secrets Manager, GCP Secret Manager, etc.). Do not commit `.env` files.
-- **Logs**: Production logs go to stdout/stderr (captured by your platform). Consider structured JSON + request IDs + error tracking (Sentry/Bugsnag).
+- **Logs**: Production logs go to stdout/stderr (captured by your platform). Every response carries an `X-Request-Id` (honouring an upstream value when present). Consider structured JSON + error tracking (Sentry/Bugsnag).
 
 ## Health & Readiness
 
-- `/health` is exposed (HealthModule). Use for liveness/readiness probes in your orchestrator (Kubernetes, etc.).
+- `/v1/health` is exposed (HealthModule). It returns `200` when the database probe succeeds and `503` when it fails, so orchestrators and platform health checks stop routing to an instance that cannot reach Postgres. Use it for liveness/readiness probes.
 - Graceful shutdown is enabled (`enableShutdownHooks()`); ensure your platform allows for SIGTERM handling.
 
 ## CI/CD Recommendations

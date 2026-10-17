@@ -1,7 +1,18 @@
 ###############################################################################
-# Render Blueprint -- pluto-server (free plan)
+# Render Blueprint -- pluto-server
 #
 # Docs: https://render.com/docs/blueprint-spec
+#
+# This Blueprint defines TWO environments as two independent services:
+#
+#   pluto-server           -> production
+#   pluto-server-staging   -> staging / pre-production
+#
+# They deliberately share no secrets and no database. Each service sets its own
+# DATABASE_URL, JWT_ACCESS_SECRET, CORS_ORIGIN and OAuth audience in the Render
+# dashboard (the `sync: false` keys below), so staging can never read or write
+# production's data or tokens. Point them at different Neon branches -- see
+# `docs/ENVIRONMENTS.md` at the repository root for the branch workflow.
 #
 # This is an npm-workspaces monorepo, so the service builds from the REPO ROOT
 # (no rootDir) using the native Node runtime. `npm run <script> -w pluto-server`
@@ -16,9 +27,115 @@
 #
 # Set the Blueprint Path to `apps/server/render.yaml` when creating the
 # Blueprint in the Render dashboard -- this file is not at the repo root.
+#
+# Promoting a change:
+#   * `pluto-server-staging` deploys the `staging` branch. Merge `main` into
+#     `staging` to soak a build there before it reaches users.
+#   * `pluto-server` deploys `main`. Merge `staging` into `main` once staging
+#     looks right.
+#   * To make production wait for CI as well, set `autoDeployTrigger: checksPass`
+#     on the `pluto-server` service so it only deploys once checks are green.
 ###############################################################################
 
+# Non-secret configuration shared by every environment. Secrets deliberately
+# live on each service below (`sync: false`) so staging cannot inherit them.
+envVarGroups:
+  - name: pluto-server-config
+    envVars:
+      # -- Server -----------------------------------------------------------
+      - key: NODE_ENV
+        value: production
+
+      # Pin the runtime; the repo requires Node >= 20.19.
+      - key: NODE_VERSION
+        value: "24"
+
+      # Render injects PORT automatically -- do NOT set it here.
+      - key: API_PREFIX
+        value: v1
+
+      - key: TRUST_PROXY
+        value: "true"
+
+      # -- Auth / JWT -------------------------------------------------------
+      - key: ACCESS_TOKEN_TTL
+        value: 15m
+
+      - key: REFRESH_TOKEN_TTL_DAYS
+        value: "30"
+
+      # -- Rate limiting ----------------------------------------------------
+      - key: THROTTLE_TTL
+        value: "60"
+
+      - key: THROTTLE_LIMIT
+        value: "100"
+
+      # -- Exchange rates ---------------------------------------------------
+      - key: EXCHANGE_RATE_PROVIDER
+        value: frankfurter
+
+      - key: EXCHANGE_RATE_BASE_URL
+        value: https://api.frankfurter.dev/v1
+
+      - key: EXCHANGE_RATE_BASE_CURRENCY
+        value: USD
+
+      - key: EXCHANGE_RATE_SCHEDULE
+        value: "0 4 * * *"
+
+      # -- Object storage ---------------------------------------------------
+      # Starts DISABLED: no credit card required, and the API boots with every
+      # feature except /v1/backups/* (which returns 503 instead of failing with
+      # storage errors). To turn backups on for free:
+      #   1. Create an account + bucket at Filebase (free 5 GB, no credit card).
+      #   2. Set OBJECT_STORAGE_BUCKET to that bucket name.
+      #   3. Paste the Filebase access key + secret.
+      #   4. Set OBJECT_STORAGE_ENABLED to "true".
+      # The bucket must exist already -- the application never creates it.
+      # Enable storage per environment by overriding these on the service (use a
+      # distinct bucket per environment so staging never writes production data).
+      - key: OBJECT_STORAGE_ENABLED
+        value: "false"
+
+      - key: OBJECT_STORAGE_ENDPOINT
+        value: https://s3.filebase.io
+
+      - key: OBJECT_STORAGE_REGION
+        value: auto
+
+      - key: OBJECT_STORAGE_BUCKET
+        value: pluto-backups
+
+      - key: OBJECT_STORAGE_ACCESS_KEY_ID
+        value: unconfigured
+
+      - key: OBJECT_STORAGE_SECRET_ACCESS_KEY
+        value: unconfigured
+
+      - key: OBJECT_STORAGE_FORCE_PATH_STYLE
+        value: "true"
+
+      # -- Backup quotas ----------------------------------------------------
+      - key: BACKUP_MAX_SIZE_BYTES
+        value: "52428800"
+
+      - key: BACKUP_RETENTION_COUNT
+        value: "5"
+
+      - key: BACKUP_UPLOAD_URL_TTL
+        value: "900"
+
+      - key: BACKUP_DOWNLOAD_URL_TTL
+        value: "900"
+
+      - key: BACKUP_PENDING_EXPIRY_HOURS
+        value: "24"
+
 services:
+  # --------------------------------------------------------------------------
+  # Production
+  # --------------------------------------------------------------------------
   - type: web
     name: pluto-server
     runtime: node
@@ -41,41 +158,23 @@ services:
     healthCheckPath: /v1/health
 
     envVars:
-      # -- Server -------------------------------------------------------------
-      - key: NODE_ENV
-        value: production
+      - fromGroup: pluto-server-config
 
-      # Pin the runtime; the repo requires Node >= 20.19.
-      - key: NODE_VERSION
-        value: "24"
-
-      # Render injects PORT automatically -- do NOT set it here.
-      - key: API_PREFIX
-        value: v1
-
-      - key: TRUST_PROXY
-        value: "true"
-
-      # Tighten this to your web app's origin once it is deployed.
+      # -- Production secrets (set these in the Render dashboard) -----------
+      # Comma-separated explicit origins (e.g. https://pluto.example). The
+      # server refuses to boot in production while this is a wildcard.
       - key: CORS_ORIGIN
-        value: "*"
+        sync: false
 
-      # -- Database -----------------------------------------------------------
       # Prefer a card-free external Postgres (e.g. Neon): free Render Postgres
-      # databases are deleted 30 days after creation.
+      # databases are deleted 30 days after creation. Use the *production*
+      # Neon branch here.
       - key: DATABASE_URL
         sync: false
 
-      # -- Auth / JWT ---------------------------------------------------------
       # Must be at least 32 characters; the server refuses to boot otherwise.
       - key: JWT_ACCESS_SECRET
         sync: false
-
-      - key: ACCESS_TOKEN_TTL
-        value: 15m
-
-      - key: REFRESH_TOKEN_TTL_DAYS
-        value: "30"
 
       # At least one non-empty client ID is required in production.
       - key: GOOGLE_ALLOWED_CLIENT_IDS
@@ -84,71 +183,48 @@ services:
       - key: ADMIN_EMAILS
         sync: false
 
-      # -- Rate limiting ------------------------------------------------------
-      - key: THROTTLE_TTL
-        value: "60"
+  # --------------------------------------------------------------------------
+  # Staging / pre-production
+  # --------------------------------------------------------------------------
+  - type: web
+    name: pluto-server-staging
+    runtime: node
+    plan: free
+    region: oregon # Keep identical to pluto-server.
+    # Deploy the pre-production branch, not `main`. Merge `main` -> `staging`
+    # to soak a build here; merge `staging` -> `main` to promote it.
+    branch: staging
 
-      - key: THROTTLE_LIMIT
-        value: "100"
+    buildCommand: >-
+      npm ci --include=dev &&
+      npm run prisma:generate -w pluto-server &&
+      npm run build -w pluto-server
 
-      - key: AUTH_THROTTLE_LIMIT
-        value: "20"
+    startCommand: >-
+      npm run prisma:migrate:deploy -w pluto-server &&
+      node apps/server/dist/main.js
 
-      # -- Exchange rates -----------------------------------------------------
-      - key: EXCHANGE_RATE_PROVIDER
-        value: frankfurter
+    healthCheckPath: /v1/health
 
-      - key: EXCHANGE_RATE_BASE_URL
-        value: https://api.frankfurter.dev/v1
+    envVars:
+      - fromGroup: pluto-server-config
 
-      - key: EXCHANGE_RATE_BASE_CURRENCY
-        value: USD
+      # -- Staging secrets (set these in the Render dashboard) --------------
+      # The staging clients' origins, e.g.
+      # https://staging.pluto.example,http://localhost:3001
+      - key: CORS_ORIGIN
+        sync: false
 
-      - key: EXCHANGE_RATE_SCHEDULE
-        value: "0 4 * * *"
+      # A *separate* Neon branch (e.g. `staging`) -- never production's URL.
+      - key: DATABASE_URL
+        sync: false
 
-      # -- Object storage -----------------------------------------------------
-      # Starts DISABLED: no credit card required, and the API boots with every
-      # feature except /v1/backups/* (which returns 503 instead of failing with
-      # storage errors). To turn backups on for free:
-      #   1. Create an account + bucket at Filebase (free 5 GB, no credit card).
-      #   2. Set OBJECT_STORAGE_BUCKET to that bucket name.
-      #   3. Paste the Filebase access key + secret.
-      #   4. Set OBJECT_STORAGE_ENABLED to "true".
-      # The bucket must exist already -- the application never creates it.
-      - key: OBJECT_STORAGE_ENABLED
-        value: "false"
+      - key: JWT_ACCESS_SECRET
+        sync: false
 
-      - key: OBJECT_STORAGE_ENDPOINT
-        value: https://s3.filebase.io
+      # The staging OAuth audience; use a client ID that production does not.
+      - key: GOOGLE_ALLOWED_CLIENT_IDS
+        sync: false
 
-      - key: OBJECT_STORAGE_REGION
-        value: auto
-
-      - key: OBJECT_STORAGE_BUCKET
-        value: pluto-backups
-
-      - key: OBJECT_STORAGE_ACCESS_KEY_ID
-        value: unconfigured
-
-      - key: OBJECT_STORAGE_SECRET_ACCESS_KEY
-        value: unconfigured
-
-      - key: OBJECT_STORAGE_FORCE_PATH_STYLE
-        value: "true"
-
-      # -- Backup quotas ------------------------------------------------------
-      - key: BACKUP_MAX_SIZE_BYTES
-        value: "52428800"
-
-      - key: BACKUP_RETENTION_COUNT
-        value: "5"
-
-      - key: BACKUP_UPLOAD_URL_TTL
-        value: "900"
-
-      - key: BACKUP_DOWNLOAD_URL_TTL
-        value: "900"
-
-      - key: BACKUP_PENDING_EXPIRY_HOURS
-        value: "24"
+      - key: ADMIN_EMAILS
+        sync: false
