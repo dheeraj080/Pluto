@@ -35,7 +35,12 @@ describe('Pluto Server API (e2e)', () => {
       count: jest.fn(),
     },
     rateSnapshot: {
-      findFirst: jest.fn(),
+      // Truthy by default so RatesScheduler.onApplicationBootstrap sees an
+      // existing published snapshot and skips its initial sync. That sync would
+      // populate the service's in-process snapshot cache from these mocks
+      // (whose default `findUnique` has no rates), and every later
+      // /v1/rates/latest request would then be served that empty table.
+      findFirst: jest.fn().mockResolvedValue({ id: 'boot-snap-1' }),
       // Report endpoints call getRateTablesForRange, which does
       // `(await findMany(...)).length`; default to "no snapshots" so an
       // unmocked call degrades instead of throwing on `undefined.length`.
@@ -88,21 +93,26 @@ describe('Pluto Server API (e2e)', () => {
     expense: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       create: jest.fn(),
       createMany: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
       groupBy: jest.fn(),
+      // sync.push replays device changes through upsert.
+      upsert: jest.fn(),
     },
     budget: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       create: jest.fn(),
       createMany: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
       deleteMany: jest.fn(),
+      upsert: jest.fn(),
     },
     recurringExpense: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -1054,6 +1064,325 @@ describe('Pluto Server API (e2e)', () => {
         .expect(409);
 
       expect(response.body.error).toContain('expense');
+    });
+  });
+
+  describe('Sync (e2e)', () => {
+    let accessToken: string;
+
+    const syncUserId = 'test-user-uuid-1';
+    const categoryId = '0f3d5b7a-1111-4222-8333-444455556666';
+    const expenseId = '1a2b3c4d-2222-4333-8444-555566667777';
+    const budgetId = '2b3c4d5e-3333-4444-8555-666677778889';
+    const winnerBudgetId = '3c4d5e6f-4444-4555-8666-777788889999';
+
+    const auth = () => ({ Authorization: `Bearer ${accessToken}` });
+
+    /** A create exactly as the phone's offline queue would replay it. */
+    const expenseChange = () => ({
+      entity: 'expense',
+      id: expenseId,
+      op: 'create',
+      clientUpdatedAt: '2026-10-10T08:15:00.000Z',
+      data: {
+        categoryId,
+        amount: 12.5,
+        currency: 'usd',
+        incurredOn: '2026-10-03',
+        description: 'Groceries',
+        paymentMethod: 'CARD',
+      },
+    });
+
+    /** A create for an overall (category-less) budget. */
+    const budgetChange = () => ({
+      entity: 'budget',
+      id: budgetId,
+      op: 'create',
+      clientUpdatedAt: '2026-10-10T08:16:00.000Z',
+      data: {
+        amount: 400,
+        currency: 'usd',
+        period: 'MONTHLY',
+        startDate: '2026-10-01',
+      },
+    });
+
+    beforeAll(async () => {
+      const syncUser = {
+        id: syncUserId,
+        email: 'sync@example.com',
+        name: 'Sync User',
+        googleId: 'google-sub-sync',
+        avatarUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      // auth.service resolves by googleId first, then email, then id (JWT strategy).
+      mockPrismaService.user.findUnique.mockImplementation(
+        ({ where }: { where: { id?: string; googleId?: string; email?: string } }) =>
+          Promise.resolve(
+            where.id === syncUserId ||
+              where.googleId === 'google-sub-sync' ||
+              where.email === 'sync@example.com'
+              ? syncUser
+              : null,
+          ),
+      );
+      mockPrismaService.user.update.mockResolvedValue(syncUser);
+      mockPrismaService.refreshSession.create.mockResolvedValue({
+        id: 'sess-sync',
+        userId: syncUserId,
+      });
+      mockGoogleAuthService.verifyIdToken.mockResolvedValue({
+        googleId: 'google-sub-sync',
+        email: 'sync@example.com',
+        name: 'Sync User',
+        avatarUrl: null,
+      });
+
+      const response = await request(server)
+        .post('/v1/auth/google')
+        .send({ idToken: 'sync-e2e-token' })
+        .expect(200);
+      accessToken = response.body.data.accessToken;
+    });
+
+    afterEach(() => {
+      // Clears call history between cases; implementations survive (mockClear
+      // does not reset them), so the signed-in user stays resolvable.
+      jest.clearAllMocks();
+    });
+
+    it('should reject sync routes without a Bearer token (401)', async () => {
+      await request(server).post('/v1/sync/push').send({ changes: [] }).expect(401);
+      await request(server).get('/v1/sync/pull').expect(401);
+    });
+
+    it('(POST) /v1/sync/push applies a queued expense and reports the outcome', async () => {
+      mockPrismaService.expense.findUnique.mockResolvedValue(null);
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue({ id: categoryId });
+      mockPrismaService.expense.upsert.mockResolvedValue({
+        updatedAt: new Date('2026-10-10T09:00:00.000Z'),
+      });
+
+      const response = await request(server)
+        .post('/v1/sync/push')
+        .set(auth())
+        .send({ changes: [expenseChange()] })
+        .expect(200);
+
+      expect(response.body.data.results).toEqual([
+        {
+          id: expenseId,
+          status: 'applied',
+          serverUpdatedAt: '2026-10-10T09:00:00.000Z',
+        },
+      ]);
+      expect(typeof response.body.data.cursor).toBe('string');
+
+      // Whole-row-wins: the device payload is normalised onto the server row.
+      expect(mockPrismaService.expense.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: expenseId },
+          create: expect.objectContaining({
+            id: expenseId,
+            userId: syncUserId,
+            categoryId,
+            currency: 'USD',
+            clientUpdatedAt: new Date('2026-10-10T08:15:00.000Z'),
+          }),
+        }),
+      );
+    });
+
+    it('(POST) /v1/sync/push creates an overall budget with no category lookup', async () => {
+      mockPrismaService.budget.findUnique.mockResolvedValue(null);
+      mockPrismaService.budget.findFirst.mockResolvedValue(null);
+      mockPrismaService.budget.upsert.mockResolvedValue({
+        updatedAt: new Date('2026-10-10T09:05:00.000Z'),
+      });
+
+      const response = await request(server)
+        .post('/v1/sync/push')
+        .set(auth())
+        .send({ changes: [budgetChange()] })
+        .expect(200);
+
+      expect(response.body.data.results).toEqual([
+        {
+          id: budgetId,
+          status: 'applied',
+          serverUpdatedAt: '2026-10-10T09:05:00.000Z',
+        },
+      ]);
+      expect(mockPrismaService.budget.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            id: budgetId,
+            userId: syncUserId,
+            categoryId: null,
+            currency: 'USD',
+            period: 'MONTHLY',
+            clientUpdatedAt: new Date('2026-10-10T08:16:00.000Z'),
+          }),
+        }),
+      );
+      expect(mockPrismaService.expenseCategory.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('(POST) /v1/sync/push reports a budget colliding on (category, period) as skipped, not failed', async () => {
+      mockPrismaService.budget.findUnique.mockResolvedValue(null);
+      mockPrismaService.budget.findFirst.mockResolvedValue({ id: winnerBudgetId });
+
+      const response = await request(server)
+        .post('/v1/sync/push')
+        .set(auth())
+        .send({ changes: [budgetChange()] })
+        .expect(200);
+
+      // The local row retires and adopts the server winner from the next mirror
+      // refresh, so the queue must not treat this as a failure and retry forever.
+      expect(response.body.data.results).toEqual([
+        { id: budgetId, status: 'skipped', reason: 'duplicate' },
+      ]);
+      expect(mockPrismaService.budget.upsert).not.toHaveBeenCalled();
+    });
+
+    it('(POST) /v1/sync/push skips a stale replay instead of overwriting', async () => {
+      mockPrismaService.expense.findUnique.mockResolvedValue({
+        id: expenseId,
+        userId: syncUserId,
+        clientUpdatedAt: new Date('2026-10-11T00:00:00.000Z'),
+      });
+
+      const response = await request(server)
+        .post('/v1/sync/push')
+        .set(auth())
+        .send({ changes: [expenseChange()] })
+        .expect(200);
+
+      expect(response.body.data.results).toEqual([
+        { id: expenseId, status: 'skipped', reason: 'stale' },
+      ]);
+      expect(mockPrismaService.expense.upsert).not.toHaveBeenCalled();
+    });
+
+    it('(POST) /v1/sync/push refuses to touch a row owned by another account', async () => {
+      // A foreign id is indistinguishable from a missing one: ownership is
+      // checked before LWW so a guessed UUID can never clobber another account.
+      mockPrismaService.expense.findUnique.mockResolvedValue({
+        id: expenseId,
+        userId: 'some-other-user',
+        clientUpdatedAt: new Date('2026-10-09T00:00:00.000Z'),
+      });
+
+      const response = await request(server)
+        .post('/v1/sync/push')
+        .set(auth())
+        .send({ changes: [expenseChange()] })
+        .expect(200);
+
+      expect(response.body.data.results).toEqual([
+        { id: expenseId, status: 'failed', reason: 'not-found' },
+      ]);
+      expect(mockPrismaService.expense.upsert).not.toHaveBeenCalled();
+    });
+
+    it('(POST) /v1/sync/push treats a delete of a row that never reached the server as a no-op', async () => {
+      mockPrismaService.expense.findUnique.mockResolvedValue(null);
+
+      const response = await request(server)
+        .post('/v1/sync/push')
+        .set(auth())
+        .send({
+          changes: [
+            {
+              entity: 'expense',
+              id: expenseId,
+              op: 'delete',
+              clientUpdatedAt: '2026-10-10T08:20:00.000Z',
+            },
+          ],
+        })
+        .expect(200);
+
+      expect(response.body.data.results).toEqual([
+        { id: expenseId, status: 'applied', reason: 'noop' },
+      ]);
+      expect(mockPrismaService.expense.update).not.toHaveBeenCalled();
+    });
+
+    it('(POST) /v1/sync/push rejects a payload that does not match its entity (400)', async () => {
+      // `data` is discriminated by `entity`: an expense payload under a budget
+      // change (missing `period`) is a client bug, so the whole batch 400s.
+      const response = await request(server)
+        .post('/v1/sync/push')
+        .set(auth())
+        .send({
+          changes: [
+            {
+              entity: 'budget',
+              id: budgetId,
+              op: 'create',
+              clientUpdatedAt: '2026-10-10T08:16:00.000Z',
+              data: { categoryId, amount: 12.5, currency: 'USD', incurredOn: '2026-10-03' },
+            },
+          ],
+        })
+        .expect(400);
+
+      expect(JSON.stringify(response.body)).toContain("data must be a valid 'budget' payload");
+      expect(mockPrismaService.budget.upsert).not.toHaveBeenCalled();
+    });
+
+    it('(GET) /v1/sync/pull mirrors expenses, tombstones and a cursor', async () => {
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        {
+          id: expenseId,
+          categoryId,
+          amount: 12.5,
+          currency: 'USD',
+          description: 'Groceries',
+          incurredOn: new Date('2026-10-03T00:00:00.000Z'),
+          paymentMethod: 'CARD',
+          recurringExpenseId: null,
+          clientUpdatedAt: new Date('2026-10-10T08:15:00.000Z'),
+          updatedAt: new Date('2026-10-10T09:00:00.000Z'),
+          deletedAt: new Date('2026-10-11T00:00:00.000Z'),
+        },
+      ]);
+
+      const response = await request(server)
+        .get('/v1/sync/pull?since=2026-10-10T09:00:00.000Z')
+        .set(auth())
+        .expect(200);
+
+      expect(mockPrismaService.expense.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId: syncUserId,
+            updatedAt: { gt: new Date('2026-10-10T09:00:00.000Z') },
+          },
+        }),
+      );
+      expect(response.body.data.cursor).toBe('2026-10-10T09:00:00.000Z');
+      expect(response.body.data.hasMore).toBe(false);
+      expect(response.body.data.expenses).toEqual([
+        {
+          id: expenseId,
+          categoryId,
+          amount: 12.5,
+          currency: 'USD',
+          description: 'Groceries',
+          incurredOn: '2026-10-03',
+          paymentMethod: 'CARD',
+          recurringExpenseId: null,
+          clientUpdatedAt: '2026-10-10T08:15:00.000Z',
+          updatedAt: '2026-10-10T09:00:00.000Z',
+          deletedAt: '2026-10-11T00:00:00.000Z',
+        },
+      ]);
     });
   });
 });
