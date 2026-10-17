@@ -13,7 +13,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { api, ApiError, clearSession, getAccessToken, getRefreshToken } from "@/lib/api";
+import { api, ApiError, clearSession, getAccessToken, getRefreshToken, signOut } from "@/lib/api";
 import type { UserProfile } from "@/lib/types";
 import { AppShell, type AppNavItem } from "@/components/app-shell";
 import { Spinner } from "@/components/ui";
@@ -91,7 +91,9 @@ function ExpensesShell({ children }: { children: React.ReactNode }) {
   }, [pathname, verify]);
 
   const handleSignOut = () => {
-    clearSession();
+    // Revokes the server session in the background; the local half of
+    // `signOut` clears synchronously, so the redirect below never races it.
+    void signOut();
     router.push("/");
   };
 

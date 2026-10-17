@@ -12,9 +12,9 @@
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import {
-  clearSession,
   getSessionServerSnapshot,
   getSessionSnapshot,
+  signOut,
   subscribeSession,
 } from "@/lib/api";
 import { IconLogOut } from "./icons";
@@ -64,7 +64,11 @@ export function AuthNavLink({
       </Link>
       <button
         type="button"
-        onClick={navigate(() => clearSession())}
+        onClick={navigate(() => {
+          // Local session clears synchronously; the server revocation is
+          // best-effort and must not block closing the mobile menu.
+          void signOut();
+        })}
         className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <IconLogOut className="h-4 w-4" />

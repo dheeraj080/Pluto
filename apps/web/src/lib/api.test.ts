@@ -209,4 +209,66 @@ describe('web api client (api.ts)', () => {
     const { getSessionServerSnapshot } = await loadApi(async () => jsonResponse({ success: true, data: null, timestamp: '' }));
     expect(getSessionServerSnapshot()).toBe(false);
   });
+
+  it('signOut revokes the server session with the refresh token, then clears locally', async () => {
+    const revoked: unknown[] = [];
+    const handler = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      if (String(url).endsWith('/auth/logout')) {
+        revoked.push(JSON.parse(String(init?.body)));
+        return jsonResponse({ success: true, data: { success: true, message: 'ok' }, timestamp: '' });
+      }
+      return jsonResponse({ success: true, data: null, timestamp: '' });
+    });
+
+    const mod = await loadApi(handler);
+    mod.saveSession({ accessToken: 'a', refreshToken: 'r', user: { id: 'u' } } as unknown as AuthSession);
+
+    await mod.signOut();
+
+    expect(revoked).toEqual([{ refreshToken: 'r' }]);
+    expect(mod.getRefreshToken()).toBeNull();
+    expect(mod.getAccessToken()).toBeNull();
+    expect(mod.getSessionSnapshot()).toBe(false);
+  });
+
+  it('signOut clears the local session even when revocation fails', async () => {
+    const handler = vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url).endsWith('/auth/logout')) {
+        return jsonResponse({ success: false, ...state(500, 'down') }, { status: 500, ok: false });
+      }
+      return jsonResponse({ success: true, data: null, timestamp: '' });
+    });
+
+    const mod = await loadApi(handler);
+    mod.saveSession({ accessToken: 'a', refreshToken: 'r', user: { id: 'u' } } as unknown as AuthSession);
+
+    await expect(mod.signOut()).resolves.toBeUndefined();
+    expect(mod.getRefreshToken()).toBeNull();
+  });
+
+  it('signOut drops the local credential before the revoke resolves', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    const handler = vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url).endsWith('/auth/logout')) {
+        await gate;
+        return jsonResponse({ success: true, data: { success: true, message: 'ok' }, timestamp: '' });
+      }
+      return jsonResponse({ success: true, data: null, timestamp: '' });
+    });
+
+    const mod = await loadApi(handler);
+    mod.saveSession({ accessToken: 'a', refreshToken: 'r', user: { id: 'u' } } as unknown as AuthSession);
+
+    const pending = mod.signOut();
+    // The UI half must not wait on the network.
+    expect(mod.getRefreshToken()).toBeNull();
+    expect(mod.getSessionSnapshot()).toBe(false);
+
+    release();
+    await pending;
+  });
 });

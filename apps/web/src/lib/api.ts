@@ -2,8 +2,10 @@
  * Minimal typed API client for pluto-server.
  *
  * - Access token lives in memory only (module scope).
- * - Refresh token is persisted in localStorage (mirrors the Android client's
- *   EncryptedSharedPreferences usage described in the server runbook).
+ * - Refresh token is persisted in localStorage. That is weaker than the mobile
+ *   client's Keychain/Keystore storage; moving it to an httpOnly cookie would
+ *   need matching server changes, so it is a known gap rather than a like-for-
+ *   like mirror of mobile.
  * - On a 401, the client transparently rotates the refresh token once and
  *   replays the original request; a failed rotation clears the session.
  * - Every response is unwrapped from pluto-server's global envelope.
@@ -156,3 +158,32 @@ export const api = createApiClient({
     return outcome === 'refreshed';
   },
 });
+
+/* ------------------------------------------------------------------ */
+/* Sign-out                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Ends the session: the server-side refresh session is revoked, then the local
+ * credential is dropped.
+ *
+ * The local half runs first so a slow or unreachable server never delays the
+ * sign-out the user just asked for — the header flips immediately. Revocation
+ * is best-effort on purpose: `POST /auth/logout` may legitimately fail with a
+ * token that is already gone or a network that is down, and neither should
+ * surface as an error or leave the user signed in locally.
+ *
+ * Uses the interceptor-free `authApi`: logout carries the refresh token in the
+ * body, so a 401 must not trigger a rotation of the very token being revoked.
+ * Mirrors `signOut` in `apps/mobile/src/lib/api.ts`.
+ */
+export async function signOut(): Promise<void> {
+  const refreshToken = getRefreshToken();
+  clearSession();
+  if (!refreshToken) return;
+  try {
+    await authApi.post('/auth/logout', { refreshToken });
+  } catch {
+    /* Best-effort — the local session is already gone. */
+  }
+}

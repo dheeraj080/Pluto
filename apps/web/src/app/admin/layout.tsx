@@ -9,7 +9,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { api, ApiError, clearSession, getAccessToken, getRefreshToken } from "@/lib/api";
+import { api, ApiError, clearSession, getAccessToken, getRefreshToken, signOut } from "@/lib/api";
 import type { AdminStats } from "@/lib/types";
 
 const NAV = [
@@ -81,7 +81,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   }, [isLogin, pathname, verify]);
 
   const handleSignOut = () => {
-    clearSession();
+    void signOut();
     router.push("/admin/login");
   };
 
