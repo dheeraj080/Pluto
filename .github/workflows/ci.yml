@@ -97,6 +97,19 @@ jobs:
       - name: Install the monorepo
         run: npm ci
 
+      # Dependency advisories. Only `critical` in a *shipped* dependency fails
+      # the run: that is a release blocker. The high/moderate backlog is
+      # reported (for all dependencies, not just shipped ones) but tolerated —
+      # it is almost entirely transitive Expo/React Native build tooling that
+      # cannot move without a major upgrade, and a gate that fails on day one
+      # gets switched off.
+      - name: Audit shipped dependencies (critical blocks)
+        run: npm run audit:deps
+
+      - name: Audit all dependencies (report only)
+        run: npm audit
+        continue-on-error: true
+
       # Nothing runs `prisma generate` automatically, and the server's tests and
       # the OpenAPI generator both import the generated client.
       - name: Generate the Prisma client
