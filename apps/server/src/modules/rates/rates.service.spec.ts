@@ -611,8 +611,9 @@ describe('RatesService', () => {
 
     await ratesService.syncExchangeRates('USD');
 
-    const stored = mockPrismaService.exchangeRate.createMany.mock.calls[0][0]
-      .data as Array<{ quoteCurrency: string }>;
+    const stored = mockPrismaService.exchangeRate.createMany.mock.calls[0][0].data as Array<{
+      quoteCurrency: string;
+    }>;
     const codes = stored.map((r) => r.quoteCurrency);
     expect(codes).toEqual(expect.arrayContaining(['USD', 'EUR']));
     expect(codes).not.toEqual(expect.arrayContaining(['XAU', 'CNH', 'GGP']));
