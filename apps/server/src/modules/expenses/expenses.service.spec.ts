@@ -566,6 +566,30 @@ describe('ExpensesService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('maps a lost create race to a conflict instead of a 500', async () => {
+      // The pre-check saw nothing, but a concurrent create won the race and the
+      // unique index rejected this one. That is the same conflict, so the
+      // caller must still see a 409 rather than a 500.
+      mockPrismaService.budget.findFirst.mockResolvedValue(null);
+      mockPrismaService.budget.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { target: ['userId', 'period'] },
+        }),
+      );
+
+      await expect(service.createBudget(USER_A, baseBudget)).rejects.toThrow(ConflictException);
+      expect(mockPrismaService.budget.create).toHaveBeenCalled();
+    });
+
+    it('does not swallow an unrelated create failure', async () => {
+      mockPrismaService.budget.findFirst.mockResolvedValue(null);
+      mockPrismaService.budget.create.mockRejectedValue(new Error('connection reset'));
+
+      await expect(service.createBudget(USER_A, baseBudget)).rejects.toThrow('connection reset');
+    });
+
     it('creates an overall budget when no category is given', async () => {
       mockPrismaService.budget.findFirst.mockResolvedValue(null);
       mockPrismaService.budget.create.mockResolvedValue({

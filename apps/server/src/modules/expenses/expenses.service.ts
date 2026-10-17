@@ -376,9 +376,9 @@ export class ExpensesService {
     const categoryId = dto.categoryId ?? null;
     const currency = this.currencyConverter.assertValidCode(dto.currency);
 
-    if (categoryId) {
-      await this.findOwnedCategory(userId, categoryId, 'Category not found');
-    }
+    const category = categoryId
+      ? await this.findOwnedCategory(userId, categoryId, 'Category not found')
+      : null;
 
     const duplicate = await this.prisma.budget.findFirst({
       where: { userId, categoryId, period },
@@ -386,23 +386,37 @@ export class ExpensesService {
     });
     if (duplicate) {
       throw new ConflictException(
-        `A ${period.toLowerCase()} budget for ${duplicate.category?.name ?? 'all expenses'} already exists`,
+        this.duplicateBudgetMessage(period, duplicate.category?.name ?? null),
       );
     }
 
-    const created = await this.prisma.budget.create({
-      data: {
-        userId,
-        categoryId,
-        amount: new Prisma.Decimal(dto.amount.toFixed(2)),
-        currency,
-        period,
-        startDate: toUtcDate(dto.startDate ?? formatDate(new Date())),
-      },
-      include: { category: { select: { name: true } } },
-    });
+    try {
+      const created = await this.prisma.budget.create({
+        data: {
+          userId,
+          categoryId,
+          amount: new Prisma.Decimal(dto.amount.toFixed(2)),
+          currency,
+          period,
+          startDate: toUtcDate(dto.startDate ?? formatDate(new Date())),
+        },
+        include: { category: { select: { name: true } } },
+      });
 
-    return this.toBudgetDto(created);
+      return this.toBudgetDto(created);
+    } catch (error) {
+      // The read above cannot close the race between two simultaneous creates.
+      // The unique indexes are the real arbiter, and losing that race is the
+      // same conflict the pre-check reports — not a 500.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException(this.duplicateBudgetMessage(period, category?.name ?? null));
+      }
+      throw error;
+    }
+  }
+
+  private duplicateBudgetMessage(period: BudgetPeriod, categoryName: string | null): string {
+    return `A ${period.toLowerCase()} budget for ${categoryName ?? 'all expenses'} already exists`;
   }
 
   async updateBudget(userId: string, id: string, dto: UpdateBudgetDto): Promise<BudgetDto> {
