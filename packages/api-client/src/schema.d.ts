@@ -2282,6 +2282,13 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
+            /** @description Dependency (database) unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     AuthController_googleAuth: {

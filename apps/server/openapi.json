@@ -28,6 +28,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Dependency (database) unavailable"
           }
         },
         "summary": "Get application and database health status",
