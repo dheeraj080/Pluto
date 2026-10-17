@@ -143,16 +143,26 @@ export class RatesService {
       // 2. Validate complete payload
       this.validateSnapshotRates(providerData, base);
 
-      // 3. Carry forward rows the provider did not refresh today so the table
+      // 3. Keep only currencies we actually treat as convertible. The provider
+      //    blends in non-registry codes (metals XAU/XAG/XPT/XPD, CNH, GGP/JEP/
+      //    IMP, ...) that can never be recorded, so storing them would bloat
+      //    every snapshot and leak them into /rates/latest. The canonical base
+      //    is always in `supportedCurrencies` (enforced in the constructor).
+      const supported = new Set(this.supportedCurrencies);
+      const freshRows = providerData.rates.filter((row) =>
+        supported.has(row.quoteCurrency.toUpperCase()),
+      );
+
+      // 4. Carry forward rows the provider did not refresh today so the table
       //    stays complete even when a source is quiet.
       const previous = await this.findLatestSnapshotWithRates(base);
-      const merged = this.mergeCarryForward(providerData.rates, previous, base);
+      const merged = this.mergeCarryForward(freshRows, previous, base);
       const asOf = merged.reduce(
         (max, row) => (row.effectiveDate > max ? row.effectiveDate : max),
         '0000-01-01',
       );
 
-      // 4. Generate a content ETag; an unchanged table is a clean no-op.
+      // 5. Generate a content ETag; an unchanged table is a clean no-op.
       const etag = this.computeEtag(base, asOf, merged);
       if (previous && previous.etag === etag) {
         this.logger.log(`Rates unchanged for ${base}; reusing snapshot v${previous.version}`);
@@ -161,7 +171,7 @@ export class RatesService {
         return dto;
       }
 
-      // 5. Atomically persist snapshot and rates in a transaction
+      // 6. Atomically persist snapshot and rates in a transaction
       const snapshot = await this.prisma.$transaction(async (tx) => {
         const createdSnapshot = await tx.rateSnapshot.create({
           data: {
@@ -723,10 +733,14 @@ export class RatesService {
     base: string,
   ): DatedRate[] {
     const byCode = new Map<string, DatedRate>();
+    const supported = new Set(this.supportedCurrencies);
 
     if (previous) {
       const prevDateIso = previous.effectiveDate.toISOString().split('T')[0];
       for (const row of previous.rates) {
+        // Don't resurrect a currency the operator has since dropped from the
+        // supported set.
+        if (!supported.has(row.quoteCurrency)) continue;
         byCode.set(row.quoteCurrency, {
           quoteCurrency: row.quoteCurrency,
           rate: Number(row.rate.toFixed(6)),

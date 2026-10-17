@@ -460,6 +460,55 @@ describe('RatesService', () => {
     expect(vnd!.effectiveDate.toISOString().slice(0, 10)).toBe('2026-10-08');
   });
 
+  it('stores only supported registry codes, dropping non-recordable provider rows', async () => {
+    // Frankfurter blends in codes we can never record (metals, CNH, crown
+    // dependencies). Storing them would bloat every snapshot and leak them
+    // into /rates/latest as if they were spendable.
+    mockRateProvider.fetchLatestRates.mockResolvedValue({
+      baseCurrency: 'USD',
+      effectiveDate: '2026-10-10',
+      provider: 'frankfurter',
+      rates: [
+        { quoteCurrency: 'USD', rate: 1.0, effectiveDate: '2026-10-10' },
+        { quoteCurrency: 'EUR', rate: 0.93, effectiveDate: '2026-10-10' },
+        { quoteCurrency: 'XAU', rate: 0.0005, effectiveDate: '2026-10-10' },
+        { quoteCurrency: 'CNH', rate: 7.1, effectiveDate: '2026-10-10' },
+        { quoteCurrency: 'GGP', rate: 0.79, effectiveDate: '2026-10-10' },
+      ],
+    });
+    mockPrismaService.rateSnapshot.findFirst.mockResolvedValue(null);
+    mockPrismaService.rateSnapshot.create.mockResolvedValue({
+      id: 'snap-filtered',
+      version: 1,
+      baseCurrency: 'USD',
+      effectiveDate: new Date('2026-10-10'),
+      provider: 'frankfurter',
+      etag: 'W/"rates-USD-2026-10-10-filtered"',
+      isPublished: true,
+    });
+    mockPrismaService.rateSnapshot.findUnique.mockResolvedValue({
+      id: 'snap-filtered',
+      version: 1,
+      baseCurrency: 'USD',
+      effectiveDate: new Date('2026-10-10'),
+      fetchedAt: new Date(),
+      provider: 'frankfurter',
+      etag: 'W/"rates-USD-2026-10-10-filtered"',
+      rates: [
+        { quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') },
+        { quoteCurrency: 'EUR', rate: new Prisma.Decimal('0.930000') },
+      ],
+    });
+
+    await ratesService.syncExchangeRates('USD');
+
+    const stored = mockPrismaService.exchangeRate.createMany.mock.calls[0][0]
+      .data as Array<{ quoteCurrency: string }>;
+    const codes = stored.map((r) => r.quoteCurrency);
+    expect(codes).toEqual(expect.arrayContaining(['USD', 'EUR']));
+    expect(codes).not.toEqual(expect.arrayContaining(['XAU', 'CNH', 'GGP']));
+  });
+
   it('derives a non-canonical base from the canonical snapshot', async () => {
     mockPrismaService.rateSnapshot.findFirst.mockResolvedValue({ id: 'snap-canon' });
     mockPrismaService.rateSnapshot.findUnique.mockResolvedValue({
