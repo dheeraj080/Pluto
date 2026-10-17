@@ -94,6 +94,7 @@ describe('validateEnvironment', () => {
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
       JWT_ACCESS_SECRET: 'production_super_secure_secret_key_exceeding_32_chars',
+      CORS_ORIGIN: 'https://app.example.com',
       GOOGLE_ALLOWED_CLIENT_IDS:
         'client1.apps.googleusercontent.com, client2.apps.googleusercontent.com',
       OBJECT_STORAGE_ACCESS_KEY_ID: 'prod-s3-key',
@@ -109,6 +110,7 @@ describe('validateEnvironment', () => {
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
       JWT_ACCESS_SECRET: 'production_super_secure_secret_key_exceeding_32_chars',
+      CORS_ORIGIN: 'https://app.example.com,https://example.com',
       GOOGLE_ALLOWED_CLIENT_IDS: 'valid-client-id.apps.googleusercontent.com',
       OBJECT_STORAGE_ACCESS_KEY_ID: 'prod-s3-key',
       OBJECT_STORAGE_SECRET_ACCESS_KEY: 'prod-s3-secret',
@@ -118,11 +120,28 @@ describe('validateEnvironment', () => {
     expect(result.NODE_ENV).toBe('production');
   });
 
+  it('should reject a wildcard CORS origin in production', () => {
+    const prodConfigWithWildcardCors = {
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
+      JWT_ACCESS_SECRET: 'production_super_secure_secret_key_exceeding_32_chars',
+      CORS_ORIGIN: '*',
+      GOOGLE_ALLOWED_CLIENT_IDS: 'valid-client-id.apps.googleusercontent.com',
+      OBJECT_STORAGE_ACCESS_KEY_ID: 'prod-s3-key',
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: 'prod-s3-secret',
+    };
+
+    expect(() => validateEnvironment(prodConfigWithWildcardCors)).toThrow(
+      'CORS_ORIGIN must list explicit origins',
+    );
+  });
+
   it('should allow placeholder storage credentials in production when object storage is disabled', () => {
     const prodConfigWithoutStorage = {
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
       JWT_ACCESS_SECRET: 'production_super_secure_secret_key_exceeding_32_chars',
+      CORS_ORIGIN: 'https://app.example.com',
       GOOGLE_ALLOWED_CLIENT_IDS: 'valid-client-id.apps.googleusercontent.com',
       OBJECT_STORAGE_ENABLED: 'false',
       OBJECT_STORAGE_ACCESS_KEY_ID: 'minioadmin',

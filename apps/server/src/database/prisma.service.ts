@@ -10,7 +10,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       await this.$connect();
       this.logger.log('Successfully connected to PostgreSQL database via Prisma');
     } catch (error) {
-      this.logger.warn(
+      // Deliberately keep booting rather than crashing: the process needs to
+      // stay up so `/v1/health` can report the outage (it returns 503) and the
+      // platform's health check stops routing traffic here. Crashing would turn
+      // a database blip into a boot loop. Logged at error level so it is not
+      // mistaken for a warning in production.
+      this.logger.error(
         `Initial database connection failed: ${error instanceof Error ? error.message : String(error)}. Make sure PostgreSQL is running.`,
       );
     }

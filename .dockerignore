@@ -1,0 +1,44 @@
+# Keep the Docker build context small and, critically, never ship local state
+# or secrets into an image layer. Applies to `docker build` from the repo root
+# (see apps/server/Dockerfile and apps/web/Dockerfile).
+
+# Dependencies / build output (reinstalled inside the image)
+**/node_modules
+**/dist
+**/.next
+**/out
+**/coverage
+**/.turbo
+**/*.tsbuildinfo
+
+# Environment files and secrets
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+**/*.cert
+**/*.keystore
+**/*.jks
+**/*.p12
+**/*.pfx
+**/*.mobileprovision
+**/*.p8
+
+# Generated / native mobile projects
+apps/mobile/android
+apps/mobile/ios
+
+# VCS, editors, logs
+.git
+.gitignore
+**/.DS_Store
+**/Thumbs.db
+**/.idea
+**/.vscode
+**/*.log
+
+# Local tooling / docs
+.archify
+internal
+postgres_data

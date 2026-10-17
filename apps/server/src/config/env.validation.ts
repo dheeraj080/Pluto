@@ -31,7 +31,6 @@ export const envSchema = z
     // Rate Limiting (Throttler)
     THROTTLE_TTL: z.coerce.number().default(60),
     THROTTLE_LIMIT: z.coerce.number().default(100),
-    AUTH_THROTTLE_LIMIT: z.coerce.number().default(20),
 
     // Exchange Rates
     EXCHANGE_RATE_PROVIDER: z
@@ -116,6 +115,19 @@ export const envSchema = z
           path: ['OBJECT_STORAGE_ACCESS_KEY_ID'],
           message:
             'In production, default minioadmin credentials must not be used for object storage',
+        });
+      }
+
+      // A wildcard origin would let any site call the API with the user's
+      // browser. Production must name its origins explicitly.
+      if (
+        data.CORS_ORIGIN.split(',').some((origin) => origin.trim() === '*' || origin.includes('*'))
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['CORS_ORIGIN'],
+          message:
+            'In production, CORS_ORIGIN must list explicit origins; a wildcard ("*") is not allowed',
         });
       }
 

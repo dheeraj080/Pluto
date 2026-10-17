@@ -10,6 +10,8 @@ describe('HealthController', () => {
     $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
   };
 
+  const createResponse = () => ({ status: jest.fn().mockReturnThis() });
+
   beforeEach(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
       controllers: [HealthController],
@@ -29,23 +31,27 @@ describe('HealthController', () => {
     expect(healthController).toBeDefined();
   });
 
-  it('should return health status ok when database is reachable', async () => {
-    const result = await healthController.getHealth();
+  it('should return health status ok (200) when database is reachable', async () => {
+    const res = createResponse();
+    const result = await healthController.getHealth(res as never);
 
     expect(result.status).toBe('ok');
     expect(result.database.status).toBe('connected');
     expect(result.environment).toBeDefined();
     expect(result.uptime).toBeGreaterThanOrEqual(0);
     expect(result.timestamp).toBeDefined();
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  it('should return degraded status when database query fails', async () => {
+  it('should return degraded status and 503 when database query fails', async () => {
     mockPrismaService.$queryRaw.mockRejectedValueOnce(new Error('Connection timeout'));
 
-    const result = await healthController.getHealth();
+    const res = createResponse();
+    const result = await healthController.getHealth(res as never);
 
     expect(result.status).toBe('degraded');
     expect(result.database.status).toBe('unreachable');
     expect(result.database.error).toBe('Connection timeout');
+    expect(res.status).toHaveBeenCalledWith(503);
   });
 });

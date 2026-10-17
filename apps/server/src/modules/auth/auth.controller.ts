@@ -36,7 +36,9 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Invalid or expired Google ID token' })
   async googleAuth(@Body() dto: GoogleAuthDto, @Req() req: Request): Promise<AuthResponseDto> {
-    const ipAddress = (req.headers['x-forwarded-for'] as string) || req.ip;
+    // `req.ip` honours the `trust proxy` setting, so it cannot be spoofed with a
+    // forged X-Forwarded-For header when the app is not actually behind a proxy.
+    const ipAddress = req.ip ?? req.socket.remoteAddress ?? '';
     const userAgent = req.headers['user-agent'];
     return this.authService.authenticateWithGoogle(dto.idToken, ipAddress, userAgent);
   }
@@ -57,7 +59,9 @@ export class AuthController {
   })
   @ApiResponse({ status: 404, description: 'Dev auth is not enabled' })
   async devLogin(@Body() dto: DevLoginDto, @Req() req: Request): Promise<AuthResponseDto> {
-    const ipAddress = (req.headers['x-forwarded-for'] as string) || req.ip;
+    // `req.ip` honours the `trust proxy` setting, so it cannot be spoofed with a
+    // forged X-Forwarded-For header when the app is not actually behind a proxy.
+    const ipAddress = req.ip ?? req.socket.remoteAddress ?? '';
     const userAgent = req.headers['user-agent'];
     const session = await this.authService.authenticateDevUser(
       dto.email,
@@ -96,7 +100,9 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Invalid, revoked, or expired refresh token' })
   async refresh(@Body() dto: RefreshTokenDto, @Req() req: Request): Promise<AuthResponseDto> {
-    const ipAddress = (req.headers['x-forwarded-for'] as string) || req.ip;
+    // `req.ip` honours the `trust proxy` setting, so it cannot be spoofed with a
+    // forged X-Forwarded-For header when the app is not actually behind a proxy.
+    const ipAddress = req.ip ?? req.socket.remoteAddress ?? '';
     const userAgent = req.headers['user-agent'];
     return this.authService.refreshSession(dto.refreshToken, ipAddress, userAgent);
   }

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -14,15 +15,35 @@ async function bootstrap(): Promise<void> {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
-  const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
+  const apiPrefix = configService.get<string>('API_PREFIX', 'v1');
   const corsOrigin = configService.get<string>('CORS_ORIGIN', '*');
   const trustProxy = configService.get<boolean>('TRUST_PROXY', true);
+  const nodeEnv = configService.get<string>('NODE_ENV', 'development');
+  const isProduction = nodeEnv === 'production';
 
   // Trusted proxy configuration for reverse proxies (NGINX, Cloudflare, AWS ALB)
   const expressApp = app.getHttpAdapter().getInstance();
   if (expressApp && typeof expressApp.set === 'function') {
     expressApp.set('trust proxy', trustProxy ? 1 : false);
   }
+
+  // Correlation id: honour an upstream proxy's id when present, otherwise mint
+  // one. Echoed on the response and attached to the request so the exception
+  // filter / logging interceptor can include it.
+  app.use(
+    (
+      req: { headers: Record<string, string | string[] | undefined>; id?: string },
+      res: { setHeader: (k: string, v: string) => void },
+      next: () => void,
+    ) => {
+      const incoming = req.headers['x-request-id'];
+      const requestId =
+        typeof incoming === 'string' && incoming.length > 0 ? incoming : randomUUID();
+      req.id = requestId;
+      res.setHeader('X-Request-Id', requestId);
+      next();
+    },
+  );
 
   // Standard security headers middleware
   app.use((_req: unknown, res: { setHeader: (k: string, v: string) => void }, next: () => void) => {
@@ -75,19 +96,26 @@ async function bootstrap(): Promise<void> {
   // Enable graceful shutdown hooks
   app.enableShutdownHooks();
 
-  // Swagger / OpenAPI documentation setup
-  const swaggerConfig = buildSwaggerDocumentConfig();
-
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-    },
-  });
+  // Swagger / OpenAPI documentation setup. The interactive explorer and the
+  // full API surface are kept out of production; the committed
+  // `openapi.json` + `packages/api-client` remain the contract for consumers.
+  if (!isProduction) {
+    const swaggerConfig = buildSwaggerDocumentConfig();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+      },
+    });
+  }
 
   await app.listen(port, '0.0.0.0');
   logger.log(`🚀 Application is running on: http://localhost:${port}/${apiPrefix}`);
-  logger.log(`📚 Swagger documentation available at: http://localhost:${port}/docs`);
+  if (isProduction) {
+    logger.log('📚 API documentation is disabled in production (NODE_ENV=production)');
+  } else {
+    logger.log(`📚 Swagger documentation available at: http://localhost:${port}/docs`);
+  }
 }
 
 bootstrap().catch((err) => {

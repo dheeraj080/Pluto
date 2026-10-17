@@ -127,6 +127,12 @@ jobs:
       - name: Test
         run: npm run test
 
+      # The e2e suite exercises the real HTTP surface (routing, guards, the
+      # global exception filter, response envelope) with a mocked Prisma client,
+      # so it needs no database. It was previously never run in CI.
+      - name: End-to-end tests (server)
+        run: npm run test:e2e
+
       # `turbo run build` only builds the packages that define a `build` script
       # (server: `nest build`, web: `next build`), so this catches compile-time
       # regressions the typecheck can miss (bundling, Next's production build).

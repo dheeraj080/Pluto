@@ -36,6 +36,10 @@ describe('Pluto Server API (e2e)', () => {
     },
     rateSnapshot: {
       findFirst: jest.fn(),
+      // Report endpoints call getRateTablesForRange, which does
+      // `(await findMany(...)).length`; default to "no snapshots" so an
+      // unmocked call degrades instead of throwing on `undefined.length`.
+      findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn().mockResolvedValue({
         id: 'boot-snap-1',
         version: 1,
@@ -46,7 +50,6 @@ describe('Pluto Server API (e2e)', () => {
         etag: 'etag-1',
         rates: [],
       }),
-      findMany: jest.fn(),
       create: jest.fn().mockResolvedValue({
         id: 'boot-snap-1',
         version: 1,
@@ -101,6 +104,18 @@ describe('Pluto Server API (e2e)', () => {
       delete: jest.fn(),
       deleteMany: jest.fn(),
     },
+    recurringExpense: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
+      // deleteCategory counts rules still referencing a category before removing it.
+      count: jest.fn().mockResolvedValue(0),
+    },
     $transaction: jest.fn().mockImplementation(async (arg) => {
       if (typeof arg === 'function') {
         return arg(mockPrismaService);
@@ -136,6 +151,7 @@ describe('Pluto Server API (e2e)', () => {
   };
 
   const mockStorageService = {
+    isEnabled: jest.fn().mockReturnValue(true),
     generatePresignedUploadUrl: jest.fn().mockResolvedValue('https://s3.local/upload-mock-url'),
     generatePresignedDownloadUrl: jest.fn().mockResolvedValue('https://s3.local/download-mock-url'),
     headObject: jest.fn().mockResolvedValue({ contentLength: 1024 }),
@@ -779,7 +795,7 @@ describe('Pluto Server API (e2e)', () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Unsupported currency');
+      expect(response.body.error).toContain('ISO 4217');
       expect(mockPrismaService.expense.create).not.toHaveBeenCalled();
     });
 
@@ -836,20 +852,38 @@ describe('Pluto Server API (e2e)', () => {
     });
 
     it('(GET) /v1/expenses/summary should convert into the base currency', async () => {
-      mockPrismaService.expense.groupBy.mockResolvedValue([
+      // The summary endpoint converts row-by-row at the historical rate for each
+      // expense date, so it mocks individual rows (not a groupBy aggregate) and
+      // supplies the published rate table the resolver reads from.
+      mockPrismaService.rateSnapshot.findFirst.mockResolvedValue({ id: 'snap-any' });
+      mockPrismaService.rateSnapshot.findMany.mockResolvedValue([
         {
-          categoryId: foodCategoryId,
-          currency: 'USD',
-          _sum: { amount: new Prisma.Decimal('100.00') },
-          _count: { _all: 5 },
-        },
-        {
-          categoryId: foodCategoryId,
-          currency: 'EUR',
-          _sum: { amount: new Prisma.Decimal('92.00') },
-          _count: { _all: 3 },
+          version: 1,
+          baseCurrency: 'USD',
+          effectiveDate: new Date('2026-10-01T00:00:00.000Z'),
+          provider: 'frankfurter',
+          rates: [
+            { quoteCurrency: 'USD', rate: new Prisma.Decimal(1) },
+            { quoteCurrency: 'EUR', rate: new Prisma.Decimal('0.92') },
+          ],
         },
       ]);
+
+      const summaryRows = [
+        ...Array.from({ length: 5 }, () => ({
+          amount: new Prisma.Decimal('20.00'),
+          currency: 'USD',
+          incurredOn: new Date('2026-10-05T00:00:00.000Z'),
+          categoryId: foodCategoryId,
+        })),
+        ...[23, 34.5, 34.5].map((amount) => ({
+          amount: new Prisma.Decimal(amount.toFixed(2)),
+          currency: 'EUR',
+          incurredOn: new Date('2026-10-05T00:00:00.000Z'),
+          categoryId: foodCategoryId,
+        })),
+      ];
+      mockPrismaService.expense.findMany.mockResolvedValue(summaryRows);
       mockPrismaService.expenseCategory.findMany.mockResolvedValue([
         { id: foodCategoryId, name: 'Food & Dining', color: '#f59e0b' },
       ]);
@@ -862,14 +896,14 @@ describe('Pluto Server API (e2e)', () => {
       const data = response.body.data;
       expect(data.converted).toBe(true);
       expect(data.baseCurrency).toBe('USD');
-      // 100 USD + 92 EUR (92 / 0.92 = 100 USD) = 200
+      // 100 USD (identity) + 92 EUR (23/0.92 + 34.5/0.92 + 34.5/0.92 = 100) = 200
       expect(data.total).toBe(200);
       expect(data.count).toBe(8);
       expect(data.byCategory[0].total).toBe(200);
       expect(data.byCategory[0].percentage).toBe(100);
       expect(data.byCurrency).toEqual([
-        { currency: 'USD', total: 100, count: 5 },
-        { currency: 'EUR', total: 92, count: 3 },
+        expect.objectContaining({ currency: 'USD', total: 100, count: 5 }),
+        expect.objectContaining({ currency: 'EUR', total: 92, count: 3 }),
       ]);
     });
 
@@ -879,7 +913,7 @@ describe('Pluto Server API (e2e)', () => {
         .set(auth())
         .expect(400);
 
-      expect(response.body.error).toContain('Unsupported currency');
+      expect(response.body.error).toContain('Unsupported reporting currency');
     });
 
     it('(GET) /v1/expenses/trends should return a continuous series', async () => {
