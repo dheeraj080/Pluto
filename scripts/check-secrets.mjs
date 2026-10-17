@@ -50,6 +50,9 @@ const CONTENT_PATTERNS = [
       'apps/server/.env.example',
       'apps/server/src/config/env.validation.ts',
       'apps/server/src/config/env.validation.spec.ts',
+      // This file spells out the pattern, so it necessarily contains the
+      // literal. It is the documented insecure default, not a live credential.
+      'scripts/check-secrets.mjs',
     ],
   },
 ];
