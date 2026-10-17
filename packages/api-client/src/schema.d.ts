@@ -753,6 +753,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sync/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replay queued offline changes
+         * @description Applies device changes idempotently by last-write-wins on clientUpdatedAt. Each change is independent, so one rejection does not fail the batch.
+         */
+        post: operations["SyncController_push"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sync/pull": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mirror server changes since a cursor
+         * @description Returns expenses modified after `since`, including deletion tombstones (non-null `deletedAt`). Omit `since` for a full snapshot on first install.
+         */
+        get: operations["SyncController_pull"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/stats": {
         parameters: {
             query?: never;
@@ -2143,6 +2183,122 @@ export interface components {
             checksumSha256: string;
             /** @example 2048576 */
             fileSizeBytes: number;
+        };
+        SyncExpensePayloadDto: {
+            /**
+             * @description Identifier of an expense category owned by the caller
+             * @example f47ac10b-58cc-4372-a567-0e02b2c3d479
+             */
+            categoryId: string;
+            /**
+             * @description Amount in the expense currency
+             * @example 12.5
+             */
+            amount: number;
+            /**
+             * @description ISO 4217 currency code
+             * @example USD
+             */
+            currency: string;
+            /** @example Lunch with team */
+            description?: string | null;
+            /** @example CARD */
+            paymentMethod?: string | null;
+            /**
+             * @description Date the expense was incurred
+             * @example 2026-10-10
+             */
+            incurredOn: string;
+            /**
+             * @description The recurring rule that generated this expense, if any
+             * @example f47ac10b-58cc-4372-a567-0e02b2c3d479
+             */
+            recurringExpenseId?: string | null;
+        };
+        SyncChangeDto: {
+            /**
+             * @example expense
+             * @enum {string}
+             */
+            entity: "expense";
+            /**
+             * @description Client-generated UUID; doubles as the canonical expense id
+             * @example f47ac10b-58cc-4372-a567-0e02b2c3d479
+             */
+            id: string;
+            /**
+             * @example create
+             * @enum {string}
+             */
+            op: "create" | "update" | "delete";
+            /**
+             * @description Device-side modification time
+             * @example 2026-10-10T08:15:00.000Z
+             */
+            clientUpdatedAt: string;
+            /** @description Required for create/update, ignored for delete */
+            data?: components["schemas"]["SyncExpensePayloadDto"];
+        };
+        SyncPushDto: {
+            changes: components["schemas"]["SyncChangeDto"][];
+        };
+        SyncPushResultDto: {
+            /** @example f47ac10b-58cc-4372-a567-0e02b2c3d479 */
+            id: string;
+            /**
+             * @example applied
+             * @enum {string}
+             */
+            status: "applied" | "skipped" | "failed";
+            /** @example stale */
+            reason?: string | null;
+            /** @example 2026-10-10T09:00:00.000Z */
+            serverUpdatedAt?: string | null;
+        };
+        SyncPushResponseDto: {
+            results: components["schemas"]["SyncPushResultDto"][];
+            /**
+             * @description Opaque cursor to pass as `since` on the next pull
+             * @example 2026-10-10T09:00:00.000Z
+             */
+            cursor: string;
+        };
+        SyncedExpenseDto: {
+            /** @example f47ac10b-58cc-4372-a567-0e02b2c3d479 */
+            id: string;
+            /** @example b2f1c3de-1111-2222-3333-444455556666 */
+            categoryId: string;
+            /** @example 12.5 */
+            amount: number;
+            /** @example USD */
+            currency: string;
+            /** @example Lunch with team */
+            description?: string | null;
+            /** @example 2026-10-10 */
+            incurredOn: string;
+            /** @example CARD */
+            paymentMethod?: string | null;
+            /** @example null */
+            recurringExpenseId?: string | null;
+            /** @example 2026-10-10T08:15:00.000Z */
+            clientUpdatedAt: string;
+            /** @example 2026-10-10T09:00:00.000Z */
+            updatedAt: string;
+            /** @example null */
+            deletedAt?: string | null;
+        };
+        SyncPullResponseDto: {
+            expenses: components["schemas"]["SyncedExpenseDto"][];
+            /**
+             * @description Opaque cursor to pass as `since` on the next pull
+             * @example 2026-10-10T09:00:00.000Z
+             */
+            cursor: string;
+            /**
+             * @description True when more rows are waiting; pull again with the returned cursor
+             * @example false
+             */
+            hasMore: boolean;
         };
         AdminRateSnapshotSummaryDto: {
             version: number;
@@ -3816,6 +3972,67 @@ export interface operations {
             };
             /** @description Forbidden - not owned by caller */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SyncController_push: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncPushDto"];
+            };
+        };
+        responses: {
+            /** @description Per-change outcomes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncPushResponseDto"];
+                };
+            };
+            /** @description Malformed change payload */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SyncController_pull: {
+        parameters: {
+            query?: {
+                /** @description Return changes strictly after this ISO timestamp; omit for a full snapshot */
+                since?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Changed expenses and the next cursor */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncPullResponseDto"];
+                };
+            };
+            /** @description Malformed cursor */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

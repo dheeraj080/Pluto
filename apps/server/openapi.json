@@ -2515,6 +2515,89 @@
         ]
       }
     },
+    "/v1/sync/push": {
+      "post": {
+        "description": "Applies device changes idempotently by last-write-wins on clientUpdatedAt. Each change is independent, so one rejection does not fail the batch.",
+        "operationId": "SyncController_push",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncPushDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-change outcomes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPushResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed change payload"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Replay queued offline changes",
+        "tags": [
+          "Sync"
+        ]
+      }
+    },
+    "/v1/sync/pull": {
+      "get": {
+        "description": "Returns expenses modified after `since`, including deletion tombstones (non-null `deletedAt`). Omit `since` for a full snapshot on first install.",
+        "operationId": "SyncController_pull",
+        "parameters": [
+          {
+            "name": "since",
+            "required": false,
+            "in": "query",
+            "description": "Return changes strictly after this ISO timestamp; omit for a full snapshot",
+            "schema": {
+              "example": "2026-10-10T09:00:00.000Z",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Changed expenses and the next cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPullResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed cursor"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mirror server changes since a cursor",
+        "tags": [
+          "Sync"
+        ]
+      }
+    },
     "/v1/admin/stats": {
       "get": {
         "description": "Total users, completed backups, storage usage, active sessions, and the latest published rate snapshot.",
@@ -5219,6 +5302,257 @@
           "expiresInSeconds",
           "checksumSha256",
           "fileSizeBytes"
+        ]
+      },
+      "SyncExpensePayloadDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "description": "Identifier of an expense category owned by the caller",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount in the expense currency",
+            "example": 12.5,
+            "minimum": 0.01
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code",
+            "example": "USD",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "description": {
+            "type": "string",
+            "example": "Lunch with team",
+            "nullable": true
+          },
+          "paymentMethod": {
+            "type": "string",
+            "example": "CARD",
+            "nullable": true
+          },
+          "incurredOn": {
+            "type": "string",
+            "description": "Date the expense was incurred",
+            "example": "2026-10-10"
+          },
+          "recurringExpenseId": {
+            "type": "string",
+            "description": "The recurring rule that generated this expense, if any",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+            "nullable": true
+          }
+        },
+        "required": [
+          "categoryId",
+          "amount",
+          "currency",
+          "incurredOn"
+        ]
+      },
+      "SyncChangeDto": {
+        "type": "object",
+        "properties": {
+          "entity": {
+            "type": "string",
+            "enum": [
+              "expense"
+            ],
+            "example": "expense"
+          },
+          "id": {
+            "type": "string",
+            "description": "Client-generated UUID; doubles as the canonical expense id",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "delete"
+            ],
+            "example": "create"
+          },
+          "clientUpdatedAt": {
+            "type": "string",
+            "description": "Device-side modification time",
+            "example": "2026-10-10T08:15:00.000Z"
+          },
+          "data": {
+            "description": "Required for create/update, ignored for delete",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SyncExpensePayloadDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "entity",
+          "id",
+          "op",
+          "clientUpdatedAt"
+        ]
+      },
+      "SyncPushDto": {
+        "type": "object",
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncChangeDto"
+            }
+          }
+        },
+        "required": [
+          "changes"
+        ]
+      },
+      "SyncPushResultDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "skipped",
+              "failed"
+            ],
+            "example": "applied"
+          },
+          "reason": {
+            "type": "string",
+            "example": "stale",
+            "nullable": true
+          },
+          "serverUpdatedAt": {
+            "type": "string",
+            "example": "2026-10-10T09:00:00.000Z",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "SyncPushResponseDto": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncPushResultDto"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Opaque cursor to pass as `since` on the next pull",
+            "example": "2026-10-10T09:00:00.000Z"
+          }
+        },
+        "required": [
+          "results",
+          "cursor"
+        ]
+      },
+      "SyncedExpenseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "categoryId": {
+            "type": "string",
+            "example": "b2f1c3de-1111-2222-3333-444455556666"
+          },
+          "amount": {
+            "type": "number",
+            "example": 12.5
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "description": {
+            "type": "string",
+            "example": "Lunch with team",
+            "nullable": true
+          },
+          "incurredOn": {
+            "type": "string",
+            "example": "2026-10-10"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "example": "CARD",
+            "nullable": true
+          },
+          "recurringExpenseId": {
+            "type": "string",
+            "example": null,
+            "nullable": true
+          },
+          "clientUpdatedAt": {
+            "type": "string",
+            "example": "2026-10-10T08:15:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-10-10T09:00:00.000Z"
+          },
+          "deletedAt": {
+            "type": "string",
+            "example": null,
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "categoryId",
+          "amount",
+          "currency",
+          "incurredOn",
+          "clientUpdatedAt",
+          "updatedAt"
+        ]
+      },
+      "SyncPullResponseDto": {
+        "type": "object",
+        "properties": {
+          "expenses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncedExpenseDto"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Opaque cursor to pass as `since` on the next pull",
+            "example": "2026-10-10T09:00:00.000Z"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "True when more rows are waiting; pull again with the returned cursor",
+            "example": false
+          }
+        },
+        "required": [
+          "expenses",
+          "cursor",
+          "hasMore"
         ]
       },
       "AdminRateSnapshotSummaryDto": {
