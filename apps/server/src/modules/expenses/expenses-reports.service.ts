@@ -52,6 +52,17 @@ import {
 
 const UNAVAILABLE = 'exchange rate snapshot unavailable';
 
+/**
+ * Quotes one CSV field and doubles any embedded quote (RFC 4180).
+ *
+ * Descriptions and category names are free-form — only length-checked — so a
+ * value like `Books, "sale"` must be quoted *and* escaped, otherwise it would
+ * close its own field early and shift every subsequent column.
+ */
+function csvField(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 /** What one amount (at one date, in one currency) produced during conversion. */
 interface ConversionResolution {
   convertible: boolean;
@@ -1336,7 +1347,9 @@ export class ExpensesReportsService {
     const { start, end } = resolveRange(query.from, query.to);
     where.incurredOn = { gte: start, lte: end };
     if (query.categoryId) where.categoryId = query.categoryId;
-    if (query.currency) where.currency = query.currency;
+    // Normalise exactly as `buildExpenseFilter` does for the list endpoint, so
+    // `?currency=eur` cannot return rows on one endpoint and none on the other.
+    if (query.currency) where.currency = query.currency.toUpperCase();
     if (query.search) where.description = { contains: query.search, mode: 'insensitive' };
 
     const expenses = await this.prisma.expense.findMany({
@@ -1363,7 +1376,7 @@ export class ExpensesReportsService {
 
     for (const e of expenses) {
       const date = e.incurredOn.toISOString().slice(0, 10);
-      const description = (e.description ?? '').replace(/"/g, '""');
+      const description = e.description ?? '';
       const category = e.category?.name ?? 'Uncategorised';
       const amount = Number(e.amount).toFixed(2);
       const currency = e.currency;
@@ -1376,7 +1389,18 @@ export class ExpensesReportsService {
       const estimated = res.policy === 'estimate' ? 'yes' : 'no';
 
       lines.push(
-        `"${date}","${description}","${category}",${amount},${currency},${convertedAmount},${reportingCurrency},${rateUsed},${rateDate},${estimated}`,
+        [
+          csvField(date),
+          csvField(description),
+          csvField(category),
+          amount,
+          currency,
+          convertedAmount,
+          reportingCurrency,
+          rateUsed,
+          rateDate,
+          estimated,
+        ].join(','),
       );
     }
 

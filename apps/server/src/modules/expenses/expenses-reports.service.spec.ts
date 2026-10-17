@@ -720,6 +720,41 @@ describe('ExpensesReportsService', () => {
       expect(row1).toContain('100.00,USD,100.00,USD,1,,no');
       expect(row2).toContain('92.00,EUR,100.00,USD,1.086957,2026-10-01,no');
     });
+
+    it('escapes quotes in every free-text column so columns cannot shift', async () => {
+      mockPrismaService.expense.findMany.mockResolvedValue([
+        {
+          description: 'Says "hi", twice',
+          amount: new Prisma.Decimal('10.00'),
+          currency: 'USD',
+          incurredOn: new Date('2026-10-03T00:00:00.000Z'),
+          category: { name: 'Books, "sale"' },
+        },
+      ]);
+
+      const csv = await service.exportCsv(USER_A, {});
+      const [, row] = csv.split('\n');
+
+      // Category names are only length-checked, so they need the same escaping
+      // as descriptions — unescaped, `"Books, "sale""` would close its own
+      // field early and shift every later column.
+      expect(row).toBe(
+        '"2026-10-03","Says ""hi"", twice","Books, ""sale""",10.00,USD,10.00,USD,1,,no',
+      );
+    });
+
+    it('normalises the currency filter to an uppercase ISO code', async () => {
+      mockPrismaService.expense.findMany.mockResolvedValue([]);
+
+      await service.exportCsv(USER_A, { currency: 'eur' });
+
+      // The list endpoint already uppercases; the export must not silently
+      // return an empty file for the same filter.
+      expect(mockPrismaService.expense.findMany.mock.calls[0][0].where).toMatchObject({
+        userId: USER_A,
+        currency: 'EUR',
+      });
+    });
   });
 
   describe('getBudgetStatus', () => {
