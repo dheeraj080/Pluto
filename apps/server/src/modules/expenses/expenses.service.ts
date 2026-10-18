@@ -85,6 +85,9 @@ export class ExpensesService {
         ...(dto.color !== undefined ? { color: dto.color } : {}),
         ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
         ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
+        // Advance the sync LWW clock: a web edit must beat any device push
+        // queued before it, exactly like the sync protocol's own edits.
+        clientUpdatedAt: new Date(),
       },
       include: { _count: { select: { expenses: true } } },
     });

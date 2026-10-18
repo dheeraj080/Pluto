@@ -5533,6 +5533,37 @@
           "startDate"
         ]
       },
+      "SyncCategoryPayloadDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique category name within the account",
+            "example": "Groceries",
+            "maxLength": 40
+          },
+          "color": {
+            "type": "string",
+            "description": "Hex colour used in charts",
+            "example": "#f59e0b"
+          },
+          "icon": {
+            "type": "object",
+            "description": "Optional icon key",
+            "example": "utensils",
+            "maxLength": 32
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Display order, ascending",
+            "example": 30,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
       "SyncChangeDto": {
         "type": "object",
         "properties": {
@@ -5540,7 +5571,8 @@
             "type": "string",
             "enum": [
               "expense",
-              "budget"
+              "budget",
+              "category"
             ],
             "example": "expense"
           },
@@ -5564,13 +5596,16 @@
             "example": "2026-10-10T08:15:00.000Z"
           },
           "data": {
-            "description": "Required for create/update, ignored for delete; an expense or budget payload, by `entity`",
+            "description": "Required for create/update, ignored for delete; an expense, budget or category payload, by `entity`",
             "oneOf": [
               {
                 "$ref": "#/components/schemas/SyncExpensePayloadDto"
               },
               {
                 "$ref": "#/components/schemas/SyncBudgetPayloadDto"
+              },
+              {
+                "$ref": "#/components/schemas/SyncCategoryPayloadDto"
               }
             ]
           }

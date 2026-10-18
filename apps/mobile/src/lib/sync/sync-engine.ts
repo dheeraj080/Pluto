@@ -13,6 +13,7 @@ import {
   applyPulledExpenses,
   resolvePushedMutation as resolvePushedExpenseMutation,
 } from '@/lib/store/local/expenses';
+import { resolvePushedCategoryMutation } from '@/lib/store/local/categories';
 import {
   clearSyncMeta,
   getSyncMeta,
@@ -132,7 +133,7 @@ async function pushPending(database: SQLite.SQLiteDatabase): Promise<{
       op: mutation.op,
       clientUpdatedAt: mutation.clientUpdatedAt,
       // Deletes carry no payload; the server only needs the id and the clock.
-      ...(mutation.payload ? { data: mutation.payload } : {}),
+      ...(mutation.payload ? { data: mutation.payload as Schemas['SyncPushDto']['changes'][number]['data'] } : {}),
     })),
   };
 
@@ -156,6 +157,8 @@ async function pushPending(database: SQLite.SQLiteDatabase): Promise<{
 
     if (mutation.entity === 'budget') {
       await resolvePushedBudgetMutation(database, mutation, result);
+    } else if (mutation.entity === 'category') {
+      await resolvePushedCategoryMutation(database, mutation, result);
     } else {
       await resolvePushedExpenseMutation(database, mutation, result);
     }

@@ -6,6 +6,7 @@ import { formatDate, toUtcDate } from '../expenses/expenses.utils';
 import {
   SYNC_EPOCH,
   SyncBudgetPayloadDto,
+  SyncCategoryPayloadDto,
   SyncChangeDto,
   SyncExpensePayloadDto,
   SyncPullResponseDto,
@@ -38,9 +39,10 @@ type SyncableExpense = {
  * is offline, so the protocol is deliberately simple: the device replays its
  * queue through {@link push} and mirrors server state through {@link pull}.
  * Conflicts resolve by last-write-wins on `clientUpdatedAt`; expense deletions
- * are soft tombstones and budget deletions are hard, both of which keep
- * replaying the queue safe at any time. `pull` only carries expenses — budgets
- * are small enough that the device refreshes them wholesale from the REST list.
+ * are soft tombstones and budget and category deletions are hard, both of
+ * which keep replaying the queue safe at any time. `pull` only carries
+ * expenses — budgets and categories are small enough that the device refreshes
+ * them wholesale from the REST list.
  */
 @Injectable()
 export class SyncService {
@@ -113,6 +115,9 @@ export class SyncService {
 
     if (change.entity === 'budget') {
       return this.applyBudgetChange(userId, change, clientUpdatedAt);
+    }
+    if (change.entity === 'category') {
+      return this.applyCategoryChange(userId, change, clientUpdatedAt);
     }
     return this.applyExpenseChange(userId, change, clientUpdatedAt);
   }
@@ -252,6 +257,104 @@ export class SyncService {
       }
       const reason = this.describeError(error, change.id);
       this.logger.warn(`Sync push rejected budget ${change.id}: ${reason}`);
+      return { id: change.id, status: 'failed', reason };
+    }
+  }
+
+  /**
+   * Applies one queued category change.
+   *
+   * Categories are hard-deleted like budgets: the phone reassigns an in-use
+   * category's expenses *before* queueing the delete (the queue is FIFO, so
+   * those expense updates reach the server first), which leaves nothing for
+   * the `Restrict` FK to reject. The one reference the device cannot clear is
+   * a recurring rule — rules are server-owned — so a delete that still has one
+   * answers `failed` and the device restores the row from its next mirror
+   * refresh rather than clogging the queue with a retry that can never win.
+   *
+   * Name uniqueness is per account (a DB unique on `(userId, name)`). A
+   * different row already holding the name is a skip, not a failure — same as
+   * a budget's duplicate slot: the device drops its row and adopts the winner
+   * from the next refresh.
+   */
+  private async applyCategoryChange(
+    userId: string,
+    change: SyncChangeDto,
+    clientUpdatedAt: Date,
+  ): Promise<SyncPushResultDto> {
+    const existing = await this.prisma.expenseCategory.findUnique({
+      where: { id: change.id },
+      select: { userId: true, clientUpdatedAt: true },
+    });
+
+    if (existing && existing.userId !== userId) {
+      return { id: change.id, status: 'failed', reason: 'not-found' };
+    }
+
+    // Last-write-wins: anything not strictly newer is a stale replay.
+    if (existing && existing.clientUpdatedAt.getTime() >= clientUpdatedAt.getTime()) {
+      return { id: change.id, status: 'skipped', reason: 'stale' };
+    }
+
+    if (change.op === 'delete') {
+      if (!existing) return { id: change.id, status: 'applied', reason: 'noop' };
+
+      try {
+        await this.prisma.expenseCategory.delete({ where: { id: change.id } });
+        return { id: change.id, status: 'applied' };
+      } catch (error) {
+        // `Expense.category` is `onDelete: Restrict`, and rules reference the
+        // category too: both surface as the FK error below.
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+          return { id: change.id, status: 'failed', reason: 'in-use' };
+        }
+        const reason = this.describeError(error, change.id);
+        this.logger.warn(`Sync push rejected category delete ${change.id}: ${reason}`);
+        return { id: change.id, status: 'failed', reason };
+      }
+    }
+
+    const payload = change.data as SyncCategoryPayloadDto | undefined;
+    if (!payload) {
+      return { id: change.id, status: 'failed', reason: 'Missing payload' };
+    }
+
+    const name = payload.name.trim();
+    const conflict = await this.prisma.expenseCategory.findFirst({
+      where: { userId, name, id: { not: change.id } },
+      select: { id: true },
+    });
+    if (conflict) {
+      return { id: change.id, status: 'skipped', reason: 'duplicate' };
+    }
+
+    try {
+      // One field set for both branches: the create-only identity (`id`,
+      // `userId`, `isDefault`) is added there, so the spread below can never
+      // overwrite it.
+      const fields = {
+        name,
+        color: payload.color ?? undefined,
+        icon: payload.icon ?? null,
+        sortOrder: payload.sortOrder ?? 0,
+        clientUpdatedAt,
+      };
+      const saved = await this.prisma.expenseCategory.upsert({
+        where: { id: change.id },
+        create: { id: change.id, userId, isDefault: false, ...fields },
+        update: fields,
+        select: { updatedAt: true },
+      });
+      return { id: change.id, status: 'applied', serverUpdatedAt: saved.updatedAt.toISOString() };
+    } catch (error) {
+      // The pre-check above cannot close the race between two simultaneous
+      // pushes; the unique index is the real arbiter. Losing that race is the
+      // same duplicate, not a failure.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return { id: change.id, status: 'skipped', reason: 'duplicate' };
+      }
+      const reason = this.describeError(error, change.id);
+      this.logger.warn(`Sync push rejected category ${change.id}: ${reason}`);
       return { id: change.id, status: 'failed', reason };
     }
   }

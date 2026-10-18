@@ -3,7 +3,7 @@ import type * as SQLite from 'expo-sqlite';
 export type MutationOp = 'create' | 'update' | 'delete';
 
 /** The entity kinds the sync queue can carry. Mirrors the server's `entity`. */
-export type SyncEntity = 'expense' | 'budget';
+export type SyncEntity = 'expense' | 'budget' | 'category';
 
 /**
  * The payload the sync API expects for an expense create/update.
@@ -34,8 +34,15 @@ export interface BudgetMutationPayload {
   startDate: string;
 }
 
+export interface CategoryMutationPayload {
+  name: string;
+  color: string | null;
+  icon: string | null;
+  sortOrder: number;
+}
+
 /** A create/update payload; the queued row's `entity` selects which it is. */
-export type MutationPayload = ExpenseMutationPayload | BudgetMutationPayload;
+export type MutationPayload = ExpenseMutationPayload | BudgetMutationPayload | CategoryMutationPayload;
 
 export interface PendingMutation {
   id: number;

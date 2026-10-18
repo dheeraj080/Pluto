@@ -243,13 +243,17 @@ platform picks one in `src/lib/store/index.ts`, and screens never branch.
 - `src/lib/sync/sync-engine.ts` reconciles in the background: it pushes the
   queue to `POST /sync/push`, then pulls changes with
   `GET /sync/pull?since=<cursor>`. Conflicts are last-write-wins on
-  `clientUpdatedAt`; expense deletes are soft tombstones and budget deletes are
-  hard, so the phone — the primary writer — always converges. A superseded
-  *expense* push clears the cursor to force a full pull (budgets are not
-  cursor-based).
-- `src/lib/sync/background-sync.ts` syncs on sign-in, when connectivity returns
-  (`@react-native-community/netinfo`), on foreground and on a slow timer, and
-  purges the mirror on sign-out.
+  `clientUpdatedAt`; expense deletes are soft tombstones and budget and
+  category deletes are hard, so the phone — the primary writer — always
+  converges. A superseded *expense* push clears the cursor to force a full
+  pull. Budgets and categories are not cursor-based (they're refreshed
+  wholesale after sync). Categories mirror rows with queued mutations are
+  protected from wholesale replacement.
+- The category seam supports queued writes offline: `use-category-mutations.ts`
+  routes through `categoryStore` so creates/renames/recolors/deletes take effect
+  locally (with reassignment of expenses/budgets when requested) and replay via
+  the sync queue, falling back to the API on web. The same invalidation rules
+  apply (both `categories` and `expenses` namespaces).
 - Reports and budgets are aggregated by the shared engine in `@pluto/domain`
   (`src/lib/store/local/reports.ts`), so an offline total equals the server's
   once synced. The engine converts at each row's own date, so the sync also
@@ -314,6 +318,14 @@ so TypeScript sees a single React type identity across web and mobile.
 - Access token: memory only (`src/lib/session.ts`).
 - Refresh token: `expo-secure-store` on device, `localStorage` on web
   (`src/lib/session-storage.ts`).
+- Profile: stored alongside the refresh token, so a launch that restores the
+  session **offline** still knows the account's base currency.
+
+A launch whose refresh token cannot reach the server restores to a usable
+signed-in session from that profile — the local store and read cache paint the
+app, and the first authenticated call retries the rotation. Only a token the
+server *refuses* is credential loss: that clears the session (tokens, query
+cache, persisted snapshot, and the native SQLite mirror).
 
 Two ways in:
 

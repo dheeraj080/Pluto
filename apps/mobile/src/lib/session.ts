@@ -2,7 +2,14 @@ import type { Schemas } from '@pluto/api-client';
 
 import { getQueryClient } from './query-client';
 import { clearPersistedQueryCache } from './query-persistence';
-import { deleteRefreshToken, readRefreshToken, writeRefreshToken } from './session-storage';
+import {
+  deleteProfile,
+  deleteRefreshToken,
+  readProfile,
+  readRefreshToken,
+  writeProfile,
+  writeRefreshToken,
+} from './session-storage';
 
 export type SessionStatus = 'loading' | 'signed-in' | 'signed-out';
 
@@ -18,15 +25,17 @@ export interface SessionState {
 /**
  * Session store.
  *
- * Mirrors `apps/web/src/lib/api.ts`: the access token is memory-only and the
- * refresh token is the only persisted credential. Components observe this via
- * `useSyncExternalStore` (see `src/hooks/use-session.ts`).
+ * Mirrors `apps/web/src/lib/api.ts`: the access token is memory-only; what
+ * persists is the refresh token and, beside it, the profile an offline boot
+ * restores from. Components observe this via `useSyncExternalStore` (see
+ * `src/hooks/use-session.ts`).
  */
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
 let state: SessionState = { status: 'loading', user: null };
 
 const listeners = new Set<() => void>();
+const clearedListeners = new Set<() => void>();
 
 function emit(): void {
   for (const listener of listeners) listener();
@@ -36,6 +45,23 @@ export function subscribeSession(listener: () => void): () => void {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
+  };
+}
+
+/**
+ * Registers a callback for the moment the session is *cleared* — sign-out, a
+ * refused refresh token, account deletion.
+ *
+ * Deliberately not a status subscription: an unreachable server can also leave
+ * the status reading `signed-out` (or, since offline boots restore to
+ * `signed-in`, never reach that state at all), and the local mirror must not
+ * be purged for a connection failure. Only credential loss is signed out for
+ * real, so only {@link clearSession} fires this.
+ */
+export function onSessionCleared(listener: () => void): () => void {
+  clearedListeners.add(listener);
+  return () => {
+    clearedListeners.delete(listener);
   };
 }
 
@@ -57,6 +83,23 @@ export function saveSession(session: Schemas['AuthResponseDto']): void {
   refreshToken = session.refreshToken;
   state = { status: 'signed-in', user: session.user };
   void writeRefreshToken(session.refreshToken);
+  void writeProfile(session.user);
+  emit();
+}
+
+/**
+ * Restores a signed-in state from the persisted profile, without a validated
+ * session — the held refresh token's fate is unknown because the server could
+ * not be reached.
+ *
+ * This is the offline-first trade: a launch with no connection boots into the
+ * app (the local store and the read cache have the data), and the first
+ * authenticated call retries the rotation — a real rejection downgrades the
+ * session to signed-out and clears everything then. The access token stays
+ * null until a rotation succeeds.
+ */
+export function restoreOfflineSession(profile: Schemas['UserProfileDto'] | null): void {
+  state = { status: 'signed-in', user: profile };
   emit();
 }
 
@@ -76,12 +119,16 @@ export function markSignedOut(): void {
  * persistence writer: a kill inside the debounce window would otherwise leave
  * this account's snapshot on disk for the next one to hydrate.
  *
- * The on-device store is purged alongside it, from the native-only sync module
- * that watches this state — see `src/lib/sync/background-sync.ts`.
+ * Native listeners (the SQLite mirror, see `src/lib/sync/background-sync.ts`)
+ * purge alongside it via {@link onSessionCleared}, which fires here — not on a
+ * status change — so a mere connection failure can never wipe the mirror or
+ * the queued writes it holds.
  */
 export function clearSession(): void {
   markSignedOut();
   void deleteRefreshToken();
+  void deleteProfile();
+  for (const listener of clearedListeners) listener();
   getQueryClient().clear();
   void clearPersistedQueryCache().catch(() => {
     /* Best-effort: sign-out must not fail. The cache clear above still queues
@@ -94,6 +141,11 @@ export function clearSession(): void {
 export async function loadRefreshToken(): Promise<string | null> {
   refreshToken = await readRefreshToken();
   return refreshToken;
+}
+
+/** Reads the persisted profile (the offline boot's source of the base currency). */
+export async function loadProfile(): Promise<Schemas['UserProfileDto'] | null> {
+  return readProfile();
 }
 
 export function setUser(user: Schemas['UserProfileDto'] | null): void {

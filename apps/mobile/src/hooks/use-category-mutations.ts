@@ -35,8 +35,7 @@ export function useCreateCategory() {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: Schemas['CreateCategoryDto']) =>
-      api.post<Schemas['ExpenseCategoryDto']>('/expenses/categories', body),
+    mutationFn: (body: Schemas['CreateCategoryDto']) => categoryStore.create(body),
     onSuccess: () => refreshCategories(client),
   });
 }
@@ -46,7 +45,7 @@ export function useUpdateCategory() {
 
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: Schemas['UpdateCategoryDto'] }) =>
-      api.patch<Schemas['ExpenseCategoryDto']>(`/expenses/categories/${id}`, body),
+      categoryStore.update(id, body),
     onSuccess: () => refreshCategories(client),
   });
 }
@@ -63,9 +62,7 @@ export function useDeleteCategory() {
 
   return useMutation({
     mutationFn: ({ id, reassignTo }: { id: string; reassignTo?: string }) =>
-      api.delete<Record<string, never>>(`/expenses/categories/${id}`, {
-        query: reassignTo ? { reassignTo } : undefined,
-      }),
+      categoryStore.remove(id, { reassignTo }),
     onSuccess: () => refreshCategories(client),
   });
 }

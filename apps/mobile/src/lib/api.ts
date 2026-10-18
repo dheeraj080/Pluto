@@ -11,7 +11,10 @@ import * as session from './session';
  * contract as the web client, but sourced from the generated OpenAPI types.
  *
  * A rotation that cannot reach the server does *not* sign the user out: the
- * credential is kept, so opening the app offline does not cost a fresh sign-in.
+ * 401 proved the access token stale, but says nothing about the refresh
+ * token, so the session is left untouched and the request simply fails. The
+ * next attempt rotates again — signing out here would park a flaky
+ * connection at the sign-in screen.
  */
 export const api = createApiClient({
   baseUrl: API_URL,
@@ -19,7 +22,6 @@ export const api = createApiClient({
   onUnauthorized: async () => {
     const outcome = await rotateSession();
     if (outcome === 'rejected') session.clearSession();
-    else if (outcome !== 'refreshed') session.markSignedOut();
     return outcome === 'refreshed';
   },
 });
@@ -79,9 +81,12 @@ function rotateSession(): Promise<RefreshOutcome> {
  * Restores a session on launch: read the persisted refresh token, then
  * exchange it for a fresh pair.
  *
- * A token the server refuses is discarded. An unreachable server is not, so a
- * launch without connectivity leaves the credential in place for the next one
- * instead of forcing the user to sign in again.
+ * A token the server refuses is discarded — that is real credential loss. An
+ * unreachable server is not: the session restores to signed-in from the
+ * persisted profile so a launch without connectivity boots into the app
+ * (local store, mirrored figures, queued writes intact) instead of parking at
+ * the sign-in screen. The first authenticated call retries the rotation; a
+ * real rejection downgrades the session and clears everything then.
  */
 export async function bootstrapSession(): Promise<void> {
   const stored = await session.loadRefreshToken();
@@ -92,8 +97,11 @@ export async function bootstrapSession(): Promise<void> {
 
   const outcome = await rotateSession();
   if (outcome === 'refreshed') return;
-  if (outcome === 'rejected') session.clearSession();
-  else session.markSignedOut();
+  if (outcome === 'rejected') {
+    session.clearSession();
+    return;
+  }
+  session.restoreOfflineSession(await session.loadProfile());
 }
 
 /**

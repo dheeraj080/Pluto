@@ -34,7 +34,7 @@ export default function CategoriesScreen() {
   const [reassign, setReassign] = useState<ExpenseCategory | null>(null);
 
   const items = categories.data ?? [];
-  const totalExpenses = items.reduce((sum, category) => sum + category.expenseCount, 0);
+  const totalExpenses = items.reduce((sum: number, category: any) => sum + category.expenseCount, 0);
   const countLine = `${items.length} ${
     items.length === 1 ? 'category' : 'categories'
   } · ${totalExpenses} ${totalExpenses === 1 ? 'expense' : 'expenses'}`;

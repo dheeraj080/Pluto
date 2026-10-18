@@ -3,7 +3,10 @@
  *
  * Each status flip must notify subscribers and — when the user actually leaves —
  * discard the query cache, so the next sign-in never flashes the last account's
- * data.
+ * data. "Actually leaves" is the sharp edge: the purge fires from
+ * `clearSession` (credential loss), never from a status change alone, and an
+ * unreachable server restores to a usable signed-in state instead of signing
+ * the user out.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Schemas } from '@pluto/api-client';
@@ -16,6 +19,9 @@ const storage = vi.hoisted(() => ({
   readRefreshToken: vi.fn<() => Promise<string | null>>(async () => null),
   writeRefreshToken: vi.fn<() => Promise<void>>(async () => {}),
   deleteRefreshToken: vi.fn<() => Promise<void>>(async () => {}),
+  readProfile: vi.fn<() => Promise<unknown>>(async () => null),
+  writeProfile: vi.fn<(profile: unknown) => Promise<void>>(async () => {}),
+  deleteProfile: vi.fn<() => Promise<void>>(async () => {}),
 }));
 
 // Sign-out also deletes the disk read-cache, and that module reaches for
@@ -55,6 +61,10 @@ describe('session store', () => {
     storage.readRefreshToken.mockResolvedValue(null);
     storage.writeRefreshToken.mockReset();
     storage.deleteRefreshToken.mockReset();
+    storage.readProfile.mockReset();
+    storage.readProfile.mockResolvedValue(null);
+    storage.writeProfile.mockReset();
+    storage.deleteProfile.mockReset();
     persistence.clearPersistedQueryCache.mockReset();
     persistence.clearPersistedQueryCache.mockResolvedValue(undefined);
 
@@ -127,5 +137,55 @@ describe('session store', () => {
 
     expect(storage.writeRefreshToken).toHaveBeenCalledWith('fresh-refresh-');
     expect(session.getSessionState().status).toBe('signed-in');
+  });
+
+  it('persists the profile alongside the token', () => {
+    const response = authResponse();
+
+    session.saveSession(response);
+
+    // The profile is the offline boot's only source of the base currency, so
+    // it must reach storage with the same durability as the token.
+    expect(storage.writeProfile).toHaveBeenCalledWith(response.user);
+  });
+
+  it('deletes the stored profile on sign-out', () => {
+    session.saveSession(authResponse());
+
+    session.clearSession();
+
+    expect(storage.deleteProfile).toHaveBeenCalled();
+  });
+
+  it('fires session-cleared listeners only on real credential loss', () => {
+    const cleared = vi.fn();
+    const unsubscribe = session.onSessionCleared(cleared);
+    session.saveSession(authResponse());
+
+    // A status flip alone is not credential loss — an unreachable server can
+    // produce one, and the mirror must survive it.
+    session.markSignedOut();
+    expect(cleared).not.toHaveBeenCalled();
+
+    session.saveSession(authResponse());
+    session.clearSession();
+    expect(cleared).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    session.saveSession(authResponse());
+    session.clearSession();
+    expect(cleared).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores an offline session from the persisted profile without new credentials', () => {
+    const profile = authResponse().user;
+    session.restoreOfflineSession(profile);
+
+    // Signed in enough to mount the app; no access token until a rotation
+    // succeeds, and nothing written or deleted behind it.
+    expect(session.getSessionState()).toEqual({ status: 'signed-in', user: profile });
+    expect(session.getAccessToken()).toBeNull();
+    expect(storage.writeRefreshToken).not.toHaveBeenCalled();
+    expect(storage.deleteRefreshToken).not.toHaveBeenCalled();
   });
 });

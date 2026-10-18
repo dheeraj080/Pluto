@@ -4,7 +4,10 @@ import {
   ArrayMaxSize,
   IsArray,
   IsDateString,
+  IsHexColor,
   IsIn,
+  IsInt,
+  IsNotEmpty,
   IsNumber,
   IsObject,
   IsOptional,
@@ -21,7 +24,7 @@ import {
   type ValidationArguments,
 } from 'class-validator';
 
-export const SYNC_ENTITIES = ['expense', 'budget'] as const;
+export const SYNC_ENTITIES = ['expense', 'budget', 'category'] as const;
 export type SyncEntity = (typeof SYNC_ENTITIES)[number];
 
 export const SYNC_OPERATIONS = ['create', 'update', 'delete'] as const;
@@ -132,6 +135,44 @@ export class SyncBudgetPayloadDto {
 }
 
 /**
+ * The full state of a category as held by the device.
+ *
+ * Whole-row wins like the others: a rename carries the colour, icon and order
+ * too, so one mutation converges regardless of what changed. `isDefault` and
+ * `expenseCount` are absent deliberately — the first is server-owned (seeded
+ * defaults) and the second is a count, not a field anyone writes.
+ */
+export class SyncCategoryPayloadDto {
+  @ApiProperty({
+    description: 'Unique category name within the account',
+    example: 'Groceries',
+    maxLength: 40,
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'Category name is required' })
+  @MaxLength(40)
+  name!: string;
+
+  @ApiPropertyOptional({ description: 'Hex colour used in charts', example: '#f59e0b' })
+  @IsOptional()
+  @IsHexColor()
+  color?: string;
+
+  @ApiPropertyOptional({ description: 'Optional icon key', example: 'utensils', maxLength: 32 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  icon?: string | null;
+
+  @ApiPropertyOptional({ description: 'Display order, ascending', example: 30, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
+}
+
+/**
  * Validates `SyncChangeDto.data` against the payload class `entity` selects.
  *
  * The payload shape depends on the discriminated `entity` field, which a single
@@ -143,7 +184,11 @@ class SyncChangeDataConstraint implements ValidatorConstraintInterface {
   validate(value: unknown, args: ValidationArguments): boolean {
     const { entity } = args.object as SyncChangeDto;
     const payloadClass: new () => object =
-      entity === 'budget' ? SyncBudgetPayloadDto : SyncExpensePayloadDto;
+      entity === 'budget'
+        ? SyncBudgetPayloadDto
+        : entity === 'category'
+          ? SyncCategoryPayloadDto
+          : SyncExpensePayloadDto;
     const instance = plainToInstance(payloadClass, value);
     return validateSync(instance, { whitelist: true, forbidNonWhitelisted: true }).length === 0;
   }
@@ -163,7 +208,7 @@ class SyncChangeDataConstraint implements ValidatorConstraintInterface {
  * `@ApiExtraModels` forces both payload shapes into `components.schemas`; the
  * `oneOf` below references them by `$ref` and would otherwise leave them out.
  */
-@ApiExtraModels(SyncExpensePayloadDto, SyncBudgetPayloadDto)
+@ApiExtraModels(SyncExpensePayloadDto, SyncBudgetPayloadDto, SyncCategoryPayloadDto)
 export class SyncChangeDto {
   @ApiProperty({ enum: SYNC_ENTITIES, example: 'expense' })
   @IsIn(SYNC_ENTITIES)
@@ -189,16 +234,17 @@ export class SyncChangeDto {
 
   @ApiPropertyOptional({
     description:
-      'Required for create/update, ignored for delete; an expense or budget payload, by `entity`',
+      'Required for create/update, ignored for delete; an expense, budget or category payload, by `entity`',
     oneOf: [
       { $ref: getSchemaPath(SyncExpensePayloadDto) },
       { $ref: getSchemaPath(SyncBudgetPayloadDto) },
+      { $ref: getSchemaPath(SyncCategoryPayloadDto) },
     ],
   })
   @IsOptional()
   @IsObject()
   @Validate(SyncChangeDataConstraint)
-  data?: SyncExpensePayloadDto | SyncBudgetPayloadDto;
+  data?: SyncExpensePayloadDto | SyncBudgetPayloadDto | SyncCategoryPayloadDto;
 }
 
 export class SyncPushDto {

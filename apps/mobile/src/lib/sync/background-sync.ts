@@ -1,7 +1,12 @@
 import NetInfo from '@react-native-community/netinfo';
 import { AppState } from 'react-native';
 
-import { getSessionState, subscribeSession, type SessionStatus } from '@/lib/session';
+import {
+  getSessionState,
+  onSessionCleared,
+  subscribeSession,
+  type SessionStatus,
+} from '@/lib/session';
 import { localStoreEnabled } from '@/lib/store';
 import { clearLocalDatabase } from '@/lib/store/local/database';
 import { syncNow } from './sync-engine';
@@ -16,19 +21,48 @@ const PERIODIC_SYNC_MS = 5 * 60 * 1000;
  * back to the foreground, and on a slow timer. Every trigger funnels through
  * {@link syncNow}, which collapses concurrent calls into one run.
  *
+ * The mirror is purged when the session is *cleared* (sign-out, a refused
+ * refresh token, account deletion) — not whenever the status reads
+ * signed-out: an unreachable-server launch leaves the credential in place and
+ * restores to signed-in (see `bootstrapSession`), and a status-based purge
+ * once wiped a full offline queue on exactly such a relaunch.
+ *
  * A no-op on web, where there is no local store to reconcile.
  */
 export function startBackgroundSync(): () => void {
   if (!localStoreEnabled) return () => {};
 
-  const disposers: (() => void)[] = [];
+  // Registrations that outlive a signed-in period (the purge listener) versus
+  // those that must be dropped when the session ends (connectivity, timers).
+  const lifetimeDisposers: (() => void)[] = [];
+  const attachDisposers: (() => void)[] = [];
   let attached = false;
+
+  // Registered for the whole lifetime, not just while signed in: the clearing
+  // that needs it happens *because* the session ended.
+  lifetimeDisposers.push(
+    onSessionCleared(() => {
+      // Best-effort, like the rest of sign-out: a purge that fails leaves
+      // rows for the next sign-in's clear to retry, never wrong data — the
+      // query cache and the persisted snapshot are dropped independently.
+      void clearLocalDatabase().catch(() => undefined);
+    }),
+  );
+
+  // A launch that settles signed-out — no credential, or one the server
+  // refused — may have been killed mid-clear by the previous process, so
+  // sweep whatever it left. A launch that merely *reached* an unreachable
+  // server is signed-in by now (see `bootstrapSession`) and is deliberately
+  // not purged: that is the offline relaunch which once wiped the queue.
+  if (getSessionState().status === 'signed-out') {
+    void clearLocalDatabase().catch(() => undefined);
+  }
 
   const attach = () => {
     if (attached) return;
     attached = true;
 
-    disposers.push(
+    attachDisposers.push(
       NetInfo.addEventListener((state) => {
         // `isInternetConnection` alone can be true on a captive portal, so the
         // reachability flag is honoured when the platform provides it.
@@ -38,14 +72,14 @@ export function startBackgroundSync(): () => void {
       }),
     );
 
-    disposers.push(
+    attachDisposers.push(
       AppState.addEventListener('change', (next) => {
         if (next === 'active') void syncNow();
       }).remove,
     );
 
     const timer = setInterval(() => void syncNow(), PERIODIC_SYNC_MS);
-    disposers.push(() => clearInterval(timer));
+    attachDisposers.push(() => clearInterval(timer));
 
     // Catch the queue up immediately rather than waiting for the first tick.
     void syncNow();
@@ -54,7 +88,7 @@ export function startBackgroundSync(): () => void {
   const detach = () => {
     if (!attached) return;
     attached = false;
-    for (const dispose of disposers.splice(0)) dispose();
+    for (const dispose of attachDisposers.splice(0)) dispose();
   };
 
   const applyStatus = (status: SessionStatus) => {
@@ -62,17 +96,7 @@ export function startBackgroundSync(): () => void {
       attach();
       return;
     }
-
     detach();
-
-    if (status === 'signed-out') {
-      // The account that owned the mirror is gone: drop it so the next sign-in
-      // cannot read the previous account's expenses — nor push a mutation it
-      // left queued under a different token. Best-effort, like the rest of
-      // sign-out. This also runs on a signed-out launch, which clears anything
-      // a kill left behind.
-      void clearLocalDatabase().catch(() => undefined);
-    }
   };
 
   applyStatus(getSessionState().status);
@@ -81,5 +105,6 @@ export function startBackgroundSync(): () => void {
   return () => {
     unsubscribe();
     detach();
+    for (const dispose of lifetimeDisposers.splice(0)) dispose();
   };
 }

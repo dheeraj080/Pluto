@@ -52,6 +52,24 @@ function makeBudgetChange(overrides: Partial<SyncChangeDto> = {}): SyncChangeDto
   };
 }
 
+const baseCategoryPayload = {
+  name: 'Groceries',
+  color: '#f59e0b',
+  icon: null,
+  sortOrder: 0,
+};
+
+function makeCategoryChange(overrides: Partial<SyncChangeDto> = {}): SyncChangeDto {
+  return {
+    entity: 'category',
+    id: CATEGORY_ID,
+    op: 'create',
+    clientUpdatedAt: '2026-10-03T09:00:00.000Z',
+    data: { ...baseCategoryPayload },
+    ...overrides,
+  };
+}
+
 describe('SyncService', () => {
   let service: SyncService;
 
@@ -68,7 +86,12 @@ describe('SyncService', () => {
       upsert: jest.fn(),
       delete: jest.fn(),
     },
-    expenseCategory: { findFirst: jest.fn() },
+    expenseCategory: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      upsert: jest.fn(),
+      delete: jest.fn(),
+    },
     recurringExpense: { findFirst: jest.fn() },
   };
 
@@ -93,6 +116,11 @@ describe('SyncService', () => {
       updatedAt: new Date('2026-10-03T10:00:00.000Z'),
     });
     mockPrismaService.budget.delete.mockResolvedValue({ id: BUDGET_ID });
+    mockPrismaService.expenseCategory.findUnique.mockResolvedValue(null);
+    mockPrismaService.expenseCategory.upsert.mockResolvedValue({
+      updatedAt: new Date('2026-10-03T10:00:00.000Z'),
+    });
+    mockPrismaService.expenseCategory.delete.mockResolvedValue({ id: CATEGORY_ID });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -348,6 +376,120 @@ describe('SyncService', () => {
 
       expect(mockPrismaService.budget.upsert).not.toHaveBeenCalled();
       expect(result.results[0]).toMatchObject({ status: 'failed' });
+    });
+  });
+
+  describe('push categories', () => {
+    it('upserts a client-identified category', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(null);
+
+      const result = await service.push(USER_A, [makeCategoryChange({ data: { ...baseCategoryPayload, name: '  Groceries  ' } })]);
+
+      expect(mockPrismaService.expenseCategory.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: CATEGORY_ID },
+          create: expect.objectContaining({
+            id: CATEGORY_ID,
+            userId: USER_A,
+            name: 'Groceries',
+            color: '#f59e0b',
+            isDefault: false,
+            clientUpdatedAt: new Date('2026-10-03T09:00:00.000Z'),
+          }),
+        }),
+      );
+      expect(result.results[0]).toMatchObject({ id: CATEGORY_ID, status: 'applied' });
+    });
+
+    it('skips a stale replay via last-write-wins', async () => {
+      mockPrismaService.expenseCategory.findUnique.mockResolvedValue({
+        userId: USER_A,
+        clientUpdatedAt: new Date('2026-10-05T00:00:00.000Z'),
+      });
+
+      const result = await service.push(USER_A, [makeCategoryChange()]);
+
+      expect(mockPrismaService.expenseCategory.upsert).not.toHaveBeenCalled();
+      expect(result.results[0]).toMatchObject({ status: 'skipped', reason: 'stale' });
+    });
+
+    it("refuses to touch another account's category", async () => {
+      mockPrismaService.expenseCategory.findUnique.mockResolvedValue({
+        userId: USER_B,
+        clientUpdatedAt: new Date('2026-10-01T00:00:00.000Z'),
+      });
+
+      const result = await service.push(USER_A, [makeCategoryChange({ op: 'update' })]);
+
+      expect(mockPrismaService.expenseCategory.upsert).not.toHaveBeenCalled();
+      expect(result.results[0]).toMatchObject({ status: 'failed', reason: 'not-found' });
+    });
+
+    it('skips a create whose name is already taken by another row', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue({ id: OTHER_ID });
+
+      const result = await service.push(USER_A, [makeCategoryChange()]);
+
+      expect(mockPrismaService.expenseCategory.upsert).not.toHaveBeenCalled();
+      expect(result.results[0]).toMatchObject({ status: 'skipped', reason: 'duplicate' });
+    });
+
+    it('treats a lost unique-index race as the same duplicate', async () => {
+      mockPrismaService.expenseCategory.findFirst.mockResolvedValue(null);
+      mockPrismaService.expenseCategory.upsert.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      const result = await service.push(USER_A, [makeCategoryChange()]);
+
+      expect(result.results[0]).toMatchObject({ status: 'skipped', reason: 'duplicate' });
+    });
+
+    it('hard-deletes a category when the clock is newer', async () => {
+      mockPrismaService.expenseCategory.findUnique.mockResolvedValue({
+        userId: USER_A,
+        clientUpdatedAt: new Date('2026-10-01T00:00:00.000Z'),
+      });
+
+      const result = await service.push(USER_A, [
+        makeCategoryChange({ op: 'delete', data: undefined }),
+      ]);
+
+      expect(mockPrismaService.expenseCategory.delete).toHaveBeenCalledWith({
+        where: { id: CATEGORY_ID },
+      });
+      expect(result.results[0].status).toBe('applied');
+    });
+
+    it('treats a delete for an unsynced category as a no-op', async () => {
+      const result = await service.push(USER_A, [
+        makeCategoryChange({ op: 'delete', data: undefined }),
+      ]);
+
+      expect(mockPrismaService.expenseCategory.delete).not.toHaveBeenCalled();
+      expect(result.results[0]).toMatchObject({ status: 'applied', reason: 'noop' });
+    });
+
+    it('fails an in-use delete (FK Restrict) so the device can restore the row', async () => {
+      mockPrismaService.expenseCategory.findUnique.mockResolvedValue({
+        userId: USER_A,
+        clientUpdatedAt: new Date('2026-10-01T00:00:00.000Z'),
+      });
+      mockPrismaService.expenseCategory.delete.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('FK violation', {
+          code: 'P2003',
+          clientVersion: 'test',
+        }),
+      );
+
+      const result = await service.push(USER_A, [
+        makeCategoryChange({ op: 'delete', data: undefined }),
+      ]);
+
+      expect(result.results[0]).toMatchObject({ status: 'failed', reason: 'in-use' });
     });
   });
 

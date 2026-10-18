@@ -17,6 +17,9 @@ const storage = vi.hoisted(() => ({
   readRefreshToken: vi.fn<() => Promise<string | null>>(async () => null),
   writeRefreshToken: vi.fn<() => Promise<void>>(async () => {}),
   deleteRefreshToken: vi.fn<() => Promise<void>>(async () => {}),
+  readProfile: vi.fn<() => Promise<unknown>>(async () => null),
+  writeProfile: vi.fn<(profile: unknown) => Promise<void>>(async () => {}),
+  deleteProfile: vi.fn<() => Promise<void>>(async () => {}),
 }));
 
 // `session.clearSession` also drops the disk read-cache, whose storage layer is
@@ -85,6 +88,10 @@ describe('api', () => {
     storage.readRefreshToken.mockResolvedValue(null);
     storage.writeRefreshToken.mockReset();
     storage.deleteRefreshToken.mockReset();
+    storage.readProfile.mockReset();
+    storage.readProfile.mockResolvedValue(null);
+    storage.writeProfile.mockReset();
+    storage.deleteProfile.mockReset();
   });
 
   it('replays a 401 after a successful rotation', async () => {
@@ -121,21 +128,47 @@ describe('api', () => {
     expect(storage.deleteRefreshToken).toHaveBeenCalled();
   });
 
-  it('keeps the credential when the server cannot be reached', async () => {
+  it('boots into the app when the server cannot be reached', async () => {
     const fetchMock = vi.fn<Route>(async () => {
       throw new ApiError(0, 'Could not reach the server.');
     });
 
-    // A fresh registry, unreachable server — bootstrap must keep the token.
+    // A fresh registry, unreachable server — bootstrap must keep the token
+    // and restore a usable session from the persisted profile, or an offline
+    // launch would park at the sign-in screen.
     const { api, session } = await loadApis(fetchMock);
     storage.readRefreshToken.mockResolvedValue('kept-token');
+    storage.readProfile.mockResolvedValue(authDto().user);
 
     await api.bootstrapSession();
 
-    // The in-memory token is dropped, but the stored one survives, so the next
-    // launch can retry instead of forcing a fresh sign-in.
-    expect(session.getSessionState().status).toBe('signed-out');
+    expect(session.getSessionState()).toEqual({ status: 'signed-in', user: authDto().user });
+    // No access token until a rotation succeeds, but the stored credential
+    // survives, so the next attempt (or launch) can retry instead of forcing
+    // a fresh sign-in.
+    expect(session.getAccessToken()).toBeNull();
     expect(storage.readRefreshToken).toHaveBeenCalled();
+    expect(storage.deleteRefreshToken).not.toHaveBeenCalled();
+    expect(storage.deleteProfile).not.toHaveBeenCalled();
+  });
+
+  it('keeps the session when a 401 is followed by an unreachable rotation', async () => {
+    const fetchMock = vi.fn<Route>(async (url, init) => {
+      const href = typeof url === 'string' ? url : String(url);
+      if (href.endsWith('/auth/refresh')) throw new ApiError(0, 'Could not reach the server.');
+
+      const authorization = (init?.headers as Record<string, string> | undefined)?.Authorization;
+      if (authorization === 'Bearer stale-access') return response(401, errorEnvelope('Unauthorized'));
+      return response(200, envelope({}));
+    });
+
+    const { api, session } = await loadApis(fetchMock);
+    session.saveSession(authDto({ accessToken: 'stale-access', refreshToken: 'live-refresh' }));
+
+    // The request fails — the 401 stands — but a refresh the server never saw
+    // proves nothing about the token, so the session must survive the blip.
+    await expect(api.api.get('/expenses')).rejects.toThrow();
+    expect(session.getSessionState().status).toBe('signed-in');
     expect(storage.deleteRefreshToken).not.toHaveBeenCalled();
   });
 

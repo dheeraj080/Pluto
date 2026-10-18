@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/v1/health/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liveness probe: process is up (no dependency checks) */
+        get: operations["HealthController_getLiveness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Readiness probe: database reachable, instance can serve traffic */
+        get: operations["HealthController_getReadiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/health": {
         parameters: {
             query?: never;
@@ -2292,12 +2326,34 @@ export interface components {
              */
             startDate: string;
         };
+        SyncCategoryPayloadDto: {
+            /**
+             * @description Unique category name within the account
+             * @example Groceries
+             */
+            name: string;
+            /**
+             * @description Hex colour used in charts
+             * @example #f59e0b
+             */
+            color?: string;
+            /**
+             * @description Optional icon key
+             * @example utensils
+             */
+            icon?: Record<string, never>;
+            /**
+             * @description Display order, ascending
+             * @example 30
+             */
+            sortOrder?: number;
+        };
         SyncChangeDto: {
             /**
              * @example expense
              * @enum {string}
              */
-            entity: "expense" | "budget";
+            entity: "expense" | "budget" | "category";
             /**
              * @description Client-generated UUID; doubles as the canonical entity id
              * @example f47ac10b-58cc-4372-a567-0e02b2c3d479
@@ -2313,8 +2369,8 @@ export interface components {
              * @example 2026-10-10T08:15:00.000Z
              */
             clientUpdatedAt: string;
-            /** @description Required for create/update, ignored for delete; an expense or budget payload, by `entity` */
-            data?: components["schemas"]["SyncExpensePayloadDto"] | components["schemas"]["SyncBudgetPayloadDto"];
+            /** @description Required for create/update, ignored for delete; an expense, budget or category payload, by `entity` */
+            data?: components["schemas"]["SyncExpensePayloadDto"] | components["schemas"]["SyncBudgetPayloadDto"] | components["schemas"]["SyncCategoryPayloadDto"];
         };
         SyncPushDto: {
             changes: components["schemas"]["SyncChangeDto"][];
@@ -2497,6 +2553,49 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    HealthController_getLiveness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Process is alive */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HealthController_getReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instance is ready */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Dependency (database) unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     HealthController_getHealth: {
         parameters: {
             query?: never;

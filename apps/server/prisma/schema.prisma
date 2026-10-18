@@ -161,6 +161,12 @@ model ExpenseCategory {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Client-controlled last-write-wins clock, same role as on Expense and
+  // Budget: the phone stamps it on every sync edit, and replaying an older
+  // change is a no-op. Server-side (REST) writes stamp it with server time so
+  // a web edit also beats any stale device push.
+  clientUpdatedAt DateTime @default(now())
+
   user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   expenses          Expense[]
   budgets           Budget[]

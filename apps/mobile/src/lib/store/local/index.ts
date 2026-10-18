@@ -3,7 +3,15 @@ import type { Schemas } from '@pluto/api-client';
 import { api } from '@/lib/api';
 import type { BudgetStore, CategoryStore, ExpenseCategoryDto, ExpenseStore } from '../types';
 import { createLocalBudget, deleteLocalBudget, updateLocalBudget } from './budgets';
-import { listLocalCategories, replaceLocalCategories } from './categories';
+import {
+  createLocalCategory,
+  deleteLocalCategory,
+  listLocalCategories,
+  replaceLocalCategories,
+  updateLocalCategory,
+  type CreateCategoryInput,
+  type UpdateCategoryInput,
+} from './categories';
 import { getDatabase } from './database';
 import {
   createLocalExpense,
@@ -14,7 +22,10 @@ import {
 } from './expenses';
 import { localReportStore } from './reports';
 
-export { localReportStore };
+export {
+  localReportStore,
+};
+export type { CreateCategoryInput, UpdateCategoryInput };
 
 /**
  * Native implementation of the expense seam: SQLite is the source of truth and
@@ -45,10 +56,8 @@ export const localCategoryStore: CategoryStore = {
     const cached = await listLocalCategories(database);
     if (cached.length > 0) return cached;
 
-    // Nothing mirrored yet (first run): fetch once so the expense form is
-    // usable, then keep the result. The server seeds its defaults on this call.
     try {
-      const remote = await api.get<ExpenseCategoryDto[]>('/expenses/categories');
+      const remote = await api.get<Schemas['ExpenseCategoryDto'][]>('/expenses/categories');
       await replaceLocalCategories(database, remote);
       return remote;
     } catch {
@@ -60,4 +69,7 @@ export const localCategoryStore: CategoryStore = {
     await replaceLocalCategories(await getDatabase(), categories);
     return categories;
   },
+  create: async (input) => createLocalCategory(await getDatabase(), input),
+  update: async (id, input) => updateLocalCategory(await getDatabase(), id, input),
+  remove: async (id: string, options?: { reassignTo?: string }) => deleteLocalCategory(await getDatabase(), id, options),
 };

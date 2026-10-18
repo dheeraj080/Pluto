@@ -13,14 +13,17 @@ import {
   remoteReportStore,
 } from './remote';
 import type { BudgetStore, CategoryStore, ExpenseStore, ReportStore } from './types';
+import type { CreateCategoryInput, UpdateCategoryInput } from './local/index';
 
 export type {
   BudgetStore,
   CategoryStore,
   CreateBudgetInput,
+  CreateCategoryInput,
   ExpenseStore,
   ReportStore,
   UpdateBudgetInput,
+  UpdateCategoryInput,
 } from './types';
 
 /**
