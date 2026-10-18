@@ -1,6 +1,16 @@
 export { currentMonth, formatBytes, formatPercent } from './format';
 
 export {
+  CURRENCY_REGISTRY,
+  DEFAULT_SUPPORTED_CURRENCIES,
+  getCurrencyMeta,
+  isIsoCodeShape,
+  isKnownCurrencyCode,
+  normalizeCurrencyCode,
+} from './currencies';
+export type { CurrencyMeta } from './currencies';
+
+export {
   buildConversionPreview,
   effectiveRate,
   formatRateValue,

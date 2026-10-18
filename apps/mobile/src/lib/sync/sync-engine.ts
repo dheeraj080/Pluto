@@ -134,8 +134,9 @@ async function runSync(): Promise<SyncOutcome> {
       /* Offline or transient: keep the cached mirror. */
     }
 
-    // The supported-currency list feeds every currency picker; warm the cache
-    // once so those pickers work offline. Best-effort, like the refresh above.
+    // The supported-currency list feeds every currency picker; fetch the
+    // provider's quotable set once so a fetched (possibly narrower than the
+    // bundled registry) list lands. Best-effort, like the refresh above.
     if (!(await currencyCacheSeeded(database))) {
       try {
         await refreshLocalCurrencies(database);
@@ -145,7 +146,9 @@ async function runSync(): Promise<SyncOutcome> {
     }
 
     // Rate + budget mirrors: what the Reports and Budgets tabs convert with
-    // when the device is offline. Best-effort, like the category refresh.
+    // when the device is offline. The rate window starts at the warm default
+    // and covers the account's own history (oldest expense, earliest budget).
+    // Best-effort, like the category refresh.
     await refreshReportMirrors(
       database,
       getSessionState().user?.baseCurrency ?? DEFAULT_BASE_CURRENCY,

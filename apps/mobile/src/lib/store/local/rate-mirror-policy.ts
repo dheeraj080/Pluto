@@ -1,79 +1,94 @@
 /**
  * When the rate mirror needs refreshing, as a pure decision.
  *
- * The mirror is the offline/online boundary for reports: a range it covers is
- * converted on-device, a range below it falls back to the API. That boundary is
- * worth stating — and testing — without a database or a network in the way, so
- * this module holds only the arithmetic and `report-mirror` does the I/O.
+ * The mirror is the offline/online boundary for reports: what it covers is
+ * converted on-device, and the provenance labels the engine attaches (`estimate`,
+ * `unavailable`) mark any part it could not. That boundary is worth stating —
+ * and testing — without a database or a network in the way, so this module
+ * holds only the arithmetic and `report-mirror` does the I/O.
  */
 
 import { isoDaysAgo } from '@pluto/domain';
 
 /**
- * How much rate history the mirror keeps.
+ * The warm prefetch window: how much history a sync mirrors before anything
+ * asks for more.
  *
- * The app's report presets reach back twelve months and a yearly budget starts on
- * 1 January, so a shorter window would send those views back to the network —
- * exactly the on-device behaviour Phase 2 is for. 400 days covers every
- * current-window report and the dashboard's month-to-date comparison. The one
- * range that still goes online is the twelve-month preset's *previous* window
- * (which reaches ~22 months back); the snapshots are small, so widening this
- * constant is the lever if that ever needs to move on-device too.
+ * The app's report presets reach back twelve months and a yearly budget starts
+ * on 1 January, so 400 days covers every current-window report and the
+ * dashboard's month-to-date comparison out of the box. It is a starting depth,
+ * not a cap: an older expense or an earlier budget start deepens the mirror on
+ * demand (bottom-up, in chunks — see `report-mirror`), and the mirror keeps
+ * whatever it has fetched. The depth guard is `rates_requested_from`, which
+ * records how far back the provider has already been asked.
  */
 export const RATE_MIRROR_DAYS = 400;
 
+/** How far back a freshness refresh reaches: just the newest snapshots. */
+export const RATE_TAIL_DAYS = 7;
+
 /** A mirror already this fresh is left alone unless a wider window is needed. */
-export const RATE_REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000;
+export const RATE_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 export interface RateMirrorState {
-  /** Oldest mirrored snapshot date (`YYYY-MM-DD`), or null when empty. */
+  /** Oldest mirrored snapshot across every base (`YYYY-MM-DD`), or null when empty. */
   floor: string | null;
-  /** When the mirror was last refreshed, or null when never. */
+  /** When the mirror for this base was last fetched, or null when never. */
   refreshedAt: string | null;
+  /**
+   * Deepest `from` a completed fetch has ever requested for this base, or null
+   * when never. The provider-exhaustion guard: a fetch from here that produced
+   * no older rows means the provider holds nothing older, so the same deepen
+   * must not be planned again.
+   */
+  requestedFrom: string | null;
 }
 
+export type RateRefreshMode = 'none' | 'deepen' | 'tail';
+
 export interface RateRefreshPlan {
-  /** True when the window should be fetched from the server now. */
-  fetch: boolean;
-  /** Inclusive lower bound to request (`YYYY-MM-DD`). */
-  from: string;
+  /** What a fetch should do now. */
+  mode: RateRefreshMode;
+  /** True when the mirror can serve `needFrom` without fetching anything. */
+  covered: boolean;
   /**
-   * True when `needFrom` predates the oldest date the mirror ever keeps. The
-   * range cannot be served on-device at all, so the caller must go online; a
-   * fetch still happens to keep the default window warm.
+   * Inclusive request lower bound (`YYYY-MM-DD`) when a fetch runs: `needFrom`
+   * for a deepen, the tail-window start for a freshness refresh.
    */
-  beyondMirror: boolean;
+  from: string;
 }
 
 /**
  * Decides whether to fetch, and from where.
  *
- * A refresh happens when the mirror does not cover `needFrom` (a wider window is
- * needed) or when it is stale, so a report never converts with an out-of-date
- * snapshot. When it does fetch, the lower bound keeps the widest window already
- * mirrored: a report that reached further back must not be trimmed away by a
- * later, narrower one.
+ * - **deepen** — the mirror cannot serve `needFrom` and the provider has not
+ *   already been asked that far back. The request starts at `needFrom`; older
+ *   mirrored rows are kept (see `mergeLocalRateTables`).
+ * - **tail** — covered but stale: fetch only the newest snapshots so a report
+ *   never converts with an out-of-date rate, without touching history.
+ * - **none** — covered and fresh.
+ *
+ * `covered` also honours the exhaustion guard: a completed request from
+ * `needFrom` with no rows that deep means the provider has nothing older, and
+ * the range serves from whatever the floor does hold — labelled by the engine
+ * rather than sent back online.
  */
 export function planRateRefresh(
   state: RateMirrorState,
   needFrom: string,
   now: number = Date.now(),
-  mirrorDays: number = RATE_MIRROR_DAYS,
   refreshIntervalMs: number = RATE_REFRESH_INTERVAL_MS,
 ): RateRefreshPlan {
-  const oldest = isoDaysAgo(mirrorDays, new Date(now));
   const fresh =
     state.refreshedAt !== null && now - Date.parse(state.refreshedAt) < refreshIntervalMs;
 
-  if (needFrom < oldest) {
-    // Beyond the mirror's reach: keep the default window warm, but only when it
-    // is not already fresh — an old report should not trigger a fetch each time.
-    const covered = state.floor !== null && state.floor <= oldest;
-    return { fetch: !(covered && fresh), from: oldest, beyondMirror: true };
+  const covered =
+    (state.floor !== null && state.floor <= needFrom) ||
+    (state.requestedFrom !== null && state.requestedFrom <= needFrom);
+
+  if (!covered) return { mode: 'deepen', covered: false, from: needFrom };
+  if (!fresh) {
+    return { mode: 'tail', covered: true, from: isoDaysAgo(RATE_TAIL_DAYS, new Date(now)) };
   }
-
-  const covered = state.floor !== null && state.floor <= needFrom;
-  const from = state.floor !== null && state.floor < needFrom ? state.floor : needFrom;
-
-  return { fetch: !(covered && fresh), from, beyondMirror: false };
+  return { mode: 'none', covered: true, from: needFrom };
 }

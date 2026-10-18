@@ -60,8 +60,10 @@ CREATE TABLE IF NOT EXISTS sync_meta (
  * Report mirrors (v2).
  *
  * `rate_tables` holds the immutable exchange-rate snapshots a report needs to
- * convert on-device, keyed by the reporting base so a base change keeps its own
- * window. `rates`/`dates` are the snapshot's maps serialized as JSON — the
+ * convert on-device, keyed by the reporting base. Reads re-express another
+ * base's window on the fly (`rebaseRateTable` in `rates.ts`), so a profile
+ * base change keeps the device's conversion depth instead of starting from an
+ * empty mirror. `rates`/`dates` are the snapshot's maps serialized as JSON — the
  * engine hands them straight back to `RateResolver`:
  *
  * - `rates` maps a quote currency to decimal strings, `dates` to its observation

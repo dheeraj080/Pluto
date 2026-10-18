@@ -31,7 +31,6 @@ import { getDatabase } from './database';
 import { localCategoryIndex, listLocalReportRows } from './report-input';
 import { ensureBudgetMirror, ensureRateMirror } from './report-mirror';
 import { getLocalRateTables } from './rates';
-import { remoteReportStore } from '../remote';
 import type { BudgetStatusResponse, ReportStore } from '../types';
 
 /** The server's default when the profile has no base currency. */
@@ -45,17 +44,20 @@ interface ReportInputs {
 }
 
 /**
- * Loads everything the engine needs for a range, or null when the rate mirror
- * cannot cover it (so the caller falls back to the API).
+ * Loads everything the engine needs for a range.
+ *
+ * The rate-mirror refresh is best-effort: it brings the mirror up to `needFrom`
+ * when it can, and offline (or against a range the provider cannot serve) the
+ * engine simply runs on whatever is mirrored — its provenance labels mark any
+ * part that could not be converted.
  */
 async function loadInputs(
   database: SQLite.SQLiteDatabase,
   base: string | undefined,
   needFrom: string,
-): Promise<ReportInputs | null> {
+): Promise<ReportInputs> {
   const code = (base ?? DEFAULT_BASE).toUpperCase();
-  const covered = await ensureRateMirror(database, code, needFrom);
-  if (!covered) return null;
+  await ensureRateMirror(database, code, needFrom);
 
   const [rows, categories, tables] = await Promise.all([
     listLocalReportRows(database),
@@ -75,8 +77,9 @@ function asResponse<T>(value: unknown): T {
 
 /**
  * Native report store: aggregates on-device from the expense mirror plus the
- * mirrored rate tables, delegating to the API only when a range reaches back
- * past the rate mirror.
+ * mirrored rate tables. Every range is served this way — what the mirror could
+ * not convert is labelled (`estimate`/`unavailable`) rather than delegated, so
+ * a report never needs a connection once the device has synced.
  */
 export const localReportStore: ReportStore = {
   async comparison(params, options) {
@@ -84,7 +87,6 @@ export const localReportStore: ReportStore = {
     const needFrom =
       params.currentFrom < params.previousFrom ? params.currentFrom : params.previousFrom;
     const inputs = await loadInputs(database, params.base, needFrom);
-    if (!inputs) return remoteReportStore.comparison(params, options);
 
     return asResponse<ExpenseComparison>(
       compare({
@@ -104,7 +106,6 @@ export const localReportStore: ReportStore = {
   async byDayOfWeek(params, options) {
     const database = await getDatabase();
     const inputs = await loadInputs(database, params.base, params.from);
-    if (!inputs) return remoteReportStore.byDayOfWeek(params, options);
 
     return asResponse<ByDayOfWeekResponse>(
       byDayOfWeek({
@@ -121,7 +122,6 @@ export const localReportStore: ReportStore = {
   async series(params, options) {
     const database = await getDatabase();
     const inputs = await loadInputs(database, params.base, params.from);
-    if (!inputs) return remoteReportStore.series(params, options);
 
     return asResponse<ExpenseSeries>(
       buildSeries({
@@ -139,7 +139,6 @@ export const localReportStore: ReportStore = {
   async categorySeries(params, options) {
     const database = await getDatabase();
     const inputs = await loadInputs(database, params.base, params.from);
-    if (!inputs) return remoteReportStore.categorySeries(params, options);
 
     return asResponse<CategorySeries>(
       buildCategorySeries({
@@ -168,8 +167,7 @@ export const localReportStore: ReportStore = {
 
     const budgets = await listLocalBudgets(database);
     const needFrom = windowStart(budgets, params.month);
-    const covered = needFrom === null || (await ensureRateMirror(database, base, needFrom));
-    if (!covered) return remoteReportStore.budgetStatus(params, options);
+    if (needFrom !== null) await ensureRateMirror(database, base, needFrom);
 
     const [rows, categories, tables] = await Promise.all([
       listLocalReportRows(database),
@@ -199,7 +197,6 @@ export const localReportStore: ReportStore = {
 
     const database = await getDatabase();
     const inputs = await loadInputs(database, params.base, from);
-    if (!inputs) return remoteReportStore.summary({ ...params, from, to }, options);
 
     return asResponse<Schemas['ExpenseSummaryDto']>(
       summarize({
@@ -218,11 +215,10 @@ export const localReportStore: ReportStore = {
     const database = await getDatabase();
     const base = (params.base ?? DEFAULT_BASE).toUpperCase();
 
-    // The range's rate context starts at `from`, so the mirror must cover it;
-    // when it cannot (a range older than the mirror window, offline), the API
-    // remains the only source and the caller's error surfaces as before.
-    const covered = await ensureRateMirror(database, base, params.from);
-    if (!covered) return remoteReportStore.exportCsv(params, options);
+    // The range's rate context starts at `from`; the mirror refresh is
+    // best-effort and the CSV builds from whatever it holds — an unconverted
+    // amount leaves its rate cell empty rather than failing the export.
+    await ensureRateMirror(database, base, params.from);
 
     const [rows, tables] = await Promise.all([
       listLocalCsvRows(database, params.from, params.to),

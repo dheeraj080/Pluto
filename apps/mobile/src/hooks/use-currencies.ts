@@ -11,6 +11,7 @@ import {
   replaceLocalCurrencies,
 } from '@/lib/store/local/currencies';
 import { getDatabase } from '@/lib/store/local/database';
+import { isNetworkLevelError } from '@/lib/store/local/network-errors';
 
 export type SupportedCurrency = Schemas['SupportedCurrencyDto'];
 
@@ -23,9 +24,11 @@ export type SupportedCurrency = Schemas['SupportedCurrencyDto'];
  *
  * On native the list is cached, because it is effectively static and it feeds
  * every currency picker in the app: a successful fetch is stored, and a fetch
- * the server never answered falls back to the cache — so a currency can be
- * chosen, and an expense typed with it, with no connection. A cache that was
- * never seeded is not authoritative; the real error surfaces instead.
+ * the server never answered falls back to whatever the device holds — the
+ * fetched list, or the bundled registry seed written when the database opens.
+ * That is what lets a currency be chosen, and an expense typed with it, with
+ * no connection. A definitive server answer (any real status code) still
+ * surfaces instead of being papered over.
  */
 export function useSupportedCurrencies() {
   return useQuery({
@@ -47,8 +50,16 @@ export function useSupportedCurrencies() {
         return remote;
       } catch (error) {
         const database = await getDatabase();
-        if (!(await currencyCacheSeeded(database))) throw error;
-        return listLocalCurrencies(database);
+        // A fetched list keeps mirror-beats-error: it is the server's own
+        // answer, and the endpoint is effectively static.
+        if (await currencyCacheSeeded(database)) return listLocalCurrencies(database);
+        // Never fetched: a status the server did answer with surfaces as a
+        // verdict, while a request that never got one falls back to the
+        // bundled registry seed (quietly empty only when even that is gone).
+        if (!isNetworkLevelError(error)) throw error;
+        const cached = await listLocalCurrencies(database);
+        if (cached.length > 0) return cached;
+        throw error;
       }
     },
   });

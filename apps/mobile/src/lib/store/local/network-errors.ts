@@ -22,3 +22,18 @@ export function isTransientApiError(error: unknown): boolean {
   if (error.status === 401) return true;
   return error.status >= 500;
 }
+
+/**
+ * Whether a failed request never got an HTTP verdict — offline, DNS, TLS, or
+ * a failure that never produced a response at all (`ApiError` status 0, or no
+ * `ApiError`).
+ *
+ * The unseeded offline reads (supported currencies, rules, occurrences) share
+ * this rule: with nothing mirrored to answer from, such a failure renders a
+ * quiet empty list instead of an error, while any status the server *did*
+ * answer with is a verdict the screen must see.
+ */
+export function isNetworkLevelError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return true;
+  return error.status === 0;
+}

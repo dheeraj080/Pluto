@@ -11,11 +11,11 @@ import { getQueryClient } from './query-client';
 /**
  * A disk-backed read cache.
  *
- * The app is server-backed, not local-first: the API is always the source of
- * truth and a write is never queued offline. This module only keeps the last
- * *successful* reads on disk, so a cold start with no connection still paints
- * the dashboard, the list and the budgets from what they showed last time
- * instead of an error.
+ * Restores the last *successful* reads on disk, so a cold start with no
+ * connection still paints the dashboard, the list and the budgets from what
+ * they showed last time instead of an error. It is only ever a read cache —
+ * the server remains the source of truth through the sync engine's pull, and
+ * nothing here is ever replayed at the server.
  *
  * Every restored query keeps its original `dataUpdatedAt`, so it arrives
  * already stale and refetches in the background as screens mount. Offline that
@@ -24,9 +24,13 @@ import { getQueryClient } from './query-client';
  * outranks a retry prompt.
  *
  * Only successful *queries* are kept — mutations, pending queries and errors
- * are never serialised — so nothing here can ever be replayed at the server.
+ * are never serialised.
+ *
+ * The horizon is a week: long enough to bridge a short offline stretch (a
+ * flight, a few days off-grid) and still bounded, so a device dormant for
+ * months opens on fetches rather than month-old figures.
  */
-export const MAX_SNAPSHOT_AGE_MS = 24 * 60 * 60 * 1000;
+export const MAX_SNAPSHOT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** A burst of cache events collapses into a single write. */
 const WRITE_DEBOUNCE_MS = 1_500;

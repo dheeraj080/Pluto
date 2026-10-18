@@ -23,9 +23,10 @@ const DEFAULT_BASE_CURRENCY = 'USD';
  * Snapshots change at most once a day, hence the long `staleTime`.
  *
  * On native the endpoint's mirror (`/rates/tables`, kept for the Reports
- * conversion) is the offline stand-in: the newest snapshot for the same base on
- * or before today. The mirror holds only the session base, which is what every
- * caller asks for; anything else still needs the API.
+ * conversion) is the offline stand-in: the newest snapshot for the requested
+ * base on or before today — re-expressed on read from whichever base the
+ * mirror holds when the requested base itself is not mirrored. A mirror with
+ * nothing usable in it still needs the API, hence the preserved error.
  */
 export function useRateSnapshot(base?: string | null) {
   return useQuery({

@@ -154,7 +154,7 @@ services:
     # idempotent and the free plan runs a single instance, so this is safe.
     startCommand: >-
       npm run prisma:migrate:deploy -w pluto-server &&
-      node apps/server/dist/main.js
+      node apps/server/dist/apps/server/src/main.js
 
     # Render waits for a 2xx here before routing traffic. Readiness probes
     # Postgres (503 when unreachable) without the restart-on-outage semantics
@@ -207,7 +207,7 @@ services:
 
     startCommand: >-
       npm run prisma:migrate:deploy -w pluto-server &&
-      node apps/server/dist/main.js
+      node apps/server/dist/apps/server/src/main.js
 
     healthCheckPath: /v1/health/ready
 

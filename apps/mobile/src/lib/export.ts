@@ -31,8 +31,9 @@ export interface ExportCsvParams {
  *
  * Resolves once the sheet has been dismissed (or immediately, with `false`,
  * when the platform cannot share files at all). Rejects with the store's error
- * if the export itself fails — an API error on web, or an uncovered rate range
- * while offline on native.
+ * if the export itself fails — an API error on web, or a local database
+ * failure on native (a range the rate mirror could not convert exports with
+ * empty rate cells rather than failing).
  */
 export async function shareExpensesCsv(params: ExportCsvParams): Promise<boolean> {
   // Bail before spending a request if the platform cannot share at all.

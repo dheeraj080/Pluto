@@ -30,6 +30,10 @@ RUN npm ci --workspace pluto-server --include-workspace-root
 # Source needed to generate the Prisma client and compile the API.
 COPY apps/server ./apps/server
 COPY packages/api-client ./packages/api-client
+# The server's currency registry re-exports `packages/domain/src/currencies.ts`
+# by relative path (see `apps/server/src/common/currency/currency.registry.ts`),
+# so tsc needs its source at build time.
+COPY packages/domain ./packages/domain
 
 RUN npm run prisma:generate --workspace pluto-server
 RUN npm run build --workspace pluto-server
@@ -74,4 +78,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:' + (process.env.PORT || 3000) + '/v1/health/ready').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-CMD ["node", "apps/server/dist/main.js"]
+CMD ["node", "apps/server/dist/apps/server/src/main.js"]

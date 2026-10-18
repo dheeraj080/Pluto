@@ -231,7 +231,8 @@ Native builds are offline-first: expenses (including one that starts a
 recurrence), budgets, categories, profile edits, recurring **rules** and
 recurring-occurrence decisions can all be **written with no connection**, and
 every report figure — including the CSV export — is computed on-device. The
-supported-currency list and the latest rate snapshot are also cached, so the
+supported-currency list (seeded from the bundled registry before the first
+fetch) and the latest rate snapshot are also cached, so the
 currency pickers and the conversion previews keep working. The web build stays
 online-only.
 
@@ -263,15 +264,20 @@ platform picks one in `src/lib/store/index.ts`, and screens never branch.
 - Reports and budgets are aggregated by the shared engine in `@pluto/domain`
   (`src/lib/store/local/reports.ts`), so an offline total equals the server's
   once synced. The engine converts at each row's own date, so the sync also
-  mirrors a trailing window of rate snapshots (`GET /rates/tables`) and the
-  account's budgets. A range older than the mirrored window falls back to the
-  API; that boundary is decided by `planRateRefresh` in
-  `src/lib/store/local/rate-mirror-policy.ts`. The period **summary** computes
+  mirrors rate snapshots (`GET /rates/tables`) and the account's budgets. The
+  mirror starts at a 400-day warm window and **deepens on demand — uncapped**,
+  bottom-up in ≤18-month chunks, from the oldest live expense or earliest
+  budget start; `planRateRefresh` in
+  `src/lib/store/local/rate-mirror-policy.ts` decides when to fetch and from
+  where (and records how far back the provider has already been asked, so a
+  range older than the provider's history is not refetched forever). There is
+  no API fallback: a range the mirror still cannot convert runs on-device
+  anyway, and the engine's provenance labels (`estimate`/`unavailable`) mark
+  what it could not. The period **summary** computes
   the same way through the `ReportStore.summary` seam, and the CSV **export**
   is rebuilt on-device in `src/lib/store/local/csv.ts` — same columns, same
   quoting, same per-line rate provenance as `GET /expenses/export.csv` — so
-  both work with no connection at all (a range outside the mirrored rate
-  window still falls back to the API).
+  both work with no connection at all.
 - **Profile updates queue offline.** A `PATCH /users/me` that the server never
   answered parks its payload in `pending_profile`
   (`src/lib/store/local/profile-patch.ts`) — one row, latest choice wins — and
@@ -283,7 +289,9 @@ platform picks one in `src/lib/store/index.ts`, and screens never branch.
 - **Occurrence decisions queue offline.** The recurring screen reads the
   `occurrences` mirror (`src/lib/store/local/occurrences.ts`): fetches write
   through, and an offline fetch reads the mirror back once it has been seeded
-  by a real fetch. Confirming or skipping parks the decision in
+  by a real fetch — an unseeded device answers a request the server never saw
+  as a quiet empty list, while a status the server *did* answer with surfaces
+  as an error. Confirming or skipping parks the decision in
   `recurring_actions` (`src/lib/store/local/recurring-actions.ts`) and flips
   the mirrored row in the same transaction; a queued confirm also mints the
   stand-in expense it implies, which is held back from `/sync/push` until its
@@ -295,7 +303,9 @@ platform picks one in `src/lib/store/index.ts`, and screens never branch.
   created with no connection has no server id, so only the mirror can show it —
   and a fetch the server never answered reads the mirror back once a stored
   "seeded" marker exists (an empty rule list is legitimate, so a row count
-  cannot stand in for it). Creates, edits, pauses and deletes park in
+  cannot stand in for it; an unseeded device answers a request the server never
+  saw as a quiet empty list, and surfaces a status the server did answer with).
+  Creates, edits, pauses and deletes park in
   `rule_actions` (one change per rule) and replay in `sync-engine.ts`:
   `POST /expenses/recurring`, `PATCH /expenses/recurring/:id`, or `DELETE`. A
   rule the server has not seen keeps its queued create (with edits merged in);
@@ -305,12 +315,17 @@ platform picks one in `src/lib/store/index.ts`, and screens never branch.
   charge locally and one action captures both, so its replay is the single
   `POST /expenses` (with a recurrence) that going online would have made; the
   stand-in is held back from `/sync/push` while that action is queued.
-- **Currency list and latest rates are cached.** `use-supported-currencies`
+- **Currency list and latest rates are cached.** `use-currencies`
   caches the rate provider's list (`src/lib/store/local/currencies.ts`) so every
   currency picker — the expense form, the budget and rule sheets, Settings —
-  works offline once it has been fetched once (the sync engine warms it too).
-  `use-rate-snapshot`'s offline stand-in is the mirrored rate window the Reports
-  conversion already keeps, mapped to the snapshot shape for the same base; the
+  works offline. The table is seeded from the shared ISO 4217 registry in
+  `@pluto/domain` when the database opens, so it answers even on a device that
+  has never reached the server; a fetched list then replaces the seed
+  wholesale (the sync engine warms it too). `use-rate-snapshot`'s
+  offline stand-in is the mirrored rate window the Reports
+  conversion already keeps, mapped to the snapshot shape for the requested
+  base (re-based on read when the mirror holds another base — a profile base
+  change keeps its conversion depth); the
   endpoint is only reached when the cache cannot answer.
 
 **Web.** The browser has no local database (`expo-sqlite` needs COOP/COEP headers
@@ -330,7 +345,7 @@ error.
   stale and refetch in the background as screens mount. Offline that refetch
   fails quietly: a card shows its error state only when it has nothing to show,
   so last-known figures outrank a retry prompt.
-- A snapshot older than 24h, or one that cannot be parsed, is discarded at
+- A snapshot older than 7 days, or one that cannot be parsed, is discarded at
   startup rather than trusted.
 - It is restored **only while a refresh token is held**, and the file is deleted
   when the cache empties — which is what `clearSession()` does on sign-out and on

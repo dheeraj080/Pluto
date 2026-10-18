@@ -30,6 +30,7 @@ import {
   recurringActionDisposition,
 } from '@/lib/store/local/recurring-actions';
 import { syncNow } from '@/lib/sync/sync-engine';
+import { isNetworkLevelError } from '@/lib/store/local/network-errors';
 import { useSession } from '@/hooks/use-session';
 
 export type RecurringExpense = Schemas['RecurringExpenseDto'];
@@ -63,7 +64,9 @@ function invalidateRecurring(client: QueryClient): Promise<void> {
  * this device still owns) and an unanswered one reads the last server truth
  * back, so a rule created offline is visible immediately. The word "seeded"
  * is a stored marker rather than a row count — an account with no rules must
- * still answer offline rather than surface an error.
+ * still answer offline rather than surface an error. An *unseeded* list can
+ * only claim empty on a request that never got an HTTP verdict; a status the
+ * server did answer with is a verdict and surfaces as an error.
  */
 export function useRecurringRules() {
   const { status } = useSession();
@@ -84,8 +87,9 @@ export function useRecurringRules() {
         return listLocalRules(database);
       } catch (error) {
         const database = await getDatabase();
-        if (!(await rulesMirrorSeeded(database))) throw error;
-        return listLocalRules(database);
+        if (await rulesMirrorSeeded(database)) return listLocalRules(database);
+        if (!isNetworkLevelError(error)) throw error;
+        return [];
       }
     },
   });
@@ -98,8 +102,9 @@ export function useRecurringRules() {
  * through to the `occurrences` table, and a fetch the server never answered
  * reads the mirror back instead of failing — so the decide-list renders, and
  * decides, with no connection. An empty mirror is *not* taken for an empty
- * list: only a mirror a previous fetch once seeded can answer offline, and
- * anything else surfaces the real error.
+ * list: only a mirror a previous fetch once seeded can answer offline. An
+ * unseeded one renders quietly as empty when the request never got an HTTP
+ * verdict (offline), and surfaces any status the server did answer with.
  */
 export function useOccurrences(status?: 'PENDING' | 'CONFIRMED' | 'SKIPPED', limit = 50) {
   const { status: sessionStatus } = useSession();
@@ -125,9 +130,12 @@ export function useOccurrences(status?: 'PENDING' | 'CONFIRMED' | 'SKIPPED', lim
         return response;
       } catch (error) {
         const database = await getDatabase();
-        if (!(await occurrenceMirrorSeeded(database))) throw error;
-        const items = await listLocalOccurrences(database, status, limit);
-        return { items, page: 1, limit, total: items.length };
+        if (await occurrenceMirrorSeeded(database)) {
+          const items = await listLocalOccurrences(database, status, limit);
+          return { items, page: 1, limit, total: items.length };
+        }
+        if (!isNetworkLevelError(error)) throw error;
+        return { items: [], page: 1, limit, total: 0 };
       }
     },
   });

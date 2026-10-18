@@ -383,7 +383,9 @@ describe('SyncService', () => {
     it('upserts a client-identified category', async () => {
       mockPrismaService.expenseCategory.findFirst.mockResolvedValue(null);
 
-      const result = await service.push(USER_A, [makeCategoryChange({ data: { ...baseCategoryPayload, name: '  Groceries  ' } })]);
+      const result = await service.push(USER_A, [
+        makeCategoryChange({ data: { ...baseCategoryPayload, name: '  Groceries  ' } }),
+      ]);
 
       expect(mockPrismaService.expenseCategory.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
