@@ -3,8 +3,8 @@ import Link from "next/link";
 import { AudienceCards } from "@/components/audience-cards";
 import { ConverterSingle } from "@/components/converter-single";
 import { DashboardMockup } from "@/components/dashboard-mockup";
+import { ExpenseShowcase } from "@/components/expense-showcase";
 import { Faq } from "@/components/faq";
-import { FeaturesBento } from "@/components/feature-snippets";
 import { Reveal } from "@/components/reveal";
 import {
   IconArrowRight,
@@ -19,6 +19,8 @@ import {
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
+  description:
+    "Track expenses in foreign currencies and see what they add up to in your home currency. Made for students, expats, and travellers.",
 };
 
 const TRUST = [
@@ -29,7 +31,7 @@ const TRUST = [
 ] as const;
 
 /**
- * Hero stat band. Real facts only — no invented customer counts.
+ * Hero fact band. Real facts only — no invented customer counts.
  */
 const BAND = [
   "Daily ECB rates",
@@ -38,21 +40,28 @@ const BAND = [
   "Web + Android",
 ] as const;
 
+/** The problem, shown honestly: paid amounts are known, the total is not. */
+const PROBLEM_ROWS = [
+  { label: "Espresso", paid: "€4.80" },
+  { label: "Train ticket", paid: "€23.00" },
+  { label: "Groceries", paid: "€42.30" },
+] as const;
+
 const STEPS = [
   {
     n: "01",
-    title: "Sign in with Google",
-    body: "No password to create or remember. Sessions are short-lived and rotate.",
+    title: "Add an expense",
+    body: "Enter the amount and the currency you paid in.",
   },
   {
     n: "02",
-    title: "Record what you paid",
-    body: "Add each purchase in its own currency. The original amount is never rewritten.",
+    title: "See the conversion",
+    body: "View the equivalent in your chosen home currency.",
   },
   {
     n: "03",
-    title: "Read it in your currency",
-    body: "Totals, budgets and reports appear in the currency you think in.",
+    title: "Keep track of your total",
+    body: "See your recorded expenses add up in a consistent currency.",
   },
 ] as const;
 
@@ -150,7 +159,7 @@ export default function HomePage() {
                   className="inline-flex h-12 items-center justify-center gap-2.5 rounded-xl bg-primary px-6 text-base font-semibold text-on-primary shadow-[0_18px_50px_-20px_rgba(0,0,0,0.85)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
                   <IconGoogle className="h-[18px] w-[18px]" />
-                  Start tracking free
+                  Start tracking
                 </Link>
                 <Link
                   href="#how-it-works"
@@ -208,34 +217,77 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ----------------------------- Features ---------------------------- */}
-      <section id="features" className="scroll-mt-24 bg-surface">
+      {/* ----------------------------- Problem ----------------------------- */}
+      <section id="problem" className="scroll-mt-24 border-t border-border">
         <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
-          <Reveal>
-            <SectionHeading
-              eyebrow="Features"
-              title="Everything you need, and nothing you do not"
-              intro="Just the pieces that make foreign spending readable, working on your real numbers."
-            />
-          </Reveal>
-          <Reveal className="mt-12">
-            <FeaturesBento />
-          </Reveal>
-        </div>
-      </section>
+          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
+            <Reveal>
+              <div className="max-w-xl">
+                <Eyebrow>The problem</Eyebrow>
+                <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+                  Every purchase shouldn&apos;t require mental math.
+                </h2>
+                <p className="mt-4 text-base leading-relaxed text-muted">
+                  When you live or travel abroad, you spend in one currency
+                  while thinking and budgeting in another. Keeping track of what
+                  everything adds up to shouldn&apos;t require constant manual
+                  conversion.
+                </p>
+              </div>
+            </Reveal>
 
-      {/* ---------------------------- Who it's for ------------------------- */}
-      <section id="who" className="scroll-mt-24 border-t border-border">
-        <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
-          <Reveal>
-            <SectionHeading
-              eyebrow="Who it's for"
-              title="Made for life in more than one currency"
-            />
-          </Reveal>
-          <Reveal className="mt-12">
-            <AudienceCards />
-          </Reveal>
+            <Reveal>
+              <div className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-muted">
+                    This week, abroad
+                  </p>
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-muted">
+                    Illustrative
+                  </span>
+                </div>
+
+                <div className="mt-4 flex items-center justify-end gap-3 font-mono text-[10px] uppercase tracking-wider text-muted">
+                  <span className="flex-1">Expense</span>
+                  <span className="w-16 text-right">Paid</span>
+                  <span className="w-8 text-right">Home</span>
+                </div>
+
+                <ul className="mt-1 divide-y divide-border">
+                  {PROBLEM_ROWS.map((row) => (
+                    <li
+                      key={row.label}
+                      className="flex items-center gap-3 py-2.5 font-mono text-sm"
+                    >
+                      <span className="flex-1 font-sans font-medium text-ink">
+                        {row.label}
+                      </span>
+                      <span className="w-16 text-right text-muted tabular-nums">
+                        {row.paid}
+                      </span>
+                      <span className="w-8 text-right font-display text-base text-muted">
+                        ?
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-3 flex items-center gap-3 border-t border-border pt-3 font-mono text-sm">
+                  <span className="flex-1 font-sans font-semibold text-ink">
+                    Adds up to
+                  </span>
+                  <span className="w-16 text-right text-muted">—</span>
+                  <span className="w-8 text-right font-display text-base text-muted">
+                    ?
+                  </span>
+                </div>
+
+                <p className="mt-4 text-xs leading-relaxed text-muted">
+                  Without one reporting currency, the total stays unknown.
+                </p>
+              </div>
+            </Reveal>
+          </div>
         </div>
       </section>
 
@@ -245,8 +297,7 @@ export default function HomePage() {
           <Reveal>
             <SectionHeading
               eyebrow="How it works"
-              title="Three steps, then it runs itself"
-              intro="Pluto does the converting so you can spend your attention on the month ahead."
+              title="One clearer picture of your spending."
             />
           </Reveal>
 
@@ -269,6 +320,34 @@ export default function HomePage() {
 
           <Reveal className="mx-auto mt-12 max-w-md">
             <ConverterSingle />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* --------------------------- Showcase ------------------------------ */}
+      <section id="showcase" className="scroll-mt-24 border-t border-border">
+        <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionHeading
+              eyebrow="The product"
+              title="Your expenses, in context."
+              intro="Every entry keeps the amount you paid beside its value in your reporting currency, and the month adds up to one running total."
+            />
+          </Reveal>
+          <Reveal className="mx-auto mt-12 max-w-2xl">
+            <ExpenseShowcase />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ---------------------------- Who it's for ------------------------- */}
+      <section id="who" className="scroll-mt-24 border-t border-border">
+        <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionHeading eyebrow="Who it's for" title="Wherever life takes you." />
+          </Reveal>
+          <Reveal className="mt-12">
+            <AudienceCards />
           </Reveal>
         </div>
       </section>
@@ -359,11 +438,11 @@ export default function HomePage() {
               />
               <div className="relative px-6 py-14 text-center sm:px-12 sm:py-16">
                 <h2 className="mx-auto max-w-2xl font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-                  Start with your next purchase
+                  Know what you&apos;re spending. Wherever you are.
                 </h2>
                 <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted">
-                  Sign in with Google and record what you paid. Conversion, totals
-                  and budgets happen for you.
+                  Track expenses abroad and see what they mean in your home
+                  currency.
                 </p>
                 <div className="mt-9 flex justify-center">
                   <Link
@@ -371,7 +450,7 @@ export default function HomePage() {
                     className="inline-flex h-12 items-center justify-center gap-2.5 rounded-xl bg-primary px-7 text-base font-semibold text-on-primary shadow-[0_18px_50px_-20px_rgba(0,0,0,0.85)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
                     <IconGoogle className="h-[18px] w-[18px]" />
-                    Start tracking free
+                    Start tracking
                   </Link>
                 </div>
               </div>

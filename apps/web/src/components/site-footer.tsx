@@ -9,7 +9,6 @@ const COLUMNS = [
   {
     title: "Product",
     links: [
-      { href: "/#features", label: "Features" },
       { href: "/#how-it-works", label: "How it works" },
       { href: "/#who", label: "Who it's for" },
       { href: "/login", label: "Sign in" },

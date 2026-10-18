@@ -1,11 +1,12 @@
 /**
  * The hero product mockup: a browser-framed dashboard with an icon sidebar, a
- * large balance beside its converted value, the spend chart and a recent
- * expenses list.
+ * combined total in the reporting currency beside the amount as paid, the
+ * spend chart and a recent expenses list.
  *
- * Presentation follows the marketing design rules: hairline borders, neutral
- * elevation, no colour washes — the accent appears only where the product
- * speaks (active nav item, positive delta, converted key numbers, chart line).
+ * The value hierarchy mirrors the signed-in dashboard: the reporting currency
+ * is the primary number, the original amount sits beneath it in grey, and the
+ * accent appears only where the product speaks (active nav item, positive
+ * delta, conversion arrows, chart line).
  *
  * Everything here is static and illustrative. Two currencies only: the one
  * paid in (EUR) and the one thought in (INR).
@@ -88,14 +89,14 @@ export function DashboardMockup() {
               Total spent
             </p>
             <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-              <span className="font-display text-[2rem] font-light leading-none tracking-tight text-ink tabular-nums sm:text-[2.6rem]">
-                €1,248.50
+              <span className="font-display text-[2rem] font-semibold leading-none tracking-tight text-ink tabular-nums sm:text-[2.6rem]">
+                ₹1,12,340
               </span>
-              <span className="text-base font-medium text-primary tabular-nums sm:text-lg">
-                ₹1,12,000
+              <span className="text-sm text-muted tabular-nums sm:text-base">
+                €1,248.50 as paid
               </span>
             </div>
-            <p className="mt-1.5 font-mono text-[11px] text-muted tabular-nums">
+            <p className="mt-1.5 font-mono text-[11px] text-muted">
               Converted at the daily ECB rate · Illustrative
             </p>
           </div>

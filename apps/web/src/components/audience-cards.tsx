@@ -1,5 +1,5 @@
 /**
- * "Built for people who cross borders" — three static cards, no tabs.
+ * "Wherever life takes you" — three static cards, no tabs.
  *
  * Each card is one sentence plus one mini example that uses exactly two
  * currencies: the one paid in and the one thought in.
@@ -18,20 +18,20 @@ type Audience = {
 const AUDIENCES: Audience[] = [
   {
     icon: <IconGraduation className="h-5 w-5" />,
-    title: "Students",
-    body: "Tuition and rent are paid abroad, while the money still comes from home.",
+    title: "International students",
+    body: "Keep track of everyday expenses while studying in another country.",
     example: { label: "Rent", paid: "€480", converted: "₹43,200" },
   },
   {
     icon: <IconGlobe className="h-5 w-5" />,
     title: "Expats",
-    body: "A salary in one currency, a whole life in another.",
+    body: "Understand your everyday spending in the currency you use at home.",
     example: { label: "Salary", paid: "£2,400", converted: "₹2,52,000" },
   },
   {
     icon: <IconPlane className="h-5 w-5" />,
-    title: "Tourists",
-    body: "A whole trip, added up in the money back home.",
+    title: "Travellers",
+    body: "See what your trip expenses add up to in your home currency.",
     example: { label: "Trip total", paid: "€860", converted: "₹77,400" },
   },
 ];

@@ -16,7 +16,6 @@ import { ThemeToggle } from "./theme";
 import { IconClose, IconMenu } from "./icons";
 
 const NAV = [
-  { href: "/#features", label: "Features" },
   { href: "/#how-it-works", label: "How it works" },
   { href: "/#who", label: "Who it's for" },
   { href: "/#privacy", label: "Privacy" },

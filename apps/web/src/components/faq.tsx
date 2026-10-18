@@ -1,7 +1,7 @@
 /**
- * Landing-page FAQ: five questions in a compact two-column accordion.
+ * Landing-page FAQ: seven questions in a compact two-column accordion.
  * Uses native `details`/`summary` so it works without JavaScript and stays
- * keyboard-accessible.
+ * keyboard-accessible. Every answer is verifiable against the product.
  */
 
 const FAQ = [
@@ -12,6 +12,14 @@ const FAQ = [
   {
     q: "Where do the exchange rates come from?",
     a: "From the European Central Bank's daily reference rates, refreshed once a day. Every converted figure is dated with the rate it used, so you always know which day's numbers you are looking at.",
+  },
+  {
+    q: "Can I choose my home currency?",
+    a: "Yes. You pick your reporting currency when you first sign in, and you can change it later in settings. Totals, budgets and reports are shown in that currency.",
+  },
+  {
+    q: "Can I use the same account on web and mobile?",
+    a: "Yes. The web app and the Android app sign in with the same Google account, and your expenses are stored with your account rather than on a single device.",
   },
   {
     q: "Is Pluto free?",
@@ -45,8 +53,8 @@ function Item({ q, a }: { q: string; a: string }) {
 }
 
 export function Faq() {
-  const left = FAQ.slice(0, 3);
-  const right = FAQ.slice(3);
+  const left = FAQ.slice(0, 4);
+  const right = FAQ.slice(4);
   return (
     <div className="grid items-start gap-x-10 gap-y-0 lg:grid-cols-2">
       <div>
