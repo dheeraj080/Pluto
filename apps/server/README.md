@@ -101,7 +101,7 @@ pluto-server/
 │   ├── common/                 # Global cross-cutting concerns
 │   │   ├── decorators/         # @Public(), @CurrentUser()
 │   │   ├── dto/                # ApiResponseDto, standardized response wrappers
-│   │   ├── filters/            # AllExceptionsFilter (RFC 7807 compliant error format)
+│   │   ├── filters/            # AllExceptionsFilter (standardised error envelope)
 │   │   └── interceptors/       # LoggingInterceptor, TransformInterceptor
 │   ├── config/                 # Environment validation via Zod
 │   │   ├── config.module.ts
@@ -109,7 +109,7 @@ pluto-server/
 │   ├── database/               # Prisma client wrapper and database lifecycle
 │   │   ├── database.module.ts
 │   │   └── prisma.service.ts
-│   ├── health/                 # Liveness, readiness, and DB/S3 probes
+│   ├── health/                 # Liveness, readiness, and full diagnostic probes
 │   │   ├── health.controller.ts
 │   │   └── health.service.ts
 │   ├── modules/
@@ -233,6 +233,7 @@ All environment variables are validated at startup via Zod in [src/config/env.va
 | `ACCESS_TOKEN_TTL` | Access token lifetime (e.g. `15m`, `1h`) | `15m` | No |
 | `REFRESH_TOKEN_TTL_DAYS` | Refresh token session lifetime in days | `30` | No |
 | `GOOGLE_ALLOWED_CLIENT_IDS` | Comma-separated list of permitted Google OAuth Client IDs (Android, iOS, Web) | `""` | **Yes** (prod) |
+| `OBJECT_STORAGE_ENABLED` | Opt in to cloud backups (`/v1/backups/*` return `503` while off). Off by default so deployments without a storage account boot cleanly | `false` | No |
 | `OBJECT_STORAGE_ENDPOINT` | Custom endpoint for MinIO / LocalStack / R2 (empty for AWS S3) | — | No |
 | `OBJECT_STORAGE_REGION` | Object storage region | `us-east-1` | No |
 | `OBJECT_STORAGE_BUCKET` | Bucket for storing mobile backups | `pluto-backups` | No |
@@ -345,10 +346,21 @@ All requests return a consistent JSON response envelope:
 
 ### Health & Diagnostics
 
-#### `GET /v1/health`
-Check service liveness, readiness, uptime, memory, and database connectivity.
+Three probes with different responsibilities:
+
+| Endpoint | Purpose | Touches DB | Failure semantics |
+| :--- | :--- | :--- | :--- |
+| `GET /v1/health/live` | **Liveness** — process is up and serving HTTP | No | Restart the instance |
+| `GET /v1/health/ready` | **Readiness** — Postgres reachable, safe to route traffic | Yes (503 when down) | Drain / stop routing |
+| `GET /v1/health` | Full diagnostic report (uptime, memory, DB latency, error detail outside prod) | Yes (503 when down) | Monitoring only |
+
+Point orchestrator **liveness** probes at `/v1/health/live` and **readiness** probes (or load-balancer/deploy
+gates) at `/v1/health/ready`. Pointing liveness at a DB-dependent check means a Postgres outage restarts
+healthy instances instead of merely draining them.
 ```powershell
 curl.exe -i http://localhost:3000/v1/health
+curl.exe -i http://localhost:3000/v1/health/live
+curl.exe -i http://localhost:3000/v1/health/ready
 ```
 
 ---
@@ -680,25 +692,27 @@ curl.exe -i -H "Authorization: Bearer <accessToken>" "http://localhost:3000/v1/e
 
 ### Cloud Backups
 
+Backups are **opt-in**: set `OBJECT_STORAGE_ENABLED=true` together with real bucket credentials,
+otherwise every `/v1/backups/*` route returns `503 Service Unavailable` and the rest of the API is
+unaffected. This keeps the server deployable without a credit card (production S3 usually requires
+billing; [Filebase](https://s3.filebase.io) is a no-card free-tier alternative).
+
 The backup workflow follows a secure three-step lifecycle:
 1. **Initiate**: Client requests an upload URL. Server generates a signed presigned PUT URL and registers a `PENDING` record.
 2. **Upload**: Client streams the encrypted SQLite database directly to S3 via HTTP PUT.
-3. **Complete**: Client notifies the server. Server verifies the object exists in S3, inspects byte size, updates status to `COMPLETED`, and prunes older backups beyond `MAX_BACKUPS_PER_USER`.
+3. **Complete**: Client notifies the server. Server verifies the object exists in S3, inspects byte size, updates status to `COMPLETED`, and prunes older backups beyond `BACKUP_RETENTION_COUNT` (default 5).
 
 #### `POST /v1/backups/initiate`
-Initiate a backup session.
+Initiate a backup session. The body carries only the four fields below — unknown fields are rejected (`400`) by the global validation pipe.
 ```powershell
 curl.exe -i -X POST http://localhost:3000/v1/backups/initiate `
   -H "Authorization: Bearer <accessToken>" `
   -H "Content-Type: application/json" `
   -d '{
+    "schemaVersion": "1.0.0",
     "appVersion": "1.4.0",
-    "schemaVersion": 2,
-    "deviceModel": "Pixel 8 Pro",
-    "osVersion": "Android 15",
-    "checksumSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "fileSizeBytes": 1048576,
-    "metadata": { "notesCount": 128 }
+    "expectedSizeBytes": 1048576,
+    "checksumSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   }'
 ```
 
@@ -869,8 +883,10 @@ docker run -d `
 The container handles `SIGTERM` and `SIGINT` signals, closing active HTTP connections, S3 client sessions, and database connections gracefully.
 
 Kubernetes configuration probes:
-- **Liveness Probe**: `GET /v1/health` (initialDelaySeconds: 15, periodSeconds: 20)
-- **Readiness Probe**: `GET /v1/health` (initialDelaySeconds: 5, periodSeconds: 10)
+- **Liveness Probe**: `GET /v1/health/live` (initialDelaySeconds: 15, periodSeconds: 20) — process-only; never restarts instances because Postgres is down
+- **Readiness Probe**: `GET /v1/health/ready` (initialDelaySeconds: 5, periodSeconds: 10) — 503 while the database is unreachable, so traffic is drained rather than restarted into a loop
+
+`render.yaml` and the Dockerfile `HEALTHCHECK` use `/v1/health/ready` for the same reason.
 
 ---
 

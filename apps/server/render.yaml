@@ -156,9 +156,11 @@ services:
       npm run prisma:migrate:deploy -w pluto-server &&
       node apps/server/dist/main.js
 
-    # Render waits for a 2xx here before routing traffic. The health endpoint
-    # only probes Postgres, so it is unaffected by storage being disabled.
-    healthCheckPath: /v1/health
+    # Render waits for a 2xx here before routing traffic. Readiness probes
+    # Postgres (503 when unreachable) without the restart-on-outage semantics
+    # a liveness probe would have. It only probes Postgres, so it is
+    # unaffected by storage being disabled.
+    healthCheckPath: /v1/health/ready
 
     envVars:
       - fromGroup: pluto-server-config
@@ -207,7 +209,7 @@ services:
       npm run prisma:migrate:deploy -w pluto-server &&
       node apps/server/dist/main.js
 
-    healthCheckPath: /v1/health
+    healthCheckPath: /v1/health/ready
 
     envVars:
       - fromGroup: pluto-server-config

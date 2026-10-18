@@ -9,6 +9,24 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { buildSwaggerDocumentConfig } from './config/swagger.config';
 
+// Last-resort process guards. Without them an unhandled rejection or uncaught
+// exception either kills the process with only a bare stderr print, or leaves
+// a broken instance running. We log with context and exit non-zero; the
+// supervisor (Docker restart policy / Render) brings up a clean instance.
+process.on('unhandledRejection', (reason) => {
+  const logger = new Logger('Process');
+  logger.error(
+    `Unhandled promise rejection: ${reason instanceof Error ? (reason.stack ?? reason.message) : String(reason)}`,
+  );
+  process.exit(1);
+});
+
+process.on('uncaughtException', (err) => {
+  const logger = new Logger('Process');
+  logger.error(`Uncaught exception: ${err.stack ?? err.message}`);
+  process.exit(1);
+});
+
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);

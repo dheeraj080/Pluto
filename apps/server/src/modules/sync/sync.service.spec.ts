@@ -11,6 +11,7 @@ const EXPENSE_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const BUDGET_ID = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
 const OTHER_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const CATEGORY_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const RECURRING_ID = 'abababab-abab-4aba-8aba-abababababab';
 
 const basePayload = {
   categoryId: CATEGORY_ID,
@@ -68,6 +69,7 @@ describe('SyncService', () => {
       delete: jest.fn(),
     },
     expenseCategory: { findFirst: jest.fn() },
+    recurringExpense: { findFirst: jest.fn() },
   };
 
   const mockConverter = { assertValidCode: jest.fn() };
@@ -78,6 +80,7 @@ describe('SyncService', () => {
       currency.trim().toUpperCase(),
     );
     mockPrismaService.expenseCategory.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+    mockPrismaService.recurringExpense.findFirst.mockResolvedValue({ id: RECURRING_ID });
     mockPrismaService.expense.upsert.mockResolvedValue({
       updatedAt: new Date('2026-10-03T10:00:00.000Z'),
     });
@@ -202,6 +205,39 @@ describe('SyncService', () => {
 
       expect(mockPrismaService.expense.upsert).not.toHaveBeenCalled();
       expect(result.results[0]).toMatchObject({ status: 'failed' });
+    });
+
+    it('accepts an expense that references an owned recurring rule', async () => {
+      mockPrismaService.expense.findUnique.mockResolvedValue(null);
+
+      const result = await service.push(USER_A, [
+        makeChange({ data: { ...basePayload, recurringExpenseId: RECURRING_ID } }),
+      ]);
+
+      expect(mockPrismaService.recurringExpense.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: RECURRING_ID, userId: USER_A } }),
+      );
+      expect(mockPrismaService.expense.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ recurringExpenseId: RECURRING_ID }),
+        }),
+      );
+      expect(result.results[0]).toMatchObject({ status: 'applied' });
+    });
+
+    it('fails a change whose recurring rule is not owned by the caller', async () => {
+      mockPrismaService.expense.findUnique.mockResolvedValue(null);
+      mockPrismaService.recurringExpense.findFirst.mockResolvedValue(null);
+
+      const result = await service.push(USER_A, [
+        makeChange({ data: { ...basePayload, recurringExpenseId: RECURRING_ID } }),
+      ]);
+
+      expect(mockPrismaService.expense.upsert).not.toHaveBeenCalled();
+      expect(result.results[0]).toMatchObject({
+        status: 'failed',
+        reason: 'Recurring rule not found',
+      });
     });
 
     it('keeps processing the rest of the batch after one failure', async () => {

@@ -216,6 +216,22 @@ describe('Pluto Server API (e2e)', () => {
       expect(response.body.data.status).toBe('ok');
       expect(response.body.data.database.status).toBe('connected');
     });
+
+    it('(GET) /v1/health/live should return 200 without dependency checks', async () => {
+      const response = await request(server).get('/v1/health/live').expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.status).toBe('ok');
+      expect(response.body.data.uptime).toBeGreaterThanOrEqual(0);
+    });
+
+    it('(GET) /v1/health/ready should return 200 when the database is reachable', async () => {
+      const response = await request(server).get('/v1/health/ready').expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.status).toBe('ok');
+      expect(response.body.data.database.status).toBe('connected');
+    });
   });
 
   describe('/v1/rates', () => {

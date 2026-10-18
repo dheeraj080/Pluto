@@ -291,6 +291,16 @@ export class SyncService {
     });
     if (!category) throw new BadRequestException('Category not found');
 
+    // Mirror the category check: without it a user could attach their expense
+    // to another user's recurring rule (the FK only proves the row exists).
+    if (payload.recurringExpenseId) {
+      const recurring = await this.prisma.recurringExpense.findFirst({
+        where: { id: payload.recurringExpenseId, userId },
+        select: { id: true },
+      });
+      if (!recurring) throw new BadRequestException('Recurring rule not found');
+    }
+
     const currency = this.currencyConverter.assertValidCode(payload.currency);
 
     return {

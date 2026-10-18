@@ -1,6 +1,39 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/v1/health/live": {
+      "get": {
+        "operationId": "HealthController_getLiveness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Process is alive"
+          }
+        },
+        "summary": "Liveness probe: process is up (no dependency checks)",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/v1/health/ready": {
+      "get": {
+        "operationId": "HealthController_getReadiness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Instance is ready"
+          },
+          "503": {
+            "description": "Dependency (database) unavailable"
+          }
+        },
+        "summary": "Readiness probe: database reachable, instance can serve traffic",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
     "/v1/health": {
       "get": {
         "operationId": "HealthController_getHealth",

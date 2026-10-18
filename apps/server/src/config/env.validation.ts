@@ -1,6 +1,23 @@
 import { z } from 'zod';
 import { DEFAULT_SUPPORTED_CURRENCIES } from '../common/currency/currency.registry';
 
+/**
+ * Environment variables arrive as strings, or are absent entirely. Note that
+ * `z.preprocess(fn, z.boolean().default(x))` cannot be used here: the
+ * preprocessor runs first and turns `undefined` into `false`, so the default
+ * never applies. This helper preserves the declared default for unset/blank
+ * values and only coerces real input.
+ */
+const envBoolean = (defaultValue: boolean) =>
+  z.preprocess((val) => {
+    if (val === undefined || val === null || val === '') return defaultValue;
+    if (typeof val === 'boolean') return val;
+    if (typeof val === 'number') return val !== 0;
+    if (typeof val !== 'string') return false; // anything else is never true-ish
+    const normalized = val.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1';
+  }, z.boolean());
+
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -8,10 +25,7 @@ export const envSchema = z
     API_PREFIX: z.string().default('v1'),
     CORS_ORIGIN: z.string().default('*'),
 
-    TRUST_PROXY: z.preprocess(
-      (val) => val === 'true' || val === true || val === '1' || val === 1,
-      z.boolean().default(true),
-    ),
+    TRUST_PROXY: envBoolean(true),
 
     // Database
     DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
@@ -24,10 +38,7 @@ export const envSchema = z
     // Comma-separated list of e-mail addresses promoted to ADMIN on sign-in
     ADMIN_EMAILS: z.string().default(''),
     // Dev-only mock sign-in (POST /v1/auth/dev-login). Hard-refused in production.
-    ENABLE_DEV_AUTH: z.preprocess(
-      (val) => val === 'true' || val === true || val === '1' || val === 1,
-      z.boolean().default(false),
-    ),
+    ENABLE_DEV_AUTH: envBoolean(false),
 
     // Rate Limiting (Throttler)
     THROTTLE_TTL: z.coerce.number().default(60),
@@ -56,21 +67,17 @@ export const envSchema = z
     EXCHANGE_RATE_HISTORICAL_LOOKBACK_DAYS: z.coerce.number().int().min(0).max(365).default(10),
 
     // Object Storage (AWS S3 or S3-compatible like MinIO / LocalStack / Cloudflare R2)
-    // When false the server still boots and every non-storage feature works; the
-    // backup endpoints report 503 Service Unavailable instead of failing obscurely.
-    OBJECT_STORAGE_ENABLED: z.preprocess(
-      (val) => val === 'true' || val === true || val === '1' || val === 1,
-      z.boolean().default(true),
-    ),
+    // Opt-in: production-grade S3 normally needs a billing account, so the
+    // default is off. When false the server still boots and every non-storage
+    // feature works; the backup endpoints report 503 Service Unavailable
+    // instead of failing obscurely. (No-card free alternative: Filebase.)
+    OBJECT_STORAGE_ENABLED: envBoolean(false),
     OBJECT_STORAGE_ENDPOINT: z.string().optional(),
     OBJECT_STORAGE_REGION: z.string().default('us-east-1'),
     OBJECT_STORAGE_BUCKET: z.string().default('pluto-backups'),
     OBJECT_STORAGE_ACCESS_KEY_ID: z.string().default('minioadmin'),
     OBJECT_STORAGE_SECRET_ACCESS_KEY: z.string().default('minioadmin'),
-    OBJECT_STORAGE_FORCE_PATH_STYLE: z.preprocess(
-      (val) => val === 'true' || val === true || val === '1' || val === 1,
-      z.boolean().default(true),
-    ),
+    OBJECT_STORAGE_FORCE_PATH_STYLE: envBoolean(true),
 
     // Backups
     BACKUP_MAX_SIZE_BYTES: z.coerce.number().default(52428800), // 50 MB

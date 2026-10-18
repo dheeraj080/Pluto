@@ -167,4 +167,60 @@ describe('validateEnvironment', () => {
       'default minioadmin credentials must not be used',
     );
   });
+
+  describe('boolean coercion', () => {
+    const baseConfig = {
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/pluto_db',
+      JWT_ACCESS_SECRET: 'development_jwt_access_secret_min_32_characters_long_12345',
+    };
+
+    it('should honour documented defaults when boolean variables are unset', () => {
+      const result = validateEnvironment(baseConfig);
+
+      expect(result.TRUST_PROXY).toBe(true);
+      expect(result.ENABLE_DEV_AUTH).toBe(false);
+      // Storage is opt-in: production S3 usually needs a billing account.
+      expect(result.OBJECT_STORAGE_ENABLED).toBe(false);
+      expect(result.OBJECT_STORAGE_FORCE_PATH_STYLE).toBe(true);
+    });
+
+    it('should treat blank values as unset and fall back to the defaults', () => {
+      const result = validateEnvironment({
+        ...baseConfig,
+        TRUST_PROXY: '',
+        OBJECT_STORAGE_ENABLED: '',
+      });
+
+      expect(result.TRUST_PROXY).toBe(true);
+      expect(result.OBJECT_STORAGE_ENABLED).toBe(false);
+    });
+
+    it('should parse explicit false-ish values', () => {
+      const result = validateEnvironment({
+        ...baseConfig,
+        TRUST_PROXY: 'false',
+        ENABLE_DEV_AUTH: '0',
+        OBJECT_STORAGE_ENABLED: 'false',
+        OBJECT_STORAGE_FORCE_PATH_STYLE: 'no',
+      });
+
+      expect(result.TRUST_PROXY).toBe(false);
+      expect(result.ENABLE_DEV_AUTH).toBe(false);
+      expect(result.OBJECT_STORAGE_ENABLED).toBe(false);
+      expect(result.OBJECT_STORAGE_FORCE_PATH_STYLE).toBe(false);
+    });
+
+    it('should parse explicit true-ish values', () => {
+      const result = validateEnvironment({
+        ...baseConfig,
+        TRUST_PROXY: '1',
+        ENABLE_DEV_AUTH: 'true',
+        OBJECT_STORAGE_ENABLED: 'TRUE',
+      });
+
+      expect(result.TRUST_PROXY).toBe(true);
+      expect(result.ENABLE_DEV_AUTH).toBe(true);
+      expect(result.OBJECT_STORAGE_ENABLED).toBe(true);
+    });
+  });
 });

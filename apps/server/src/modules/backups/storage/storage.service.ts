@@ -50,7 +50,7 @@ export class StorageService {
    * operations raise 503 and destructive ones become no-ops.
    */
   isEnabled(): boolean {
-    return this.configService.get<boolean>('OBJECT_STORAGE_ENABLED', true);
+    return this.configService.get<boolean>('OBJECT_STORAGE_ENABLED', false);
   }
 
   private assertEnabled(): void {
