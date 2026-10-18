@@ -8,8 +8,18 @@ import type {
   ExpenseSeries,
 } from '@/lib/report-types';
 import { expenseQueryParams } from '@/lib/query-keys';
-import type { BudgetStore, CategoryStore, ExpenseStore, ReportStore } from './types';
-import type { CreateCategoryInput, UpdateCategoryInput, CreateBudgetInput, UpdateBudgetInput, CreateExpenseInput, UpdateExpenseInput } from './types';
+import type {
+  BudgetStore,
+  CategoryStore,
+  CreateBudgetInput,
+  CreateCategoryInput,
+  CreateExpenseInput,
+  ExpenseStore,
+  ReportStore,
+  UpdateBudgetInput,
+  UpdateCategoryInput,
+  UpdateExpenseInput,
+} from './types';
 
 type ExpenseCategoryDto = Schemas['ExpenseCategoryDto'];
 
@@ -106,6 +116,25 @@ export const remoteReportStore: ReportStore = {
         month: params.month,
         base: params.base,
         secondary: params.secondary,
+      },
+      signal: options?.signal,
+    }),
+  summary: (params: any, options: any) =>
+    api.get<Schemas['ExpenseSummaryDto']>('/expenses/summary', {
+      query: {
+        from: params.from,
+        to: params.to,
+        base: params.base,
+        secondary: params.secondary,
+      },
+      signal: options?.signal,
+    }),
+  exportCsv: (params, options) =>
+    api.get<string>('/expenses/export.csv', {
+      query: {
+        from: params.from,
+        to: params.to,
+        base: params.base ?? undefined,
       },
       signal: options?.signal,
     }),

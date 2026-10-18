@@ -215,7 +215,7 @@ export class RateResolver {
   }
 }
 
-interface RateContext {
+export interface RateContext {
   base: string;
   resolver: RateResolver;
 }
@@ -246,7 +246,7 @@ export function buildRateContext(
 }
 
 /** What one amount (at one date, in one currency) produced during conversion. */
-interface ConversionResolution {
+export interface ConversionResolution {
   convertible: boolean;
   value: number | null;
   secondaryValue: number | null;
@@ -264,12 +264,21 @@ const UNCONVERTIBLE: ConversionResolution = {
   policy: null,
 };
 
-function convertAtDate(
+/**
+ * Converts one amount at one historical date, reporting the rate and policy it
+ * used.
+ *
+ * Exported for line-level consumers that need the same provenance the report
+ * engine records — notably the CSV export, whose `Rate Used`/`Rate Date`/
+ * `Estimated` columns mirror this resolution field-for-field. `secondary` is
+ * null for single-currency output.
+ */
+export function convertAtDate(
   ctx: RateContext,
   amount: number | string,
   currency: string,
   dateIso: string,
-  secondary: string | null,
+  secondary: string | null = null,
 ): ConversionResolution {
   const code = currency.toUpperCase();
   const sec = secondary ? secondary.toUpperCase() : null;

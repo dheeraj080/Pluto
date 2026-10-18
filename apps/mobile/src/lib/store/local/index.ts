@@ -1,7 +1,7 @@
 import type { Schemas } from '@pluto/api-client';
 
 import { api } from '@/lib/api';
-import type { BudgetStore, CategoryStore, ExpenseCategoryDto, ExpenseStore } from '../types';
+import type { BudgetStore, CategoryStore, ExpenseStore } from '../types';
 import { createLocalBudget, deleteLocalBudget, updateLocalBudget } from './budgets';
 import {
   createLocalCategory,

@@ -1,8 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import type { Schemas } from '@pluto/api-client';
 
-import { api } from '@/lib/api';
-import { expenseStore } from '@/lib/store';
+import { expenseStore, reportStore } from '@/lib/store';
 import { queryKeys, type ExpenseListFilters, type ExpenseSummaryParams } from '@/lib/query-keys';
 import { useSession } from '@/hooks/use-session';
 
@@ -38,10 +36,13 @@ export function useExpenseList(filters: ExpenseListFilters) {
 }
 
 /**
- * Server-computed totals for the dashboard.
+ * Period totals and the per-category breakdown.
  *
- * Still a request in this phase (reports move on-device later), so it needs a
- * connection and reflects synced expenses only.
+ * Reads the report store: computed on-device from the expense mirror on
+ * native — so the figures load with no connection at all — and a
+ * `GET /expenses/summary` request on web. The dateless default (current
+ * calendar month through today) is applied by the store, keeping both
+ * platforms on the window the server would have chosen.
  */
 export function useExpenseSummary(params: ExpenseSummaryParams = {}) {
   const { status } = useSession();
@@ -49,9 +50,6 @@ export function useExpenseSummary(params: ExpenseSummaryParams = {}) {
   return useQuery({
     queryKey: queryKeys.expenses.summary(params),
     enabled: status === 'signed-in',
-    queryFn: () =>
-      api.get<Schemas['ExpenseSummaryDto']>('/expenses/summary', {
-        query: { from: params.from, to: params.to, base: params.base },
-      }),
+    queryFn: ({ signal }) => reportStore.summary(params, { signal }),
   });
 }

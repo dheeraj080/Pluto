@@ -1,10 +1,11 @@
 /**
  * Export the Reports range as a CSV, and hand it to the OS share sheet.
  *
- * The server's `GET /expenses/export.csv` returns the CSV as a *string wrapped
- * in the usual success envelope*, so the ordinary JSON client unwraps it to the
- * CSV text with no extra plumbing — a `responseType: 'text'` variant would only
- * read back the envelope itself.
+ * The CSV text itself comes from the report store: generated on-device from
+ * the expense mirror on native (offline, byte-identical to the server's
+ * format), fetched from `GET /expenses/export.csv` on web — where the string
+ * is wrapped in the usual success envelope, so the ordinary JSON client
+ * unwraps it to the CSV text with no extra plumbing.
  *
  * The text is written to a real file in the cache directory before sharing:
  * `expo-sharing` shares a file URL, not a string, so this is what turns the
@@ -16,7 +17,7 @@
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
-import { api } from '@/lib/api';
+import { reportStore } from '@/lib/store';
 
 export interface ExportCsvParams {
   from: string;
@@ -26,19 +27,18 @@ export interface ExportCsvParams {
 }
 
 /**
- * Fetch the range's expenses as CSV and open the share sheet.
+ * Get the range's expenses as CSV and open the share sheet.
  *
  * Resolves once the sheet has been dismissed (or immediately, with `false`,
- * when the platform cannot share files at all). Rejects with the API error if
- * the export request itself fails.
+ * when the platform cannot share files at all). Rejects with the store's error
+ * if the export itself fails — an API error on web, or an uncovered rate range
+ * while offline on native.
  */
 export async function shareExpensesCsv(params: ExportCsvParams): Promise<boolean> {
   // Bail before spending a request if the platform cannot share at all.
   if (!(await Sharing.isAvailableAsync())) return false;
 
-  const csv = await api.get<string>('/expenses/export.csv', {
-    query: { from: params.from, to: params.to, base: params.base ?? undefined },
-  });
+  const csv = await reportStore.exportCsv(params);
 
   const file = new File(Paths.cache, 'pluto-expenses.csv');
   file.create({ overwrite: true });

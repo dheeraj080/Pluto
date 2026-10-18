@@ -8,7 +8,7 @@
  *   row's edits rewrite its queued `create` instead of stacking an `update`.
  * - `mutations` is the write-ahead queue that survives a crash or a kill.
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const SCHEMA_V1 = `
 CREATE TABLE IF NOT EXISTS expenses (
@@ -89,6 +89,54 @@ CREATE TABLE IF NOT EXISTS budgets (
   currency TEXT NOT NULL,
   period TEXT NOT NULL,
   start_date TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+`;
+
+/**
+ * Offline decisions (v3).
+ *
+ * - `pending_profile` is the queued `PATCH /users/me` — a single row (a newer
+ *   base-currency choice replaces an older one), replayed by the sync engine
+ *   once the server answers again.
+ *
+ * - `occurrences` mirrors the recurring rules' due charges so the Recurring
+ *   screen renders, and decides, with no connection. It stores the fields the
+ *   screen and the confirm payload both read; the category name/colour stay in
+ *   the `categories` mirror.
+ *
+ * - `recurring_actions` is the write-ahead queue for confirms/skips the server
+ *   has not seen yet. A queued `confirm` carries the local expense it created
+ *   so the replay can retire that row the moment the server materialises its
+ *   own copy (the server mints the authoritative expense id).
+ */
+export const SCHEMA_V3 = `
+CREATE TABLE IF NOT EXISTS pending_profile (
+  id INTEGER PRIMARY KEY CHECK (id = 0),
+  payload TEXT NOT NULL,
+  client_updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS occurrences (
+  id TEXT PRIMARY KEY NOT NULL,
+  recurring_expense_id TEXT NOT NULL,
+  due_on TEXT NOT NULL,
+  status TEXT NOT NULL,
+  amount REAL NOT NULL,
+  currency TEXT NOT NULL,
+  category_id TEXT NOT NULL,
+  description TEXT,
+  payment_method TEXT,
+  expense_id TEXT,
+  confirmed_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS occurrences_status_idx ON occurrences (status, due_on);
+
+CREATE TABLE IF NOT EXISTS recurring_actions (
+  occurrence_id TEXT PRIMARY KEY NOT NULL,
+  action TEXT NOT NULL,
+  local_expense_id TEXT,
   created_at TEXT NOT NULL
 );
 `;

@@ -227,9 +227,10 @@ never a partial month against a whole one; that pairing lives in
 
 ## Offline store
 
-Native builds are offline-first: expenses can be **written with no connection**
-and every report and budget figure is computed on-device. The web build stays
-online-only.
+Native builds are offline-first: expenses, budgets, profile edits and
+recurring-occurrence decisions can all be **written with no connection**, and
+every report figure — including the CSV export — is computed on-device. The
+web build stays online-only.
 
 **Native.** `src/lib/store/local/` keeps a SQLite mirror (`pluto.db`) behind the
 same `ExpenseStore` / `CategoryStore` / `BudgetStore` / `ReportStore` seams the
@@ -240,7 +241,8 @@ platform picks one in `src/lib/store/index.ts`, and screens never branch.
   **write-ahead queue** (`mutations`). An edit to a row that has never reached
   the server rewrites its queued `create` instead of stacking a second op;
   deleting such a row drops it.
-- `src/lib/sync/sync-engine.ts` reconciles in the background: it pushes the
+- `src/lib/sync/sync-engine.ts` reconciles in the background: it replays the
+  offline decision queues (the two bullets below), pushes the write-ahead
   queue to `POST /sync/push`, then pulls changes with
   `GET /sync/pull?since=<cursor>`. Conflicts are last-write-wins on
   `clientUpdatedAt`; expense deletes are soft tombstones and budget and
@@ -260,7 +262,30 @@ platform picks one in `src/lib/store/index.ts`, and screens never branch.
   mirrors a trailing window of rate snapshots (`GET /rates/tables`) and the
   account's budgets. A range older than the mirrored window falls back to the
   API; that boundary is decided by `planRateRefresh` in
-  `src/lib/store/local/rate-mirror-policy.ts`.
+  `src/lib/store/local/rate-mirror-policy.ts`. The period **summary** computes
+  the same way through the `ReportStore.summary` seam, and the CSV **export**
+  is rebuilt on-device in `src/lib/store/local/csv.ts` — same columns, same
+  quoting, same per-line rate provenance as `GET /expenses/export.csv` — so
+  both work with no connection at all (a range outside the mirrored rate
+  window still falls back to the API).
+- **Profile updates queue offline.** A `PATCH /users/me` that the server never
+  answered parks its payload in `pending_profile`
+  (`src/lib/store/local/profile-patch.ts`) — one row, latest choice wins — and
+  the session keeps the optimistic value, so a base-currency pick sticks (and
+  survives a restart) without a connection. The sync engine replays it before
+  anything else; a 4xx the server *did* answer voids it and rolls back. The
+  disk profile an offline boot restores is written by `setUser`, not just at
+  sign-in.
+- **Occurrence decisions queue offline.** The recurring screen reads the
+  `occurrences` mirror (`src/lib/store/local/occurrences.ts`): fetches write
+  through, and an offline fetch reads the mirror back once it has been seeded
+  by a real fetch. Confirming or skipping parks the decision in
+  `recurring_actions` (`src/lib/store/local/recurring-actions.ts`) and flips
+  the mirrored row in the same transaction; a queued confirm also mints the
+  stand-in expense it implies, which is held back from `/sync/push` until its
+  replay posts it — with the stand-in's current (possibly edited) field values
+  as the confirm's overrides — and retires it in favour of the server's copy.
+  Deleting a queued confirm's expense before the replay withdraws the decision.
 
 **Web.** The browser has no local database (`expo-sqlite` needs COOP/COEP headers
 the static web target does not serve), so `src/lib/store/index.ts` routes reads

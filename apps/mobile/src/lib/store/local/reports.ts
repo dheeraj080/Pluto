@@ -1,5 +1,7 @@
 import type * as SQLite from 'expo-sqlite';
 
+import type { Schemas } from '@pluto/api-client';
+
 import {
   buildCategorySeries,
   buildSeries,
@@ -7,7 +9,10 @@ import {
   byDayOfWeek,
   compare,
   formatDate,
+  monthStartIso,
   periodWindow,
+  summarize,
+  todayIso,
   type Budget,
   type CategoryIndex,
   type RateTable,
@@ -21,6 +26,7 @@ import type {
   ExpenseSeries,
 } from '@/lib/report-types';
 import { listLocalBudgets } from './budgets';
+import { buildExpensesCsv, listLocalCsvRows } from './csv';
 import { getDatabase } from './database';
 import { localCategoryIndex, listLocalReportRows } from './report-input';
 import { ensureBudgetMirror, ensureRateMirror } from './report-mirror';
@@ -182,6 +188,47 @@ export const localReportStore: ReportStore = {
         month: params.month,
       }),
     );
+  },
+
+  async summary(params, options) {
+    // The server defaults a dateless summary to the current calendar month
+    // through today (`resolveRange`); the same default here keeps an on-device
+    // payload aligned with what `GET /expenses/summary` would have returned.
+    const from = params.from ?? monthStartIso(0);
+    const to = params.to ?? todayIso();
+
+    const database = await getDatabase();
+    const inputs = await loadInputs(database, params.base, from);
+    if (!inputs) return remoteReportStore.summary({ ...params, from, to }, options);
+
+    return asResponse<Schemas['ExpenseSummaryDto']>(
+      summarize({
+        rows: inputs.rows,
+        tables: inputs.tables,
+        categories: inputs.categories,
+        base: inputs.base,
+        secondary: params.secondary ?? null,
+        from,
+        to,
+      }),
+    );
+  },
+
+  async exportCsv(params, options) {
+    const database = await getDatabase();
+    const base = (params.base ?? DEFAULT_BASE).toUpperCase();
+
+    // The range's rate context starts at `from`, so the mirror must cover it;
+    // when it cannot (a range older than the mirror window, offline), the API
+    // remains the only source and the caller's error surfaces as before.
+    const covered = await ensureRateMirror(database, base, params.from);
+    if (!covered) return remoteReportStore.exportCsv(params, options);
+
+    const [rows, tables] = await Promise.all([
+      listLocalCsvRows(database, params.from, params.to),
+      getLocalRateTables(database, base),
+    ]);
+    return buildExpensesCsv(rows, { base, to: params.to, tables });
   },
 };
 

@@ -148,7 +148,18 @@ export async function loadProfile(): Promise<Schemas['UserProfileDto'] | null> {
   return readProfile();
 }
 
+/**
+ * Replaces the session's profile copy.
+ *
+ * The persisted profile is written alongside the in-memory one (deleting it
+ * for a null), because that disk copy is what an offline boot restores the
+ * base currency *from* — a base-currency change that only lived in memory
+ * would silently revert on the next cold start with no connection. This is
+ * also the path a queued, replayed profile patch settles through.
+ */
 export function setUser(user: Schemas['UserProfileDto'] | null): void {
   state = { ...state, user };
+  if (user) void writeProfile(user);
+  else void deleteProfile();
   emit();
 }

@@ -16,7 +16,8 @@ import {
   type PendingMutation,
 } from './mutations';
 
-const CATEGORY_FALLBACK_COLOR = '#9ca3af';
+/** Fallback colour for a category the mirror does not know (deleted mid-flight). */
+export const CATEGORY_FALLBACK_COLOR = '#9ca3af';
 
 interface ExpenseRow {
   id: string;
@@ -147,6 +148,96 @@ export async function getLocalExpense(
   return toExpenseDto(row);
 }
 
+/**
+ * Writes one expense row and its queued `create` inside an open transaction.
+ *
+ * Shared by the ordinary create path and the offline occurrence confirm, whose
+ * expense, action and status flip must commit together. `recurring_expense_id`
+ * is carried in the payload so a confirm replays with the rule it came from.
+ */
+export async function writeQueuedExpense(
+  txn: SQLite.SQLiteDatabase,
+  params: { id: string; now: string; payload: ExpenseMutationPayload },
+): Promise<void> {
+  await txn.runAsync(
+    `INSERT INTO expenses
+       (id, category_id, amount, currency, description, payment_method, incurred_on,
+        recurring_expense_id, client_updated_at, updated_at, created_at, deleted_at, sync_state)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'pending')`,
+    [
+      params.id,
+      params.payload.categoryId,
+      params.payload.amount,
+      params.payload.currency,
+      params.payload.description,
+      params.payload.paymentMethod,
+      params.payload.incurredOn,
+      params.payload.recurringExpenseId,
+      params.now,
+      params.now,
+      params.now,
+    ],
+  );
+  await replaceMutation(txn, 'expense', {
+    entityId: params.id,
+    op: 'create',
+    clientUpdatedAt: params.now,
+    payload: params.payload,
+  });
+}
+
+/**
+ * Removes a never-pushed expense and its queued create together.
+ *
+ * Used where the row is withdrawn rather than tombstoned — deleting a local
+ * row, retiring the stand-in of a confirm the server has now recorded. Such a
+ * row never reached the server (nothing pushes a queued create while the
+ * delete/confirm that owns it is unresolved), so both sides agree the moment
+ * both copies are gone.
+ */
+export async function dropQueuedExpense(
+  txn: SQLite.SQLiteDatabase,
+  id: string,
+): Promise<void> {
+  await txn.runAsync('DELETE FROM expenses WHERE id = ?', [id]);
+  await deleteMutations(txn, 'expense', id);
+}
+
+/** Whether a live (non-deleted) expense row exists. */
+export async function getLocalExpenseExists(
+  database: SQLite.SQLiteDatabase,
+  id: string,
+): Promise<boolean> {
+  const row = await database.getFirstAsync<{ id: string }>(
+    'SELECT id FROM expenses WHERE id = ? AND deleted_at IS NULL',
+    [id],
+  );
+  return row !== null;
+}
+
+/**
+ * A queued confirm's replay payload: the expense's *current* field values, so
+ * edits made to the stand-in before reconnecting are what the server records.
+ */
+export async function readQueuedExpenseOverrides(
+  database: SQLite.SQLiteDatabase,
+  id: string,
+): Promise<Record<string, unknown> | null> {
+  const row = await database.getFirstAsync<ExpenseRow>(
+    'SELECT * FROM expenses WHERE id = ? AND deleted_at IS NULL',
+    [id],
+  );
+  if (!row) return null;
+  return {
+    categoryId: row.category_id,
+    amount: row.amount,
+    currency: row.currency,
+    incurredOn: row.incurred_on,
+    ...(row.description !== null ? { description: row.description } : {}),
+    ...(row.payment_method !== null ? { paymentMethod: row.payment_method } : {}),
+  };
+}
+
 export async function createLocalExpense(
   database: SQLite.SQLiteDatabase,
   input: CreateExpenseInput,
@@ -164,30 +255,7 @@ export async function createLocalExpense(
   };
 
   await database.withExclusiveTransactionAsync(async (txn) => {
-    await txn.runAsync(
-      `INSERT INTO expenses
-         (id, category_id, amount, currency, description, payment_method, incurred_on,
-          recurring_expense_id, client_updated_at, updated_at, created_at, deleted_at, sync_state)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, NULL, 'pending')`,
-      [
-        id,
-        payload.categoryId,
-        payload.amount,
-        payload.currency,
-        payload.description,
-        payload.paymentMethod,
-        payload.incurredOn,
-        now,
-        now,
-        now,
-      ],
-    );
-    await replaceMutation(txn, 'expense', {
-      entityId: id,
-      op: 'create',
-      clientUpdatedAt: now,
-      payload,
-    });
+    await writeQueuedExpense(txn, { id, now, payload });
   });
 
   return getLocalExpense(database, id);

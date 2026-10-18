@@ -34,6 +34,7 @@ import {
   useRecurringRules,
   useSkipOccurrence,
   type RecurringExpense,
+  type RecurringOccurrence,
 } from '@/hooks/use-recurring';
 import { useScreenPadding } from '@/hooks/use-screen-padding';
 import { useTheme } from '@/hooks/use-theme';
@@ -77,14 +78,14 @@ export default function RecurringScreen() {
   }, [queryClient]);
 
   const onConfirmOne = useCallback(
-    async (id: string) => {
+    async (occurrence: RecurringOccurrence) => {
       const decided = await confirm({
         title: 'Record this expense?',
         message: 'This posts the occurrence to Activity for the amount shown.',
         confirmLabel: 'Record',
         tone: 'primary',
       });
-      if (decided) confirmOne.mutate(id);
+      if (decided) confirmOne.mutate(occurrence);
     },
     [confirm, confirmOne],
   );
@@ -133,7 +134,7 @@ export default function RecurringScreen() {
                 size="sm"
                 variant="secondary"
                 icon={(color) => <IconCheck size={14} color={color} />}
-                onPress={() => confirmAll.mutate(undefined)}
+                onPress={() => confirmAll.mutate(pendingItems)}
                 busy={confirmAll.isPending}
               />
             ) : null
@@ -153,11 +154,11 @@ export default function RecurringScreen() {
               {index > 0 ? <Divider /> : null}
               <OccurrenceRow
                 occurrence={occurrence}
-                onConfirm={() => void onConfirmOne(occurrence.id)}
-                onSkip={() => skip.mutate(occurrence.id)}
+                onConfirm={() => void onConfirmOne(occurrence)}
+                onSkip={() => skip.mutate(occurrence)}
                 busy={
-                  (confirmOne.isPending && confirmOne.variables === occurrence.id) ||
-                  (skip.isPending && skip.variables === occurrence.id)
+                  (confirmOne.isPending && confirmOne.variables?.id === occurrence.id) ||
+                  (skip.isPending && skip.variables?.id === occurrence.id)
                 }
               />
             </View>
