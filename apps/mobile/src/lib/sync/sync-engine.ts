@@ -14,6 +14,7 @@ import {
   resolvePushedMutation as resolvePushedExpenseMutation,
 } from '@/lib/store/local/expenses';
 import { resolvePushedCategoryMutation } from '@/lib/store/local/categories';
+import { currencyCacheSeeded, refreshLocalCurrencies } from '@/lib/store/local/currencies';
 import {
   clearSyncMeta,
   getSyncMeta,
@@ -36,6 +37,19 @@ import {
   retireConfirmAction,
   retireSkippedAction,
 } from '@/lib/store/local/recurring-actions';
+import {
+  acceptRuleCreate,
+  acceptRuleUpdate,
+  listQueuedRecurrenceExpenseIds,
+  listRuleActions,
+  recurrenceExpenseBody,
+  refuseRuleCreate,
+  retireRuleAction,
+  ruleActionDisposition,
+  ruleCreateBody,
+  ruleUpdateBody,
+  settleRecurrenceCreate,
+} from '@/lib/store/local/recurring-rules';
 import { refreshReportMirrors } from '@/lib/store/local/report-mirror';
 
 export interface SyncOutcome {
@@ -84,16 +98,19 @@ async function runSync(): Promise<SyncOutcome> {
   let pushed = 0;
   let failed = 0;
   let pulled = 0;
-  let replayedDecisions = 0;
+  let replayedOffline = 0;
 
   try {
     const database = await getDatabase();
 
     // Offline decisions first, before anything is pushed: a queued confirm is
     // a promise the server has not heard yet, and its stand-in expense must
-    // never travel the ordinary push ahead of the decision itself.
-    replayedDecisions += await replayProfilePatch(database);
-    replayedDecisions += await replayRecurringActions(database);
+    // never travel the ordinary push ahead of the decision itself. Queued rule
+    // writes come next — a rule the expense form's "repeat" option created also
+    // owns a stand-in expense, held back for the same reason.
+    replayedOffline += await replayProfilePatch(database);
+    replayedOffline += await replayRecurringActions(database);
+    replayedOffline += await replayRuleActions(database);
 
     const pushResult = await pushPending(database);
     pushed = pushResult.pushed;
@@ -117,6 +134,16 @@ async function runSync(): Promise<SyncOutcome> {
       /* Offline or transient: keep the cached mirror. */
     }
 
+    // The supported-currency list feeds every currency picker; warm the cache
+    // once so those pickers work offline. Best-effort, like the refresh above.
+    if (!(await currencyCacheSeeded(database))) {
+      try {
+        await refreshLocalCurrencies(database);
+      } catch {
+        /* Offline or transient: try again on the next sync. */
+      }
+    }
+
     // Rate + budget mirrors: what the Reports and Budgets tabs convert with
     // when the device is offline. Best-effort, like the category refresh.
     await refreshReportMirrors(
@@ -124,28 +151,28 @@ async function runSync(): Promise<SyncOutcome> {
       getSessionState().user?.baseCurrency ?? DEFAULT_BASE_CURRENCY,
     );
   } catch (error) {
-    if (pushed > 0 || pulled > 0 || replayedDecisions > 0) {
-      invalidateSyncedQueries(replayedDecisions > 0);
+    if (pushed > 0 || pulled > 0 || replayedOffline > 0) {
+      invalidateSyncedQueries(replayedOffline > 0);
     }
     return { pushed, pulled, failed, disabled: false, error };
   }
 
-  if (pushed > 0 || pulled > 0 || replayedDecisions > 0) {
-    invalidateSyncedQueries(replayedDecisions > 0);
+  if (pushed > 0 || pulled > 0 || replayedOffline > 0) {
+    invalidateSyncedQueries(replayedOffline > 0);
   }
   return { pushed, pulled, failed, disabled: false };
 }
 
 /**
  * A sync may have changed expenses and/or budgets; refetch whichever screens
- * are mounted. Replayed decisions also touch the recurring namespace — the
- * occurrences a replay confirmed, skipped or withdrew.
+ * are mounted. A replayed offline change also touches the recurring namespace —
+ * the occurrences and rules a decision or a rule write settled.
  */
-function invalidateSyncedQueries(replayedDecisions = false): void {
+function invalidateSyncedQueries(replayedOffline = false): void {
   const client = getQueryClient();
   void client.invalidateQueries({ queryKey: queryKeys.expenses.all });
   void client.invalidateQueries({ queryKey: queryKeys.budgets.all });
-  if (replayedDecisions) {
+  if (replayedOffline) {
     void client.invalidateQueries({ queryKey: queryKeys.recurring.all });
   }
 }
@@ -226,6 +253,89 @@ async function replayRecurringActions(database: SQLite.SQLiteDatabase): Promise<
   return settled;
 }
 
+/**
+ * Replays the queued rule writes, oldest first.
+ *
+ * Three shapes of change, each settled against the server's own answer:
+ *
+ * - a `create` posts the rule (`POST /expenses/recurring`) and replaces the
+ *   local row with the server's copy, re-keying anything that referenced the
+ *   provisional id. A rule born from the expense form instead replays as one
+ *   `POST /expenses` with a recurrence — the same request going online would
+ *   have made — so the server mints the rule and its first confirmed charge
+ *   together; if the stand-in charge was deleted meanwhile, the rule is created
+ *   on its own;
+ * - an `update` patches the fields the user changed;
+ * - a `delete` removes the rule.
+ *
+ * Like the decision replay, a failure never aborts the sync: a transient error
+ * leaves the rest for the next run, while a 4xx verdict discards exactly the
+ * change it judged — a refused create takes its mirror row (and stand-in) with
+ * it, since nothing server-side will ever exist to reconcile against.
+ */
+async function replayRuleActions(database: SQLite.SQLiteDatabase): Promise<number> {
+  const actions = await listRuleActions(database);
+  let settled = 0;
+
+  for (const action of actions) {
+    try {
+      if (action.op === 'delete') {
+        await api.delete(`/expenses/recurring/${action.ruleId}`);
+        await retireRuleAction(database, action);
+        settled += 1;
+        continue;
+      }
+
+      if (action.op === 'update') {
+        const rule = await api.patch<Schemas['RecurringExpenseDto']>(
+          `/expenses/recurring/${action.ruleId}`,
+          ruleUpdateBody(action.payload),
+        );
+        await acceptRuleUpdate(database, action, rule);
+        settled += 1;
+        continue;
+      }
+
+      // Create. A recurrence create with a live stand-in expense replays as the
+      // single request that mints the rule and its first charge together.
+      if (action.firstExpenseId) {
+        const body = await recurrenceExpenseBody(database, action);
+        if (body) {
+          const expense = await api.post<Schemas['ExpenseDto']>('/expenses', body);
+          await settleRecurrenceCreate(database, action, expense);
+          settled += 1;
+          continue;
+        }
+        // The stand-in is gone: the user withdrew the charge, not the cadence.
+      }
+
+      const created = await api.post<Schemas['RecurringExpenseDto']>(
+        '/expenses/recurring',
+        ruleCreateBody(action.payload),
+      );
+      // The server always creates a rule `ACTIVE`; a pause queued before the
+      // first sync is therefore replayed as a follow-up the moment it has an id.
+      const desiredStatus = action.payload?.status;
+      const rule =
+        desiredStatus && desiredStatus !== 'ACTIVE'
+          ? await api.patch<Schemas['RecurringExpenseDto']>(
+              `/expenses/recurring/${created.id}`,
+              { status: desiredStatus },
+            )
+          : created;
+      await acceptRuleCreate(database, action, rule);
+      settled += 1;
+    } catch (error) {
+      if (ruleActionDisposition(error) === 'retry') break;
+      if (action.op === 'create') await refuseRuleCreate(database, action);
+      else await retireRuleAction(database, action);
+      settled += 1;
+    }
+  }
+
+  return settled;
+}
+
 async function pushPending(database: SQLite.SQLiteDatabase): Promise<{
   pushed: number;
   failed: number;
@@ -239,13 +349,16 @@ async function pushPending(database: SQLite.SQLiteDatabase): Promise<{
   // Hold back the stand-in expenses of queued confirms: their replay posts
   // them (with the device's current edits) as the confirm's overrides, so
   // pushing the rows themselves would mint a second, decision-less expense.
-  // Read *after* the batch above — a decision and its expense commit in one
-  // transaction, so anything in the batch whose action this later read cannot
-  // see cannot exist.
+  // The same goes for the first expense of a queued recurrence create, which
+  // its replay posts as the `POST /expenses` body. Read *after* the batch above
+  // — a decision or rule create and its expense commit in one transaction, so
+  // anything in the batch whose action this later read cannot see cannot exist.
   const confirmExpenseIds = await listQueuedConfirmExpenseIds(database);
-  const batch = confirmExpenseIds.size
+  const recurrenceExpenseIds = await listQueuedRecurrenceExpenseIds(database);
+  const heldBack = new Set([...confirmExpenseIds, ...recurrenceExpenseIds]);
+  const batch = heldBack.size
     ? pending.filter(
-        (mutation) => mutation.entity !== 'expense' || !confirmExpenseIds.has(mutation.entityId),
+        (mutation) => mutation.entity !== 'expense' || !heldBack.has(mutation.entityId),
       )
     : pending;
   if (batch.length === 0) return { pushed: 0, failed: 0, skipped: 0, skippedExpense: 0 };

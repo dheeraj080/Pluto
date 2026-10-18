@@ -170,6 +170,10 @@ export async function occurrenceMirrorSeeded(database: SQLite.SQLiteDatabase): P
  * 3. **A filtered fetch speaks only for its filter.** A `PENDING` page cannot
  *    pronounce on a locally `CONFIRMED` row's existence — only on the pending
  *    ones it was asked for.
+ * 4. **A rule the user deleted offline is gone.** The server has not heard the
+ *    delete yet, so its list still mentions the rule's occurrences; mirroring
+ *    them would resurrect a charge the user removed. `hiddenRuleIds` — the rules
+ *    with a queued delete — are dropped from the page.
  */
 export function planOccurrenceMirror(
   local: readonly { id: string; status: OccurrenceStatus }[],
@@ -177,9 +181,13 @@ export function planOccurrenceMirror(
   total: number,
   fetchedStatus: OccurrenceStatus | undefined,
   queuedIds: ReadonlySet<string>,
+  hiddenRuleIds: ReadonlySet<string> = new Set(),
 ): { deleteIds: string[]; upsert: OccurrenceDto[] } {
-  const remoteIds = new Set(remote.map((occurrence) => occurrence.id));
-  const pageComplete = remote.length >= total;
+  const visible = hiddenRuleIds.size
+    ? remote.filter((occurrence) => !hiddenRuleIds.has(occurrence.recurringExpenseId))
+    : remote;
+  const remoteIds = new Set(visible.map((occurrence) => occurrence.id));
+  const pageComplete = visible.length >= total;
 
   const deleteIds: string[] = [];
   if (pageComplete) {
@@ -191,7 +199,7 @@ export function planOccurrenceMirror(
     }
   }
 
-  const upsert = remote.filter((occurrence) => !queuedIds.has(occurrence.id));
+  const upsert = visible.filter((occurrence) => !queuedIds.has(occurrence.id));
   return { deleteIds, upsert };
 }
 
@@ -214,12 +222,18 @@ export async function replaceLocalOccurrences(
   const queued = await database.getAllAsync<{ occurrence_id: string }>(
     'SELECT occurrence_id FROM recurring_actions',
   );
+  // Rules with a queued delete: the server's list is stale until the replay, so
+  // its occurrences must not come back into the mirror.
+  const deletedRules = await database.getAllAsync<{ rule_id: string }>(
+    "SELECT rule_id FROM rule_actions WHERE op = 'delete'",
+  );
   const plan = planOccurrenceMirror(
     local.map((row) => ({ id: row.id, status: row.status as OccurrenceStatus })),
     response.items,
     response.total,
     fetchedStatus,
     new Set(queued.map((row) => row.occurrence_id)),
+    new Set(deletedRules.map((row) => row.rule_id)),
   );
 
   await database.withExclusiveTransactionAsync(async (txn) => {

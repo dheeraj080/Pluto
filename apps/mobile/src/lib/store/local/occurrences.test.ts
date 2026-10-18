@@ -142,4 +142,19 @@ describe('planOccurrenceMirror', () => {
     expect(plan.deleteIds).toEqual(['occ-2']);
     expect(plan.upsert.map((o) => o.id)).toEqual(['occ-1']);
   });
+
+  it('drops the occurrences of a rule the device has deleted', () => {
+    // The server has not heard the rule's delete yet, so its page still lists
+    // the charge; mirroring it would resurrect what the user removed.
+    const plan = planOccurrenceMirror(
+      [],
+      [occurrence({ id: 'occ-1', recurringExpenseId: 'rule-1' }), occurrence({ id: 'occ-2', recurringExpenseId: 'rule-2' })],
+      2,
+      'PENDING',
+      new Set(),
+      new Set(['rule-1']),
+    );
+
+    expect(plan.upsert.map((o) => o.id)).toEqual(['occ-2']);
+  });
 });

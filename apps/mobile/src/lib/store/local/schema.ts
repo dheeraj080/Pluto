@@ -8,7 +8,7 @@
  *   row's edits rewrite its queued `create` instead of stacking an `update`.
  * - `mutations` is the write-ahead queue that survives a crash or a kill.
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const SCHEMA_V1 = `
 CREATE TABLE IF NOT EXISTS expenses (
@@ -138,5 +138,58 @@ CREATE TABLE IF NOT EXISTS recurring_actions (
   action TEXT NOT NULL,
   local_expense_id TEXT,
   created_at TEXT NOT NULL
+);
+`;
+
+/**
+ * Recurring rules, their writes, and the currency list (v4).
+ *
+ * - `recurring_rules` mirrors the account's rules so the Recurring screen's
+ *   Rules half renders with no connection. Category name/colour stay in the
+ *   `categories` mirror and are joined back in, exactly like occurrences.
+ *
+ * - `rule_actions` is the write-ahead queue for rule creates/edits/deletes the
+ *   server has not seen yet, keyed by the local rule id (at most one change per
+ *   rule). `first_expense_id` is set when the rule was born from the expense
+ *   form's "repeat" option: that form creates the rule *and* its first expense
+ *   in one server request, so the queue also owns the stand-in expense and its
+ *   replay (`POST /expenses` with a recurrence) mints both.
+ *
+ * - `currencies` caches the rate provider's quotable list so the currency
+ *   pickers have options offline. An empty cache is only authoritative once a
+ *   fetch has seeded it, which is what the `sync_meta` marker records.
+ */
+export const SCHEMA_V4 = `
+CREATE TABLE IF NOT EXISTS recurring_rules (
+  id TEXT PRIMARY KEY NOT NULL,
+  category_id TEXT NOT NULL,
+  amount REAL NOT NULL,
+  currency TEXT NOT NULL,
+  description TEXT,
+  payment_method TEXT,
+  frequency TEXT NOT NULL,
+  interval INTEGER NOT NULL,
+  start_date TEXT NOT NULL,
+  end_date TEXT,
+  status TEXT NOT NULL,
+  next_due_on TEXT,
+  pending_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS rule_actions (
+  rule_id TEXT PRIMARY KEY NOT NULL,
+  op TEXT NOT NULL,
+  payload TEXT,
+  first_expense_id TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS rule_actions_first_expense_idx ON rule_actions (first_expense_id);
+
+CREATE TABLE IF NOT EXISTS currencies (
+  code TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  symbol TEXT NOT NULL
 );
 `;

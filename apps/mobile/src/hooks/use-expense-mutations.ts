@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { Schemas } from '@pluto/api-client';
 
-import { api } from '@/lib/api';
 import { expenseStore, localStoreEnabled } from '@/lib/store';
 import { syncNow } from '@/lib/sync/sync-engine';
 import { queryKeys } from '@/lib/query-keys';
@@ -30,12 +29,7 @@ export function useCreateExpense() {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: Schemas['CreateExpenseDto']) => {
-      // A recurring rule is generated server-side, so an entry that also starts
-      // one cannot ride the offline queue yet — send it straight to the API.
-      if (body.recurrence) return api.post<Schemas['ExpenseDto']>('/expenses', body);
-      return expenseStore.create(body);
-    },
+    mutationFn: (body: Schemas['CreateExpenseDto']) => expenseStore.create(body),
     onSuccess: () => {
       requestSync();
       return invalidateExpenses(client);

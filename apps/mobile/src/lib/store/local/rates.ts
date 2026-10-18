@@ -1,6 +1,7 @@
 import type * as SQLite from 'expo-sqlite';
 
-import type { RateTable } from '@pluto/domain';
+import { todayIso } from '@pluto/domain';
+import type { RateSnapshot, RateTable } from '@pluto/domain';
 
 import { getSyncMeta, setSyncMeta } from './meta';
 
@@ -91,6 +92,35 @@ export async function getLocalRateTables(
         [baseCurrency],
       );
   return rows.map(toRateTable);
+}
+
+/** Maps a mirrored table onto the `/rates/latest` snapshot shape. */
+export function snapshotFromRateTable(table: RateTable): RateSnapshot {
+  return {
+    version: table.version,
+    baseCurrency: table.baseCurrency,
+    effectiveDate: table.effectiveDate,
+    // `fetchedAt`/`etag` are client-cache metadata the conversion helpers never
+    // read, so they are derived rather than stored.
+    fetchedAt: `${table.effectiveDate}T00:00:00.000Z`,
+    provider: table.provider,
+    etag: `local-${table.version}`,
+    rates: table.rates,
+  };
+}
+
+/**
+ * The latest mirrored snapshot for a base on or before today — the offline
+ * stand-in for `GET /rates/latest`, which the display-only conversion previews
+ * use. `null` when nothing is mirrored and the caller must surface the error.
+ */
+export async function getLocalLatestRateSnapshot(
+  database: SQLite.SQLiteDatabase,
+  base: string,
+): Promise<RateSnapshot | null> {
+  const tables = await getLocalRateTables(database, base, todayIso());
+  const latest = tables[tables.length - 1];
+  return latest ? snapshotFromRateTable(latest) : null;
 }
 
 /**

@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_VERSION } from './schema';
+import { SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_VERSION } from './schema';
 
 const DATABASE_NAME = 'pluto.db';
 
@@ -13,6 +13,7 @@ const MIGRATIONS: readonly { version: number; sql: string }[] = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: SCHEMA_V2 },
   { version: 3, sql: SCHEMA_V3 },
+  { version: 4, sql: SCHEMA_V4 },
 ];
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
@@ -58,6 +59,6 @@ async function openDatabase(): Promise<SQLite.SQLiteDatabase> {
 export async function clearLocalDatabase(): Promise<void> {
   const database = await getDatabase();
   await database.execAsync(
-    'DELETE FROM mutations; DELETE FROM expenses; DELETE FROM categories; DELETE FROM rate_tables; DELETE FROM budgets; DELETE FROM sync_meta; DELETE FROM pending_profile; DELETE FROM occurrences; DELETE FROM recurring_actions;',
+    'DELETE FROM mutations; DELETE FROM expenses; DELETE FROM categories; DELETE FROM rate_tables; DELETE FROM budgets; DELETE FROM sync_meta; DELETE FROM pending_profile; DELETE FROM occurrences; DELETE FROM recurring_actions; DELETE FROM recurring_rules; DELETE FROM rule_actions; DELETE FROM currencies;',
   );
 }

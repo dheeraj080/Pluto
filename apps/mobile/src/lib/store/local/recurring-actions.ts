@@ -6,6 +6,7 @@ import {
   dropQueuedExpense,
   getLocalExpenseExists,
   readQueuedExpenseOverrides,
+  syncedExpenseFromDto,
   writeQueuedExpense,
 } from './expenses';
 import { isTransientApiError } from './network-errors';
@@ -211,25 +212,6 @@ export async function confirmOverridesFor(
   return readQueuedExpenseOverrides(database, action.localExpenseId);
 }
 
-/** Maps the confirm response into the pull shape the expense mirror consumes. */
-function toSyncedExpense(expense: Schemas['ExpenseDto']): Schemas['SyncedExpenseDto'] {
-  return {
-    id: expense.id,
-    categoryId: expense.categoryId,
-    amount: expense.amount,
-    currency: expense.currency,
-    description: expense.description ?? null,
-    paymentMethod: expense.paymentMethod ?? null,
-    incurredOn: expense.incurredOn,
-    recurringExpenseId: expense.recurringExpenseId ?? null,
-    // The confirm response has no `clientUpdatedAt`; the server's
-    // `updatedAt` is the conservative choice (a pull would use the same).
-    clientUpdatedAt: expense.updatedAt,
-    updatedAt: expense.updatedAt,
-    deletedAt: null,
-  };
-}
-
 /**
  * Records a server-answered confirm in the mirror: the expense lands in the
  * expense store exactly as a pull would write it, and the occurrence flips
@@ -243,7 +225,7 @@ export async function recordServerConfirm(
   occurrence: OccurrenceDto,
   expense: Schemas['ExpenseDto'],
 ): Promise<void> {
-  await applyPulledExpenses(database, [toSyncedExpense(expense)]);
+  await applyPulledExpenses(database, [syncedExpenseFromDto(expense)]);
   await upsertLocalOccurrence(database, occurrence, {
     status: 'CONFIRMED',
     expenseId: expense.id,
@@ -297,7 +279,7 @@ export async function retireConfirmAction(
   });
 
   if (serverExpense) {
-    await applyPulledExpenses(database, [toSyncedExpense(serverExpense)]);
+    await applyPulledExpenses(database, [syncedExpenseFromDto(serverExpense)]);
   }
 }
 

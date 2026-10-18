@@ -13,56 +13,33 @@ import {
   upsertLocalOccurrence,
 } from '@/lib/store/local/occurrences';
 import {
+  createLocalRule,
+  deleteLocalRule,
+  listLocalRules,
+  markRulesMirrorSeeded,
+  replaceLocalRules,
+  rulesMirrorSeeded,
+  updateLocalRule,
+  type CreateRecurringInput,
+  type UpdateRecurringInput,
+} from '@/lib/store/local/recurring-rules';
+import {
   queueOccurrenceDecision,
   recordServerConfirm,
   recordServerSkip,
   recurringActionDisposition,
 } from '@/lib/store/local/recurring-actions';
+import { syncNow } from '@/lib/sync/sync-engine';
 import { useSession } from '@/hooks/use-session';
 
 export type RecurringExpense = Schemas['RecurringExpenseDto'];
 export type RecurringOccurrence = Schemas['RecurringOccurrenceDto'];
 export type RecurrenceFrequency = RecurringExpense['frequency'];
+export type { CreateRecurringInput, UpdateRecurringInput };
 
-/**
- * The create payload.
- *
- * Hand-written rather than `Schemas['CreateRecurringExpenseDto']` for the same
- * reason as `CreateBudgetInput`: the optional fields are simpler to describe
- * directly, and the client types the request body as `unknown` anyway.
- */
-export interface CreateRecurringInput {
-  categoryId: string;
-  amount: number;
-  currency: string;
-  frequency: RecurrenceFrequency;
-  /** Every Nth period; defaults to 1 on the server. */
-  interval?: number;
-  startDate: string;
-  endDate?: string;
-  description?: string;
-  paymentMethod?: string;
-}
-
-/**
- * The update payload.
- *
- * Hand-written for the same reason as `CreateBudgetInput`: the spec types
- * `endDate` as a nullable `Record<string, never>`, and clearing the bound means
- * sending an explicit `null`, which that generated type cannot express.
- */
-export interface UpdateRecurringInput {
-  categoryId?: string;
-  amount?: number;
-  currency?: string;
-  frequency?: RecurrenceFrequency;
-  interval?: number;
-  startDate?: string;
-  /** `null` clears the bound; omitting leaves it unchanged. */
-  endDate?: string | null;
-  description?: string;
-  paymentMethod?: string;
-  status?: 'ACTIVE' | 'PAUSED' | 'ENDED';
+/** Nudges the sync engine after a local rule write (fire-and-forget). */
+function requestSync(): void {
+  if (localStoreEnabled) void syncNow();
 }
 
 /**
@@ -78,13 +55,39 @@ function invalidateRecurring(client: QueryClient): Promise<void> {
   ]).then(() => undefined);
 }
 
+/**
+ * The account's recurring rules.
+ *
+ * On native this reads the mirror after every fetch, exactly like the
+ * occurrences below: a successful fetch is written through (protecting rules
+ * this device still owns) and an unanswered one reads the last server truth
+ * back, so a rule created offline is visible immediately. The word "seeded"
+ * is a stored marker rather than a row count — an account with no rules must
+ * still answer offline rather than surface an error.
+ */
 export function useRecurringRules() {
   const { status } = useSession();
 
   return useQuery({
     queryKey: queryKeys.recurring.rules(),
     enabled: status === 'signed-in',
-    queryFn: () => api.get<RecurringExpense[]>('/expenses/recurring'),
+    queryFn: async () => {
+      if (!localStoreEnabled) {
+        return api.get<RecurringExpense[]>('/expenses/recurring');
+      }
+
+      try {
+        const remote = await api.get<RecurringExpense[]>('/expenses/recurring');
+        const database = await getDatabase();
+        await replaceLocalRules(database, remote);
+        await markRulesMirrorSeeded(database);
+        return listLocalRules(database);
+      } catch (error) {
+        const database = await getDatabase();
+        if (!(await rulesMirrorSeeded(database))) throw error;
+        return listLocalRules(database);
+      }
+    },
   });
 }
 
@@ -130,13 +133,26 @@ export function useOccurrences(status?: 'PENDING' | 'CONFIRMED' | 'SKIPPED', lim
   });
 }
 
+/**
+ * Creates a rule.
+ *
+ * Native writes go to the on-device store first and are queued, so a rule can be
+ * created with no connection (the exact shape budgets use); the web build keeps
+ * the direct request. Either way the write returns the rule the screen should
+ * show, and a nudge asks the sync engine to replay it.
+ */
 export function useCreateRecurring() {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: CreateRecurringInput) =>
-      api.post<RecurringExpense>('/expenses/recurring', body),
-    onSuccess: () => invalidateRecurring(client),
+    mutationFn: async (body: CreateRecurringInput) =>
+      localStoreEnabled
+        ? createLocalRule(await getDatabase(), body)
+        : api.post<RecurringExpense>('/expenses/recurring', body),
+    onSuccess: () => {
+      requestSync();
+      return invalidateRecurring(client);
+    },
   });
 }
 
@@ -144,9 +160,14 @@ export function useUpdateRecurring() {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, body }: { id: string; body: UpdateRecurringInput }) =>
-      api.patch<RecurringExpense>(`/expenses/recurring/${id}`, body),
-    onSuccess: () => invalidateRecurring(client),
+    mutationFn: async ({ id, body }: { id: string; body: UpdateRecurringInput }) =>
+      localStoreEnabled
+        ? updateLocalRule(await getDatabase(), id, body)
+        : api.patch<RecurringExpense>(`/expenses/recurring/${id}`, body),
+    onSuccess: () => {
+      requestSync();
+      return invalidateRecurring(client);
+    },
   });
 }
 
@@ -154,8 +175,17 @@ export function useDeleteRecurring() {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => api.delete<Record<string, never>>(`/expenses/recurring/${id}`),
-    onSuccess: () => invalidateRecurring(client),
+    mutationFn: async (id: string): Promise<void> => {
+      if (localStoreEnabled) {
+        await deleteLocalRule(await getDatabase(), id);
+        return;
+      }
+      await api.delete<Record<string, never>>(`/expenses/recurring/${id}`);
+    },
+    onSuccess: () => {
+      requestSync();
+      return invalidateRecurring(client);
+    },
   });
 }
 

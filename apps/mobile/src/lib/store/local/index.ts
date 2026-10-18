@@ -21,6 +21,7 @@ import {
   updateLocalExpense,
 } from './expenses';
 import { localReportStore } from './reports';
+import { createLocalExpenseWithRecurrence } from './recurring-rules';
 
 export {
   localReportStore,
@@ -35,7 +36,10 @@ export const localExpenseStore: ExpenseStore = {
   list: async (filters, page, limit) =>
     listLocalExpenses(await getDatabase(), filters, page, limit),
   get: async (id) => getLocalExpense(await getDatabase(), id),
-  create: async (input) => createLocalExpense(await getDatabase(), input),
+  create: async (input) =>
+    input.recurrence
+      ? createLocalExpenseWithRecurrence(await getDatabase(), input)
+      : createLocalExpense(await getDatabase(), input),
   update: async (id, input) => updateLocalExpense(await getDatabase(), id, input),
   remove: async (id) => deleteLocalExpense(await getDatabase(), id),
 };

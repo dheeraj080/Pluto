@@ -203,6 +203,30 @@ export async function dropQueuedExpense(
   await deleteMutations(txn, 'expense', id);
 }
 
+/**
+ * The pull shape of an expense DTO the server just returned (a confirm, or the
+ * recurring create), so a response can be written into the mirror exactly as the
+ * next pull would have written it.
+ *
+ * The response has no `clientUpdatedAt`; the server's `updatedAt` is the
+ * conservative choice, since a pull would use the same.
+ */
+export function syncedExpenseFromDto(expense: Schemas['ExpenseDto']): Schemas['SyncedExpenseDto'] {
+  return {
+    id: expense.id,
+    categoryId: expense.categoryId,
+    amount: expense.amount,
+    currency: expense.currency,
+    description: expense.description ?? null,
+    paymentMethod: expense.paymentMethod ?? null,
+    incurredOn: expense.incurredOn,
+    recurringExpenseId: expense.recurringExpenseId ?? null,
+    clientUpdatedAt: expense.updatedAt,
+    updatedAt: expense.updatedAt,
+    deletedAt: null,
+  };
+}
+
 /** Whether a live (non-deleted) expense row exists. */
 export async function getLocalExpenseExists(
   database: SQLite.SQLiteDatabase,

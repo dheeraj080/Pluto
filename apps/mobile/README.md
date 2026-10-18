@@ -227,22 +227,26 @@ never a partial month against a whole one; that pairing lives in
 
 ## Offline store
 
-Native builds are offline-first: expenses, budgets, profile edits and
+Native builds are offline-first: expenses (including one that starts a
+recurrence), budgets, categories, profile edits, recurring **rules** and
 recurring-occurrence decisions can all be **written with no connection**, and
 every report figure — including the CSV export — is computed on-device. The
-web build stays online-only.
+supported-currency list and the latest rate snapshot are also cached, so the
+currency pickers and the conversion previews keep working. The web build stays
+online-only.
 
 **Native.** `src/lib/store/local/` keeps a SQLite mirror (`pluto.db`) behind the
 same `ExpenseStore` / `CategoryStore` / `BudgetStore` / `ReportStore` seams the
 web build satisfies with direct requests (`src/lib/store/remote.ts`); the
 platform picks one in `src/lib/store/index.ts`, and screens never branch.
 
-- Every write — expense or budget — lands locally first and appends to a
+- Every write — expense, budget, category — lands locally first and appends to a
   **write-ahead queue** (`mutations`). An edit to a row that has never reached
   the server rewrites its queued `create` instead of stacking a second op;
-  deleting such a row drops it.
+  deleting such a row drops it. Recurring rules use their own queue
+  (`rule_actions`) for the same reason.
 - `src/lib/sync/sync-engine.ts` reconciles in the background: it replays the
-  offline decision queues (the two bullets below), pushes the write-ahead
+  offline decision queues (those below), pushes the write-ahead
   queue to `POST /sync/push`, then pulls changes with
   `GET /sync/pull?since=<cursor>`. Conflicts are last-write-wins on
   `clientUpdatedAt`; expense deletes are soft tombstones and budget and
@@ -286,6 +290,28 @@ platform picks one in `src/lib/store/index.ts`, and screens never branch.
   replay posts it — with the stand-in's current (possibly edited) field values
   as the confirm's overrides — and retires it in favour of the server's copy.
   Deleting a queued confirm's expense before the replay withdraws the decision.
+- **Recurring rules queue offline.** The rules list is served from a mirror
+  (`src/lib/store/local/recurring-rules.ts`) the same way budgets are — a rule
+  created with no connection has no server id, so only the mirror can show it —
+  and a fetch the server never answered reads the mirror back once a stored
+  "seeded" marker exists (an empty rule list is legitimate, so a row count
+  cannot stand in for it). Creates, edits, pauses and deletes park in
+  `rule_actions` (one change per rule) and replay in `sync-engine.ts`:
+  `POST /expenses/recurring`, `PATCH /expenses/recurring/:id`, or `DELETE`. A
+  rule the server has not seen keeps its queued create (with edits merged in);
+  deleting one drops it outright; a pause queued before the first sync replays
+  as a follow-up patch, because the server always creates a rule `ACTIVE`. An
+  expense created with the form's "repeat" option writes the rule and a stand-in
+  charge locally and one action captures both, so its replay is the single
+  `POST /expenses` (with a recurrence) that going online would have made; the
+  stand-in is held back from `/sync/push` while that action is queued.
+- **Currency list and latest rates are cached.** `use-supported-currencies`
+  caches the rate provider's list (`src/lib/store/local/currencies.ts`) so every
+  currency picker — the expense form, the budget and rule sheets, Settings —
+  works offline once it has been fetched once (the sync engine warms it too).
+  `use-rate-snapshot`'s offline stand-in is the mirrored rate window the Reports
+  conversion already keeps, mapped to the snapshot shape for the same base; the
+  endpoint is only reached when the cache cannot answer.
 
 **Web.** The browser has no local database (`expo-sqlite` needs COOP/COEP headers
 the static web target does not serve), so `src/lib/store/index.ts` routes reads
