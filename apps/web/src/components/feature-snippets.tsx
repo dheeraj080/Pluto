@@ -32,9 +32,9 @@ function Tile({
 }) {
   return (
     <article
-      className={`flex flex-col rounded-3xl border border-border bg-surface p-5 transition-colors hover:border-border-strong sm:p-6 ${className}`}
+      className={`flex flex-col rounded-2xl border border-border bg-surface p-5 transition-colors hover:border-border-strong sm:p-6 ${className}`}
     >
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-subtle text-primary">
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-muted text-ink">
         {icon}
       </span>
       <h3 className="mt-4 font-display text-lg font-semibold tracking-tight text-ink">
@@ -58,10 +58,10 @@ export function FeaturesBento() {
       >
         <div className="rounded-2xl border border-border bg-canvas p-4">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted">
+            <span className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted">
               You paid
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-0.5 text-[11px] font-medium text-muted">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-0.5 font-mono text-[11px] font-medium text-muted">
               ECB · daily
             </span>
           </div>
@@ -120,7 +120,7 @@ export function FeaturesBento() {
         <div className="rounded-2xl border border-border bg-canvas p-3">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted">This month</span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary-subtle px-2 py-0.5 text-[11px] font-semibold text-primary tabular-nums">
+            <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary-subtle px-2 py-0.5 font-mono text-[11px] font-medium text-primary tabular-nums">
               ▲ 5.7%
             </span>
           </div>

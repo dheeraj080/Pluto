@@ -42,9 +42,9 @@ export function AudienceCards() {
       {AUDIENCES.map((audience) => (
         <article
           key={audience.title}
-          className="flex flex-col rounded-3xl border border-border bg-surface p-6"
+          className="flex flex-col rounded-2xl border border-border bg-surface p-6"
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-subtle text-primary">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-muted text-ink">
             {audience.icon}
           </span>
           <h3 className="mt-4 font-display text-lg font-semibold tracking-tight text-ink">
@@ -54,7 +54,7 @@ export function AudienceCards() {
 
           <div className="mt-auto pt-5">
             <div className="rounded-2xl border border-border bg-canvas px-4 py-3">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted">
                 {audience.example.label}
               </p>
               <p className="mt-1 text-sm tabular-nums">

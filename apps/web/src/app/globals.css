@@ -5,8 +5,10 @@
  *
  * Two themes over one semantic vocabulary. The default, written into `:root`,
  * is the dark near-black "graphite" theme: neutrals are strictly blue/green-free
- * greys, and one bright mint-emerald accent carries key numbers, active states,
- * primary buttons and chart lines. `:root[data-theme="light"]` is the light
+ * greys; the mint-emerald accent is used sparingly — primary CTAs, the brand
+ * mark, active/positive states, key converted numbers and chart lines — and
+ * never as a decorative wash (glows, shadows, eyebrows and icon tiles are all
+ * neutral). `:root[data-theme="light"]` is the light
  * ramp, a 1:1 mirror of `apps/mobile/src/theme/palette.ts`'s `lightPalette`
  * (asserted by `apps/mobile/scripts/check-theme-parity.mjs`); its accents move
  * to the darker step of each family so ink keeps WCAG AA on a white surface.
@@ -92,9 +94,10 @@
 
   --focus-ring: #34d399;
 
-  /* Radial glow used behind the hero chart and product card. */
-  --glow: rgba(52, 211, 153, 0.22);
-  --glow-strong: rgba(52, 211, 153, 0.34);
+  /* Radial glow behind hero/product surfaces: a neutral spotlight, not a
+     colour wash — the accent stays reserved for CTAs and key numbers. */
+  --glow: rgba(255, 255, 255, 0.06);
+  --glow-strong: rgba(255, 255, 255, 0.1);
 }
 
 /*
@@ -167,9 +170,10 @@
 
   --focus-ring: #059669;
 
-  /* Radial glow used behind the hero chart and product card. */
-  --glow: rgba(5, 150, 105, 0.16);
-  --glow-strong: rgba(5, 150, 105, 0.26);
+  /* Radial glow behind hero/product surfaces: a neutral spotlight, not a
+     colour wash — the accent stays reserved for CTAs and key numbers. */
+  --glow: rgba(11, 12, 14, 0.05);
+  --glow-strong: rgba(11, 12, 14, 0.08);
 }
 
 @theme inline {
@@ -255,7 +259,7 @@
   }
 
   ::selection {
-    background: rgba(52, 211, 153, 0.3);
+    background: rgba(148, 163, 184, 0.35);
     color: var(--ink);
   }
 

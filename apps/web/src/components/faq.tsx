@@ -29,17 +29,17 @@ const FAQ = [
 
 function Item({ q, a }: { q: string; a: string }) {
   return (
-    <details className="group rounded-2xl border border-border bg-surface px-5 py-4">
+    <details className="group border-b border-border px-1 py-4 first:border-t sm:px-2">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left text-sm font-medium text-ink marker:hidden">
         <span>{q}</span>
         <span
           aria-hidden="true"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-muted text-muted transition-transform duration-200 group-open:rotate-45"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface font-mono text-muted transition-transform duration-200 group-open:rotate-45"
         >
           +
         </span>
       </summary>
-      <p className="mt-3 text-sm leading-relaxed text-muted">{a}</p>
+      <p className="mt-3 max-w-prose text-sm leading-relaxed text-muted">{a}</p>
     </details>
   );
 }
@@ -48,13 +48,13 @@ export function Faq() {
   const left = FAQ.slice(0, 3);
   const right = FAQ.slice(3);
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2 lg:gap-5">
-      <div className="space-y-4">
+    <div className="grid items-start gap-x-10 gap-y-0 lg:grid-cols-2">
+      <div>
         {left.map((item) => (
           <Item key={item.q} {...item} />
         ))}
       </div>
-      <div className="space-y-4">
+      <div>
         {right.map((item) => (
           <Item key={item.q} {...item} />
         ))}

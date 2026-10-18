@@ -127,8 +127,8 @@ export const darkPalette: Palette = {
 
   chartSecondary: '#CBD5E1',
   focusRing: '#34D399',
-  glow: 'rgba(52, 211, 153, 0.22)',
-  glowStrong: 'rgba(52, 211, 153, 0.34)',
+  glow: 'rgba(255, 255, 255, 0.06)',
+  glowStrong: 'rgba(255, 255, 255, 0.1)',
 };
 
 export const lightPalette: Palette = {
@@ -178,8 +178,8 @@ export const lightPalette: Palette = {
 
   chartSecondary: '#94A3B8',
   focusRing: '#059669',
-  glow: 'rgba(5, 150, 105, 0.16)',
-  glowStrong: 'rgba(5, 150, 105, 0.26)',
+  glow: 'rgba(11, 12, 14, 0.05)',
+  glowStrong: 'rgba(11, 12, 14, 0.08)',
 };
 
 /** A scheme key that always names a palette, even before the OS reports one. */

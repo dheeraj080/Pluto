@@ -472,7 +472,7 @@ export default function TransactionsPage() {
                             <td className="px-3 py-3">
                               <Link
                                 href={`/expenses/${expense.id}`}
-                                className="font-medium text-ink underline-offset-2 hover:text-primary hover:underline"
+                                className="font-medium text-ink underline-offset-2 hover:underline"
                               >
                                 {expense.description ?? "—"}
                                 {expense.recurringExpenseId && (

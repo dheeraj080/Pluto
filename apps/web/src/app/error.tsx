@@ -20,7 +20,9 @@ export default function Error({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
-      <p className="text-sm font-semibold text-accent-strong">Something went wrong</p>
+      <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-muted">
+        Something went wrong
+      </p>
       <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">
         We hit an unexpected error
       </h1>

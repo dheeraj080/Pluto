@@ -73,15 +73,17 @@ export default function LoginPage() {
   return (
     <AuthShell>
       <AuthCard>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Sign in to Pluto</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
+          Sign in to Pluto
+        </h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           Track spending in any currency and understand it in the one you choose. There&apos;s no
           password to create or remember.
         </p>
 
-        <ul className="mt-5 space-y-2">
+        <ul className="mt-5 space-y-2 border-t border-border pt-5">
           {POINTS.map((point) => (
-            <li key={point} className="flex items-center gap-2 text-sm text-muted">
+            <li key={point} className="flex items-center gap-2.5 text-sm text-muted">
               <IconCheck className="h-4 w-4 shrink-0 text-primary" />
               {point}
             </li>
@@ -105,13 +107,19 @@ export default function LoginPage() {
 
       </AuthCard>
 
-      <p className="mt-6 text-center text-xs leading-relaxed text-muted">
+      <p className="mt-6 text-center font-mono text-[11px] uppercase tracking-wider leading-relaxed text-muted">
         By signing in you agree to our{" "}
-        <Link href="/terms" className="text-primary underline underline-offset-2">
+        <Link
+          href="/terms"
+          className="text-ink underline underline-offset-4 decoration-border-strong hover:no-underline"
+        >
           Terms of Service
         </Link>{" "}
         and{" "}
-        <Link href="/privacy" className="text-primary underline underline-offset-2">
+        <Link
+          href="/privacy"
+          className="text-ink underline underline-offset-4 decoration-border-strong hover:no-underline"
+        >
           Privacy Policy
         </Link>
         .

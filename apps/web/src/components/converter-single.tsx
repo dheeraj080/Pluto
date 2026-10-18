@@ -99,12 +99,12 @@ export function ConverterSingle() {
   const converted = useCountUp(AMOUNT * rate);
 
   return (
-    <div className="rounded-3xl border border-border bg-surface p-5 shadow-[0_30px_80px_-50px_rgba(0,0,0,0.9)] sm:p-6">
+    <div className="rounded-2xl border border-border bg-surface p-5 shadow-[0_30px_80px_-50px_rgba(0,0,0,0.9)] sm:p-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
           One purchase
         </p>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-canvas px-2.5 py-0.5 text-[11px] font-medium text-muted">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-canvas px-2.5 py-0.5 font-mono text-[11px] font-medium text-muted">
           ECB · daily
         </span>
       </div>
@@ -114,7 +114,7 @@ export function ConverterSingle() {
           €42.30
         </span>
         <span className="text-xl text-accent">→</span>
-        <span className="font-display text-3xl font-light text-accent-strong tabular-nums">
+        <span className="font-display text-3xl font-light text-primary tabular-nums">
           {converted === null ? (
             <span className="text-muted">—</span>
           ) : (

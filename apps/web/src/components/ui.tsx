@@ -157,7 +157,7 @@ export type ButtonSize = "sm" | "md" | "lg";
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    "bg-primary text-on-primary shadow-[0_6px_20px_-10px_rgba(52,211,153,0.7)] hover:bg-primary-hover active:bg-primary-active",
+    "bg-primary text-on-primary shadow-[0_6px_20px_-10px_rgba(0,0,0,0.55)] hover:bg-primary-hover active:bg-primary-active",
   secondary:
     "border border-border bg-surface-muted text-ink hover:border-border-strong hover:bg-surface",
   ghost: "text-muted hover:bg-surface-muted hover:text-ink",
@@ -280,7 +280,7 @@ export function EmptyState({
   return (
     <div className="rounded-2xl border border-dashed border-border-strong px-6 py-12 text-center">
       {icon && (
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-subtle text-primary">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-surface-muted text-muted">
           {icon}
         </div>
       )}

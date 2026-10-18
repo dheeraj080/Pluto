@@ -48,7 +48,7 @@ export function SiteFooter() {
           </div>
           {COLUMNS.map((column) => (
             <nav key={column.title} aria-label={column.title}>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+              <h3 className="font-mono text-[11px] uppercase tracking-wider text-muted">
                 {column.title}
               </h3>
               <ul className="mt-3 space-y-2.5">
@@ -56,7 +56,7 @@ export function SiteFooter() {
                   <li key={link.href + link.label}>
                     <Link
                       href={link.href}
-                      className="text-sm text-ink transition-colors hover:text-primary"
+                      className="text-sm text-muted transition-colors hover:text-ink"
                     >
                       {link.label}
                     </Link>
@@ -66,7 +66,7 @@ export function SiteFooter() {
             </nav>
           ))}
         </div>
-        <div className="mt-12 flex flex-col gap-2 border-t border-border pt-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-12 flex flex-col gap-2 border-t border-border pt-6 font-mono text-[11px] uppercase tracking-wider text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>© {CURRENT_YEAR} Pluto. All rights reserved.</p>
           <p>Exchange-rate data provided by the European Central Bank.</p>
         </div>
