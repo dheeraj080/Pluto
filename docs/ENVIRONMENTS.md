@@ -28,6 +28,7 @@ pieces that need the split.
 | `JWT_ACCESS_SECRET` | A different value per tier (a leaked staging secret must not mint production tokens). |
 | `CORS_ORIGIN` | The origins that actually call *that* server. |
 | `GOOGLE_ALLOWED_CLIENT_IDS` | Per-tier OAuth audiences (see [Mobile](#mobile-eas--google-oauth)). |
+| `RATES_SYNC_TOKEN` | A different value per tier: the trigger mutates the rate table, so a staging token must not be able to drive production's. |
 | Adapters / buckets | Separate S3/MinIO bucket per tier if object storage is enabled. |
 
 Everything else (TTLs, throttle limits, the Frankfurter URL, cron schedule) is
@@ -94,8 +95,8 @@ its own with `up -d postgres` — object storage is optional for local dev.
 Both build and run the same way and share the non-secret
 `pluto-server-config` env group. Each declares its own `sync: false` secrets
 (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `CORS_ORIGIN`,
-`GOOGLE_ALLOWED_CLIENT_IDS`, `ADMIN_EMAILS`), which the dashboard prompts for —
-secrets are never committed.
+`GOOGLE_ALLOWED_CLIENT_IDS`, `ADMIN_EMAILS`, `RATES_SYNC_TOKEN`), which the
+dashboard prompts for — secrets are never committed.
 
 Steps:
 

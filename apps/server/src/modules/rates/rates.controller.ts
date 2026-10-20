@@ -1,7 +1,18 @@
-import { Controller, Get, Query, Req, Res, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { RatesService } from './rates.service';
+import { RatesScheduler } from './rates.scheduler';
 import { LatestRatesQueryDto } from './dto/latest-rates-query.dto';
 import { RateHistoryQueryDto } from './dto/rate-history-query.dto';
 import { RateTablesQueryDto } from './dto/rate-tables-query.dto';
@@ -13,11 +24,54 @@ import {
   RateTableDto,
 } from './dto/rates-response.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { RatesSyncGuard } from './guards/rates-sync.guard';
 
 @ApiTags('Rates')
 @Controller('rates')
 export class RatesController {
-  constructor(private readonly ratesService: RatesService) {}
+  constructor(
+    private readonly ratesService: RatesService,
+    private readonly ratesScheduler: RatesScheduler,
+  ) {}
+
+  /**
+   * External trigger for the daily rate sync.
+   *
+   * The in-process cron (`EXCHANGE_RATE_SCHEDULE`) is the primary path, but it
+   * only fires on a running instance: a platform that spins an idle service down
+   * executes no crons, and every converted report figure depends on a current
+   * snapshot. This route is the reliable trigger for that case — a scheduled
+   * GitHub Actions job (see `.github/workflows/rates-sync.yml`) or any caller
+   * that can send `X-Sync-Token`.
+   *
+   * `@Public()` detaches the global JwtAuthGuard because a scheduler holds no
+   * user session; `RatesSyncGuard` replaces it with the shared-secret check and
+   * 404s when `RATES_SYNC_TOKEN` is unset. The run is delegated to the scheduler
+   * so it takes the same database-backed `SystemLock` as the cron: a trigger that
+   * arrives while the cron is mid-sync is a no-op, not a concurrent second sync.
+   */
+  @Public()
+  @UseGuards(RatesSyncGuard)
+  @Post('sync')
+  // A trigger creates no resource and may legitimately be a no-op (the cron
+  // holds the lock), so 200 is the honest status — Nest would default to 201,
+  // which the external workflow would report as a failure.
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Trigger the exchange-rate sync from outside the process',
+    description:
+      'Runs the same locked sync as the daily cron. Requires the X-Sync-Token header (or a Bearer token) matching RATES_SYNC_TOKEN; returns 404 when no token is configured and 401 when it does not match. Used by the scheduled external trigger where an idle instance runs no crons.',
+  })
+  @ApiResponse({ status: 200, description: 'Sync attempted (per-run outcome logged)' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid sync token' })
+  @ApiResponse({ status: 404, description: 'External sync is not configured' })
+  async triggerSync(): Promise<{ triggered: boolean; message: string }> {
+    await this.ratesScheduler.runLockedSync('external-trigger');
+    return {
+      triggered: true,
+      message: 'Exchange rate sync attempted; see the server logs for the outcome',
+    };
+  }
 
   @Public()
   @Get('latest')

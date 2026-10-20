@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { RatesService } from './rates.service';
 import { RatesController } from './rates.controller';
 import { RatesScheduler } from './rates.scheduler';
+import { RatesSyncGuard } from './guards/rates-sync.guard';
 import { IExchangeRateProvider } from './interfaces/exchange-rate-provider.interface';
 import { EXCHANGE_RATE_PROVIDER } from './providers/provider.token';
 import { FrankfurterProvider } from './providers/frankfurter.provider';
@@ -45,7 +46,7 @@ export const rateProviderFactory: Provider = {
 
 @Module({
   controllers: [RatesController],
-  providers: [RatesService, RatesScheduler, rateProviderFactory],
+  providers: [RatesService, RatesScheduler, RatesSyncGuard, rateProviderFactory],
   exports: [RatesService],
 })
 export class RatesModule {}

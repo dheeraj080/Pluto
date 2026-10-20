@@ -579,6 +579,26 @@ export interface paths {
         patch: operations["ExpensesController_updateExpense"];
         trace?: never;
     };
+    "/v1/rates/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger the exchange-rate sync from outside the process
+         * @description Runs the same locked sync as the daily cron. Requires the X-Sync-Token header (or a Bearer token) matching RATES_SYNC_TOKEN; returns 404 when no token is configured and 401 when it does not match. Used by the scheduled external trigger where an idle instance runs no crons.
+         */
+        post: operations["RatesController_triggerSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/rates/latest": {
         parameters: {
             query?: never;
@@ -3784,6 +3804,38 @@ export interface operations {
                 };
             };
             /** @description Expense not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RatesController_triggerSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync attempted (per-run outcome logged) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid sync token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description External sync is not configured */
             404: {
                 headers: {
                     [name: string]: unknown;

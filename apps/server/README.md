@@ -272,7 +272,7 @@ For local development, MinIO is automatically provisioned via `docker-compose.ym
 #### Using MinIO locally:
 1. Open MinIO Console at `http://localhost:9001` (Credentials: `minioadmin` / `minioadmin_password`).
 2. Create bucket named `pluto-backups`.
-3. Set CORS policy on bucket if testing web uploads directly:
+3. Set a CORS policy on the bucket only if web clients upload directly. The policy below is the **local MinIO** shape — the wildcard origin is deliberate here because the local dev server is ephemeral. **Never copy it to a production bucket**: list the real origins instead, and keep `AllowedMethods` to the ones the app actually uses.
    ```json
    [
      {
@@ -481,6 +481,26 @@ curl.exe -i http://localhost:3000/v1/rates/latest
 
 # Subsequent fetch returning HTTP 304 Not Modified if unchanged
 curl.exe -i -H 'If-None-Match: "2026-10-09-v1"' http://localhost:3000/v1/rates/latest
+```
+
+#### `POST /v1/rates/sync`
+External trigger for the daily rate sync. The in-process cron (`EXCHANGE_RATE_SCHEDULE`,
+default 04:00 UTC) is the primary path, but it only fires on a *running* instance: a
+platform that spins an idle service down executes no crons, and every converted report
+figure depends on a current snapshot. This route is the reliable trigger for that case —
+a scheduled GitHub Actions job (`.github/workflows/rates-sync.yml`) or any scheduler that
+can send a header.
+
+Requires `RATES_SYNC_TOKEN` to be set, and the token in `X-Sync-Token` (or a `Bearer`
+credential). With no token configured the route **404s**, so an unconfigured deployment
+exposes nothing; a wrong token is `401`. A successful trigger answers `200` — a *trigger*,
+not a resource creation, and the sync it starts may itself be a no-op. The run takes the
+same database-backed `SystemLock` as the cron, so a trigger arriving mid-sync is a no-op
+rather than a second concurrent sync.
+
+```powershell
+curl.exe -i -X POST http://localhost:3000/v1/rates/sync `
+  -H "X-Sync-Token: <RATES_SYNC_TOKEN>"
 ```
 
 ---

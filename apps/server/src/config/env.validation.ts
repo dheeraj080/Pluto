@@ -62,6 +62,11 @@ export const envSchema = z
     // provider is smaller.
     SUPPORTED_CURRENCIES: z.string().default(DEFAULT_SUPPORTED_CURRENCIES.join(',')),
     EXCHANGE_RATE_SCHEDULE: z.string().default('0 4 * * *'), // Default 4 AM UTC daily
+    // Shared secret for POST /v1/rates/sync — the external trigger used where the
+    // in-process cron cannot be relied on (an idle/spun-down instance runs no
+    // crons). Empty disables the route entirely (it 404s), so an unconfigured
+    // deployment exposes nothing.
+    RATES_SYNC_TOKEN: z.string().default(''),
     // Maximum age (in days) of a snapshot before a transaction-date rate is
     // relabeled from `historical` to a clearly-labeled `estimate`.
     EXCHANGE_RATE_HISTORICAL_LOOKBACK_DAYS: z.coerce.number().int().min(0).max(365).default(10),

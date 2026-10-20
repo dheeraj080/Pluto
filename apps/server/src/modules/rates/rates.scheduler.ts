@@ -48,6 +48,18 @@ export class RatesScheduler implements OnApplicationBootstrap {
   }
 
   /**
+   * Runs the locked sync on behalf of an external caller.
+   *
+   * `POST /rates/sync` delegates here rather than calling the provider directly
+   * so an external trigger and the cron share one code path and one lock: two
+   * syncs cannot run at once, and the outcome is logged identically either way.
+   */
+  async runLockedSync(source: string): Promise<void> {
+    this.logger.log(`Exchange rate sync triggered externally (${source})`);
+    await this.executeSyncWithLock();
+  }
+
+  /**
    * Safe execution with database-backed distributed lock
    */
   private async executeSyncWithLock(): Promise<void> {

@@ -86,7 +86,6 @@ envVarGroups:
 
       - key: EXCHANGE_RATE_SCHEDULE
         value: "0 4 * * *"
-
       # -- Object storage ---------------------------------------------------
       # Starts DISABLED: no credit card required, and the API boots with every
       # feature except /v1/backups/* (which returns 503 instead of failing with
@@ -188,6 +187,13 @@ services:
       - key: ADMIN_EMAILS
         sync: false
 
+      # Shared secret for POST /v1/rates/sync, the external trigger that keeps
+      # the rate snapshot fresh on a free plan that spins down when idle
+      # (`.github/workflows/rates-sync.yml`). Generate one per environment, e.g.
+      # `openssl rand -hex 32`; leaving it unset disables the route entirely.
+      - key: RATES_SYNC_TOKEN
+        sync: false
+
   # --------------------------------------------------------------------------
   # Staging / pre-production
   # --------------------------------------------------------------------------
@@ -232,4 +238,9 @@ services:
         sync: false
 
       - key: ADMIN_EMAILS
+        sync: false
+
+      # A *different* value from production's: staging's trigger must not be
+      # able to drive the production rate table.
+      - key: RATES_SYNC_TOKEN
         sync: false

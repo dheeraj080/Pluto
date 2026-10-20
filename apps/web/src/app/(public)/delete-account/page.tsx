@@ -4,7 +4,7 @@ import { DeleteAccountForm } from "./delete-account-form";
 export const metadata: Metadata = {
   title: "Delete your account",
   description:
-    "Permanently delete your Pluto account, cloud backups, and sessions. Export your backups first if you need a copy.",
+    "Permanently delete your Pluto account and sessions. If cloud backup is enabled, export your backups first if you need a copy.",
   robots: { index: false, follow: true },
 };
 

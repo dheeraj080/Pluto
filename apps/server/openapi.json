@@ -2080,6 +2080,28 @@
         ]
       }
     },
+    "/v1/rates/sync": {
+      "post": {
+        "description": "Runs the same locked sync as the daily cron. Requires the X-Sync-Token header (or a Bearer token) matching RATES_SYNC_TOKEN; returns 404 when no token is configured and 401 when it does not match. Used by the scheduled external trigger where an idle instance runs no crons.",
+        "operationId": "RatesController_triggerSync",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Sync attempted (per-run outcome logged)"
+          },
+          "401": {
+            "description": "Missing or invalid sync token"
+          },
+          "404": {
+            "description": "External sync is not configured"
+          }
+        },
+        "summary": "Trigger the exchange-rate sync from outside the process",
+        "tags": [
+          "Rates"
+        ]
+      }
+    },
     "/v1/rates/latest": {
       "get": {
         "description": "Returns the latest validated exchange rate snapshot for the requested base currency (default USD). Supports HTTP ETags for 304 Not Modified caching.",

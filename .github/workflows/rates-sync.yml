@@ -1,0 +1,101 @@
+# Triggers the daily exchange-rate sync from outside the server process.
+#
+# Why this exists: the server has its own cron (`EXCHANGE_RATE_SCHEDULE`,
+# default 04:00 UTC), but that cron only fires on a *running* instance. The
+# Render free plan spins an idle service down, so on a quiet day the cron never
+# runs and the published rate snapshot goes stale — which silently degrades every
+# converted figure in the mobile and web reports (they fall back to
+# `converted: false` and null base-currency totals rather than failing, so the
+# staleness is easy to miss).
+#
+# This job is the reliable trigger: GitHub's scheduler is always awake, and it
+# calls `POST /v1/rates/sync`, which runs the same database-locked sync as the
+# cron. Between them the snapshot is refreshed even when nobody has opened the
+# app. The route 404s unless `RATES_SYNC_TOKEN` is set on the server, so an
+# unconfigured deployment is unaffected.
+#
+# Required repository secrets and variables:
+#   RATES_SYNC_URL    (variable) — the deployed base URL including /v1, e.g.
+#                                  https://pluto-server.onrender.com/v1
+#   RATES_SYNC_TOKEN  (secret)   — the same value as the server's RATES_SYNC_TOKEN.
+#
+# Note on timing: GitHub disables scheduled workflows on a repository after 60
+# days of no activity, and `schedule` runs can be delayed under load. This is why
+# the job is a *supplement* to the in-process cron, not a replacement — if the
+# service happens to be awake at 04:00 UTC, the cron wins the lock and this call
+# is a no-op.
+
+name: Rates sync
+
+on:
+  schedule:
+    # 05:00 UTC — an hour after the server's own cron, so on a warm instance the
+    # cron has already run and this is a cheap no-op that still refreshes a stale
+    # snapshot if the cron's run was missed.
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rates-sync
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    name: POST /rates/sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check the trigger is configured
+        env:
+          RATES_SYNC_URL: ${{ vars.RATES_SYNC_URL }}
+          RATES_SYNC_TOKEN: ${{ secrets.RATES_SYNC_TOKEN }}
+        run: |
+          if [ -z "$RATES_SYNC_URL" ]; then
+            echo "::error::RATES_SYNC_URL repository variable is not set (e.g. https://pluto-server.onrender.com/v1). See docs/RELEASE.md."
+            exit 1
+          fi
+          if [ -z "$RATES_SYNC_TOKEN" ]; then
+            echo "::error::RATES_SYNC_TOKEN repository secret is not set. It must match the server's RATES_SYNC_TOKEN."
+            exit 1
+          fi
+
+      # The first request to a spun-down Render instance has to wake it, which
+      # can take ~30-60s and whose first response is often a 502 from the proxy.
+      # Retry with backoff so a cold start is not reported as a failure.
+      - name: Trigger the sync
+        env:
+          RATES_SYNC_URL: ${{ vars.RATES_SYNC_URL }}
+          RATES_SYNC_TOKEN: ${{ secrets.RATES_SYNC_TOKEN }}
+        run: |
+          url="${RATES_SYNC_URL%/}/rates/sync"
+          echo "Triggering $url"
+
+          attempt=1
+          max_attempts=5
+          delay=20
+          while [ "$attempt" -le "$max_attempts" ]; do
+            # --max-time bounds a hung request; the instance is woken by the
+            # request itself, so a timeout here is expected on the first try.
+            status=$(curl -sS -o "$RUNNER_TEMP/body.json" -w '%{http_code}' \
+              --max-time 90 -X POST "$url" \
+              -H "X-Sync-Token: $RATES_SYNC_TOKEN" || echo 000)
+            echo "Attempt $attempt/$max_attempts -> HTTP $status"
+
+            case "$status" in
+              200) echo "Sync triggered."; cat "$RUNNER_TEMP/body.json"; exit 0 ;;
+              401) echo "::error::The server rejected the token (401). RATES_SYNC_TOKEN does not match the server's value."; exit 1 ;;
+              404) echo "::error::The server reports no such route (404). Set RATES_SYNC_TOKEN on the server — the route is absent until then."; exit 1 ;;
+              502|503|504|000) echo "Instance is likely cold-starting; retrying in ${delay}s..." ;;
+              *) echo "::error::Unexpected HTTP $status from $url"; cat "$RUNNER_TEMP/body.json" 2>/dev/null; exit 1 ;;
+            esac
+
+            attempt=$((attempt + 1))
+            sleep "$delay"
+            delay=$((delay * 2))
+          done
+
+          echo "::error::Gave up after $max_attempts attempts; the service did not answer with 200."
+          exit 1

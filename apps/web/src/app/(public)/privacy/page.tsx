@@ -49,10 +49,12 @@ export default function PrivacyPage() {
 
           <h3 className="mt-3 font-medium">Cloud backup files and metadata</h3>
           <p className="mt-1">
-            If you use cloud backup, we store your backup file — an <strong>encrypted snapshot of
-            your app database</strong>, encrypted on your device before it leaves it — together with
-            technical metadata: file size, SHA-256 checksum, app version, database schema version,
-            backup sequence number, and creation/completion timestamps.
+            Cloud backup is an <strong>optional feature that this deployment does not currently
+            enable</strong>. When it is enabled, we store your backup file — an{" "}
+            <strong>encrypted snapshot of your app database</strong>, encrypted on your device
+            before it leaves it — together with technical metadata: file size, SHA-256 checksum, app
+            version, database schema version, backup sequence number, and creation/completion
+            timestamps. While the feature is off, your expenses are kept only on your device.
           </p>
 
           <h3 className="mt-3 font-medium">Device and session information</h3>
@@ -75,7 +77,7 @@ export default function PrivacyPage() {
           <h2 className="text-xl font-semibold">3. How we use your information</h2>
           <ul className="mt-2 list-disc space-y-1 pl-6">
             <li>To authenticate you and operate your account (sign-in, sessions, profile).</li>
-            <li>To store, restore, and delete your cloud backups.</li>
+            <li>To store, restore, and delete your cloud backups (only when that feature is on).</li>
             <li>
               To secure the service: rate limiting, replay detection, session revocation, and
               abuse prevention.
@@ -168,8 +170,8 @@ export default function PrivacyPage() {
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-6">
             <li>
-              <strong>Export</strong> — download your backups from the app before deleting
-              anything.
+              <strong>Export</strong> — you can export your expenses as CSV from the app at any
+              time; where cloud backup is enabled, download your backups before deleting anything.
             </li>
             <li>
               <strong>Erase</strong> — permanently delete your account, backups, and sessions at{" "}

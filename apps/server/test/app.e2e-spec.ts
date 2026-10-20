@@ -14,6 +14,9 @@ describe('Pluto Server API (e2e)', () => {
   let app: INestApplication;
   let server: Parameters<typeof request>[0];
 
+  /** Must match the RATES_SYNC_TOKEN pinned in `test/setup-e2e.ts`. */
+  const RATES_SYNC_TOKEN = 'e2e-rates-sync-token-0123456789abcdef';
+
   const mockPrismaService = {
     $connect: jest.fn().mockResolvedValue(undefined),
     $disconnect: jest.fn().mockResolvedValue(undefined),
@@ -275,6 +278,29 @@ describe('Pluto Server API (e2e)', () => {
         .get('/v1/rates/latest?base=USD')
         .set('If-None-Match', 'W/"rates-USD-2026-10-09-abc"')
         .expect(304);
+    });
+
+    /**
+     * The external trigger is a route that mutates the rate table, so its
+     * refusals are the part worth pinning over HTTP: an unconfigured caller and
+     * a caller with the wrong secret must both be turned away.
+     */
+    it('(POST) /v1/rates/sync rejects a missing token', async () => {
+      await request(server).post('/v1/rates/sync').expect(401);
+    });
+
+    it('(POST) /v1/rates/sync rejects a wrong token', async () => {
+      await request(server).post('/v1/rates/sync').set('X-Sync-Token', 'not-the-token').expect(401);
+    });
+
+    it('(POST) /v1/rates/sync accepts the configured token', async () => {
+      const response = await request(server)
+        .post('/v1/rates/sync')
+        .set('X-Sync-Token', RATES_SYNC_TOKEN)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.triggered).toBe(true);
     });
   });
 
