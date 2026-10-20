@@ -19,7 +19,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   label,
 }: {
-  options: ReadonlyArray<SegmentOption<T>>;
+  options: readonly SegmentOption<T>[];
   value: T;
   onChange: (value: T) => void;
   /** Accessibility label for the group. */

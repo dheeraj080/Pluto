@@ -603,6 +603,8 @@ first upload.
 ### Release builds (EAS)
 
 Release builds go through EAS (`eas.json`); there is no local signing setup.
+`docs/RELEASE.md` is the full checklist — a production build is refused until
+the API URL and Google client ID exist on the `production` EAS environment.
 Install the CLI once and sign in with the Expo account that owns the project:
 
 ```bash

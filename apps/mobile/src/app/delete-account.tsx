@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { openBrowserAsync } from 'expo-web-browser';
+import { ApiError } from '@pluto/api-client';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -26,6 +27,16 @@ const CONSEQUENCES = [
   'Your profile (email, name and avatar) is erased.',
   'Every cloud backup stored for your account is deleted — permanently and irreversibly.',
   'All active sessions and tokens are revoked immediately.',
+] as const;
+
+/**
+ * The same list when cloud backup is switched off on the server: promising to
+ * delete backups that were never stored would be untrue, and the honesty of this
+ * screen is the whole point of it.
+ */
+const CONSEQUENCES_WITHOUT_BACKUPS = [
+  CONSEQUENCES[0],
+  CONSEQUENCES[2],
 ] as const;
 
 /**
@@ -58,6 +69,16 @@ export default function DeleteAccountScreen() {
     () => (backups.data?.items ?? []).filter((backup) => backup.status === 'COMPLETED'),
     [backups.data],
   );
+
+  /**
+   * Cloud backups are an opt-in server feature: with `OBJECT_STORAGE_ENABLED`
+   * off, every `/backups` route answers `503`. That is a *configuration*, not a
+   * failure, so it must not paint the alarming error note a real outage
+   * deserves — least of all on the screen where the user is already deciding to
+   * delete their account. A 503 therefore reads as "no backups are stored for
+   * you", which is exactly what the account has.
+   */
+  const backupsUnavailable = backups.error instanceof ApiError && backups.error.status === 503;
 
   const onDownload = useCallback(
     (id: string) => {
@@ -102,8 +123,9 @@ export default function DeleteAccountScreen() {
             <Text style={[text.subtitle, { color: theme.ink }]}>Your account has been deleted</Text>
           </View>
           <Text style={[text.body, { color: theme.muted }]}>
-            Your profile, cloud backups and all active sessions have been permanently removed.
-            Thank you for using Pluto.
+            {backupsUnavailable
+              ? 'Your profile and all active sessions have been permanently removed. Thank you for using Pluto.'
+              : 'Your profile, cloud backups and all active sessions have been permanently removed. Thank you for using Pluto.'}
           </Text>
           <Button label="Back to sign in" onPress={() => router.replace('/sign-in')} />
         </Card>
@@ -137,7 +159,7 @@ export default function DeleteAccountScreen() {
         <Text style={[text.body, { color: theme.muted }]}>
           This permanently deletes the following, with no way to restore any of it:
         </Text>
-        {CONSEQUENCES.map((consequence) => (
+        {(backupsUnavailable ? CONSEQUENCES_WITHOUT_BACKUPS : CONSEQUENCES).map((consequence) => (
           <View key={consequence} style={styles.consequence}>
             <View style={styles.consequenceDot}>
               <IconAlert size={14} color={theme.danger} />
@@ -151,6 +173,11 @@ export default function DeleteAccountScreen() {
         <Text style={[text.overline, { color: theme.muted }]}>DOWNLOAD A COPY (OPTIONAL)</Text>
         {backups.isPending ? (
           <Spinner style={styles.spinner} />
+        ) : backupsUnavailable ? (
+          <Text style={[text.body, { color: theme.muted }]}>
+            Cloud backup is not enabled, so there is no copy stored on the server to download.
+            Your expenses live on this device.
+          </Text>
         ) : backups.isError ? (
           <ErrorNote message={errorMessage(backups.error) ?? 'Could not load your backups.'} />
         ) : completed.length === 0 ? (
@@ -188,7 +215,8 @@ export default function DeleteAccountScreen() {
       <Card>
         <Text style={[text.overline, { color: theme.danger }]}>CONFIRM</Text>
         <Text style={[text.body, { color: theme.muted }]}>
-          This action is immediate and irreversible. All backups will be destroyed.
+          This action is immediate and irreversible.
+          {backupsUnavailable ? ' Your account and sessions will be destroyed.' : ' All backups will be destroyed.'}
         </Text>
         <TextField
           label={`Type ${CONFIRM_PHRASE} to confirm`}

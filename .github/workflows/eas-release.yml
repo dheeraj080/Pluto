@@ -1,0 +1,118 @@
+# Builds a store-ready Android release on EAS, and optionally submits it to
+# Google Play.
+#
+# The binary is built on Expo's servers — no Android SDK, no keystore, no
+# signing setup on the runner. EAS holds the production credentials (created on
+# the first build, or uploaded once Play App Signing hands out an upload
+# certificate). All this job contributes is the repository, the pinned npm, and
+# a token allowed to start the build.
+#
+# Required repository secrets:
+#   EXPO_TOKEN                 — an Expo access token for the dheeeraj_k account
+#                                (expo.dev → Account settings → Access tokens).
+#                                It is read from the environment by eas-cli
+#                                automatically; nothing is logged.
+#   GOOGLE_SERVICE_ACCOUNT_KEY — only for `submit`: the raw JSON key of a Play
+#                                Console service account with *Release manager*
+#                                access and the Android Publisher API enabled on
+#                                its project. Written to a temp file for the
+#                                step and never persisted.
+#
+# The production profile's build-time environment (EXPO_PUBLIC_API_URL,
+# EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, EXPO_PUBLIC_SENTRY_DSN) lives on EAS, set
+# with `eas env:create --environment production` — see docs/RELEASE.md. It is
+# deliberately not passed here: app.config.ts refuses a production build whose
+# required values are missing, so a misconfigured release fails in this job
+# rather than on a user's phone.
+
+name: EAS release
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Which EAS build profile to release
+        type: choice
+        options:
+          - production
+          - preview
+        default: production
+      submit:
+        description: Upload the finished build to Google Play after building
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# A release must never be cancelled halfway: an interrupted `--wait` leaves a
+# build running on EAS with no observer, and two releases racing each other on
+# the same track is worse than a slow queue.
+concurrency:
+  group: eas-release-${{ inputs.profile }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: ${{ inputs.profile }} build via EAS
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # package.json pins npm@11.16.0; Node 20.19 ships npm 10.8.
+      - name: Use the repo's pinned npm
+        run: npm install --global npm@11.16.0 && npm --version
+
+      - name: Install the monorepo
+        run: npm ci
+
+      # eas-cli evaluates app.config.ts locally before uploading, which needs
+      # expo/config from node_modules. The gate below then means a cloud build
+      # is never started for a commit whose app config or tests are broken —
+      # EAS builds are the slowest and most expensive check in the repo.
+      - name: Gate on the mobile checks
+        run: |
+          npm run typecheck --workspace pluto-mobile
+          npm run test --workspace pluto-mobile
+
+      - name: Check EXPO_TOKEN is configured
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN is not set. Create one at expo.dev (Account settings → Access tokens) and add it as a repository secret — EAS cannot start a build without it. See docs/RELEASE.md."
+            exit 1
+          fi
+
+      # --wait keeps the job attached to the build, so a native compile error
+      # fails here instead of quietly producing no artifact.
+      - name: Build on EAS
+        working-directory: apps/mobile
+        run: npx eas-cli@latest build --platform android --profile "${{ inputs.profile }}" --non-interactive --wait
+
+      - name: Submit to Google Play
+        if: ${{ inputs.submit }}
+        working-directory: apps/mobile
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        run: |
+          if [ -z "$GOOGLE_SERVICE_ACCOUNT_KEY" ]; then
+            echo "::error::GOOGLE_SERVICE_ACCOUNT_KEY is not set. Create a service account in Play Console (Settings → API access), grant it Release manager, and add its JSON key as a repository secret."
+            exit 1
+          fi
+          # The key must exist as a file for eas-cli; a temp path keeps it out
+          # of the workspace, and the trap removes it even if the submit fails.
+          key_file="$RUNNER_TEMP/play-service-account.json"
+          trap 'rm -f "$key_file"' EXIT
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY" > "$key_file"
+          # --latest submits the build this workflow just finished, so the
+          # upload cannot lag a manual build started in between.
+          npx eas-cli@latest submit --platform android --profile "${{ inputs.profile }}" \
+            --latest --service-account-path "$key_file" --non-interactive

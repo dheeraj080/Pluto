@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { Schemas } from '@pluto/api-client';
 
-import { api } from '@/lib/api';
 import { categoryStore, localStoreEnabled } from '@/lib/store';
 import { queryKeys } from '@/lib/query-keys';
 

@@ -119,6 +119,10 @@ if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
 const config: ExpoConfig = {
   name: 'Pluto',
   slug: 'pluto',
+  // The Expo account that owns the EAS project — required for non-interactive
+  // builds (CI, `eas build --non-interactive`) to resolve the project without a
+  // logged-in CLI picking an account.
+  owner: 'dheeeraj_k',
   version: '0.1.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
@@ -147,6 +151,16 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
+  },
+  // The EAS project release builds are produced by
+  // (https://expo.dev/accounts/dheeeraj_k/projects/pluto). Written by hand
+  // because `eas init` cannot edit a dynamic config: it detects `app.config.ts`
+  // and prints the value instead. Deleting this makes `eas build` refuse to
+  // run until `eas init` is repeated.
+  extra: {
+    eas: {
+      projectId: 'e16a7e39-5cd9-4368-9a1e-3fa231a1a523',
+    },
   },
 };
 

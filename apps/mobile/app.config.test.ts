@@ -83,6 +83,14 @@ describe('app.config production guard', () => {
     expect(config.default.name).toBe('Pluto');
   });
 
+  it('links the EAS project release builds are produced by', async () => {
+    const config = await import('./app.config');
+    expect(config.default.owner).toBe('dheeeraj_k');
+    expect(config.default.extra?.eas?.projectId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+  });
+
   it('registers the Sentry config plugin only when a DSN is set', async () => {
     const withoutDsn = await import('./app.config');
     expect(withoutDsn.default.plugins).not.toContain('@sentry/react-native');

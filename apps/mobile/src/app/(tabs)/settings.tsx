@@ -27,7 +27,7 @@ import { writeThemePreference, type ThemePreference } from '@/lib/theme-preferen
 const SAMPLE = 100;
 
 /** Appearance options for the segmented control. */
-const APPEARANCE_OPTIONS: ReadonlyArray<{ value: ThemePreference; label: string }> = [
+const APPEARANCE_OPTIONS: readonly { value: ThemePreference; label: string }[] = [
   { value: 'system', label: 'System' },
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
