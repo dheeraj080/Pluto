@@ -1,8 +1,10 @@
 /**
- * Landing-page FAQ: seven questions in a compact two-column accordion.
- * Uses native `details`/`summary` so it works without JavaScript and stays
+ * Landing-page FAQ: seven questions in a stacked accordion. Uses native
+ * `details`/`summary` so it works without JavaScript and stays
  * keyboard-accessible. Every answer is verifiable against the product.
  */
+
+import { IconChevronDown } from "@/components/icons";
 
 const FAQ = [
   {
@@ -37,36 +39,34 @@ const FAQ = [
 
 function Item({ q, a }: { q: string; a: string }) {
   return (
-    <details className="group border-b border-border px-1 py-4 first:border-t sm:px-2">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left text-sm font-medium text-ink marker:hidden">
-        <span>{q}</span>
+    <details className="group bg-surface rounded-2xl border border-subtle shadow-xs overflow-hidden transition-colors open:border-strong">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-left marker:hidden sm:p-6">
         <span
-          aria-hidden="true"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface font-mono text-muted transition-transform duration-200 group-open:rotate-45"
+          className="text-base font-semibold text-ink"
+          style={{ fontFamily: "var(--font-landing-display), var(--font-space-grotesk), system-ui, sans-serif" }}
         >
-          +
+          {q}
         </span>
+        <IconChevronDown
+          className="h-5 w-5 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180 group-open:text-primary-brand"
+        />
       </summary>
-      <p className="mt-3 max-w-prose text-sm leading-relaxed text-muted">{a}</p>
+      <p
+        className="border-t border-subtle px-5 pb-5 pt-3 text-sm leading-relaxed text-muted sm:px-6 sm:pb-6"
+        style={{ fontFamily: "var(--font-landing-sans), var(--font-inter), system-ui, sans-serif" }}
+      >
+        {a}
+      </p>
     </details>
   );
 }
 
 export function Faq() {
-  const left = FAQ.slice(0, 4);
-  const right = FAQ.slice(4);
   return (
-    <div className="grid items-start gap-x-10 gap-y-0 lg:grid-cols-2">
-      <div>
-        {left.map((item) => (
-          <Item key={item.q} {...item} />
-        ))}
-      </div>
-      <div>
-        {right.map((item) => (
-          <Item key={item.q} {...item} />
-        ))}
-      </div>
+    <div className="space-y-3">
+      {FAQ.map((item) => (
+        <Item key={item.q} {...item} />
+      ))}
     </div>
   );
 }

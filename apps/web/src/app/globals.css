@@ -186,8 +186,11 @@
   --color-muted: var(--muted);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-subtle: var(--border);
+  --color-strong: var(--border-strong);
 
   --color-primary: var(--primary);
+  --color-primary-brand: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-active: var(--primary-active);
   --color-primary-subtle: var(--primary-subtle);
@@ -237,6 +240,8 @@
   --font-sans: var(--font-inter);
   --font-display: var(--font-space-grotesk);
   --font-mono: var(--font-geist-mono);
+  --font-landing-sans: var(--font-plus-jakarta-sans);
+  --font-landing-display: var(--font-outfit);
 }
 
 @layer base {
@@ -334,3 +339,4 @@
     transform: translateY(0) scale(1);
   }
 }
+

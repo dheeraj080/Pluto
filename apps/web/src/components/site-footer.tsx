@@ -9,8 +9,10 @@ const COLUMNS = [
   {
     title: "Product",
     links: [
+      { href: "/#the-problem", label: "The Problem" },
       { href: "/#how-it-works", label: "How it works" },
-      { href: "/#who", label: "Who it's for" },
+      { href: "/#features", label: "The App" },
+      { href: "/#life-abroad", label: "Life Abroad" },
       { href: "/login", label: "Sign in" },
     ],
   },
@@ -42,7 +44,7 @@ export function SiteFooter() {
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">
               Track expenses in any currency and see them in the one that matters
-              to you. Web and mobile.
+              to you. Account-synced on web and Android.
             </p>
           </div>
           {COLUMNS.map((column) => (
