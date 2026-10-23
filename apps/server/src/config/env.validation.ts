@@ -18,6 +18,29 @@ const envBoolean = (defaultValue: boolean) =>
     return normalized === 'true' || normalized === '1';
   }, z.boolean());
 
+/**
+ * Express's `trust proxy` accepts a boolean, a hop count, or a trust preset
+ * (`loopback`, `linklocal`, ...). A number matters on a VM that sits behind a
+ * CDN *and* a local reverse proxy: `true` means one hop there, so per-IP rate
+ * limiting would key on the CDN's edge address instead of the client's.
+ *
+ * `true` keeps its documented meaning of "one trusted hop" (mapped in main.ts);
+ * `1` is accepted as an alias so existing configuration keeps working.
+ */
+const trustProxy = z.preprocess(
+  (val) => {
+    if (val === undefined || val === null || val === '') return true;
+    if (typeof val === 'boolean' || typeof val === 'number') return val;
+    if (typeof val !== 'string') return false;
+    const normalized = val.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1') return true;
+    if (normalized === 'false' || normalized === '0') return false;
+    if (/^\d+$/.test(normalized)) return Number(normalized);
+    return val.trim();
+  },
+  z.union([z.boolean(), z.number().int().min(0), z.string().min(1)]),
+);
+
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -25,7 +48,7 @@ export const envSchema = z
     API_PREFIX: z.string().default('v1'),
     CORS_ORIGIN: z.string().default('*'),
 
-    TRUST_PROXY: envBoolean(true),
+    TRUST_PROXY: trustProxy,
 
     // Database
     DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),

@@ -5,6 +5,11 @@
 # are available:
 #
 #   docker build -f apps/server/Dockerfile -t pluto-server .
+#
+# The runtime image carries the Prisma CLI as well as the generated client, so
+# `prisma migrate deploy` can run from the same image on any host. See
+# `apps/server/deploy/vm` for the Docker Compose + Caddy deployment used on a
+# plain Linux VM.
 
 # ---------------------------------------------------------------------------
 # Build stage
@@ -21,6 +26,7 @@ COPY apps/server/package.json ./apps/server/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/mobile/package.json ./apps/mobile/package.json
 COPY packages/api-client/package.json ./packages/api-client/package.json
+COPY packages/domain/package.json ./packages/domain/package.json
 
 # Install only the server workspace (plus the root) rather than the whole
 # monorepo: the web (Next.js) and mobile (Expo) dependency trees are irrelevant
@@ -47,26 +53,38 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+# Keep deploy logs quiet and avoid outbound telemetry/update checks hanging
+# behind a restrictive firewall.
+ENV CHECKPOINT_DISABLE=1
+ENV PRISMA_HIDE_UPDATE_MESSAGE=1
 
 # Production dependencies only. `--ignore-scripts` skips Prisma's postinstall
-# `generate` step (the CLI is a devDependency and is not installed here); the
-# generated client is copied from the builder below instead.
+# `generate`/engine-download steps; the generated client and the native engines
+# are copied from the builder below. The `prisma` CLI is a production dependency
+# (see package.json), so its JavaScript dependency tree is installed here.
 COPY package.json package-lock.json ./
 COPY apps/server/package.json ./apps/server/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/mobile/package.json ./apps/mobile/package.json
 COPY packages/api-client/package.json ./packages/api-client/package.json
+COPY packages/domain/package.json ./packages/domain/package.json
 
 RUN npm ci --omit=dev --workspace pluto-server --include-workspace-root --ignore-scripts \
   && npm cache clean --force
 
-# The Prisma client is generated into node_modules/.prisma at build time; a
-# production-only install never runs `prisma generate`, so carry it across.
+# The Prisma client is generated into node_modules/.prisma at build time, and
+# the native engine binaries are downloaded by the `prisma` postinstall. Both
+# are skipped by `--ignore-scripts`, so carry them across from the builder.
+# The `prisma` CLI itself is a production dependency (see package.json), so its
+# JavaScript dependency tree (c12, effect, ...) is already installed here; only
+# the platform-specific engines need the copy. That is what lets
+# `prisma migrate deploy` run from this image (and from the one-off Compose
+# service) without installing devDependencies on the host.
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+COPY --from=builder /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
 
-# Compiled output and the schema/migrations (used by an out-of-band
-# `prisma migrate deploy`; the container itself only runs the API).
+# Compiled output and the schema/migrations (used by `prisma migrate deploy`).
 COPY --from=builder /app/apps/server/dist ./apps/server/dist
 COPY --from=builder /app/apps/server/prisma ./apps/server/prisma
 

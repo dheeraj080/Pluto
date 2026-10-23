@@ -1,0 +1,88 @@
+# Production deployment for a single Linux VM.
+#
+#   cd apps/server/deploy/vm
+#   cp .env.example .env   # fill it in
+#   bash deploy.sh            # build, migrate, start
+#
+# The API is not published on the host: only Caddy listens on 80/443 and
+# proxies to `api:3000` over the Compose network. Postgres is deliberately not
+# part of this stack -- use a managed/Neon branch (see docs/ENVIRONMENTS.md),
+# because a free-tier VM cannot reliably host both.
+name: pluto-server
+
+x-api-image: &api-image
+  image: ${PLUTO_IMAGE:-pluto-server:latest}
+  build:
+    # The build context is the repo root so the workspace lockfile is available:
+    # vm -> deploy -> server -> apps -> repo root.
+    context: ../../../..
+    dockerfile: apps/server/Dockerfile
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  api:
+    <<: *api-image
+    restart: unless-stopped
+    # PID 1 for signal forwarding; NestJS has shutdown hooks and needs SIGTERM.
+    init: true
+    stop_grace_period: 30s
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      # Leave room for the Node heap plus Prisma's native engine inside
+      # API_MEMORY_LIMIT. Raise both together on a larger VM.
+      NODE_OPTIONS: ${NODE_OPTIONS:---max-old-space-size=320}
+    mem_limit: ${API_MEMORY_LIMIT:-512m}
+    logging: *default-logging
+
+  # One-shot migration runner. Uses the same image, so it works whether the
+  # image was built locally or pulled from a registry. `deploy.sh` runs it
+  # before starting the API; the API container itself never migrates on boot,
+  # so a database outage still yields a serving instance that reports 503.
+  migrate:
+    <<: *api-image
+    profiles: ["tools"]
+    restart: "no"
+    env_file: .env
+    environment:
+      NODE_ENV: production
+    command:
+      - node
+      - node_modules/prisma/build/index.js
+      - migrate
+      - deploy
+      - --schema
+      - apps/server/prisma/schema.prisma
+    mem_limit: ${API_MEMORY_LIMIT:-512m}
+    logging: *default-logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    # Automatic HTTPS for API_DOMAIN. Set API_DOMAIN=:80 only for an IP-only
+    # HTTP deployment (no TLS -- not suitable for real users).
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    mem_limit: 128m
+    logging: *default-logging
+
+volumes:
+  caddy_data:
+  caddy_config:

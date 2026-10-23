@@ -899,6 +899,15 @@ this as a deploy step):
 npm run prisma:migrate:deploy --workspace pluto-server
 ```
 
+The image also carries the Prisma CLI, so the same migration can run from a
+container without Node on the host:
+
+```powershell
+docker run --rm --env-file .env.production pluto-server:latest `
+  node node_modules/prisma/build/index.js migrate deploy `
+  --schema apps/server/prisma/schema.prisma
+```
+
 ### 2. Run Container in Production
 ```powershell
 docker run -d `
@@ -909,7 +918,25 @@ docker run -d `
   pluto-server:latest
 ```
 
-### 3. Graceful Shutdown & Health Probes
+### 3. Single VM (Docker Compose + Caddy)
+
+For any Linux VM with Docker (GCE e2-micro, Hetzner, Oracle, ...) the
+`deploy/vm` directory packages the same image with automatic HTTPS, a one-shot
+`prisma migrate deploy` service and a health-gated deploy script:
+
+```bash
+cd apps/server/deploy/vm
+cp .env.example .env
+$EDITOR .env
+bash deploy.sh          # or bash deploy.sh pull for a CI-published image
+```
+
+Only ports 80/443 are published; the API is reached through Caddy. Postgres
+stays external (Neon or another managed instance). See
+[`deploy/vm/README.md`](deploy/vm/README.md) for the full runbook, the memory
+budget for a 1 GB VM, and the rollback procedure.
+
+### 4. Graceful Shutdown & Health Probes
 The container handles `SIGTERM` and `SIGINT` signals, closing active HTTP connections, S3 client sessions, and database connections gracefully.
 
 Kubernetes configuration probes:

@@ -136,6 +136,19 @@ feature ──PR──▶ main ──merge──▶ staging ──soak──▶ 
 > `pluto-server-staging` instead until a Neon branch-per-preview integration is
 > in place.
 
+### Alternative: a single VM (Docker Compose + Caddy)
+
+`apps/server/deploy/vm` runs the same server image on any Docker host (a GCE
+e2-micro, Hetzner, Oracle, ...) with automatic HTTPS and a migration step. The
+per-tier rules above still apply: a VM deployment gets its own `DATABASE_URL`,
+`JWT_ACCESS_SECRET`, `CORS_ORIGIN`, and so on.
+
+A 1 GB VM is enough for the API alone with an external Postgres. Do not also
+run Next.js or Postgres on it, and do not build the image there — publish it
+from CI (`.github/workflows/publish-server-image.yml`) and use
+`bash deploy.sh pull`. See
+[`apps/server/deploy/vm/README.md`](../apps/server/deploy/vm/README.md).
+
 ## Web — Vercel
 
 Vercel is the chosen host (it ships a verified Next.js adapter). The project's

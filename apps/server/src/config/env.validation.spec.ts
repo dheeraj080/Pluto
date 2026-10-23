@@ -222,5 +222,15 @@ describe('validateEnvironment', () => {
       expect(result.ENABLE_DEV_AUTH).toBe(true);
       expect(result.OBJECT_STORAGE_ENABLED).toBe(true);
     });
+
+    it('should accept a proxy hop count or an Express trust preset', () => {
+      // Caddy plus a CDN: two hops. `true` would key throttling on the CDN IP.
+      expect(validateEnvironment({ ...baseConfig, TRUST_PROXY: '2' }).TRUST_PROXY).toBe(2);
+      expect(validateEnvironment({ ...baseConfig, TRUST_PROXY: 'loopback' }).TRUST_PROXY).toBe(
+        'loopback',
+      );
+      // 0 keeps the old false-ish spelling working.
+      expect(validateEnvironment({ ...baseConfig, TRUST_PROXY: '0' }).TRUST_PROXY).toBe(false);
+    });
   });
 });

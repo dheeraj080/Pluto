@@ -1,0 +1,19 @@
+# Caddy terminates TLS (Let's Encrypt / ZeroSSL) and proxies to the API
+# container. The application already sets HSTS, nosniff, X-Frame-Options and
+# Referrer-Policy; Caddy adds compression and removes its own Server banner.
+#
+# API_DOMAIN may be a hostname (automatic HTTPS) or `:80` for a bare-IP HTTP
+# deployment. Multiple hostnames are space-separated.
+{
+	email {$ACME_EMAIL:admin@example.com}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy api:3000
+
+	header {
+		-Server
+	}
+}

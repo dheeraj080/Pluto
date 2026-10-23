@@ -35,14 +35,17 @@ async function bootstrap(): Promise<void> {
   const port = configService.get<number>('PORT', 3000);
   const apiPrefix = configService.get<string>('API_PREFIX', 'v1');
   const corsOrigin = configService.get<string>('CORS_ORIGIN', '*');
-  const trustProxy = configService.get<boolean>('TRUST_PROXY', true);
+  const trustProxy = configService.get<boolean | number | string>('TRUST_PROXY', true);
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
   const isProduction = nodeEnv === 'production';
 
-  // Trusted proxy configuration for reverse proxies (NGINX, Cloudflare, AWS ALB)
+  // Trusted proxy configuration for reverse proxies (Caddy/NGINX, Cloudflare,
+  // AWS ALB). `true` is the historical spelling of "one trusted hop"; a number
+  // counts hops explicitly (CDN + local proxy = 2), and a string is passed
+  // through to Express as a trust preset (e.g. "loopback").
   const expressApp = app.getHttpAdapter().getInstance();
   if (expressApp && typeof expressApp.set === 'function') {
-    expressApp.set('trust proxy', trustProxy ? 1 : false);
+    expressApp.set('trust proxy', trustProxy === true ? 1 : trustProxy);
   }
 
   // Correlation id: honour an upstream proxy's id when present, otherwise mint

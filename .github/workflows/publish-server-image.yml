@@ -1,0 +1,89 @@
+# Publishes the server image so a small VM never has to run `npm ci` + `nest
+# build` (that needs ~2 GB of RAM, which a free-tier e2-micro does not have).
+#
+#   ghcr.io/<owner>/pluto-server:latest
+#   ghcr.io/<owner>/pluto-server:main
+#   ghcr.io/<owner>/pluto-server:sha-<short>
+#   ghcr.io/<owner>/pluto-server:<tag>       (on v* tags)
+#
+# Deploy on the VM with:
+#   PLUTO_IMAGE=ghcr.io/<owner>/pluto-server:sha-<short> bash deploy.sh pull
+#
+# The image is linux/amd64 only. On an arm64 VM, build natively with
+# `bash deploy.sh` (the Dockerfile is multi-arch; Prisma downloads target engines).
+name: Publish server image
+
+on:
+  pull_request:
+    paths:
+      - "apps/server/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".dockerignore"
+      - ".github/workflows/publish-server-image.yml"
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "apps/server/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".dockerignore"
+      - ".github/workflows/publish-server-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-server-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Build image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Pull requests only validate the build; forks cannot write packages.
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # GHCR image names must be lowercase; repository owners are not.
+      - name: Compute the image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/pluto-server" >> "$GITHUB_ENV"
+
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=server
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max,scope=server' || '' }}
