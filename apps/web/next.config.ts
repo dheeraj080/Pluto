@@ -36,6 +36,11 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    // Record that this configuration belongs to the agent-driven security
+    // upgrade, so later upgrade runs can identify it.
+    agentUpgrade: "security",
+  },
   turbopack: {
     rules: {
       "*.css": {
