@@ -16,6 +16,9 @@
  * - A consequence of the file joining the program: tsc infers the common root
  *   as the repo root, so output lands in `dist/apps/server/src/...` rather
  *   than `dist/`. `start:prod`, the Dockerfile CMD and render.yaml all
- *   address that path — keep them in sync if this ever changes.
+ *   address that path — keep them in sync if this ever changes. The Nest CLI
+ *   looks for its entry at `dist/<sourceRoot>/main`, which that layout does
+ *   not satisfy, so the `nest start` scripts pass
+ *   `--sourceRoot apps/server/src` to point the CLI at the real entry.
  */
 export * from '../../../../../packages/domain/src/currencies';

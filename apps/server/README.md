@@ -215,6 +215,16 @@ Once launched:
 - **Interactive Swagger UI**: `http://localhost:3000/docs`
 - **Health Check**: `http://localhost:3000/v1/health`
 
+> **Why the scripts pass `--sourceRoot apps/server/src`**: this package shares
+> its currency registry with `@pluto/domain` through a relative import, which
+> pulls `packages/` into the TypeScript program and makes `tsc` infer the repo
+> root as the common root. The compiled output therefore lands in
+> `dist/apps/server/src/...` instead of `dist/`, and the Nest CLI — which
+> looks for `dist/<sourceRoot>/main` — would otherwise fail to launch the app
+> with `Cannot find module '.../dist/main'`. The flag points the CLI at the
+> real entry. `start:prod`, the Dockerfile `CMD` and `render.yaml` address the
+> same nested path directly and need no flag.
+
 ---
 
 ## Environment Configuration
