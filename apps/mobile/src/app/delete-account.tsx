@@ -55,7 +55,7 @@ const CONSEQUENCES_WITHOUT_BACKUPS = [
  */
 export default function DeleteAccountScreen() {
   const theme = useTheme();
-  const screenPadding = useScreenPadding('stack');
+  const screenPadding = useScreenPadding();
   const { user } = useSession();
   const backups = useBackups();
   const download = useBackupDownload();

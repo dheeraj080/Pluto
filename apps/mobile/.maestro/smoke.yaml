@@ -1,10 +1,15 @@
-# Smoke: the app boots, a dev account signs in, and every tab renders.
+# Smoke: the app boots, a dev account signs in, and every destination renders.
 #
 # This is the flow that catches the "it bundles but the screen is blank" class
-# of regression — a broken provider in the root layout, a tab that throws on
+# of regression — a broken provider in the root layout, a screen that throws on
 # mount, an api-client that cannot resolve its base URL. It deliberately asserts
 # on copy the user sees rather than on test ids, so the flow cannot pass while
 # the UI is empty.
+#
+# Navigation lives in a drawer, so each destination is reached by opening the
+# drawer and tapping its item. The menu button carries no copy, so the flow
+# finds it by its test id; everything else is tapped by the label the user
+# reads.
 #
 # Prerequisites (see .maestro/README.md): a booted emulator or device with the
 # dev client installed, EXPO_PUBLIC_API_URL pointing at a reachable server, and
@@ -18,20 +23,24 @@ appId: com.pluto.app
 - assertVisible: "Track spending in any currency, converted to your base."
 - tapOn: "Continue with a dev account"
 
-# Each tab must mount and paint its own heading; a single failing screen fails
-# the flow at the step that reaches it.
+# Each destination must mount and paint its own heading; a single failing screen
+# fails the flow at the step that reaches it.
 - assertVisible: "Dashboard"
 - assertVisible: "This month"
 
+- tapOn: { id: "open-navigation-menu" }
 - tapOn: "Activity"
 - assertVisible: "Activity"
 
+- tapOn: { id: "open-navigation-menu" }
 - tapOn: "Reports"
 - assertVisible: "Reports"
 
+- tapOn: { id: "open-navigation-menu" }
 - tapOn: "Budgets"
 - assertVisible: "Budgets"
 
+- tapOn: { id: "open-navigation-menu" }
 - tapOn: "Settings"
 - assertVisible: "Your account and preferences."
 - assertVisible: "Sign out"

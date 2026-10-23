@@ -63,7 +63,7 @@ const TAB_OPTIONS: { value: Tab; label: string }[] = [
 
 export default function ReportsScreen() {
   const theme = useTheme();
-  const screenPadding = useScreenPadding('tab');
+  const screenPadding = useScreenPadding();
   const { base, second } = usePair();
   const queryClient = useQueryClient();
 

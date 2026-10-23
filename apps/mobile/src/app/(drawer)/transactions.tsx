@@ -55,7 +55,7 @@ function dateChipLabel(range: ActivityDateRange): string {
 
 export default function ActivityScreen() {
   const theme = useTheme();
-  const screenPadding = useScreenPadding('tab');
+  const screenPadding = useScreenPadding();
   const [now] = useState(() => new Date());
 
   const [search, setSearch] = useState('');

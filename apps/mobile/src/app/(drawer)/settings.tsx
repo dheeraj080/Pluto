@@ -44,7 +44,7 @@ const APPEARANCE_OPTIONS: readonly { value: ThemePreference; label: string }[] =
  */
 export default function SettingsScreen() {
   const theme = useTheme();
-  const screenPadding = useScreenPadding('tab');
+  const screenPadding = useScreenPadding();
   const themePreference = useThemePreference();
   const { user } = useSession();
   const currencies = useSupportedCurrencies();

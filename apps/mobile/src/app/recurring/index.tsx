@@ -43,7 +43,7 @@ import { queryKeys } from '@/lib/query-keys';
 
 export default function RecurringScreen() {
   const theme = useTheme();
-  const screenPadding = useScreenPadding('stack');
+  const screenPadding = useScreenPadding();
   const queryClient = useQueryClient();
 
   const rules = useRecurringRules();

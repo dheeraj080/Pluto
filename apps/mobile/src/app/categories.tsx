@@ -24,7 +24,7 @@ import { activityHref } from '@/lib/routes';
 
 export default function CategoriesScreen() {
   const theme = useTheme();
-  const screenPadding = useScreenPadding('stack');
+  const screenPadding = useScreenPadding();
   const queryClient = useQueryClient();
   const categories = useCategories();
   const remove = useDeleteCategory();

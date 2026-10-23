@@ -42,7 +42,7 @@ import { activityHref } from '@/lib/routes';
 
 export default function BudgetsScreen() {
   const theme = useTheme();
-  const screenPadding = useScreenPadding('tab');
+  const screenPadding = useScreenPadding();
   const queryClient = useQueryClient();
   const { base, second } = usePair();
 

@@ -90,26 +90,38 @@ Routes live in `src/app` (Expo Router, typed routes enabled):
 
 | Route | Screen |
 | :--- | :--- |
-| `(tabs)/index` | Dashboard — spending, budget, comparison, recent, categories, rate |
-| `(tabs)/transactions` | Activity — full list, search, sort, category filter, infinite scroll |
-| `(tabs)/budgets` | Budgets — per-category and whole-account limits, month by month |
-| `(tabs)/reports` | Reports — one range control over a summary, a trend, the category split and the currencies paid in |
-| `(tabs)/categories` | Categories — create, rename, recolour, delete |
-| `(tabs)/settings` | Profile, base currency, sign out |
+| `(drawer)/index` | Dashboard — spending, budget, comparison, recent, categories, rate |
+| `(drawer)/transactions` | Activity — full list, search, sort, category filter, infinite scroll |
+| `(drawer)/budgets` | Budgets — per-category and whole-account limits, month by month |
+| `(drawer)/reports` | Reports — one range control over a summary, a trend, the category split and the currencies paid in |
+| `categories` | Categories — create, rename, recolour, delete |
+| `(drawer)/settings` | Profile, base currency, sign out |
 | `expense/new` | Create (modal) |
 | `expense/[id]/index` | Detail, with edit and delete |
 | `expense/[id]/edit` | Edit |
 | `delete-account` | In-app account deletion (see below) |
 
-`(tabs)/reports` is a deliberate mobile adaptation of the web's report page: one
+`(drawer)/reports` is a deliberate mobile adaptation of the web's report page: one
 range control drives everything, and the figures a hover tooltip would reveal are
 stated in a per-card chart/table toggle instead — a touch screen has no pointer.
 The `GET /expenses/comparison` response is the single source for both its tabs,
 so they can never disagree with each other or with the "vs previous" pills.
 
-`(tabs)/_layout.tsx` guards the whole shell: `loading` shows a spinner and
-`signed-out` redirects to `/sign-in`, so no tab ever mounts and fires an
+`(drawer)/_layout.tsx` guards the whole shell: `loading` shows a spinner and
+`signed-out` redirects to `/sign-in`, so no screen ever mounts and fires an
 authenticated request before the session is restored.
+
+Navigation lives in a slide-out drawer rather than a bottom tab bar, so the
+phone gives the content the full height and the destinations stay one tap away
+from wherever the user is. The drawer is navigation only — the panel carries
+just the five destinations, and signing out stays in Settings — and the top bar
+(`src/components/app-top-bar.tsx`) carries the menu button and the wordmark.
+
+The drawer is Expo Router's own `Drawer` layout, which is the only supported
+import path for it: `import { Drawer } from 'expo-router/drawer'`. The
+underlying `react-native-drawer-layout` package reaches the app only as a
+dependency of `expo-router`, so it is never imported directly and needs no
+entry in `package.json`.
 
 Data access is TanStack Query. Hooks in `src/hooks` own every request
 (`use-expenses` — list and summary, `use-expense`, `use-expense-mutations`,
@@ -204,7 +216,7 @@ the web's `lib/brand-mark.ts`, so the launcher icon, the splash and the in-app
 
 ## Dashboard
 
-`src/app/(tabs)/index.tsx` answers six questions in order, and the order is the
+`src/app/(drawer)/index.tsx` answers six questions in order, and the order is the
 web's own phone order — it is what the web's 12-column grid collapses to below
 the `lg` breakpoint:
 
@@ -332,6 +344,16 @@ platform picks one in `src/lib/store/index.ts`, and screens never branch.
 the static web target does not serve), so `src/lib/store/index.ts` routes reads
 and writes to the API. The last-known-read cache below still applies.
 
+The web target resolves `src/lib/store/local/database.web.ts` instead of
+`database.ts`, so the browser bundle never pulls `expo-sqlite` in at all: its web
+build is SQLite compiled to WebAssembly and needs a 600 KB `.wasm` binary plus a
+separate web-worker chunk, which Metro cannot resolve without extra resolver
+configuration — enough to fail the whole web build for a database the web target
+never opens. The two files must keep the same exported signature
+(`getDatabase`, `clearLocalDatabase`), and every `expo-sqlite` import outside
+`database.ts` must stay a type-only import (`import type`), or the WASM binary
+is back in the web graph.
+
 **Last-known-read cache (both platforms).** The app keeps the last successful
 read on disk so a launch without a connection paints known figures instead of an
 error.
@@ -362,6 +384,13 @@ error.
   pins a different React).
 - `resolver.disableHierarchicalLookup = true` prevents a second React copy
   being pulled in from the root — two React copies in one bundle breaks hooks.
+- `wasm` is deliberately **not** in `resolver.assetExts`. Adding it is Expo's
+  documented way to make `expo-sqlite` work on the web, but the web target has
+  no local database (see the "Web." note above), so the WASM binary would only
+  bloat the bundle. The web build fails with `Unable to resolve module
+  ./wa-sqlite/wa-sqlite.wasm` if `expo-sqlite` ever re-enters the web graph —
+  fix that by keeping the import out (`database.web.ts`), not by teaching Metro
+  about `.wasm`.
 
 Restart Metro (`npx expo start --clear`) after installing a package. Metro's
 file map is built at startup, so a package added while it is running resolves as
@@ -532,8 +561,8 @@ secure-store boundary is mocked, so the suite needs no device, network or native
 build.
 
 There is also a device layer, because none of the above can catch a screen that
-renders nothing: `.maestro/smoke.yaml` signs in and walks all five tabs, and
-`.maestro/delete-account.yaml` proves the destructive action is gated behind the
+renders nothing: `.maestro/smoke.yaml` signs in and walks all five destinations,
+and `.maestro/delete-account.yaml` proves the destructive action is gated behind the
 typed confirmation. It is run by name (`npm run e2e --workspace pluto-mobile`),
 not through the root `test:e2e` task, which stays a device-free command — see
 `.maestro/README.md` for the prerequisites.

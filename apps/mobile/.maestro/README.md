@@ -9,7 +9,7 @@ The flows are:
 
 | Flow | What it proves |
 | :--- | :--- |
-| `smoke.yaml` | The app boots, a dev account signs in, and all five tabs mount and paint their own heading. |
+| `smoke.yaml` | The app boots, a dev account signs in, and all five drawer destinations mount and paint their own heading. |
 | `delete-account.yaml` | Deletion is reachable from Settings, states its consequences, and its confirm button is gated behind typing `DELETE`. |
 
 ## One-time setup

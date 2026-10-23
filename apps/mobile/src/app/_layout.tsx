@@ -168,7 +168,7 @@ export default function RootLayout() {
                 contentStyle: { backgroundColor: palette.canvas },
               }}
             >
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
               <Stack.Screen name="sign-in" options={{ title: 'Sign in' }} />
               <Stack.Screen
                 name="expense/new"

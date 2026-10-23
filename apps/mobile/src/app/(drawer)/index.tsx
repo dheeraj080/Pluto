@@ -44,7 +44,7 @@ import { formatDateRange } from '@/lib/format';
 
 export default function DashboardScreen() {
   const theme = useTheme();
-  const screenPadding = useScreenPadding('tab');
+  const screenPadding = useScreenPadding();
   const { base, second } = usePair();
 
   const month = useMonthComparison(base, second);
