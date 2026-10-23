@@ -11,9 +11,23 @@ import { PrivacyStrip } from "@/components/landing/privacy-strip";
 import { CTASection } from "@/components/landing/cta";
 
 export const metadata: Metadata = {
+  title: "Spend in any currency. Understand it in yours.",
   alternates: { canonical: "/" },
   description:
     "Track expenses in foreign currencies and see what they add up to in your home currency. Made for students, expats, and travellers.",
+  openGraph: {
+    title: "Spend in any currency. Understand it in yours.",
+    description:
+      "Track expenses in foreign currencies and see what they add up to in your home currency. Daily ECB rates, Google sign-in, web and Android.",
+    url: "/",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Spend in any currency. Understand it in yours.",
+    description:
+      "Multi-currency expense tracking with daily ECB rates. Web and Android.",
+  },
 };
 
 export default function HomePage() {

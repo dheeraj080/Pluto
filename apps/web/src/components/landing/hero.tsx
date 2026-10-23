@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { IconGoogle } from "@/components/icons";
+import { convertCurrency, formatCurrencyAmount } from "@/lib/landing-currency";
 import { PhoneMockup } from "./phone-mockup";
 
 const TRUST = ["Web + Android", "Google sign-in"] as const;
 
 export function Hero() {
+  const sampleRate = convertCurrency(1, "EUR", "INR");
+  const reweHome = convertCurrency(38.2, "EUR", "INR");
+
   return (
     <section className="relative pt-6 pb-8 md:pt-10 md:pb-12 overflow-hidden bg-canvas">
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[520px] bg-primary-brand/5 rounded-full blur-3xl pointer-events-none -z-10" />
@@ -70,6 +74,10 @@ export function Hero() {
                 </div>
               ))}
             </div>
+
+            <p className="text-[11px] text-muted font-mono">
+              Illustrative rates and amounts.
+            </p>
           </div>
 
           <div className="lg:col-span-5 flex justify-center lg:justify-end relative">
@@ -81,7 +89,9 @@ export function Hero() {
                 <div className="w-2 h-2 rounded-full bg-primary-brand" />
                 <div className="font-mono text-[11px]">
                   <span className="font-semibold text-ink tabular-nums">1 EUR</span> ≈{" "}
-                  <span className="text-primary-brand font-bold tabular-nums">₹90.00</span>
+                  <span className="text-primary-brand font-bold tabular-nums">
+                    {formatCurrencyAmount(sampleRate, "INR")}
+                  </span>
                 </div>
               </div>
 
@@ -97,7 +107,7 @@ export function Hero() {
                     Rewe Supermarkt · €38.20
                   </div>
                   <div className="text-[11px] font-semibold text-primary-brand font-mono tabular-nums">
-                    ≈ ₹3,438.00
+                    ≈ {formatCurrencyAmount(reweHome, "INR")}
                   </div>
                 </div>
               </div>

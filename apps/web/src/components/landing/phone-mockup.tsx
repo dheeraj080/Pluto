@@ -1,5 +1,9 @@
 import { IconWifi, IconBattery } from "@/components/icons";
 import { formatMoney } from "@/lib/format";
+import { convertCurrency } from "@/lib/landing-currency";
+
+/** One illustrative ratio drives every figure in the mockup. */
+const HOME_CURRENCY = "INR";
 
 const monthCategories = [
   { name: "Groceries", eur: 168, percent: 39, color: "var(--cat-mint)" },
@@ -18,11 +22,11 @@ const series = ["var(--cat-mint)", "var(--cat-sky)", "var(--cat-violet)", "var(-
 
 export function PhoneMockup({ className = "" }: { className?: string }) {
   const monthTotalEur = 428.6;
-  const monthTotalHome = 428.6 * 90;
+  const monthTotalHome = convertCurrency(monthTotalEur, "EUR", HOME_CURRENCY);
 
   return (
     <div className={`relative mx-auto select-none ${className}`}>
-      <div className="w-[315px] sm:w-[350px] md:w-[365px] h-[670px] sm:h-[705px] bg-[#101216] rounded-[50px] p-[10px] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.08),0_0_0_4px_#1B1E22] relative">
+      <div className="w-[280px] sm:w-[350px] md:w-[365px] h-[600px] sm:h-[705px] bg-[#101216] rounded-[50px] p-[10px] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.08),0_0_0_4px_#1B1E22] relative">
         <div className="absolute -left-[13px] top-[120px] w-[3px] h-[28px] bg-[#272B30] rounded-l-md" />
         <div className="absolute -left-[13px] top-[165px] w-[3px] h-[48px] bg-[#272B30] rounded-l-md" />
         <div className="absolute -left-[13px] top-[225px] w-[3px] h-[48px] bg-[#272B30] rounded-l-md" />
@@ -69,7 +73,7 @@ export function PhoneMockup({ className = "" }: { className?: string }) {
                   €{monthTotalEur.toFixed(2)}
                 </div>
                 <div className="text-xs font-bold text-primary-brand font-mono mt-0.5 tabular-nums">
-                  ≈ {formatMoney(monthTotalHome, "INR", "en-US")}
+                  ≈ {formatMoney(monthTotalHome, HOME_CURRENCY, "en-US")}
                 </div>
               </div>
 
@@ -104,7 +108,7 @@ export function PhoneMockup({ className = "" }: { className?: string }) {
                 <span className="font-bold text-ink tabular-nums">€14.28</span>
               </div>
               <div className="text-[11px] font-semibold text-primary-brand font-mono tabular-nums">
-                ≈ {formatMoney(14.28 * 90, "INR", "en-US")}/day
+                ≈ {formatMoney(convertCurrency(14.28, "EUR", HOME_CURRENCY), HOME_CURRENCY, "en-US")}/day
               </div>
             </div>
 
@@ -139,7 +143,7 @@ export function PhoneMockup({ className = "" }: { className?: string }) {
                           €{exp.eur.toFixed(2)}
                         </div>
                         <div className="text-[10px] font-semibold text-primary-brand font-mono tabular-nums">
-                          ≈ {formatMoney(exp.eur * 90, "INR", "en-US")}
+                          ≈ {formatMoney(convertCurrency(exp.eur, "EUR", HOME_CURRENCY), HOME_CURRENCY, "en-US")}
                         </div>
                       </div>
                     </div>
