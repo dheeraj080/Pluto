@@ -73,12 +73,11 @@ jobs:
       - name: Use the repo's pinned npm
         run: npm install --global npm@11.16.0 && npm --version
 
-      # Ensures lockfile and package configuration are completely in sync on the runner before installing
-      - name: Sync dependencies and lockfile
-        run: npm install
-
-      - name: Install the monorepo
-        run: npm ci
+      # Fully regenerate and sync package-lock.json on the runner to fix any missing dependency declarations
+      - name: Regenerate and sync monorepo lockfile
+        run: |
+          npm install
+          npm install --package-lock-only
 
       # eas-cli evaluates app.config.ts locally before uploading, which needs
       # expo/config from node_modules. The gate below then means a cloud build
