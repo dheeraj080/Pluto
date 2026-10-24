@@ -24,6 +24,9 @@
       "environment": "production",
       "android": {
         "buildType": "apk"
+      },
+      "hooks": {
+        "pre-install": "npm install"
       }
     }
   },
