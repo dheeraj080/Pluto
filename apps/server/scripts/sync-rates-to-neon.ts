@@ -14,6 +14,7 @@
  *   EXCHANGE_RATE_BASE_URL — default https://api.frankfurter.dev/v2
  */
 
+import * as crypto from 'crypto';
 import { PrismaClient, Prisma } from '@prisma/client';
 
 const BASE_CURRENCY = process.env.EXCHANGE_RATE_BASE_CURRENCY ?? 'USD';
@@ -126,13 +127,20 @@ async function main(): Promise<void> {
         },
       });
 
-      await tx.exchangeRate.createMany({
-        data: rates.map((r) => ({
-          snapshotId: created.id,
-          quoteCurrency: r.quoteCurrency,
-          rate: new Prisma.Decimal(r.rate.toFixed(6)),
-        })) as any,
-      });
+      // Insert exchange rates via raw SQL to bypass Prisma schema validation:
+      // the target Neon DB may not have the effectiveDate column yet, which
+      // Prisma's ExchangeRate model requires. Raw SQL omits that column entirely.
+      const now = new Date();
+      for (const r of rates) {
+        const id = crypto.randomUUID();
+        await tx.$executeRawUnsafe(
+          `INSERT INTO "exchange_rates" ("id", "snapshotId", "quoteCurrency", "rate") VALUES ($1, $2, $3, $4)`,
+          id,
+          created.id,
+          r.quoteCurrency.toUpperCase(),
+          r.rate.toFixed(6),
+        );
+      }
 
       return created;
     });
