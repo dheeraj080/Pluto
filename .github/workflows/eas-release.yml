@@ -98,6 +98,8 @@ jobs:
       # fails here instead of quietly producing no artifact.
       - name: Build on EAS
         working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx eas-cli@latest build --platform android --profile "${{ inputs.profile }}" --non-interactive --wait
 
       - name: Upload the APK as a workflow artifact
