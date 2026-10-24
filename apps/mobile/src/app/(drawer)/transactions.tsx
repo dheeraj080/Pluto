@@ -53,7 +53,7 @@ function dateChipLabel(range: ActivityDateRange): string {
   }
 }
 
-export default function ActivityScreen() {
+export default function ActivityScreen({ navigation }: { navigation: { openDrawer: () => void } }) {
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const [now] = useState(() => new Date());
@@ -207,7 +207,7 @@ export default function ActivityScreen() {
         }
         ListHeaderComponent={
           <View style={styles.header}>
-            <AppPageHeader title="Activity" subtitle={countLabel}>
+            <AppPageHeader title="Activity" subtitle={countLabel} onOpenDrawer={() => navigation.openDrawer()}>
               <Button
                 label="Recurring"
                 size="sm"

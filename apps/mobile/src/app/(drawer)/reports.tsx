@@ -61,7 +61,7 @@ const TAB_OPTIONS: { value: Tab; label: string }[] = [
   { value: 'breakdown', label: 'Breakdown' },
 ];
 
-export default function ReportsScreen() {
+export default function ReportsScreen({ navigation }: { navigation: { openDrawer: () => void } }) {
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const { base, second } = usePair();
@@ -200,7 +200,7 @@ export default function ReportsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <View style={[styles.header, { paddingTop: screenPadding.paddingTop }]}>
-        <AppPageHeader title="Reports">
+        <AppPageHeader title="Reports" onOpenDrawer={() => navigation.openDrawer()}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Refresh"

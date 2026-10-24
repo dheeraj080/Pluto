@@ -78,7 +78,7 @@ describe('session store', () => {
   });
 
   it('starts as loading with no user', () => {
-    expect(session.getSessionState()).toEqual({ status: 'loading', user: null });
+    expect(session.getSessionState()).toEqual({ status: 'loading', user: null, mode: 'local' });
   });
 
   it('notifies subscribers when the session flips', () => {
@@ -183,7 +183,7 @@ describe('session store', () => {
 
     // Signed in enough to mount the app; no access token until a rotation
     // succeeds, and nothing written or deleted behind it.
-    expect(session.getSessionState()).toEqual({ status: 'signed-in', user: profile });
+    expect(session.getSessionState()).toEqual({ status: 'signed-in', user: profile, mode: 'account' });
     expect(session.getAccessToken()).toBeNull();
     expect(storage.writeRefreshToken).not.toHaveBeenCalled();
     expect(storage.deleteRefreshToken).not.toHaveBeenCalled();

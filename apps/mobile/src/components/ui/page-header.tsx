@@ -5,11 +5,15 @@
  * font-semibold tracking-tight`) and lays any actions out beside it with
  * `flex-wrap items-end justify-between`. At phone width the actions usually
  * wrap onto their own line, which the same rule gives us here.
+ *
+ * Drawer screens pass `onOpenDrawer` to render a hamburger menu beside the
+ * page title.
  */
 
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, Pressable, type StyleProp, type ViewStyle } from 'react-native';
 
+import { IconMenu } from '@/components/icons';
 import { spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -17,18 +21,31 @@ export function AppPageHeader({
   title,
   subtitle,
   children,
+  onOpenDrawer,
   style,
 }: {
   title: string;
   subtitle?: string;
   /** Trailing controls: a range switcher, a primary button. */
   children?: ReactNode;
+  /** Opens the navigation drawer; drawer screens pass this in. */
+  onOpenDrawer?: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
   const theme = useTheme();
 
   return (
     <View style={[styles.wrap, style]}>
+      {onOpenDrawer ? (
+        <Pressable
+          accessibilityLabel="Open navigation menu"
+          hitSlop={8}
+          onPress={onOpenDrawer}
+          style={styles.menu}
+        >
+          <IconMenu size={20} color={theme.ink} />
+        </Pressable>
+      ) : null}
       <View style={styles.heading}>
         <Text style={[text.display, { color: theme.ink }]}>{title}</Text>
         {subtitle ? (
@@ -48,6 +65,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     gap: spacing.sm,
+  },
+  menu: {
+    padding: spacing.sm,
   },
   heading: {
     flexDirection: 'row',

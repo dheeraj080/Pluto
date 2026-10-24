@@ -142,7 +142,7 @@ describe('api', () => {
 
     await api.bootstrapSession();
 
-    expect(session.getSessionState()).toEqual({ status: 'signed-in', user: authDto().user });
+    expect(session.getSessionState()).toEqual({ status: 'signed-in', user: { id: 'local-user', email: 'local@pluto.app', name: 'Local User', avatarUrl: null, baseCurrency: 'USD', createdAt: expect.any(String) }, mode: 'local' });
     // No access token until a rotation succeeds, but the stored credential
     // survives, so the next attempt (or launch) can retry instead of forcing
     // a fresh sign-in.

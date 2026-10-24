@@ -40,7 +40,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { monthEndIso, shiftMonth } from '@/lib/ranges';
 import { activityHref } from '@/lib/routes';
 
-export default function BudgetsScreen() {
+export default function BudgetsScreen({ navigation }: { navigation: { openDrawer: () => void } }) {
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const queryClient = useQueryClient();
@@ -119,7 +119,7 @@ export default function BudgetsScreen() {
           />
         }
       >
-        <AppPageHeader title="Budgets" subtitle="Limits and what's left this month.">
+        <AppPageHeader title="Budgets" subtitle="Limits and what's left this month." onOpenDrawer={() => navigation.openDrawer()}>
           <MonthStepper
             label={formatMonth(month)}
             onPrevious={() => setMonth((value) => shiftMonth(value, -1))}

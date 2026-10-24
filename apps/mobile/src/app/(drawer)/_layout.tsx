@@ -1,13 +1,13 @@
-import { Redirect } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
 
-import { AppTopBar } from '@/components/app-top-bar';
-import { IconChart, IconHome, IconReceipt, IconSettings, IconWallet } from '@/components/icons';
 import { Spinner } from '@/components/ui/feedback';
+import { IconChart, IconHome, IconReceipt, IconSettings, IconWallet } from '@/components/icons';
 import { radius, text } from '@/theme';
 import { useSession } from '@/hooks/use-session';
 import { useTheme } from '@/hooks/use-theme';
+import { ensureLocalSession } from '@/lib/session';
 
 /**
  * The drawer shell.
@@ -27,8 +27,18 @@ import { useTheme } from '@/hooks/use-theme';
  * old mobile tab bar use) rather than an icon font.
  */
 export default function DrawerLayout() {
-  const { status } = useSession();
+  const { status, user } = useSession();
   const theme = useTheme();
+
+  useEffect(() => {
+    if (status === 'signed-out' || !user) {
+      try {
+        ensureLocalSession();
+      } catch {
+        // Ignore errors
+      }
+    }
+  }, [status, user]);
 
   if (status === 'loading') {
     return (
@@ -38,17 +48,12 @@ export default function DrawerLayout() {
     );
   }
 
-  if (status === 'signed-out') {
-    return <Redirect href="/sign-in" />;
-  }
-
   return (
     <Drawer
       screenOptions={{
-        // The top bar replaces the chrome the tab bar used to carry: it holds
-        // the button that opens the drawer.
-        header: (props) => <AppTopBar navigation={props.navigation} />,
-        headerShown: true,
+        // The drawer has no top-level header bar; each screen carries its own
+        // page header with the hamburger menu beside the title.
+        headerShown: false,
         // The panel slides over the content behind a scrim. Pinned to 'front'
         // so iOS and Android behave the same — the library would otherwise use
         // 'slide' on iOS, which shifts the screen instead of covering it.

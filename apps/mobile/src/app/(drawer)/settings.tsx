@@ -42,7 +42,7 @@ const APPEARANCE_OPTIONS: readonly { value: ThemePreference; label: string }[] =
  * here is reflected immediately, without a "save" step or a round-trip for the
  * second half.
  */
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }: { navigation: { openDrawer: () => void } }) {
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const themePreference = useThemePreference();
@@ -86,6 +86,8 @@ export default function SettingsScreen() {
       // Navigation follows the session: the tab layout redirects once the
       // store flips to signed-out, so there is nothing to push here.
       await signOut();
+    } catch {
+      // Ensure we still sign out locally even if server call fails
     } finally {
       setSigningOut(false);
     }
@@ -96,7 +98,7 @@ export default function SettingsScreen() {
       style={[styles.container, { backgroundColor: theme.canvas }]}
       contentContainerStyle={[styles.content, screenPadding]}
     >
-      <AppPageHeader title="Settings" subtitle="Your account and preferences." />
+      <AppPageHeader title="Settings" subtitle="Your account and preferences." onOpenDrawer={() => navigation.openDrawer()} />
 
       <Card>
         <Text style={[text.overline, { color: theme.muted }]}>SIGNED IN AS</Text>
@@ -209,9 +211,21 @@ export default function SettingsScreen() {
       </Card>
 
       <Card>
+        <Text style={[text.overline, { color: theme.muted }]}>PLAN</Text>
+        <Text style={[text.body, { color: theme.muted }]}>
+          Free plan — local only. Data stays on this device. Rates are fetched from public sources when online.
+        </Text>
+        <Button
+          label="Sign in for sync &amp; backup"
+          variant="secondary"
+          onPress={() => router.push('/sign-in' as any)}
+        />
+      </Card>
+
+      <Card>
         <Text style={[text.overline, { color: theme.muted }]}>SESSION</Text>
         <Text style={[text.body, { color: theme.muted }]}>
-          Signing out removes this device&apos;s stored session. Your expenses stay on the server.
+          Signing out removes this device&apos;s stored session. Your expenses stay on this device in local mode.
         </Text>
         <Button
           label="Sign out"
@@ -221,19 +235,11 @@ export default function SettingsScreen() {
         />
       </Card>
 
-      <Card>
+            <Card>
         <Text style={[text.overline, { color: theme.danger }]}>DANGER ZONE</Text>
         <Text style={[text.body, { color: theme.muted }]}>
-          Permanently deletes your account, every cloud backup and all active sessions. This
-          cannot be undone.
+          Account deletion is only available for signed-in accounts with server data.
         </Text>
-        <Button
-          label="Delete account"
-          variant="danger"
-          icon={(color) => <IconTrash size={16} color={color} />}
-          onPress={() => router.push(DELETE_ACCOUNT)}
-          style={styles.deleteAccount}
-        />
       </Card>
     </ScrollView>
   );

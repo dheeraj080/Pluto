@@ -42,7 +42,7 @@ import { useScreenPadding } from '@/hooks/use-screen-padding';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateRange } from '@/lib/format';
 
-export default function DashboardScreen() {
+export default function DashboardScreen({ navigation }: { navigation: { openDrawer: () => void } }) {
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const { base, second } = usePair();
@@ -101,7 +101,7 @@ export default function DashboardScreen() {
         />
       }
     >
-      <AppPageHeader title="Dashboard">
+      <AppPageHeader title="Dashboard" onOpenDrawer={() => navigation.openDrawer()}>
         <View style={[styles.dateChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
           <IconCalendar size={14} color={theme.muted} />
           <Text style={[text.captionMedium, { color: theme.muted }]}>
