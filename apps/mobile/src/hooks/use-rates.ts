@@ -70,7 +70,7 @@ async function latestMirrored(base: string): Promise<RateSnapshot | null> {
 export function useRateSnapshot(base?: string | null) {
   return useQuery({
     queryKey: queryKeys.rates.latest(base ?? undefined),
-    staleTime: 6 * 60 * 60_000,
+    staleTime: 24 * 60 * 60_000,
     retry: false,
     queryFn: async () => {
       try {
