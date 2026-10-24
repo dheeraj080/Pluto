@@ -27,7 +27,7 @@ import {
 import { hydrateSecondaryCurrency } from '@/lib/pair-storage';
 import { getQueryClient } from '@/lib/query-client';
 import { restoreQueryCache, startQueryPersistence } from '@/lib/query-persistence';
-import { getRefreshToken } from '@/lib/session';
+import { getRefreshToken, getSessionState } from '@/lib/session';
 import { startBackgroundSync } from '@/lib/sync/background-sync';
 import { hydrateThemePreference } from '@/lib/theme-preference';
 import { fontFamily, palettes, text } from '@/theme';
@@ -79,12 +79,10 @@ export default function RootLayout() {
       await bootstrapSession();
 
       if (cancelled) return;
-      // Restore only while a refresh token is still held: the cache is one
-      // account's figures and a signed-out launch must not boot from them.
-      // Connectivity is deliberately not consulted — an unreachable server
-      // keeps the credential (so the cache survives an offline launch) while a
-      // rejected one has already cleared it.
-      if (getRefreshToken()) {
+      // Restore the read cache whenever this device has figures of its own: a
+      // held refresh token (account mode) or a local session (free plan).
+      const s = getSessionState();
+      if (getRefreshToken() || s.mode === 'local') {
         await restoreQueryCache(client);
       }
       if (cancelled) return;

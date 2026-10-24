@@ -45,6 +45,9 @@ done
 
 [ "$(env_value API_DOMAIN)" != "api.example.com" ] ||
   fail "API_DOMAIN is still the example value -- set the hostname that points at this VM"
+case "$(env_value API_DOMAIN)" in
+  *://* | */*) fail "API_DOMAIN must be a bare hostname (for example api.pluto.example), not a URL" ;;
+esac
 case "$(env_value DATABASE_URL)" in
   *ep-example*) fail "DATABASE_URL is still the example value" ;;
 esac
@@ -57,7 +60,12 @@ jwt_secret="$(env_value JWT_ACCESS_SECRET)"
 
 case "$(env_value CORS_ORIGIN)" in
   *'*'*) fail "CORS_ORIGIN must list explicit origins; a wildcard is refused in production" ;;
+  *example.com*) fail "CORS_ORIGIN still uses example.com -- set the real web origin" ;;
 esac
+
+if [ "$(env_value ACME_EMAIL)" = "you@example.com" ]; then
+  printf 'warning: ACME_EMAIL is still the example value; certificate expiry notices will go nowhere\n' >&2
+fi
 
 case "$MODE" in
   build | pull) ;;
@@ -109,6 +117,12 @@ for _ in $(seq 1 60); do
     "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/v1/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))" \
     >/dev/null 2>&1; then
     docker compose ps
+    # Keep two weeks of rollback images; the running image is never pruned.
+    say "Pruning unused images older than 14 days"
+    docker image prune -af --filter "until=336h" >/dev/null || true
+    if [ "$MODE" = "build" ]; then
+      docker builder prune -f --filter "until=168h" >/dev/null || true
+    fi
     domain="$(env_value API_DOMAIN)"
     case "$domain" in
       :*) printf '\nAPI is ready on http://<this-host>%s/v1\n' "$domain" ;;

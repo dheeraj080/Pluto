@@ -16,11 +16,11 @@ const PAGE_SIZE = 20;
  * clamped server-side and a page can legitimately come back shorter.
  */
 export function useExpenseList(filters: ExpenseListFilters) {
-  const { status } = useSession();
+  const { status, mode } = useSession();
 
   const query = useInfiniteQuery({
     queryKey: queryKeys.expenses.list(filters),
-    enabled: status === 'signed-in',
+    enabled: status === 'signed-in' || mode === 'local',
     initialPageParam: 1,
     queryFn: ({ pageParam, signal }) =>
       expenseStore.list(filters, pageParam, PAGE_SIZE, { signal }),
@@ -45,11 +45,11 @@ export function useExpenseList(filters: ExpenseListFilters) {
  * platforms on the window the server would have chosen.
  */
 export function useExpenseSummary(params: ExpenseSummaryParams = {}) {
-  const { status } = useSession();
+  const { status, mode } = useSession();
 
   return useQuery({
     queryKey: queryKeys.expenses.summary(params),
-    enabled: status === 'signed-in',
+    enabled: status === 'signed-in' || mode === 'local',
     queryFn: ({ signal }) => reportStore.summary(params, { signal }),
   });
 }

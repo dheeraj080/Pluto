@@ -9,6 +9,9 @@
 # Deploy on the VM with:
 #   PLUTO_IMAGE=ghcr.io/<owner>/pluto-server:sha-<short> bash deploy.sh pull
 #
+# Pull requests build the image and run it against a throwaway Postgres
+# (migrations + /v1/health/ready); pushes publish it.
+#
 # The image is linux/amd64 only. On an arm64 VM, build natively with
 # `bash deploy.sh` (the Dockerfile is multi-arch; Prisma downloads target engines).
 name: Publish server image
@@ -43,8 +46,88 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  smoke:
+    name: Build and smoke test
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: pluto
+          POSTGRES_PASSWORD: pluto
+          POSTGRES_DB: pluto
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U pluto -d pluto"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Load (do not push) so the job can run the exact production image.
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: pluto-server:ci
+          cache-from: type=gha,scope=server
+
+      - name: Migrate and smoke test
+        run: |
+          set -euo pipefail
+          DB='postgresql://pluto:pluto@localhost:5432/pluto?schema=public'
+
+          # This is the same command the Compose `migrate` service runs. It also
+          # proves the production install carries the Prisma CLI and its engines.
+          docker run --rm --network host \
+            -e "DATABASE_URL=$DB" \
+            pluto-server:ci \
+            node node_modules/prisma/build/index.js migrate deploy \
+            --schema apps/server/prisma/schema.prisma
+
+          cleanup() {
+            docker rm -f pluto-api-smoke >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker run -d --name pluto-api-smoke --network host \
+            -e NODE_ENV=production \
+            -e PORT=3000 \
+            -e "DATABASE_URL=$DB" \
+            -e JWT_ACCESS_SECRET=ci-only-jwt-secret-0123456789abcdef \
+            -e GOOGLE_ALLOWED_CLIENT_IDS=ci.apps.googleusercontent.com \
+            -e CORS_ORIGIN=https://example.com \
+            -e OBJECT_STORAGE_ENABLED=false \
+            -e ENABLE_DEV_AUTH=false \
+            -e TRUST_PROXY=false \
+            -e EXCHANGE_RATE_PROVIDER=mock \
+            pluto-server:ci
+
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/v1/health/ready >/dev/null; then
+              echo "API is ready"
+              curl -fsS http://localhost:3000/v1/health/ready
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "API did not become ready"
+          docker logs pluto-api-smoke
+          exit 1
+
   publish:
-    name: Build image
+    name: Build and push
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

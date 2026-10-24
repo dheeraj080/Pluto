@@ -12,6 +12,7 @@ import {
 } from './session-storage';
 
 export type SessionStatus = 'loading' | 'signed-in' | 'signed-out';
+export type AppMode = 'local' | 'account';
 
 export interface SessionState {
   /**
@@ -20,6 +21,7 @@ export interface SessionState {
    */
   status: SessionStatus;
   user: Schemas['UserProfileDto'] | null;
+  mode: AppMode;
 }
 
 /**
@@ -32,7 +34,8 @@ export interface SessionState {
  */
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
-let state: SessionState = { status: 'loading', user: null };
+let appMode: AppMode = 'local';
+let state: SessionState = { status: 'loading', user: null, mode: appMode };
 
 const listeners = new Set<() => void>();
 const clearedListeners = new Set<() => void>();
@@ -69,6 +72,16 @@ export function getSessionState(): SessionState {
   return state;
 }
 
+export function getAppMode(): AppMode {
+  return appMode;
+}
+
+export function setAppMode(mode: AppMode): void {
+  appMode = mode;
+  state = { ...state, mode: appMode };
+  emit();
+}
+
 export function getAccessToken(): string | null {
   return accessToken;
 }
@@ -81,7 +94,8 @@ export function getRefreshToken(): string | null {
 export function saveSession(session: Schemas['AuthResponseDto']): void {
   accessToken = session.accessToken;
   refreshToken = session.refreshToken;
-  state = { status: 'signed-in', user: session.user };
+  appMode = 'account';
+  state = { status: 'signed-in', user: session.user, mode: 'account' };
   void writeRefreshToken(session.refreshToken);
   void writeProfile(session.user);
   emit();
@@ -99,14 +113,15 @@ export function saveSession(session: Schemas['AuthResponseDto']): void {
  * null until a rotation succeeds.
  */
 export function restoreOfflineSession(profile: Schemas['UserProfileDto'] | null): void {
-  state = { status: 'signed-in', user: profile };
+  appMode = profile ? 'account' : appMode;
+  state = { status: 'signed-in', user: profile, mode: appMode };
   emit();
 }
 
 export function markSignedOut(): void {
   accessToken = null;
   refreshToken = null;
-  state = { status: 'signed-out', user: null };
+  state = { status: 'signed-out', user: null, mode: appMode };
   emit();
 }
 
@@ -137,6 +152,37 @@ export function clearSession(): void {
   });
 }
 
+const LOCAL_USER_ID = 'local-user';
+const LOCAL_USER_EMAIL = 'local@pluto.app';
+
+export function createLocalSession(baseCurrency = 'USD'): Schemas['UserProfileDto'] {
+  const user: Schemas['UserProfileDto'] = {
+    id: LOCAL_USER_ID,
+    email: LOCAL_USER_EMAIL,
+    name: 'Local User',
+    avatarUrl: null,
+    baseCurrency,
+    createdAt: new Date().toISOString(),
+  };
+  accessToken = null;
+  refreshToken = null;
+  appMode = 'local';
+  state = { status: 'signed-in', user, mode: 'local' };
+  void writeProfile(user);
+  emit();
+  return user;
+}
+
+export function ensureLocalSession(baseCurrency = 'USD'): Schemas['UserProfileDto'] {
+  if (state.status === 'signed-in' && state.user && appMode === 'local') {
+    return state.user;
+  }
+  if (state.status === 'signed-in' && state.user && appMode === 'account') {
+    return state.user;
+  }
+  return createLocalSession(baseCurrency);
+}
+
 /** Reads the persisted refresh token into memory without validating it. */
 export async function loadRefreshToken(): Promise<string | null> {
   refreshToken = await readRefreshToken();
@@ -158,7 +204,9 @@ export async function loadProfile(): Promise<Schemas['UserProfileDto'] | null> {
  * also the path a queued, replayed profile patch settles through.
  */
 export function setUser(user: Schemas['UserProfileDto'] | null): void {
-  state = { ...state, user };
+  state = { ...state, user, mode: appMode };
+  // The disk copy is what an offline boot restores the base currency from, in
+  // local mode as well as account mode. A local profile holds no credential.
   if (user) void writeProfile(user);
   else void deleteProfile();
   emit();

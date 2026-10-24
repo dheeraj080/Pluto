@@ -48,7 +48,7 @@ export interface MonthComparison {
 
 /** Month-to-date in the Pair, compared with the same days of last month. */
 export function useMonthComparison(base: string | null, second: string | null): MonthComparison {
-  const { status } = useSession();
+  const { status, mode } = useSession();
   const window = useMemo(() => monthToDate(), []);
   const key = useMemo(
     () => ({
@@ -62,7 +62,7 @@ export function useMonthComparison(base: string | null, second: string | null): 
 
   const query = useQuery({
     queryKey: queryKeys.dashboard.comparison(key),
-    enabled: status === 'signed-in',
+    enabled: status === 'signed-in' || mode === 'local',
     queryFn: ({ signal }) =>
       reportStore.comparison(
         {

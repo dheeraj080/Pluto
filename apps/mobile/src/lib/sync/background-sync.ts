@@ -31,6 +31,9 @@ const PERIODIC_SYNC_MS = 5 * 60 * 1000;
  */
 export function startBackgroundSync(): () => void {
   if (!localStoreEnabled) return () => {};
+  // The free plan keeps everything on-device: there is no account to reconcile
+  // with, so no trigger (reconnect, foreground, timer) should ever call the API.
+  if ((getSessionState() as any).mode === 'local') return () => {};
 
   // Registrations that outlive a signed-in period (the purge listener) versus
   // those that must be dropped when the session ends (connectivity, timers).
@@ -42,6 +45,12 @@ export function startBackgroundSync(): () => void {
   // that needs it happens *because* the session ended.
   lifetimeDisposers.push(
     onSessionCleared(() => {
+      // A local session has no server copy — wiping the mirror here would
+      // delete the free plan's only data on a routine sign-out. Only an
+      // account's credentials loss purges.
+      try {
+        if ((getSessionState() as any).mode === 'local') return;
+      } catch {}
       // Best-effort, like the rest of sign-out: a purge that fails leaves
       // rows for the next sign-in's clear to retry, never wrong data — the
       // query cache and the persisted snapshot are dropped independently.
@@ -49,8 +58,8 @@ export function startBackgroundSync(): () => void {
     }),
   );
 
-  // A launch that settles signed-out — no credential, or one the server
-  // refused — may have been killed mid-clear by the previous process, so
+  // A launch that settles signed-out - no credential, or one the server
+  // refused - may have been killed mid-clear by the previous process, so
   // sweep whatever it left. A launch that merely *reached* an unreachable
   // server is signed-in by now (see `bootstrapSession`) and is deliberately
   // not purged: that is the offline relaunch which once wiped the queue.
@@ -100,7 +109,13 @@ export function startBackgroundSync(): () => void {
   };
 
   applyStatus(getSessionState().status);
-  const unsubscribe = subscribeSession(() => applyStatus(getSessionState().status));
+  const unsubscribe = subscribeSession(() => {
+    if ((getSessionState() as any).mode === 'local') {
+      detach();
+      return;
+    }
+    applyStatus(getSessionState().status);
+  });
 
   return () => {
     unsubscribe();

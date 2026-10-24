@@ -25,11 +25,11 @@ export type BudgetPeriod = Budget['period'];
  * call.
  */
 export function useBudgetStatus(params: BudgetStatusParams) {
-  const { status } = useSession();
+  const { status, mode } = useSession();
 
   return useQuery({
     queryKey: queryKeys.budgets.status(params),
-    enabled: status === 'signed-in',
+    enabled: status === 'signed-in' || mode === 'local',
     queryFn: ({ signal }) =>
       reportStore.budgetStatus(
         { month: params.month, base: params.base, secondary: params.secondary },

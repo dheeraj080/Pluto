@@ -3,6 +3,7 @@ import type { Schemas } from '@pluto/api-client';
 
 import { api } from '@/lib/api';
 import { queryKeys } from '@/lib/query-keys';
+import { useSession } from '@/hooks/use-session';
 import { localStoreEnabled } from '@/lib/store';
 import {
   currencyCacheSeeded,
@@ -31,13 +32,21 @@ export type SupportedCurrency = Schemas['SupportedCurrencyDto'];
  * surfaces instead of being papered over.
  */
 export function useSupportedCurrencies() {
+  const { status, mode } = useSession();
   return useQuery({
     queryKey: queryKeys.currencies.all,
     // Effectively static within a session.
     staleTime: 60 * 60_000,
+    enabled: status === 'signed-in' || mode === 'local',
+    retry: false,
     queryFn: async () => {
       if (!localStoreEnabled) {
-        return api.get<Schemas['SupportedCurrencyDto'][]>('/rates/supported-currencies');
+        try {
+          return await api.get<Schemas['SupportedCurrencyDto'][]>('/rates/supported-currencies');
+        } catch {
+          // Fallback to empty/local data
+          throw new Error('Could not load currencies');
+        }
       }
 
       try {
@@ -49,17 +58,23 @@ export function useSupportedCurrencies() {
         await markCurrencyCacheSeeded(database);
         return remote;
       } catch (error) {
-        const database = await getDatabase();
-        // A fetched list keeps mirror-beats-error: it is the server's own
-        // answer, and the endpoint is effectively static.
-        if (await currencyCacheSeeded(database)) return listLocalCurrencies(database);
-        // Never fetched: a status the server did answer with surfaces as a
-        // verdict, while a request that never got one falls back to the
-        // bundled registry seed (quietly empty only when even that is gone).
-        if (!isNetworkLevelError(error)) throw error;
-        const cached = await listLocalCurrencies(database);
-        if (cached.length > 0) return cached;
-        throw error;
+        try {
+          const database = await getDatabase();
+          // A fetched list keeps mirror-beats-error: it is the server's own
+          // answer, and the endpoint is effectively static.
+          if (await currencyCacheSeeded(database)) return listLocalCurrencies(database);
+          // Never fetched: a status the server did answer with surfaces as a
+          // verdict, while a request that never got one falls back to the
+          // bundled registry seed (quietly empty only when even that is gone).
+          if (!isNetworkLevelError(error)) throw error;
+          const cached = await listLocalCurrencies(database);
+          if (cached.length > 0) return cached;
+          // Return cached even if empty to avoid crashing
+          return cached;
+        } catch {
+          // Last resort - return empty array
+          return [];
+        }
       }
     },
   });

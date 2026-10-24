@@ -943,7 +943,11 @@ Kubernetes configuration probes:
 - **Liveness Probe**: `GET /v1/health/live` (initialDelaySeconds: 15, periodSeconds: 20) — process-only; never restarts instances because Postgres is down
 - **Readiness Probe**: `GET /v1/health/ready` (initialDelaySeconds: 5, periodSeconds: 10) — 503 while the database is unreachable, so traffic is drained rather than restarted into a loop
 
-`render.yaml` and the Dockerfile `HEALTHCHECK` use `/v1/health/ready` for the same reason.
+`render.yaml` uses `/v1/health/ready` as its deploy gate, so a rollout waits for
+the database. The Dockerfile `HEALTHCHECK` uses `/v1/health/live`: Docker runs it
+every 30 seconds, and a database query there would keep a scale-to-zero database
+such as Neon's free tier awake 24/7. Deploy gates (`deploy.sh`) still poll
+`/v1/health/ready`.
 
 ---
 

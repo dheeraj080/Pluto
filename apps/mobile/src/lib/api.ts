@@ -81,27 +81,40 @@ function rotateSession(): Promise<RefreshOutcome> {
  * Restores a session on launch: read the persisted refresh token, then
  * exchange it for a fresh pair.
  *
- * A token the server refuses is discarded — that is real credential loss. An
- * unreachable server is not: the session restores to signed-in from the
- * persisted profile so a launch without connectivity boots into the app
- * (local store, mirrored figures, queued writes intact) instead of parking at
- * the sign-in screen. The first authenticated call retries the rotation; a
- * real rejection downgrades the session and clears everything then.
+ * For the free/offline plan, we default to a local session with no auth.
  */
 export async function bootstrapSession(): Promise<void> {
-  const stored = await session.loadRefreshToken();
-  if (!stored) {
-    session.markSignedOut();
-    return;
-  }
+  try {
+    const stored = await session.loadRefreshToken();
+    if (!stored) {
+      // Free plan: no credential means a local session, not a dead end. The
+      // persisted profile carries the base currency chosen on a previous launch.
+      const localProfile = await session.loadProfile();
+      session.ensureLocalSession(localProfile?.baseCurrency ?? 'USD');
+      return;
+    }
 
-  const outcome = await rotateSession();
-  if (outcome === 'refreshed') return;
-  if (outcome === 'rejected') {
-    session.clearSession();
-    return;
+    const outcome = await rotateSession();
+    if (outcome === 'refreshed') return;
+    if (outcome === 'rejected') {
+      session.clearSession();
+      // Fall back to local session when credentials are rejected
+      const localProfile = await session.loadProfile();
+      session.ensureLocalSession(localProfile?.baseCurrency ?? 'USD');
+      return;
+    }
+    // Unreachable server - go to local/offline mode instead of trying to sync
+    const localProfile = await session.loadProfile();
+    session.ensureLocalSession(localProfile?.baseCurrency ?? 'USD');
+  } catch {
+    // Any bootstrap error - fall back to local session
+    try {
+      const localProfile = await session.loadProfile();
+      session.ensureLocalSession(localProfile?.baseCurrency ?? 'USD');
+    } catch {
+      session.ensureLocalSession('USD');
+    }
   }
-  session.restoreOfflineSession(await session.loadProfile());
 }
 
 /**
@@ -122,14 +135,20 @@ export async function devLogin(): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
-  const token = session.getRefreshToken();
-  if (token) {
-    try {
-      await api.post('/auth/logout', { refreshToken: token });
-    } catch (error) {
-      if (!(error instanceof ApiError)) throw error;
-      // Best-effort: the local session is cleared regardless.
+  try {
+    const token = session.getRefreshToken();
+    if (token) {
+      try {
+        await api.post('/auth/logout', { refreshToken: token });
+      } catch (error) {
+        if (!(error instanceof ApiError)) {
+          // Still clear local session
+        }
+        // Best-effort: the local session is cleared regardless.
+      }
     }
+  } catch {
+    // Ignore any errors during sign out
   }
   session.clearSession();
 }

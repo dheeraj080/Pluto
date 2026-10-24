@@ -25,8 +25,9 @@ managed backups.
   An IP-only deployment (`API_DOMAIN=:80`) works but is HTTP and unsuitable for
   real users.
 - A PostgreSQL connection string (Neon or equivalent) with `sslmode=require`.
-- Inbound TCP `80` and `443`, plus UDP `443` if you want HTTP/3. **Do not** open
-  the API port (`3000`) or the database port to the internet.
+- Inbound TCP `80` and `443`, plus UDP `443` if you want HTTP/3, on **both**
+  IPv4 and IPv6. **Do not** open the API port (`3000`) or the database port to
+  the internet.
 
 ## 1. Prepare the host
 
@@ -49,6 +50,24 @@ sudo mkswap /swapfile
 sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
+
+### GCP e2-micro specifics
+
+The default VPC has no inbound web rule. Tag the instance and allow HTTP/HTTPS
+(both address families):
+
+```bash
+gcloud compute firewall-rules create pluto-web \
+  --allow tcp:80,tcp:443,udp:443 \
+  --source-ranges 0.0.0.0/0,::/0 \
+  --target-tags pluto-web
+gcloud compute instances add-tags <instance> --tags pluto-web --zone <zone>
+```
+
+Add `--network <name>` to the firewall rule if the VM is not on `default`. A
+GCE instance also needs an external IP (or a load balancer) for Let's Encrypt to
+reach it; the free e2-micro's ~1 GB/month North America egress is a traffic cap,
+not a memory cap (see the note below).
 
 ## 2. Configure
 
@@ -108,7 +127,9 @@ Building needs roughly 2 GB of RAM (the npm install and Nest compile). On a
    `bash deploy.sh pull`.
 
 Any registry works; `PLUTO_IMAGE` is just a tag. To deploy a specific build,
-use the `sha-<short>` tag the workflow produces.
+use the `sha-<short>` tag the workflow produces. `deploy.sh pull` refuses to run
+when `PLUTO_IMAGE` is empty, so it cannot silently fall back to Docker Hub's
+`pluto-server:latest`.
 
 ## 4. Verify
 
@@ -123,6 +144,10 @@ curl -fsS https://api.pluto.example/v1/health/ready
 - `https://api.pluto.example/v1/rates/latest` is a useful authenticated-free
   smoke test of the rate table.
 
+`docker compose ps` reports `healthy` from the image's **liveness** check
+(`/live`), so a green container does not prove Postgres is reachable; the deploy
+gate and the verification curl above use `/ready`.
+
 Set `EXPO_PUBLIC_API_URL=https://api.pluto.example/v1` for the mobile/web
 clients, and add the web origin to `CORS_ORIGIN` and to the Google Web client's
 authorized origins.
@@ -131,6 +156,13 @@ authorized origins.
 
 **Logs.** `docker compose logs -f api` (capped at 10 MB × 3 files per
 container). The API logs one line per request and prints to stdout.
+
+**Disk.** Logs are capped; images are not. After a successful deploy,
+`deploy.sh` prunes unused images older than 14 days
+(`docker image prune -af --filter "until=336h"`) and, in build mode, build cache
+older than 7 days. The running image and Caddy are never pruned, so there is
+always a rollback target within the window. Check usage with `docker system df`;
+old layers are the usual way a 1 GB VM fills its disk.
 
 **Updates.**
 
@@ -153,8 +185,11 @@ API first (`docker compose stop api`) and accept a short outage.
 **Migrations only.**
 
 ```bash
-docker compose --profile tools run --rm migrate
+docker compose --profile tools run --rm --no-build migrate
 ```
+
+`--no-build` reuses the image already on the host. Run `bash deploy.sh pull` (or
+build once) first; without it, Compose may try a full compile on the VM.
 
 **Background jobs.** The VM is always on, so the daily rate sync and hourly
 cleanup cron run in-process — unlike Render's free plan, which spins down and
@@ -166,8 +201,11 @@ no-op.
 the VM is a backup: the only durable state is PostgreSQL (object storage, when
 enabled, is S3-compatible and external).
 
-**Monitoring.** Point an external uptime check at `/v1/health/ready` (and, if
-you want an alert on a database outage, at `/v1/health`). The app has no Sentry
+**Monitoring.** Point the external uptime check at `/v1/health/live` (no database
+access). Alert on `/v1/health/ready` only if you accept the cost: every request
+runs `SELECT 1`, so a 30-second poll keeps a scale-to-zero database such as
+Neon's free tier awake and consumes its compute allowance. `/v1/health` is the
+full diagnostic report and also queries the database. The app has no Sentry
 integration, so the container logs are the only error trail.
 
 ## Memory on a 1 GB VM
@@ -203,8 +241,9 @@ service its own limit. Do not add Postgres.
 
 | Symptom | Likely cause |
 | :--- | :--- |
-| `deploy.sh` exits on `API_DOMAIN` | `.env` is missing, the value is empty, or it is still `api.example.com`; Compose interpolates it with `:?` |
+| `deploy.sh` exits on `API_DOMAIN` | `.env` is missing, the value is empty, it is still `api.example.com`, or it contains a scheme/path — use a bare hostname |
 | Caddy logs `obtaining certificate` errors | DNS does not point at the VM yet, or inbound `80`/`443` is blocked |
+| Certificate issuance fails behind Cloudflare | the record is proxied and "Always Use HTTPS" redirects the HTTP-01 challenge — set it to DNS-only for the first issuance, then re-enable the proxy, or use Caddy's DNS challenge |
 | `502` from Caddy | the API container is restarting — `docker compose logs api` |
 | `/ready` stays `503` | `DATABASE_URL` is wrong, the DB is asleep/unreachable, or `channel_binding=require` was left in the URL |
 | `prisma migrate deploy` fails with P1001 | the migration service cannot reach the database; check the URL and the provider's IP allow-list |
@@ -214,8 +253,8 @@ service its own limit. Do not add Postgres.
 
 ## Security checklist
 
-- [ ] Firewall allows only `22` (ideally from a bastion/IAP), `80`, `443/tcp`,
-      `443/udp`.
+- [ ] Firewall allows only `22` (ideally from a bastion/IAP), `80`, `443/tcp`
+      and `443/udp` — on both IPv4 and IPv6.
 - [ ] `.env` is `chmod 600` and never committed (the repo ignores `.env*`).
 - [ ] `JWT_ACCESS_SECRET`, `RATES_SYNC_TOKEN` and DB credentials differ from
       staging.

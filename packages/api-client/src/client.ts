@@ -87,6 +87,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       });
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') throw error;
+      // For offline scenarios, don't show scary errors
       throw new ApiError(0, 'Could not reach the server. Check your connection and try again.');
     }
 

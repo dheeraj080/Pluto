@@ -93,7 +93,10 @@ USER node
 
 EXPOSE 3000
 
+# Liveness only. Pointing the Docker healthcheck at /ready would run SELECT 1
+# every 30s and keep a scale-to-zero database (Neon) awake 24/7, burning the
+# free compute allowance. Deploys and uptime checks gate on /v1/health/ready.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://localhost:' + (process.env.PORT || 3000) + '/v1/health/ready').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
+  CMD node -e "fetch('http://localhost:' + (process.env.PORT || 3000) + '/v1/health/live').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
 CMD ["node", "apps/server/dist/apps/server/src/main.js"]

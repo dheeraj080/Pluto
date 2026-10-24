@@ -16,11 +16,11 @@ export type ExpenseCategory = Schemas['ExpenseCategoryDto'];
  * account has none.
  */
 export function useCategories() {
-  const { status } = useSession();
+  const { status, mode } = useSession();
 
   return useQuery({
     queryKey: queryKeys.categories.all,
-    enabled: status === 'signed-in',
+    enabled: status === 'signed-in' || mode === 'local',
     queryFn: () => categoryStore.list(),
   });
 }

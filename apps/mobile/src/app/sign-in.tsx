@@ -13,6 +13,7 @@ import { GOOGLE_WEB_CLIENT_ID } from '@/lib/env';
 import { errorMessage } from '@/lib/errors';
 import { requestGoogleIdToken } from '@/lib/google-sign-in';
 import { HOME } from '@/lib/routes';
+import { ensureLocalSession } from '@/lib/session';
 
 /**
  * The way in.
@@ -54,6 +55,13 @@ export default function SignInScreen() {
       .finally(() => setBusy(null));
   }, []);
 
+  /** Enter the free plan: a local session with no account and no network. */
+  const onContinueOffline = useCallback(() => {
+    setError(null);
+    ensureLocalSession();
+    router.replace(HOME);
+  }, []);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <Card style={styles.card}>
@@ -64,16 +72,22 @@ export default function SignInScreen() {
           </Text>
         </View>
 
+        <Button
+          label="Continue offline (Free plan)"
+          onPress={onContinueOffline}
+          busy={busy !== null}
+          disabled={busy !== null}
+        />
+
         {googleConfigured ? (
           <Button
-            label="Continue with Google"
+            label="Sign in with Google (Sync & Backup)"
             onPress={onGoogleSignIn}
             busy={busy === 'google'}
             disabled={busy !== null}
+            variant="secondary"
           />
-        ) : (
-          <ErrorNote message="Google Sign-In is not configured (EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing)." />
-        )}
+        ) : null}
 
         {error ? <ErrorNote message={error} /> : null}
 

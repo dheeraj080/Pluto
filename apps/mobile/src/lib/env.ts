@@ -4,7 +4,7 @@
  * `EXPO_PUBLIC_*` variables are inlined by Metro at build time (see
  * `.env.example` for the per-target values).
  */
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1'; // Use localhost as fallback but will fail gracefully
 
 /**
  * Google OAuth *web* client ID — the audience Google stamps onto the ID token.
