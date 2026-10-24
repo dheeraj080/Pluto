@@ -131,8 +131,7 @@ async function main(): Promise<void> {
           snapshotId: created.id,
           quoteCurrency: r.quoteCurrency,
           rate: new Prisma.Decimal(r.rate.toFixed(6)),
-          effectiveDate: new Date(`${r.effectiveDate}T00:00:00.000Z`),
-        })),
+        })) as any,
       });
 
       return created;
