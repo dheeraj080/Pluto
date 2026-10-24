@@ -17,6 +17,10 @@ import type { ExpoConfig } from 'expo/config';
 function assertProductionConfig(): void {
   if (process.env.EAS_BUILD_PROFILE !== 'production') return;
 
+  // Offline-only releases work fully local with no server and no Google auth,
+  // so they don't need an API URL or OAuth client ID.
+  if (process.env.EXPO_PUBLIC_OFFLINE_ONLY === 'true') return;
+
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   const apiProblem = !apiUrl
     ? 'EXPO_PUBLIC_API_URL is not set'
@@ -123,7 +127,7 @@ const config: ExpoConfig = {
   // builds (CI, `eas build --non-interactive`) to resolve the project without a
   // logged-in CLI picking an account.
   owner: 'dheeeraj_k',
-  version: '0.1.0',
+  version: '0.0.1',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'pluto',

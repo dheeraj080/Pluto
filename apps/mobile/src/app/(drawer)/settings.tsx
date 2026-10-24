@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -42,7 +42,10 @@ const APPEARANCE_OPTIONS: readonly { value: ThemePreference; label: string }[] =
  * here is reflected immediately, without a "save" step or a round-trip for the
  * second half.
  */
-export default function SettingsScreen({ navigation }: { navigation: { openDrawer: () => void } }) {
+export default function SettingsScreen() {
+  // `useNavigation()` returns the generic root navigation type; the drawer
+  // navigator adds `openDrawer` at runtime, so cast for the drawer screens.
+  const navigation = useNavigation() as { openDrawer: () => void };
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const themePreference = useThemePreference();

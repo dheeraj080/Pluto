@@ -42,6 +42,7 @@ export function AppPageHeader({
           hitSlop={8}
           onPress={onOpenDrawer}
           style={styles.menu}
+          testID="open-navigation-menu"
         >
           <IconMenu size={20} color={theme.ink} />
         </Pressable>

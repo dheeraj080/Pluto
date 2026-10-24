@@ -21,7 +21,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useConfirm } from '@/components/ui/confirm';
@@ -61,7 +61,10 @@ const TAB_OPTIONS: { value: Tab; label: string }[] = [
   { value: 'breakdown', label: 'Breakdown' },
 ];
 
-export default function ReportsScreen({ navigation }: { navigation: { openDrawer: () => void } }) {
+export default function ReportsScreen() {
+  // `useNavigation()` returns the generic root navigation type; the drawer
+  // navigator adds `openDrawer` at runtime, so cast for the drawer screens.
+  const navigation = useNavigation() as { openDrawer: () => void };
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const { base, second } = usePair();

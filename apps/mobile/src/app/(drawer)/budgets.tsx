@@ -15,7 +15,7 @@
 
 import { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { BudgetRow } from '@/components/budgets/budget-row';
@@ -40,7 +40,10 @@ import { queryKeys } from '@/lib/query-keys';
 import { monthEndIso, shiftMonth } from '@/lib/ranges';
 import { activityHref } from '@/lib/routes';
 
-export default function BudgetsScreen({ navigation }: { navigation: { openDrawer: () => void } }) {
+export default function BudgetsScreen() {
+  // `useNavigation()` returns the generic root navigation type; the drawer
+  // navigator adds `openDrawer` at runtime, so cast for the drawer screens.
+  const navigation = useNavigation() as { openDrawer: () => void };
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const queryClient = useQueryClient();

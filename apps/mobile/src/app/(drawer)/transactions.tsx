@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 
@@ -53,7 +53,10 @@ function dateChipLabel(range: ActivityDateRange): string {
   }
 }
 
-export default function ActivityScreen({ navigation }: { navigation: { openDrawer: () => void } }) {
+export default function ActivityScreen() {
+  // `useNavigation()` returns the generic root navigation type; the drawer
+  // navigator adds `openDrawer` at runtime, so cast for the drawer screens.
+  const navigation = useNavigation() as { openDrawer: () => void };
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const [now] = useState(() => new Date());

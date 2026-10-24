@@ -18,12 +18,15 @@
 #                                its project. Written to a temp file for the
 #                                step and never persisted.
 #
-# The production profile's build-time environment (EXPO_PUBLIC_API_URL,
-# EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, EXPO_PUBLIC_SENTRY_DSN) lives on EAS, set
-# with `eas env:create --environment production` — see docs/RELEASE.md. It is
-# deliberately not passed here: app.config.ts refuses a production build whose
-# required values are missing, so a misconfigured release fails in this job
-# rather than on a user's phone.
+# The production profile's build-time environment lives on EAS, set
+# with `eas env:create --environment production` — see docs/RELEASE.md.
+# It is deliberately not passed here: app.config.ts refuses a production
+# build whose required values are missing, so a misconfigured release
+# fails in this job rather than on a user's phone.
+#
+# For an offline-only release (no server, no Google auth), set
+# EXPO_PUBLIC_OFFLINE_ONLY=true on the production profile instead of
+# EXPO_PUBLIC_API_URL and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.
 
 name: EAS release
 
@@ -96,6 +99,14 @@ jobs:
       - name: Build on EAS
         working-directory: apps/mobile
         run: npx eas-cli@latest build --platform android --profile "${{ inputs.profile }}" --non-interactive --wait
+
+      - name: Upload the APK as a workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pluto-release-apk
+          path: apps/mobile/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
 
       - name: Submit to Google Play
         if: ${{ inputs.submit }}

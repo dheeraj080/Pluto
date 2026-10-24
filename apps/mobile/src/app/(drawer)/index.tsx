@@ -19,7 +19,7 @@
  */
 
 import { useCallback } from 'react';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PairCard } from '@/components/dashboard/pair-card';
@@ -42,7 +42,10 @@ import { useScreenPadding } from '@/hooks/use-screen-padding';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateRange } from '@/lib/format';
 
-export default function DashboardScreen({ navigation }: { navigation: { openDrawer: () => void } }) {
+export default function DashboardScreen() {
+  // `useNavigation()` returns the generic root navigation type; the drawer
+  // navigator adds `openDrawer` at runtime, so cast for the drawer screens.
+  const navigation = useNavigation() as { openDrawer: () => void };
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const { base, second } = usePair();
