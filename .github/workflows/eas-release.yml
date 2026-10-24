@@ -8,15 +8,15 @@
 # a token allowed to start the build.
 #
 # Required repository secrets:
-#   EXPO_TOKEN                 — an Expo access token for the dheeeraj_k account
-#                                (expo.dev → Account settings → Access tokens).
-#                                It is read from the environment by eas-cli
-#                                automatically; nothing is logged.
+#   EXPO_TOKEN                — an Expo access token for the dheeeraj_k account
+#                               (expo.dev → Account settings → Access tokens).
+#                               It is read from the environment by eas-cli
+#                               automatically; nothing is logged.
 #   GOOGLE_SERVICE_ACCOUNT_KEY — only for `submit`: the raw JSON key of a Play
-#                                Console service account with *Release manager*
-#                                access and the Android Publisher API enabled on
-#                                its project. Written to a temp file for the
-#                                step and never persisted.
+#                               Console service account with *Release manager*
+#                               access and the Android Publisher API enabled on
+#                               its project. Written to a temp file for the
+#                               step and never persisted.
 #
 # The production profile's build-time environment lives on EAS, set
 # with `eas env:create --environment production` — see docs/RELEASE.md.
@@ -72,6 +72,10 @@ jobs:
       # package.json pins npm@11.16.0; Node 20.19 ships npm 10.8.
       - name: Use the repo's pinned npm
         run: npm install --global npm@11.16.0 && npm --version
+
+      # Ensures lockfile and package configuration are completely in sync on the runner before installing
+      - name: Sync dependencies and lockfile
+        run: npm install
 
       - name: Install the monorepo
         run: npm ci
