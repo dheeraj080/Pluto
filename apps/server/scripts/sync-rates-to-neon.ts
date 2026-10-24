@@ -127,18 +127,17 @@ async function main(): Promise<void> {
         },
       });
 
-      // Insert exchange rates via raw SQL to bypass Prisma schema validation:
-      // the target Neon DB may not have the effectiveDate column yet, which
-      // Prisma's ExchangeRate model requires. Raw SQL omits that column entirely.
+      // Insert exchange rates via raw SQL to bypass Prisma schema validation.
       const now = new Date();
       for (const r of rates) {
         const id = crypto.randomUUID();
         await tx.$executeRawUnsafe(
-          `INSERT INTO "exchange_rates" ("id", "snapshotId", "quoteCurrency", "rate") VALUES ($1, $2, $3, $4)`,
+          `INSERT INTO "exchange_rates" ("id", "snapshotId", "quoteCurrency", "rate", "effectiveDate") VALUES ($1, $2, $3, $4::numeric, $5::date)`,
           id,
           created.id,
           r.quoteCurrency.toUpperCase(),
           r.rate.toFixed(6),
+          r.effectiveDate,
         );
       }
 
