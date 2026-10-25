@@ -589,7 +589,7 @@ export class RatesService {
   // Storage helpers
   // -------------------------------------------------------------------------
 
-  private async findLatestPublishedSnapshot(baseCurrency: string) {
+  private findLatestPublishedSnapshot(baseCurrency: string) {
     return this.prisma.rateSnapshot.findFirst({
       where: {
         baseCurrency,
@@ -599,7 +599,7 @@ export class RatesService {
     });
   }
 
-  private async findLatestSnapshotWithRates(baseCurrency: string) {
+  private findLatestSnapshotWithRates(baseCurrency: string) {
     return this.prisma.rateSnapshot.findFirst({
       where: { baseCurrency, isPublished: true },
       orderBy: { version: 'desc' },
