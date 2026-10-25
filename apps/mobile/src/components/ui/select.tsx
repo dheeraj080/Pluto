@@ -6,17 +6,19 @@
  * closes the sheet. The backdrop closes on tap or Android back.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconCheck, IconChevronDown } from '@/components/icons';
 import { borderWidth, radius, spacing, text } from '@/theme';
@@ -66,17 +68,33 @@ export function Select({
   style,
 }: SelectProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const showSearch = options.length > 15;
+
+  const filteredOptions = useMemo(() => {
+    if (!showSearch || !search.trim()) return options;
+    const query = search.trim().toLowerCase();
+    return options.filter((option) => option.label.toLowerCase().includes(query));
+  }, [options, search, showSearch]);
 
   const selectedIndex = options.findIndex((option) => option.value === value);
   const selected = selectedIndex >= 0 ? options[selectedIndex] : null;
   const triggerLabel = selected ? selected.label : placeholder;
 
   const handleOpen = () => {
-    if (!disabled) setOpen(true);
+    if (!disabled) {
+      setSearch('');
+      setOpen(true);
+    }
   };
 
-  const handleClose = () => setOpen(false);
+  const handleClose = () => {
+    setSearch('');
+    setOpen(false);
+  };
 
   const handleSelect = (nextValue: string) => {
     onChange(nextValue);
@@ -163,18 +181,35 @@ export function Select({
           <Pressable
             accessibilityViewIsModal
             accessibilityRole="none"
-            style={[styles.sheet, { backgroundColor: theme.surface }]}
+            style={[
+              styles.sheet,
+              { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, spacing.xl) },
+            ]}
             onPress={(e: any) => e.stopPropagation()}
           >
             <View style={[styles.sheetHandle, { backgroundColor: theme.border }]} />
+            {showSearch ? (
+              <View style={[styles.searchWrap, { borderColor: theme.border }]}>
+                <TextInput
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Search…"
+                  placeholderTextColor={theme.muted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={[styles.searchInput, text.body, { color: theme.ink }]}
+                  returnKeyType="search"
+                />
+              </View>
+            ) : null}
             <ScrollView
               style={styles.options}
               contentContainerStyle={styles.optionsContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {options.map((option, index) => {
-                const isSelected = index === selectedIndex;
+              {filteredOptions.map((option) => {
+                const isSelected = options.findIndex((o) => o.value === option.value) === selectedIndex && option.value === value;
                 const isDisabled = option.disabled;
                 return (
                   <Pressable
@@ -260,7 +295,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.xxl,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl,
-    maxHeight: '70%',
+    maxHeight: '80%',
   },
   sheetHandle: {
     alignSelf: 'center',
@@ -268,6 +303,17 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: radius.pill,
     marginBottom: spacing.sm,
+  },
+  searchWrap: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    borderWidth: borderWidth.hairline,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  searchInput: {
+    padding: 0,
   },
   options: { flexShrink: 1 },
   optionsContent: { paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },

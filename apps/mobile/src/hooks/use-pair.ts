@@ -8,6 +8,7 @@ import {
 } from '@/lib/pair-storage';
 import { useSession } from '@/hooks/use-session';
 import { useUpdateProfile } from '@/hooks/use-user';
+import { getSessionState, setUser } from '@/lib/session';
 
 export interface Pair {
   /** Reporting currency the server aggregates in; null lets the server default apply. */
@@ -50,6 +51,10 @@ export function usePair(): Pair {
 
   const setBase = useCallback(
     (code: string) => {
+      const current = getSessionState().user;
+      if (current) {
+        setUser({ ...current, baseCurrency: code });
+      }
       updateProfile({ baseCurrency: code });
     },
     [updateProfile],

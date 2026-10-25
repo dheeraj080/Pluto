@@ -14,6 +14,7 @@ This block is written and re-added by `turbo` before repository-scoped commands 
 - **Platform**: Windows (win32). Do not use Linux/macOS shell commands (e.g., `rm`, `cp`, `mv`, `grep`, `find`, `sed`, `awk`, `cat`, `ls` with Unix-specific flags). Use Windows equivalents (PowerShell/cmd) or the provided tools (`read`, `write`, `edit`, `glob`, `grep`).
 - **Shell**: Prefer PowerShell commands when using the shell tool. File paths use backslashes on Windows.
 - **Tools over shell**: Use the dedicated tools (`read`, `write`, `edit`, `glob`, `grep`) instead of shell commands whenever possible.
+- **Windows shell gotchas**: `head`, `tail`, `grep`, `sed`, `awk`, `cut`, `xargs` are not available in cmd/PowerShell by default. Use PowerShell cmdlets (`Get-Content`, `Select-Object`, `Select-String`) or just `type`/`more`. Piping through non-existent Unix tools will fail. Don't chain with `| head -n N`. For reading file tails/heads, use `Get-Content <file> -TotalCount N` or read ranges.
 
 # Project Notes
 

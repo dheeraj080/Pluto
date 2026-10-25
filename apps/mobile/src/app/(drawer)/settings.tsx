@@ -79,6 +79,17 @@ export default function SettingsScreen() {
     [currencyOptions, base],
   );
 
+  const handleBaseChange = useCallback(
+    (value: string) => {
+      if (!value) return;
+      if (second && second === value) {
+        setSecond(null);
+      }
+      setBase(value);
+    },
+    [second, setBase, setSecond],
+  );
+
   // Rates are quoted against the base, so ask for the base snapshot directly.
   const snapshot = useRateSnapshot(base ?? undefined);
   const rate = second && snapshot.data ? Number(snapshot.data.rates[second]) : Number.NaN;
@@ -159,7 +170,7 @@ export default function SettingsScreen() {
             <Select
               accessibilityLabel="Home currency"
               value={base ?? ''}
-              onChange={setBase}
+              onChange={handleBaseChange}
               options={currencyOptions}
             />
 
@@ -175,7 +186,7 @@ export default function SettingsScreen() {
             <Text style={[text.captionStrong, { color: theme.muted }]}>SECOND</Text>
             <Select
               accessibilityLabel="Second currency"
-              value={second ?? ''}
+              value={second && base && second === base ? '' : second ?? ''}
               onChange={(value) => setSecond(value === '' ? null : value)}
               options={secondOptions}
             />
