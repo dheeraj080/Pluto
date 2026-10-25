@@ -43,7 +43,7 @@ export function AddExpenseDrawer({
       className="fixed inset-0 z-50"
     >
       <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-black/60" />
-      <div className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-border bg-paper shadow-2xl">
+      <div className="absolute inset-y-0 right-0 z-10 flex w-full max-w-md flex-col border-l border-border bg-surface shadow-2xl">
         <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">Add expense</p>
