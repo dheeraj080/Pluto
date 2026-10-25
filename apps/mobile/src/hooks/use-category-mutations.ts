@@ -2,7 +2,12 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import type { Schemas } from '@pluto/api-client';
 
 import { categoryStore, localStoreEnabled } from '@/lib/store';
+import { syncNow } from '@/lib/sync/sync-engine';
 import { queryKeys } from '@/lib/query-keys';
+
+function requestSync(): void {
+  if (localStoreEnabled) void syncNow();
+}
 
 /**
  * A rename or a recolour changes the label and the dot on every cached expense
@@ -35,7 +40,10 @@ export function useCreateCategory() {
 
   return useMutation({
     mutationFn: (body: Schemas['CreateCategoryDto']) => categoryStore.create(body),
-    onSuccess: () => refreshCategories(client),
+    onSuccess: () => {
+      void refreshCategories(client);
+      requestSync();
+    },
   });
 }
 
@@ -45,7 +53,10 @@ export function useUpdateCategory() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: Schemas['UpdateCategoryDto'] }) =>
       categoryStore.update(id, body),
-    onSuccess: () => refreshCategories(client),
+    onSuccess: () => {
+      void refreshCategories(client);
+      requestSync();
+    },
   });
 }
 
@@ -62,6 +73,9 @@ export function useDeleteCategory() {
   return useMutation({
     mutationFn: ({ id, reassignTo }: { id: string; reassignTo?: string }) =>
       categoryStore.remove(id, { reassignTo }),
-    onSuccess: () => refreshCategories(client),
+    onSuccess: () => {
+      void refreshCategories(client);
+      requestSync();
+    },
   });
 }

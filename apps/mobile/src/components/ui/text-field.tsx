@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { StyleSheet, Text, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 
 import { borderWidth, radius, spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -13,12 +13,13 @@ export function TextField({
   hint,
   error,
   style,
+  containerStyle,
   ...rest
-}: TextInputProps & { label?: string; hint?: string; error?: string }) {
+}: TextInputProps & { label?: string; hint?: string; error?: string; containerStyle?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, containerStyle]}>
       {label ? <Text style={[text.bodyMedium, { color: theme.ink }]}>{label}</Text> : null}
 
       <TextInput

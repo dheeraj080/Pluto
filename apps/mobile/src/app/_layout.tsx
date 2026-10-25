@@ -14,25 +14,30 @@ import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import * as Sentry from '@sentry/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
+import * as Sentry from '@sentry/react-native';
 import { bootstrapSession } from '@/lib/api';
-import {
-  initCrashReporting,
-  setCrashReportingUser,
-} from '@/lib/crash-reporting';
-import { hydrateSecondaryCurrency } from '@/lib/pair-storage';
+import { router, usePathname } from 'expo-router';
+
+import { Wordmark } from '@/components/logo';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { ErrorNote, Spinner } from '@/components/ui/feedback';
+import { layout, spacing, text } from '@/theme';
+
 import { getQueryClient } from '@/lib/query-client';
+import { initCrashReporting, setCrashReportingUser } from '@/lib/crash-reporting';
+import { hydrateSecondaryCurrency } from '@/lib/pair-storage';
 import { restoreQueryCache, startQueryPersistence } from '@/lib/query-persistence';
 import { getRefreshToken, getSessionState } from '@/lib/session';
 import { startBackgroundSync } from '@/lib/sync/background-sync';
 import { hydrateThemePreference } from '@/lib/theme-preference';
-import { fontFamily, palettes, text } from '@/theme';
+import { fontFamily, palettes } from '@/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSession } from '@/hooks/use-session';
+import { readOnboardingCompleted } from '@/lib/session-storage';
 
 // Started before the first render, not inside it: the SDK's job is to catch a
 // crash in the layout itself, and a no-op when EXPO_PUBLIC_SENTRY_DSN is unset.
@@ -47,12 +52,26 @@ export default function RootLayout() {
   const scheme = useColorScheme();
   const palette = palettes[scheme === 'dark' ? 'dark' : 'light'];
   const { user } = useSession();
+  const pathname = usePathname();
 
   // Reports carry the signed-in user's id (never their email — see the module),
   // so a spike in crashes can be tied to one account without shipping PII.
   useEffect(() => {
     setCrashReportingUser(user);
   }, [user]);
+
+  // Onboarding gate: if the user hasn't completed onboarding, route to onboarding
+  // before rendering any drawer/screens. This ensures new users get the guided
+  // experience (choose mode, currency, categories, first expense).
+  useEffect(() => {
+    if (pathname === '/' || pathname === '/(drawer)' || pathname === '/(drawer)/index') {
+      readOnboardingCompleted().then((completed) => {
+        if (!completed) {
+          router.push('/onboarding' as any);
+        }
+      });
+    }
+  }, [pathname]);
 
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,

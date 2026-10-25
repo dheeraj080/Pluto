@@ -16,6 +16,7 @@ import type { Schemas } from '@pluto/api-client';
  */
 const REFRESH_TOKEN_KEY = 'pluto.refreshToken';
 const PROFILE_KEY = 'pluto.profile';
+const ONBOARDING_KEY = 'pluto.onboardingCompleted';
 
 function webStorage(): Storage | null {
   return typeof localStorage === 'undefined' ? null : localStorage;
@@ -73,4 +74,29 @@ export async function deleteProfile(): Promise<void> {
     return;
   }
   await SecureStore.deleteItemAsync(PROFILE_KEY);
+}
+
+export async function readOnboardingCompleted(): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    const v = await webStorage()?.getItem(ONBOARDING_KEY);
+    return v === 'true';
+  }
+  const v = await SecureStore.getItemAsync(ONBOARDING_KEY);
+  return v === 'true';
+}
+
+export async function writeOnboardingCompleted(value: boolean): Promise<void> {
+  if (Platform.OS === 'web') {
+    webStorage()?.setItem(ONBOARDING_KEY, value ? 'true' : 'false');
+    return;
+  }
+  await SecureStore.setItemAsync(ONBOARDING_KEY, value ? 'true' : 'false');
+}
+
+export async function deleteOnboardingCompleted(): Promise<void> {
+  if (Platform.OS === 'web') {
+    webStorage()?.removeItem(ONBOARDING_KEY);
+    return;
+  }
+  await SecureStore.deleteItemAsync(ONBOARDING_KEY);
 }

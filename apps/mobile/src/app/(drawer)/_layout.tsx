@@ -34,8 +34,12 @@ export default function DrawerLayout() {
     if (status === 'signed-out' || !user) {
       try {
         ensureLocalSession();
-      } catch {
-        // Ignore errors
+      } catch (error) {
+        // Best-effort: ensureLocalSession may fail if the device has no
+        // persistent storage, which is not a critical failure for the drawer.
+        /* eslint-disable no-console */
+        if (__DEV__) console.warn('Failed to ensure local session in drawer:', error);
+        /* eslint-enable no-console */
       }
     }
   }, [status, user]);

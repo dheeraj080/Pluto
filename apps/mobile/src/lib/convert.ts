@@ -65,6 +65,32 @@ export function recordedAmounts(
   };
 }
 
+/** Safe wrapper: never throws, returns null when conversion unavailable. */
+export function safeRecordedAmounts(
+  amount: number,
+  currency: string,
+  home: string | null,
+  snapshot: RateSnapshot | null,
+  second: string | null = null,
+): RecordedAmounts {
+  const companion =
+    home && home !== currency ? home : second && second !== currency ? second : null;
+  if (!companion) {
+    return { amount, currency, companionAmount: null, companionCurrency: null };
+  }
+  try {
+    const converted = buildConversionPreview(amount, currency, companion, snapshot)?.amount ?? null;
+    return {
+      amount,
+      currency,
+      companionAmount: converted,
+      companionCurrency: converted === null ? null : companion,
+    };
+  } catch {
+    return { amount, currency, companionAmount: null, companionCurrency: null };
+  }
+}
+
 export interface SummaryAmounts {
   /** The larger figure, in the non-home currency. */
   amount: number;

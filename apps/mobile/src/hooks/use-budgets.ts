@@ -3,12 +3,18 @@ import type { Schemas } from '@pluto/api-client';
 
 import {
   budgetStore,
+  localStoreEnabled,
   reportStore,
   type CreateBudgetInput,
   type UpdateBudgetInput,
 } from '@/lib/store';
+import { syncNow } from '@/lib/sync/sync-engine';
 import { queryKeys, type BudgetStatusParams } from '@/lib/query-keys';
 import { useSession } from '@/hooks/use-session';
+
+function requestSync(): void {
+  if (localStoreEnabled) void syncNow();
+}
 
 export type { CreateBudgetInput } from '@/lib/store';
 
@@ -47,7 +53,10 @@ export function useCreateBudget() {
 
   return useMutation({
     mutationFn: (body: CreateBudgetInput) => budgetStore.create(body),
-    onSuccess: () => invalidateBudgets(client),
+    onSuccess: () => {
+      void invalidateBudgets(client);
+      requestSync();
+    },
   });
 }
 
@@ -57,7 +66,10 @@ export function useUpdateBudget() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: UpdateBudgetInput }) =>
       budgetStore.update(id, body),
-    onSuccess: () => invalidateBudgets(client),
+    onSuccess: () => {
+      void invalidateBudgets(client);
+      requestSync();
+    },
   });
 }
 
@@ -66,6 +78,9 @@ export function useDeleteBudget() {
 
   return useMutation({
     mutationFn: (id: string) => budgetStore.remove(id),
-    onSuccess: () => invalidateBudgets(client),
+    onSuccess: () => {
+      void invalidateBudgets(client);
+      requestSync();
+    },
   });
 }

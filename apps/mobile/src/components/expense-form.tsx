@@ -157,42 +157,45 @@ export function ExpenseForm({
 
   return (
     <View style={styles.form}>
-      <TextField
-        label="Amount"
-        value={amount}
-        onChangeText={setAmount}
-        error={errors.amount}
-        keyboardType="decimal-pad"
-        placeholder="0.00"
-        editable={!busy}
-      />
+      <View style={styles.row}>
+        <TextField
+          label="Amount"
+          value={amount}
+          onChangeText={setAmount}
+          error={errors.amount}
+          keyboardType="decimal-pad"
+          placeholder="0.00"
+          editable={!busy}
+          containerStyle={styles.rowItem}
+        />
 
-      <View style={styles.group}>
-        <Text style={[text.bodyMedium, { color: theme.ink }]}>Currency</Text>
+        <View style={[styles.group, styles.rowItem]}>
+          <Text style={[text.bodyMedium, { color: theme.ink }]}>Currency</Text>
 
-        {currencies.isPending ? (
-          <Spinner style={styles.spinner} />
-        ) : currencies.data && currencies.data.length > 0 ? (
-          <Select
-            accessibilityLabel="Currency"
-            value={currency}
-            onChange={setCurrency}
-            options={currencies.data.map((item) => ({
-              value: item.code,
-              label: `${item.code} · ${item.symbol}`,
-            }))}
-          />
-        ) : (
-          // The currency list is a convenience; recording must not depend on it.
-          <TextField
-            label="Code"
-            value={currency}
-            onChangeText={(value) => setCurrency(value.toUpperCase())}
-            autoCapitalize="characters"
-            maxLength={3}
-            error={errors.currency}
-          />
-        )}
+          {currencies.isPending ? (
+            <Spinner style={styles.spinner} />
+          ) : currencies.data && currencies.data.length > 0 ? (
+            <Select
+              accessibilityLabel="Currency"
+              value={currency}
+              onChange={setCurrency}
+              options={currencies.data.map((item) => ({
+                value: item.code,
+                label: `${item.code} · ${item.symbol}`,
+              }))}
+            />
+          ) : (
+            // The currency list is a convenience; recording must not depend on it.
+            <TextField
+              label="Code"
+              value={currency}
+              onChangeText={(value) => setCurrency(value.toUpperCase())}
+              autoCapitalize="characters"
+              maxLength={3}
+              error={errors.currency}
+            />
+          )}
+        </View>
       </View>
 
       {companion ? (
@@ -217,58 +220,64 @@ export function ExpenseForm({
         </View>
       ) : null}
 
-      <View style={styles.group}>
-        <Text style={[text.bodyMedium, { color: theme.ink }]}>Category</Text>
+      <View style={styles.row}>
+        <View style={[styles.group, styles.rowItem]}>
+          <Text style={[text.bodyMedium, { color: theme.ink }]}>Category</Text>
 
-        {categories.isPending ? (
-          <Spinner style={styles.spinner} />
-        ) : categories.isError ? (
-          <ErrorNote message="Could not load categories. Pull to refresh and try again." />
-        ) : (
-          <Select
-            accessibilityLabel="Category"
-            value={categoryId}
-            onChange={setCategoryId}
-            placeholder="Choose a category"
-            options={(categories.data ?? []).map((category) => ({
-              value: category.id,
-              label: category.name,
-              dotColor: category.color,
-            }))}
-            error={errors.categoryId}
-          />
-        )}
+          {categories.isPending ? (
+            <Spinner style={styles.spinner} />
+          ) : categories.isError ? (
+            <ErrorNote message="Could not load categories. Pull to refresh and try again." />
+          ) : (
+            <Select
+              accessibilityLabel="Category"
+              value={categoryId}
+              onChange={setCategoryId}
+              placeholder="Choose a category"
+              options={(categories.data ?? []).map((category) => ({
+                value: category.id,
+                label: category.name,
+                dotColor: category.color,
+              }))}
+              error={errors.categoryId}
+            />
+          )}
+        </View>
+
+        <TextField
+          label="Date"
+          value={incurredOn}
+          onChangeText={setIncurredOn}
+          placeholder="YYYY-MM-DD"
+          autoCapitalize="none"
+          autoCorrect={false}
+          error={errors.incurredOn}
+          containerStyle={styles.rowItem}
+        />
       </View>
 
-      <TextField
-        label="Date"
-        value={incurredOn}
-        onChangeText={setIncurredOn}
-        placeholder="YYYY-MM-DD"
-        autoCapitalize="none"
-        autoCorrect={false}
-        error={errors.incurredOn}
-      />
-
-      <TextField
-        label="Description"
-        value={description}
-        onChangeText={setDescription}
-        placeholder="Optional note"
-        maxLength={280}
-      />
-
-      <View style={styles.group}>
-        <Text style={[text.bodyMedium, { color: theme.ink }]}>Payment method</Text>
-        <Select
-          accessibilityLabel="Payment method"
-          value={paymentMethod}
-          onChange={setPaymentMethod}
-          options={[
-            { value: '', label: 'Any method' },
-            ...PAYMENT_METHODS.map((method) => ({ value: method, label: method })),
-          ]}
+      <View style={styles.row}>
+        <TextField
+          label="Description"
+          value={description}
+          onChangeText={setDescription}
+          placeholder="Optional note"
+          maxLength={280}
+          containerStyle={styles.rowItem}
         />
+
+        <View style={[styles.group, styles.rowItem]}>
+          <Text style={[text.bodyMedium, { color: theme.ink }]}>Payment method</Text>
+          <Select
+            accessibilityLabel="Payment method"
+            value={paymentMethod}
+            onChange={setPaymentMethod}
+            options={[
+              { value: '', label: 'Any method' },
+              ...PAYMENT_METHODS.map((method) => ({ value: method, label: method })),
+            ]}
+          />
+        </View>
       </View>
 
       {allowRecurrence ? (
@@ -319,6 +328,15 @@ const styles = StyleSheet.create({
   form: { gap: spacing.xl },
   group: { gap: spacing.sm },
   spinner: { alignSelf: 'flex-start' },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  rowItem: {
+    flex: 1,
+    minWidth: 0,
+  },
   preview: {
     gap: spacing.xs,
     paddingVertical: spacing.md,

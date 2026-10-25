@@ -34,7 +34,10 @@ export default function CategoriesScreen() {
   const [reassign, setReassign] = useState<ExpenseCategory | null>(null);
 
   const items = categories.data ?? [];
-  const totalExpenses = items.reduce((sum: number, category: any) => sum + category.expenseCount, 0);
+  const totalExpenses = items.reduce(
+    (sum: number, category: ExpenseCategory) => sum + (category.expenseCount ?? 0),
+    0,
+  );
   const countLine = `${items.length} ${
     items.length === 1 ? 'category' : 'categories'
   } · ${totalExpenses} ${totalExpenses === 1 ? 'expense' : 'expenses'}`;
@@ -52,6 +55,7 @@ export default function CategoriesScreen() {
   const confirmDelete = useCallback(
     (category: ExpenseCategory) => {
       if (category.expenseCount > 0) {
+        // Show reassign sheet modally when category has expenses
         setReassign(category);
         return;
       }
@@ -64,7 +68,7 @@ export default function CategoriesScreen() {
         if (confirmed) remove.mutate({ id: category.id });
       });
     },
-    [confirm, remove],
+    [confirm, remove, setReassign],
   );
 
   const onRefresh = useCallback(() => {

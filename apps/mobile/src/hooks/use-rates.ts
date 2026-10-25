@@ -3,13 +3,12 @@ import type { Schemas } from '@pluto/api-client';
 
 import { api } from '@/lib/api';
 import { toRateSnapshot, type RateSnapshot } from '@/lib/convert';
-import { queryKeys, type RateHistoryParams } from '@/lib/query-keys';
+import { queryKeys } from '@/lib/query-keys';
 import { fetchPublicRates } from '@/lib/rates/public-fetch';
 import { getSessionState } from '@/lib/session';
 import { localStoreEnabled } from '@/lib/store';
 import { getDatabase } from '@/lib/store/local/database';
 import { getLocalLatestRateSnapshot, mergeLocalRateTables } from '@/lib/store/local/rates';
-import { useSession } from '@/hooks/use-session';
 
 export type RateHistory = Schemas['RateHistoryResponseDto'];
 
@@ -68,80 +67,47 @@ async function latestMirrored(base: string): Promise<RateSnapshot | null> {
  *   whichever base the mirror holds).
  */
 export function useRateSnapshot(base?: string | null) {
+  // Resolve the currency code once so the query key is stable: changing
+  // `base` from null to the user's existing base currency must not bust the
+  // cache and force a refetch that leaves the conversion preview blank.
+  const session = getSessionState();
+  const code = (base ?? session.user?.baseCurrency ?? DEFAULT_BASE_CURRENCY).toUpperCase();
+
   return useQuery({
-    queryKey: queryKeys.rates.latest(base ?? undefined),
+    queryKey: queryKeys.rates.latest(code),
     staleTime: 24 * 60 * 60_000,
     retry: false,
     queryFn: async () => {
       try {
-        const session = getSessionState();
-        const code = (base ?? session.user?.baseCurrency ?? DEFAULT_BASE_CURRENCY).toUpperCase();
-
         if ((session as any).mode === 'local') {
           try {
             const { snapshot } = await fetchPublicRates(code);
             await persistSnapshot(snapshot);
             return snapshot;
           } catch (error) {
+            // Best-effort: if fetch fails, fall back to the cached mirror.
+            // Never throw — callers must tolerate data being unavailable.
             const cached = await latestMirrored(code);
-            if (cached) return cached;
-            // Don't throw, just return null-like behavior
-            throw error;
+            return cached ?? null;
           }
         }
 
         try {
           return toRateSnapshot(
             await api.get<Schemas['RateSnapshotResponseDto']>('/rates/latest', {
-              query: { base: base ?? undefined },
+              query: { base: code },
             }),
           );
         } catch (error) {
           const cached = await latestMirrored(code);
-          if (!cached) throw error;
-          return cached;
+          return cached ?? null;
         }
       } catch (error) {
-        // Return cached if possible
-        const session = getSessionState();
-        const code = (base ?? session.user?.baseCurrency ?? DEFAULT_BASE_CURRENCY).toUpperCase();
-        const cached = await latestMirrored(code);
-        if (cached) return cached;
-        throw error;
+        // Last resort: return null so callers render gracefully.
+        return null;
       }
     },
   });
 }
 
-/**
- * Exchange-rate history for one pair, oldest first.
- *
- * Disabled until a quote currency exists, because the endpoint requires one —
- * a user who never crosses borders should not produce a request that can only
- * fail. The 30-day window that drives the dashboard sparkline is the caller's
- * choice of `from`/`to`.
- *
- * The free plan has no account, so it has no server-side history. The query is
- * disabled there rather than firing a request that can only 401; callers
- * already tolerate a missing series (`data` stays undefined).
- */
-export function useRateHistory(params: {
-  base?: string | null;
-  quote?: string | null;
-  from?: string;
-  to?: string;
-}) {
-  const { status, mode } = useSession();
-  const key: RateHistoryParams = {
-    base: params.base ?? undefined,
-    quote: params.quote ?? undefined,
-    from: params.from,
-    to: params.to,
-  };
 
-  return useQuery({
-    queryKey: queryKeys.rates.history(key),
-    enabled: (mode as any) === 'account' && status === 'signed-in' && Boolean(params.quote),
-    queryFn: () => api.get<RateHistory>('/rates/history', { query: key }),
-  });
-}

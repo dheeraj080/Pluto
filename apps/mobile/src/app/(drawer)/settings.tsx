@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useNavigation } from 'expo-router';
 
@@ -8,7 +8,7 @@ import { ErrorNote, Spinner } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Select } from '@/components/ui/select';
-import { IconSwap, IconTag, IconTrash } from '@/components/icons';
+import { IconSwap, IconTag } from '@/components/icons';
 import { borderWidth, layout, radius, spacing, tabularNums, text } from '@/theme';
 import { useSupportedCurrencies } from '@/hooks/use-currencies';
 import { usePair } from '@/hooks/use-pair';
@@ -90,8 +90,16 @@ export default function SettingsScreen() {
     [second, setBase, setSecond],
   );
 
+  // The Second can never equal the Home: if a server-driven base change makes
+  // them equal, clear the Second so the picker stays consistent.
+  useEffect(() => {
+    if (second && second === base) {
+      setSecond(null);
+    }
+  }, [second, base, setSecond]);
+
   // Rates are quoted against the base, so ask for the base snapshot directly.
-  const snapshot = useRateSnapshot(base ?? undefined);
+  const snapshot = useRateSnapshot(base);
   const rate = second && snapshot.data ? Number(snapshot.data.rates[second]) : Number.NaN;
 
   const onSignOut = useCallback(async () => {
@@ -254,6 +262,11 @@ export default function SettingsScreen() {
         <Text style={[text.body, { color: theme.muted }]}>
           Account deletion is only available for signed-in accounts with server data.
         </Text>
+        <Button
+          label="Delete account"
+          variant="danger"
+          onPress={() => router.push(DELETE_ACCOUNT)}
+        />
       </Card>
     </ScrollView>
   );
@@ -272,7 +285,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   swap: { alignSelf: 'flex-start' },
-  deleteAccount: { alignSelf: 'flex-start' },
   preview: {
     gap: spacing.xs,
     marginTop: spacing.xs,

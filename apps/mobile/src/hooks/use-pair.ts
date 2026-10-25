@@ -34,9 +34,6 @@ export interface Pair {
  * storage — the server already persists it, so mobile has one source of truth
  * and a `setBase` is a single `PATCH /users/me`. The second currency has no
  * server home and lives in `lib/pair-storage`.
- *
- * `swap` writes both halves: the new base goes to the server and the old base
- * becomes the second currency, so the two are never briefly equal.
  */
 export function usePair(): Pair {
   const { status, user } = useSession();
