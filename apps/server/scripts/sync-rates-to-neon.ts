@@ -81,7 +81,11 @@ async function fetchRates(base: string): Promise<{
   }
 }
 
-function computeEtag(base: string, effectiveDate: string, rates: { quoteCurrency: string; rate: number; effectiveDate: string }[]): string {
+function computeEtag(
+  base: string,
+  effectiveDate: string,
+  rates: { quoteCurrency: string; rate: number; effectiveDate: string }[],
+): string {
   const fingerprint = [...rates]
     .sort((a, b) => a.quoteCurrency.localeCompare(b.quoteCurrency))
     .map((r) => `${r.quoteCurrency}:${r.rate.toFixed(6)}:${r.effectiveDate}`)
@@ -112,7 +116,9 @@ async function main(): Promise<void> {
     });
 
     if (existing && existing.etag === etag) {
-      console.log(`Rates unchanged for ${BASE_CURRENCY}; reusing snapshot v${existing.version} (etag match).`);
+      console.log(
+        `Rates unchanged for ${BASE_CURRENCY}; reusing snapshot v${existing.version} (etag match).`,
+      );
       return;
     }
 
