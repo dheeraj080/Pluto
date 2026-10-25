@@ -2,6 +2,16 @@ import type * as SQLite from 'expo-sqlite';
 
 import { randomUuid } from '@/lib/uuid';
 import type { ExpenseCategoryDto } from '../types';
+
+export const DEFAULT_CATEGORIES: Array<Omit<ExpenseCategoryDto, 'expenseCount'>> = [
+  { id: 'local-cat-food', name: 'Food & Dining', color: '#fcd34d', icon: 'utensils', isDefault: true, sortOrder: 10 },
+  { id: 'local-cat-transport', name: 'Transport', color: '#7dd3fc', icon: 'car', isDefault: true, sortOrder: 20 },
+  { id: 'local-cat-shopping', name: 'Shopping', color: '#fda4af', icon: 'bag', isDefault: true, sortOrder: 30 },
+  { id: 'local-cat-bills', name: 'Bills & Utilities', color: '#c4b5fd', icon: 'receipt', isDefault: true, sortOrder: 40 },
+  { id: 'local-cat-entertainment', name: 'Entertainment', color: '#34d399', icon: 'film', isDefault: true, sortOrder: 50 },
+  { id: 'local-cat-health', name: 'Health', color: '#94a3b8', icon: 'heart', isDefault: true, sortOrder: 60 },
+  { id: 'local-cat-other', name: 'Other', color: '#94a3b8', icon: 'ellipsis', isDefault: true, sortOrder: 900 },
+];
 import {
   deleteActionFor,
   deleteMutations,
@@ -92,9 +102,27 @@ export async function replaceLocalCategories(
   });
 }
 
+export async function seedDefaultLocalCategories(
+  database: SQLite.SQLiteDatabase,
+): Promise<void> {
+  const existing = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM categories');
+  if (existing && existing.count > 0) return;
+
+  await database.withExclusiveTransactionAsync(async (txn) => {
+    for (const category of DEFAULT_CATEGORIES) {
+      await txn.runAsync(
+        `INSERT OR IGNORE INTO categories (id, name, color, icon, sort_order, is_default, expense_count)
+         VALUES (?, ?, ?, ?, ?, ?, 0)`,
+        [category.id, category.name, category.color, category.icon ?? null, category.sortOrder, category.isDefault ? 1 : 0],
+      );
+    }
+  });
+}
+
 export async function listLocalCategories(
   database: SQLite.SQLiteDatabase,
 ): Promise<ExpenseCategoryDto[]> {
+  await seedDefaultLocalCategories(database);
   const rows = await database.getAllAsync<CategoryRow>(
     'SELECT id, name, color, icon, sort_order, is_default FROM categories ORDER BY sort_order ASC, name ASC',
   );

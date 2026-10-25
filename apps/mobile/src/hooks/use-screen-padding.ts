@@ -14,5 +14,5 @@ export function useScreenPadding(): {
 } {
   const insets = useSafeAreaInsets();
 
-  return { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.xl };
+  return { paddingTop: insets.top + spacing.lg, paddingBottom: Math.max(insets.bottom, spacing.xl) + spacing.lg };
 }

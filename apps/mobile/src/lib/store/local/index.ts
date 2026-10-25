@@ -69,9 +69,13 @@ export const localCategoryStore: CategoryStore = {
     }
   },
   refresh: async () => {
-    const categories = await api.get<Schemas['ExpenseCategoryDto'][]>('/expenses/categories');
-    await replaceLocalCategories(await getDatabase(), categories);
-    return categories;
+    try {
+      const categories = await api.get<Schemas['ExpenseCategoryDto'][]>('/expenses/categories');
+      await replaceLocalCategories(await getDatabase(), categories);
+      return await listLocalCategories(await getDatabase());
+    } catch {
+      return listLocalCategories(await getDatabase());
+    }
   },
   create: async (input) => createLocalCategory(await getDatabase(), input),
   update: async (id, input) => updateLocalCategory(await getDatabase(), id, input),
