@@ -107,7 +107,7 @@ export default function LoginPage() {
 
       </AuthCard>
 
-      <p className="mt-6 text-center font-mono text-[11px] leading-relaxed text-muted">
+      <p className="mt-6 text-center font-mono text-[11px] uppercase tracking-wider leading-relaxed text-muted">
         By signing in you agree to our{" "}
         <Link
           href="/terms"

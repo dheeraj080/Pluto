@@ -38,8 +38,8 @@ function CardShell({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[var(--radius-stock,8px)] border border-border p-5">
-      <h2 className="text-sm font-semibold text-muted">{title}</h2>
+    <section className="rounded-xl border border-border p-5">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{title}</h2>
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -98,7 +98,7 @@ export function StatusDashboard() {
     <div className="space-y-4">
       {/* Overall banner */}
       <div
-        className={`flex items-center gap-3 rounded-[var(--radius-stock,8px)] border p-4 ${
+        className={`flex items-center gap-3 rounded-xl border p-4 ${
           health.kind === "loading"
             ? "border-border"
             : overallOk

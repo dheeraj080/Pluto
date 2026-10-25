@@ -123,7 +123,7 @@ export function ExpenseForm({
     return variant === "panel" ? (
       emptyNotice
     ) : (
-      <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper p-5 sm:p-6">
+      <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
         {emptyNotice}
       </section>
     );
@@ -170,7 +170,7 @@ export function ExpenseForm({
             </Field>
 
             {toBase && pair && (
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-[var(--radius-stock,8px)] border border-border bg-paper/60 px-4 py-3">
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border bg-surface-muted/60 px-4 py-3">
                 <span className="inline-flex flex-wrap items-center gap-2 text-sm font-medium text-ink">
                   <IconSwap aria-hidden="true" className="h-4 w-4 text-primary" />
                   <span className="font-normal text-muted">≈</span>
@@ -236,7 +236,7 @@ export function ExpenseForm({
         </div>
 
         {allowRecurrence && !isEditing && (
-          <div className="rounded-[var(--radius-card,8px)] border border-border p-4">
+          <div className="rounded-2xl border border-border p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-ink">Repeat this expense</p>
@@ -250,7 +250,7 @@ export function ExpenseForm({
                 className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-medium transition-colors ${
                   repeat
                     ? "bg-primary-subtle text-primary"
-                    : "border border-border bg-paper text-muted hover:text-ink"
+                    : "border border-border bg-surface-muted text-muted hover:text-ink"
                 }`}
                 aria-pressed={repeat}
               >
@@ -306,7 +306,7 @@ export function ExpenseForm({
   if (variant === "panel") return form;
 
   return (
-    <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper p-5 sm:p-6">
+    <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
       <h2 className="text-sm font-medium text-ink">{isEditing ? "Edit expense" : "New expense"}</h2>
       {form}
     </section>

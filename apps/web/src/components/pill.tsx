@@ -37,7 +37,7 @@ export function ChangePill({
   const good = flat ? null : down === downIsGood;
 
   const tone = flat
-    ? "border-border bg-paper text-muted"
+    ? "border-border bg-surface-muted text-muted"
     : good
       ? "border-success/25 bg-success-subtle text-success"
       : "border-warning/25 bg-warning-subtle text-warning";
@@ -96,7 +96,7 @@ export function InfoPill({
   const toneClass =
     tone === "warning"
       ? "border-warning/30 bg-warning-subtle text-warning hover:border-warning/50"
-      : "border-border bg-paper text-muted hover:border-border-strong hover:text-ink";
+      : "border-border bg-surface-muted text-muted hover:border-border-strong hover:text-ink";
 
   return (
     <span ref={ref} className={`relative inline-flex ${className}`}>
@@ -118,7 +118,7 @@ export function InfoPill({
           id={id}
           role="dialog"
           aria-label={title ?? label}
-          className="absolute right-0 top-full z-30 mt-2 w-72 max-w-[calc(100%-2rem)] rounded-[var(--radius-card,8px)] border border-border bg-paper p-4 text-left shadow-2xl"
+          className="absolute right-0 top-full z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-surface p-4 text-left shadow-2xl"
         >
           {title && <p className="text-sm font-semibold text-ink">{title}</p>}
           <div className={`text-xs leading-relaxed text-muted ${title ? "mt-1.5" : ""}`}>

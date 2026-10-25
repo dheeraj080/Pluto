@@ -11,5 +11,5 @@
       <polygon points="19.1 11.3 22.6 12 21.5 8.5" fill="#34D399"/>
     </g>
   </g>
-  <text x="42" y="22" font-family="var(--font-landing-sans)" font-size="20" font-weight="600" letter-spacing="-0.5" fill="#F2F4F5">Pluto</text>
+  <text x="42" y="22" font-family="'Space Grotesk', ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="600" letter-spacing="-0.5" fill="#F2F4F5">Pluto</text>
 </svg>

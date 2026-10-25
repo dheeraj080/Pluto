@@ -136,7 +136,7 @@ export function ReportPaidIn({
             >
               <span
                 aria-hidden="true"
-                className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-stock,8px)] border border-border bg-paper text-[11px] font-semibold tracking-tight text-muted md:order-1"
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-muted text-[11px] font-semibold tracking-tight text-muted md:order-1"
               >
                 +{rest.length}
               </span>
@@ -149,7 +149,7 @@ export function ReportPaidIn({
               <span className="col-start-3 row-start-1 w-32 shrink-0 justify-self-end text-right text-sm font-semibold tabular-nums text-ink md:order-4 md:w-28">
                 {fmt(restConverted, base)}
               </span>
-              <div className="col-span-2 col-start-1 row-start-2 h-1 min-w-8 overflow-hidden rounded-full bg-paper md:order-3 md:w-24 md:flex-none">
+              <div className="col-span-2 col-start-1 row-start-2 h-1 min-w-8 overflow-hidden rounded-full bg-surface-muted md:order-3 md:w-24 md:flex-none">
                 <span
                   className="block h-full rounded-full"
                   style={{
@@ -208,7 +208,7 @@ function CurrencyLine({
     >
       <span
         aria-hidden="true"
-        className="col-start-1 row-start-1 inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-stock,8px)] border border-border bg-paper text-[11px] font-semibold tracking-tight text-ink md:order-1"
+        className="col-start-1 row-start-1 inline-flex size-8 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-muted text-[11px] font-semibold tracking-tight text-ink md:order-1"
       >
         {entry.currency}
       </span>
@@ -218,7 +218,7 @@ function CurrencyLine({
       <span className="col-start-3 row-start-1 w-28 justify-self-end text-right text-xs tabular-nums text-muted md:order-4 md:w-28 md:shrink-0">
         {fmt(entry.total, entry.currency)}
       </span>
-      <div className="col-span-2 col-start-1 row-start-2 h-1 min-w-8 overflow-hidden rounded-full bg-paper md:order-3 md:min-w-8 md:flex-1">
+      <div className="col-span-2 col-start-1 row-start-2 h-1 min-w-8 overflow-hidden rounded-full bg-surface-muted md:order-3 md:min-w-8 md:flex-1">
         <span
           className="block h-full rounded-full"
           style={{ width: `${share}%`, backgroundColor: "var(--primary)" }}

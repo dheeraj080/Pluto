@@ -44,7 +44,7 @@ export function AuthNavLink({
       <Link
         href="/login"
         onClick={onNavigate ? navigate(undefined) : undefined}
-        className={`inline-flex items-center justify-center gap-2 rounded-[var(--radius-stock,8px)] bg-primary px-5 py-2.5 text-sm font-medium text-on-primary shadow-[0_1px_2px_rgba(23,26,46,0.18)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+        className={`inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-on-primary shadow-[0_1px_2px_rgba(23,26,46,0.18)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
           stack ? "w-full" : ""
         }`}
       >
@@ -58,7 +58,7 @@ export function AuthNavLink({
       <Link
         href="/expenses"
         onClick={onNavigate ? navigate(undefined) : undefined}
-        className="inline-flex items-center justify-center gap-2 rounded-[var(--radius-stock,8px)] bg-primary px-5 py-2.5 text-sm font-medium text-on-primary shadow-[0_1px_2px_rgba(23,33,27,0.18)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-on-primary shadow-[0_1px_2px_rgba(23,33,27,0.18)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         Open expenses
       </Link>
@@ -69,7 +69,7 @@ export function AuthNavLink({
           // best-effort and must not block closing the mobile menu.
           void signOut();
         })}
-        className="inline-flex items-center justify-center gap-1.5 rounded-[var(--radius-stock,8px)] px-3 py-2 text-sm text-muted transition-colors hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <IconLogOut className="h-4 w-4" />
         Sign out

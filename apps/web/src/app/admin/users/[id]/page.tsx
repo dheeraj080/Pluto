@@ -112,17 +112,17 @@ export default function AdminUserDetailPage() {
       {error && <ErrorNote message={error} />}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-[var(--radius-stock,8px)] border border-border bg-background p-5">
+        <div className="rounded-xl border border-border bg-background p-5">
           <p className="text-sm text-muted">Role</p>
           <div className="mt-1">
             <Badge tone={user.role === "ADMIN" ? "accent" : "neutral"}>{user.role}</Badge>
           </div>
         </div>
-        <div className="rounded-[var(--radius-stock,8px)] border border-border bg-background p-5">
+        <div className="rounded-xl border border-border bg-background p-5">
           <p className="text-sm text-muted">Backups</p>
           <p className="mt-1 text-2xl font-semibold">{user.backupCount}</p>
         </div>
-        <div className="rounded-[var(--radius-stock,8px)] border border-border bg-background p-5">
+        <div className="rounded-xl border border-border bg-background p-5">
           <p className="text-sm text-muted">Active sessions</p>
           <p className="mt-1 text-2xl font-semibold">{user.activeSessionCount}</p>
         </div>

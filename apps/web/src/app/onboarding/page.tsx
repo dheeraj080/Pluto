@@ -76,7 +76,7 @@ export default function OnboardingPage() {
   return (
     <AuthShell>
       <AuthCard>
-        <p className="text-xs font-semibold text-primary">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
           Welcome to Pluto
         </p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight text-ink">
@@ -106,10 +106,10 @@ export default function OnboardingPage() {
                     type="button"
                     aria-pressed={active}
                     onClick={() => setSelected(currency.code)}
-                    className={`flex flex-col items-start rounded-[var(--radius-stock,8px)] border px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                    className={`flex flex-col items-start rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                       active
                         ? "border-primary bg-primary-subtle text-primary"
-                        : "border-border bg-background text-ink hover:border-border-strong hover:bg-paper"
+                        : "border-border bg-background text-ink hover:border-border-strong hover:bg-surface-muted"
                     }`}
                   >
                     <span className="flex w-full items-center justify-between text-sm font-semibold">

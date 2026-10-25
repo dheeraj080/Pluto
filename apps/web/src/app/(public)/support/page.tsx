@@ -54,7 +54,7 @@ export default function SupportPage() {
         .
       </p>
 
-      <div className="mt-8 divide-y divide-border rounded-[var(--radius-stock,8px)] border border-border">
+      <div className="mt-8 divide-y divide-border rounded-xl border border-border">
         {FAQ.map((item) => (
           <details key={item.q} className="group px-5 py-4">
             <summary className="cursor-pointer list-none font-medium marker:hidden">

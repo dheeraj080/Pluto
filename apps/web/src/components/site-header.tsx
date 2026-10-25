@@ -27,7 +27,7 @@ export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-desk/85 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-border bg-canvas/85 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
@@ -56,7 +56,7 @@ export function SiteHeader() {
 
         <button
           type="button"
-          className="rounded-lg p-2 text-ink transition-colors hover:bg-paper lg:hidden"
+          className="rounded-lg p-2 text-ink transition-colors hover:bg-surface-muted lg:hidden"
           aria-expanded={menuOpen}
           aria-controls="site-nav"
           aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -70,7 +70,7 @@ export function SiteHeader() {
         <nav
           id="site-nav"
           aria-label="Main"
-          className="border-t border-border bg-desk px-4 pb-4 pt-2 lg:hidden"
+          className="border-t border-border bg-canvas px-4 pb-4 pt-2 lg:hidden"
         >
           <ul className="flex flex-col">
             {NAV.map((item) => (
@@ -78,7 +78,7 @@ export function SiteHeader() {
                 <Link
                   href={item.href}
                   onClick={() => setMenuOpen(false)}
-                  className="block rounded-[var(--radius-stock,8px)] px-3 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-paper"
+                  className="block rounded-xl px-3 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-surface-muted"
                 >
                   {item.label}
                 </Link>

@@ -30,10 +30,10 @@ export function WorkflowSection() {
   ];
 
   return (
-    <section id="how-it-works" className="scroll-mt-24 py-10 md:py-14 relative bg-desk transition-colors">
+    <section id="how-it-works" className="scroll-mt-24 py-10 md:py-14 relative bg-canvas transition-colors">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <Reveal>
-          <div className="flex items-center justify-center gap-3 text-xs font-mono text-muted mb-3">
+          <div className="flex items-center justify-center gap-3 text-xs font-mono text-muted uppercase tracking-widest mb-3">
             <span className="w-6 h-[1px] bg-border-strong" />
             <span>Simple 3-Step Habit</span>
             <span className="w-6 h-[1px] bg-border-strong" />
@@ -45,7 +45,7 @@ export function WorkflowSection() {
               style={{ textWrap: "balance", fontFamily: "var(--font-landing-display), var(--font-space-grotesk), system-ui, sans-serif" }}
             >
               A three-second habit.
-              <span className="block text-accent">Designed for life on the move.</span>
+              <span className="block text-primary-brand">Designed for life on the move.</span>
             </h2>
             <p className="text-base sm:text-lg text-muted leading-relaxed" style={{ fontFamily: "var(--font-landing-sans), var(--font-inter), system-ui, sans-serif" }}>
               Built for the moments between paying and moving on. Record what you spent, see it in your home currency.
@@ -58,19 +58,19 @@ export function WorkflowSection() {
             const Icon = step.icon;
             return (
               <Reveal key={step.num} delay={idx * 80}>
-                <div className="bg-paper rounded-[var(--radius-card,8px)] p-7 sm:p-8 border border-border shadow-[var(--edge-stock),var(--cast-stock)] hover:border-strong transition-all flex flex-col justify-between group h-full">
+                <div className="bg-surface rounded-3xl p-7 sm:p-8 border border-subtle shadow-xs hover:border-strong transition-all flex flex-col justify-between group h-full">
                   <div>
                     <div className="flex items-center justify-between mb-8">
-                      <span className="text-4xl font-extrabold text-muted/30 group-hover:text-accent transition-colors" style={{ fontFamily: "var(--font-landing-display), var(--font-space-grotesk), system-ui, sans-serif" }}>
+                      <span className="text-4xl font-extrabold text-muted/30 group-hover:text-primary-brand transition-colors" style={{ fontFamily: "var(--font-landing-display), var(--font-space-grotesk), system-ui, sans-serif" }}>
                         {step.num}
                       </span>
-                      <span className="text-[11px] font-semibold text-muted font-mono bg-paper border border-border px-2.5 py-1 rounded-md">
+                      <span className="text-[11px] font-semibold text-muted uppercase tracking-wider font-mono bg-surface-muted border border-subtle px-2.5 py-1 rounded-md">
                         {step.badge}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2 mb-2.5">
-                      <Icon className="w-5 h-5 text-accent" />
+                      <Icon className="w-5 h-5 text-primary-brand" />
                       <h3 className="text-xl font-bold text-ink" style={{ fontFamily: "var(--font-landing-display), var(--font-space-grotesk), system-ui, sans-serif" }}>
                         {step.title}
                       </h3>
@@ -81,8 +81,8 @@ export function WorkflowSection() {
                     </p>
                   </div>
 
-                  <div className="pt-4 border-t border-border flex items-center gap-2 text-xs text-accent font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                  <div className="pt-4 border-t border-subtle flex items-center gap-2 text-xs text-primary-brand font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary-brand" />
                     <span>{step.detail}</span>
                   </div>
                 </div>
@@ -92,7 +92,7 @@ export function WorkflowSection() {
         </div>
 
         <Reveal>
-          <div className="mt-8 md:mt-10 max-w-2xl mx-auto text-center p-5 sm:p-6 bg-paper rounded-[var(--radius-card,8px)] border border-border shadow-[var(--edge-stock),var(--cast-stock)]">
+          <div className="mt-8 md:mt-10 max-w-2xl mx-auto text-center p-5 sm:p-6 bg-surface rounded-2xl border border-subtle shadow-xs">
             <p className="text-sm sm:text-base font-semibold text-ink leading-snug" style={{ fontFamily: "var(--font-landing-display), var(--font-space-grotesk), system-ui, sans-serif" }}>
               Sign in with Google, record in any supported currency, see totals in your reporting currency.
             </p>

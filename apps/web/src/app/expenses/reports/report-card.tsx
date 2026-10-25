@@ -31,7 +31,7 @@ export function InlineError({
   return (
     <div
       role="alert"
-      className={`flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-card,8px)] border border-danger/25 bg-danger-subtle px-3.5 py-2.5 text-sm text-danger ${className}`}
+      className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-danger/25 bg-danger-subtle px-3.5 py-2.5 text-sm text-danger ${className}`}
     >
       <span className="leading-snug">{message}</span>
       {onRetry && (
@@ -86,7 +86,7 @@ export function ReportCard({
 
   return (
     <section
-      className={`relative rounded-[var(--radius-card,8px)] border border-border bg-paper ${className}`}
+      className={`relative rounded-3xl border border-border bg-surface ${className}`}
     >
       <header className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5 sm:px-6">
         <div className="min-w-0">
@@ -99,7 +99,7 @@ export function ReportCard({
             <div
               role="group"
               aria-label="Chart or table view"
-              className="inline-flex rounded-lg border border-border bg-paper p-0.5"
+              className="inline-flex rounded-lg border border-border bg-surface-muted p-0.5"
             >
               <button
                 type="button"
@@ -163,7 +163,7 @@ export function DataTable({ table }: { table: ChartTable }) {
               <th
                 key={column}
                 scope="col"
-                className="whitespace-nowrap px-3 py-2 text-xs font-medium text-muted"
+                className="whitespace-nowrap px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted"
               >
                 {column}
               </th>

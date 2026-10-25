@@ -16,9 +16,9 @@ import { Wordmark, WordmarkLockup } from "./logo";
 
 export function AuthShell({ children, brand }: { children: ReactNode; brand?: string }) {
   return (
-    <div className="grid min-h-dvh overflow-hidden bg-desk lg:grid-cols-2">
+    <div className="grid min-h-dvh overflow-hidden bg-canvas lg:grid-cols-2">
       {/* Brand panel — desktop only; the form column stands alone on mobile. */}
-      <aside className="relative hidden flex-col justify-between border-r border-border bg-paper p-10 lg:flex xl:p-14">
+      <aside className="relative hidden flex-col justify-between border-r border-border bg-surface p-10 lg:flex xl:p-14">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(90%_80%_at_10%_100%,black,transparent)]"
@@ -49,7 +49,7 @@ export function AuthShell({ children, brand }: { children: ReactNode; brand?: st
           </p>
         </div>
 
-        <p className="relative font-mono text-[11px] text-muted">
+        <p className="relative font-mono text-[11px] uppercase tracking-wider text-muted">
           Rates: European Central Bank · Daily
         </p>
       </aside>
@@ -64,7 +64,7 @@ export function AuthShell({ children, brand }: { children: ReactNode; brand?: st
             <Wordmark />
           </Link>
           {brand && (
-            <span className="rounded-full border border-border bg-paper px-3 py-1 font-mono text-[11px] font-medium text-muted lg:ml-auto">
+            <span className="rounded-full border border-border bg-surface px-3 py-1 font-mono text-[11px] font-medium uppercase tracking-wider text-muted lg:ml-auto">
               {brand}
             </span>
           )}
@@ -82,7 +82,7 @@ export function AuthShell({ children, brand }: { children: ReactNode; brand?: st
 export function AuthCard({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={`rounded-[var(--radius-card,8px)] border border-border bg-paper p-6 shadow-[0_30px_80px_-55px_rgba(0,0,0,0.9)] sm:p-8 ${className}`}
+      className={`rounded-2xl border border-border bg-surface p-6 shadow-[0_30px_80px_-55px_rgba(0,0,0,0.9)] sm:p-8 ${className}`}
     >
       {children}
     </div>

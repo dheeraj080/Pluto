@@ -61,7 +61,7 @@ export default function AdminLoginPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Admin sign-in</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           Administrator access requires your e-mail to be listed in the server&apos;s{" "}
-          <code className="rounded bg-paper px-1 font-mono text-xs">ADMIN_EMAILS</code>{" "}
+          <code className="rounded bg-surface-muted px-1 font-mono text-xs">ADMIN_EMAILS</code>{" "}
           configuration.
         </p>
 

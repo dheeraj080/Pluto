@@ -103,8 +103,8 @@ function ExpensesShell({ children }: { children: React.ReactNode }) {
 
   if (gate === "denied") {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center bg-desk px-4 py-16">
-        <div className="w-full max-w-sm rounded-[var(--radius-card,8px)] border border-border bg-background p-8 text-center shadow-[0_1px_2px_rgba(23,33,27,0.04)]">
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-canvas px-4 py-16">
+        <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-8 text-center shadow-[0_1px_2px_rgba(23,33,27,0.04)]">
           <div className="mx-auto flex w-12 items-center justify-center text-primary">
             <Wordmark logoClassName="h-7 w-7" />
           </div>
@@ -113,20 +113,20 @@ function ExpensesShell({ children }: { children: React.ReactNode }) {
             Expense tracking is available once you are signed in.
           </p>
           {errorMessage && (
-            <p className="mt-3 rounded-[var(--radius-stock,8px)] bg-danger-subtle px-3 py-2 text-xs font-medium text-danger" role="alert">
+            <p className="mt-3 rounded-xl bg-danger-subtle px-3 py-2 text-xs font-medium text-danger" role="alert">
               {errorMessage}
             </p>
           )}
           <div className="mt-6 flex flex-col gap-2.5">
             <Link
               href="/login"
-              className="inline-flex h-10 w-full select-none items-center justify-center rounded-[var(--radius-stock,8px)] bg-primary px-4 text-sm font-medium text-on-primary shadow-[0_1px_2px_rgba(23,33,27,0.18)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="inline-flex h-10 w-full select-none items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-on-primary shadow-[0_1px_2px_rgba(23,33,27,0.18)] transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               Go to sign-in
             </Link>
             <Link
               href="/"
-              className="inline-flex h-10 w-full select-none items-center justify-center rounded-[var(--radius-stock,8px)] border border-border bg-background px-4 text-sm font-medium text-ink transition-colors hover:bg-paper"
+              className="inline-flex h-10 w-full select-none items-center justify-center rounded-xl border border-border bg-background px-4 text-sm font-medium text-ink transition-colors hover:bg-surface-muted"
             >
               Back to site
             </Link>
@@ -151,7 +151,7 @@ function ExpensesShell({ children }: { children: React.ReactNode }) {
 
 function GateSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-desk px-4">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-canvas px-4">
       <span className="text-primary">
         <Wordmark logoClassName="h-7 w-7" />
       </span>

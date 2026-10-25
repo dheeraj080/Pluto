@@ -160,7 +160,7 @@ export function ComparisonCard({
             {menuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 top-full z-30 mt-1.5 w-48 rounded-[var(--radius-stock,8px)] border border-border bg-paper p-1.5 shadow-2xl"
+                className="absolute right-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-border bg-surface p-1.5 shadow-2xl"
               >
                 <MenuCheckItem
                   label="Table"
@@ -230,7 +230,7 @@ function MenuCheckItem({
       aria-checked={checked}
       disabled={disabled}
       onClick={onSelect}
-      className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm text-ink transition-colors hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm text-ink transition-colors hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span>{label}</span>
       {checked && <IconCheck className="h-4 w-4 text-primary" aria-hidden="true" />}

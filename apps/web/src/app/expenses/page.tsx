@@ -95,7 +95,7 @@ export default function ExpensesDashboardPage() {
       <AppPageHeader
         title="Dashboard"
         dateRange={
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-paper px-2.5 py-1 text-xs font-medium text-muted">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-muted px-2.5 py-1 text-xs font-medium text-muted">
             <IconCalendar aria-hidden="true" className="h-3.5 w-3.5" />
             <span className="tabular-nums">{formatDateRange(window.from, window.to)}</span>
           </span>
@@ -137,7 +137,7 @@ export default function ExpensesDashboardPage() {
       )}
 
       {isEmpty ? (
-        <section className="rounded-[20px] border border-border bg-paper p-6">
+        <section className="rounded-[20px] border border-border bg-surface p-6">
           <EmptyState
             icon={<IconReceipt className="h-5 w-5" />}
             title="Add your first expense"

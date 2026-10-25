@@ -61,7 +61,7 @@ export function BudgetCard({
           </p>
           <Link
             href="/expenses/budgets"
-            className="inline-flex h-9 items-center gap-2 rounded-[var(--radius-stock,8px)] border border-border bg-paper px-3.5 text-sm font-medium text-ink transition-colors duration-150 hover:border-border-strong hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-surface-muted px-3.5 text-sm font-medium text-ink transition-colors duration-150 hover:border-border-strong hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <IconTarget className="h-4 w-4" />
             Set a monthly budget
@@ -85,7 +85,7 @@ export function BudgetCard({
             className={budget.overBudget ? "[&_span]:text-warning" : ""}
           />
 
-          <div className="mt-4 h-1 overflow-hidden rounded-full bg-paper">
+          <div className="mt-4 h-1 overflow-hidden rounded-full bg-surface-muted">
             <div
               className="h-full rounded-full"
               style={{

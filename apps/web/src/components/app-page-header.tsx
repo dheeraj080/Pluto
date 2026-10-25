@@ -70,7 +70,7 @@ export function PairSwitcher({
     return (
       <Link
         href="/expenses/settings"
-        className={`inline-flex items-center gap-1.5 rounded-[var(--radius-stock,8px)] border border-dashed border-border-strong px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-primary/40 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${className}`}
+        className={`inline-flex items-center gap-1.5 rounded-xl border border-dashed border-border-strong px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-primary/40 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${className}`}
       >
         <IconSwap className="h-3.5 w-3.5" />
         Set a currency pair
@@ -82,7 +82,7 @@ export function PairSwitcher({
     <div
       role="group"
       aria-label="Display currency pair"
-      className={`inline-flex items-center rounded-[var(--radius-stock,8px)] border border-border bg-paper p-0.5 ${className}`}
+      className={`inline-flex items-center rounded-xl border border-border bg-surface-muted p-0.5 ${className}`}
     >
       <button
         type="button"

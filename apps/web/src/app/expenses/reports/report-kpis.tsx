@@ -93,7 +93,7 @@ export function ReportKpis({
         {/* Headline: Total spent, with its change pill. */}
         <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-muted">Total spent</p>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted">Total spent</p>
             <div className="mt-2">
               {total !== null && base ? (
                 <DualAmount
@@ -182,7 +182,7 @@ function Stat({
   return (
     <div className="min-w-0">
       <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 truncate text-[11px] font-medium text-muted">
+        <p className="min-w-0 truncate text-[11px] font-medium uppercase tracking-wider text-muted">
           {label}
         </p>
         {percent != null && <ChangePill percent={percent} className="shrink-0" />}

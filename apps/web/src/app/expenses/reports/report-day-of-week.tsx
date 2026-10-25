@@ -112,7 +112,7 @@ function DowTooltip({
   const row = payload?.[0]?.payload;
   if (!active || !row) return null;
   return (
-    <div className="min-w-[12.5rem] rounded-[var(--radius-stock,8px)] border border-border bg-paper px-3 py-2 shadow-2xl">
+    <div className="min-w-[12.5rem] rounded-xl border border-border bg-surface px-3 py-2 shadow-2xl">
       <p className="mb-1.5 text-xs font-medium text-ink">{row.full}</p>
       <ul className="space-y-1">
         <li className="flex items-start justify-between gap-4 text-xs">
@@ -315,7 +315,7 @@ export function DayOfWeekInsight({
   return (
     <section
       aria-label="Spending insight"
-      className="flex h-full flex-col justify-center gap-3 rounded-[var(--radius-card,8px)] border border-border bg-paper p-5 sm:p-6"
+      className="flex h-full flex-col justify-center gap-3 rounded-3xl border border-border bg-surface p-5 sm:p-6"
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-medium text-ink">What this says</p>

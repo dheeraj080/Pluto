@@ -39,7 +39,7 @@ const FAQ = [
 
 function Item({ q, a }: { q: string; a: string }) {
   return (
-    <details className="group bg-paper rounded-[var(--radius-card,8px)] border border-border shadow-[var(--edge-stock),var(--cast-stock)] overflow-hidden transition-colors open:border-strong">
+    <details className="group bg-surface rounded-2xl border border-subtle shadow-xs overflow-hidden transition-colors open:border-strong">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-left marker:hidden sm:p-6">
         <span
           className="text-base font-semibold text-ink"
@@ -48,11 +48,11 @@ function Item({ q, a }: { q: string; a: string }) {
           {q}
         </span>
         <IconChevronDown
-          className="h-5 w-5 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180 group-open:text-accent"
+          className="h-5 w-5 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180 group-open:text-primary-brand"
         />
       </summary>
       <p
-        className="border-t border-border px-5 pb-5 pt-3 text-sm leading-relaxed text-muted sm:px-6 sm:pb-6"
+        className="border-t border-subtle px-5 pb-5 pt-3 text-sm leading-relaxed text-muted sm:px-6 sm:pb-6"
         style={{ fontFamily: "var(--font-landing-sans), var(--font-inter), system-ui, sans-serif" }}
       >
         {a}

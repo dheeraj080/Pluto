@@ -11,10 +11,10 @@ export function CoreFeatures() {
   const convertedAddAmount = convertCurrency(18.5, "EUR", homeCurrency);
 
   return (
-    <section id="features" className="scroll-mt-24 py-10 md:py-14 bg-desk relative transition-colors">
+    <section id="features" className="scroll-mt-24 py-10 md:py-14 bg-canvas relative transition-colors">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <Reveal>
-          <div className="flex items-center justify-center gap-3 text-xs font-mono text-muted mb-3">
+          <div className="flex items-center justify-center gap-3 text-xs font-mono text-muted uppercase tracking-widest mb-3">
             <span className="w-6 h-[1px] bg-border-strong" />
             <span>The Product · Visual System</span>
             <span className="w-6 h-[1px] bg-border-strong" />
@@ -26,7 +26,7 @@ export function CoreFeatures() {
               style={{ textWrap: "balance", fontFamily: "var(--font-landing-display), var(--font-space-grotesk), system-ui, sans-serif" }}
             >
               Designed for clear comprehension.
-              <span className="block text-accent">Three views. Zero financial clutter.</span>
+              <span className="block text-primary-brand">Three views. Zero financial clutter.</span>
             </h2>
             <p className="text-base sm:text-lg text-muted leading-relaxed" style={{ fontFamily: "var(--font-landing-sans), var(--font-inter), system-ui, sans-serif" }}>
               High-contrast typography, calibrated dark and light surfaces, and your familiar home currency right where you expect it.
@@ -36,18 +36,18 @@ export function CoreFeatures() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <Reveal>
-            <div className="bg-paper rounded-[var(--radius-card,8px)] p-6 border border-border shadow-[var(--edge-stock),var(--cast-stock)] flex flex-col justify-between h-full">
+            <div className="bg-surface rounded-3xl p-6 border border-subtle shadow-xs flex flex-col justify-between h-full">
               <div>
-                <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-                  <span className="text-[11px] font-bold font-mono text-accent">
+                <div className="flex items-center justify-between pb-3 border-b border-subtle mb-4">
+                  <span className="text-[11px] font-bold font-mono text-primary-brand uppercase tracking-wider">
                     01 · Quick Entry View
                   </span>
                   <span className="text-[10px] text-muted font-mono">Fast entry</span>
                 </div>
 
-                <div className="bg-desk rounded-[var(--radius-card,8px)] p-4 border border-border space-y-3.5">
-                  <div className="bg-paper rounded-[var(--radius-stock,8px)] p-4 text-center border border-border shadow-[var(--edge-stock),var(--cast-stock)]">
-                    <span className="text-[10px] font-bold text-muted font-mono">
+                <div className="bg-canvas rounded-2xl p-4 border border-subtle space-y-3.5">
+                  <div className="bg-surface rounded-xl p-4 text-center border border-subtle shadow-2xs">
+                    <span className="text-[10px] font-bold uppercase text-muted tracking-wider font-mono">
                       Amount
                     </span>
                     <div
@@ -56,7 +56,7 @@ export function CoreFeatures() {
                     >
                       € {staticAddAmount}
                     </div>
-                    <div className="text-xs font-semibold text-accent bg-accent/10 inline-flex items-center px-2.5 py-0.5 rounded-full font-mono tabular-nums">
+                    <div className="text-xs font-semibold text-primary-brand bg-primary-brand/10 inline-flex items-center px-2.5 py-0.5 rounded-full font-mono tabular-nums">
                       ≈ {formatCurrencyAmount(convertedAddAmount, homeCurrency)}
                     </div>
                   </div>
@@ -74,7 +74,7 @@ export function CoreFeatures() {
                         return (
                           <div
                             key={cat.name}
-                            className="py-2 px-2 text-center rounded-[var(--radius-stock,8px)] text-xs font-semibold border transition-all"
+                            className="py-2 px-2 text-center rounded-xl text-xs font-semibold border transition-all"
                             style={{
                               backgroundColor: cat.active ? catColor : "var(--surface)",
                               color: cat.active ? "#FFFFFF" : "var(--ink)",
@@ -96,8 +96,8 @@ export function CoreFeatures() {
                           key={amt}
                           className={`flex-1 py-1 text-center text-[11px] font-mono rounded-lg border tabular-nums ${
                             amt === "18.50"
-                              ? "bg-accent text-on-primary border-accent font-bold"
-                              : "bg-paper text-ink border-border"
+                              ? "bg-primary-brand text-on-primary border-primary-brand font-bold"
+                              : "bg-surface text-ink border-subtle"
                           }`}
                         >
                           €{amt}
@@ -106,7 +106,7 @@ export function CoreFeatures() {
                     </div>
                   </div>
 
-                  <div className="w-full py-2.5 bg-accent text-on-primary rounded-[var(--radius-stock,8px)] text-xs font-bold flex items-center justify-center gap-1.5 shadow-[var(--edge-stock),var(--cast-stock)]">
+                  <div className="w-full py-2.5 bg-primary-brand text-on-primary rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs">
                     <IconCheck className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>Save expense</span>
                   </div>
@@ -120,20 +120,20 @@ export function CoreFeatures() {
           </Reveal>
 
           <Reveal delay={80}>
-            <div className="bg-paper rounded-[var(--radius-card,8px)] p-6 border border-border shadow-[var(--edge-stock),var(--cast-stock)] flex flex-col justify-between h-full">
+            <div className="bg-surface rounded-3xl p-6 border border-subtle shadow-xs flex flex-col justify-between h-full">
               <div>
-                <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-                  <span className="text-[11px] font-bold font-mono text-accent">
+                <div className="flex items-center justify-between pb-3 border-b border-subtle mb-4">
+                  <span className="text-[11px] font-bold font-mono text-primary-brand uppercase tracking-wider">
                     02 · Home Ledger
                   </span>
                   <span className="text-[10px] text-muted font-mono">Calm overview</span>
                 </div>
 
-                <div className="bg-desk rounded-[var(--radius-card,8px)] p-4 border border-border space-y-3">
+                <div className="bg-canvas rounded-2xl p-4 border border-subtle space-y-3">
                   <div className="text-[11px] text-muted font-medium">Good morning</div>
 
-                  <div className="bg-paper rounded-[var(--radius-stock,8px)] p-3.5 border border-border shadow-[var(--edge-stock),var(--cast-stock)]">
-                    <div className="text-[10px] font-bold text-muted font-mono">
+                  <div className="bg-surface rounded-xl p-3.5 border border-subtle shadow-2xs">
+                    <div className="text-[10px] font-bold uppercase text-muted font-mono tracking-wider">
                       This month
                     </div>
                     <div
@@ -142,11 +142,11 @@ export function CoreFeatures() {
                     >
                       €428.60
                     </div>
-                    <div className="text-xs font-bold text-accent font-mono mt-0.5 tabular-nums">
+                    <div className="text-xs font-bold text-primary-brand font-mono mt-0.5 tabular-nums">
                       ≈ {formatCurrencyAmount(convertCurrency(428.6, "EUR", homeCurrency), homeCurrency)}
                     </div>
 
-                    <div className="h-2 w-full bg-paper rounded-full flex overflow-hidden gap-0.5 mt-3 mb-2">
+                    <div className="h-2 w-full bg-surface-muted rounded-full flex overflow-hidden gap-0.5 mt-3 mb-2">
                       <div className="h-full" style={{ width: "39%", backgroundColor: series[0] }} />
                       <div className="h-full" style={{ width: "25%", backgroundColor: series[1] }} />
                       <div className="h-full" style={{ width: "15%", backgroundColor: series[2] }} />
@@ -172,7 +172,7 @@ export function CoreFeatures() {
                   </div>
 
                   <div>
-                    <div className="text-[10px] font-bold text-muted mb-1.5 px-0.5 font-mono">
+                    <div className="text-[10px] font-bold text-muted uppercase tracking-wider mb-1.5 px-0.5 font-mono">
                       Recent
                     </div>
                     <div className="space-y-1.5">
@@ -181,7 +181,7 @@ export function CoreFeatures() {
                         { emoji: "🛒", label: "Rewe Supermarkt", value: "€38.20" },
                         { emoji: "🚇", label: "U-Bahn Metro", value: "€2.10" },
                       ].map((item) => (
-                        <div key={item.label} className="bg-paper p-2 rounded-lg border border-border flex items-center justify-between text-xs">
+                        <div key={item.label} className="bg-surface p-2 rounded-lg border border-subtle flex items-center justify-between text-xs">
                           <span className="flex items-center gap-1.5">
                             <span>{item.emoji}</span> {item.label}
                           </span>
@@ -200,24 +200,24 @@ export function CoreFeatures() {
           </Reveal>
 
           <Reveal delay={160}>
-            <div className="bg-paper rounded-[var(--radius-card,8px)] p-6 border border-border shadow-[var(--edge-stock),var(--cast-stock)] flex flex-col justify-between h-full">
+            <div className="bg-surface rounded-3xl p-6 border border-subtle shadow-xs flex flex-col justify-between h-full">
               <div>
-                <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-                  <span className="text-[11px] font-bold font-mono text-accent">
+                <div className="flex items-center justify-between pb-3 border-b border-subtle mb-4">
+                  <span className="text-[11px] font-bold font-mono text-primary-brand uppercase tracking-wider">
                     03 · Expense Ledger
                   </span>
                   <span className="text-[10px] text-muted font-mono">Dual-currency</span>
                 </div>
 
-                <div className="bg-desk rounded-[var(--radius-card,8px)] p-4 border border-border space-y-3">
-                  <div className="bg-paper rounded-[var(--radius-stock,8px)] p-2.5 border border-border flex items-center justify-between text-[11px] font-mono shadow-[var(--edge-stock),var(--cast-stock)]">
+                <div className="bg-canvas rounded-2xl p-4 border border-subtle space-y-3">
+                  <div className="bg-surface rounded-xl p-2.5 border border-subtle flex items-center justify-between text-[11px] font-mono shadow-2xs">
                     <div>
                       <span className="text-muted block text-[10px]">Reference Rate</span>
                       <span className="font-bold text-ink tabular-nums">
                         1 EUR ≈ {currentRate.toFixed(2)} {homeCurrency}
                       </span>
                     </div>
-                    <span className="text-[10px] text-muted bg-paper border border-border px-2 py-0.5 rounded">
+                    <span className="text-[10px] text-muted bg-surface-muted border border-subtle px-2 py-0.5 rounded">
                       Illustrative · ECB-style daily
                     </span>
                   </div>
@@ -233,11 +233,11 @@ export function CoreFeatures() {
                       return (
                         <div
                           key={idx}
-                          className="bg-paper p-2.5 rounded-[var(--radius-stock,8px)] border border-border shadow-[var(--edge-stock),var(--cast-stock)] flex items-center justify-between text-xs"
+                          className="bg-surface p-2.5 rounded-xl border border-subtle shadow-2xs flex items-center justify-between text-xs"
                         >
                           <div className="flex items-center gap-2">
                             <span
-                              className="w-7 h-7 rounded-lg bg-paper flex items-center justify-center text-xs"
+                              className="w-7 h-7 rounded-lg bg-surface-muted flex items-center justify-center text-xs"
                               style={{ color: item.color }}
                             >
                               {item.emoji}
@@ -250,7 +250,7 @@ export function CoreFeatures() {
 
                           <div className="text-right">
                             <div className="font-bold text-ink tabular-nums">€{item.eur.toFixed(2)}</div>
-                            <div className="text-[11px] font-semibold text-accent font-mono tabular-nums">
+                            <div className="text-[11px] font-semibold text-primary-brand font-mono tabular-nums">
                               ≈ {formatCurrencyAmount(converted, homeCurrency)}
                             </div>
                           </div>
@@ -259,7 +259,7 @@ export function CoreFeatures() {
                     })}
                   </div>
 
-                  <div className="p-2 bg-paper border border-border rounded-lg text-center text-[10px] text-muted font-mono">
+                  <div className="p-2 bg-surface-muted border border-subtle rounded-lg text-center text-[10px] text-muted font-mono">
                     Account-synced · Web and Android
                   </div>
                 </div>
@@ -275,15 +275,15 @@ export function CoreFeatures() {
         <Reveal>
           <div className="mt-14 max-w-3xl mx-auto flex flex-wrap items-center justify-center gap-6 text-xs text-muted font-mono">
             <span className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+              <span className="w-1.5 h-1.5 rounded-full bg-primary-brand" />
               <span>Dual-currency clarity</span>
             </span>
             <span className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+              <span className="w-1.5 h-1.5 rounded-full bg-primary-brand" />
               <span>Google sign-in</span>
             </span>
             <span className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+              <span className="w-1.5 h-1.5 rounded-full bg-primary-brand" />
               <span>Stored with your account · Web and Android</span>
             </span>
           </div>
