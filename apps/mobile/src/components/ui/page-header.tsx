@@ -36,22 +36,24 @@ export function AppPageHeader({
 
   return (
     <View style={[styles.wrap, style]}>
-      {onOpenDrawer ? (
-        <Pressable
-          accessibilityLabel="Open navigation menu"
-          hitSlop={8}
-          onPress={onOpenDrawer}
-          style={styles.menu}
-          testID="open-navigation-menu"
-        >
-          <IconMenu size={20} color={theme.ink} />
-        </Pressable>
-      ) : null}
-      <View style={styles.heading}>
-        <Text style={[text.display, { color: theme.ink }]}>{title}</Text>
-        {subtitle ? (
-          <Text style={[text.caption, { color: theme.muted }]}>{subtitle}</Text>
+      <View style={styles.titleRow}>
+        {onOpenDrawer ? (
+          <Pressable
+            accessibilityLabel="Open navigation menu"
+            hitSlop={8}
+            onPress={onOpenDrawer}
+            style={styles.menu}
+            testID="open-navigation-menu"
+          >
+            <IconMenu size={20} color={theme.ink} />
+          </Pressable>
         ) : null}
+        <View style={styles.heading}>
+          <Text style={[text.display, { color: theme.ink }]}>{title}</Text>
+          {subtitle ? (
+            <Text style={[text.caption, { color: theme.muted }]}>{subtitle}</Text>
+          ) : null}
+        </View>
       </View>
 
       {children ? <View style={styles.actions}>{children}</View> : null}
@@ -63,9 +65,16 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
+    minWidth: 0,
   },
   menu: {
     padding: spacing.sm,
