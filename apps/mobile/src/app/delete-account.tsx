@@ -97,7 +97,7 @@ export default function DeleteAccountScreen() {
   );
 
   const onDelete = useCallback(() => {
-    if (confirmText !== CONFIRM_PHRASE || deleting) return;
+    if (confirmText !== CONFIRM_PHRASE) return;
     setError(null);
     setDeleting(true);
     // Navigation follows the session: clearing it signs the app out, and the
@@ -107,7 +107,7 @@ export default function DeleteAccountScreen() {
       .then(() => setDeleted(true))
       .catch((cause: unknown) => setError(errorMessage(cause) ?? 'Account deletion failed.'))
       .finally(() => setDeleting(false));
-  }, [confirmText, deleting]);
+  }, [confirmText]);
 
   if (deleted) {
     return (
@@ -236,7 +236,7 @@ export default function DeleteAccountScreen() {
           icon={(color) => <IconTrash size={16} color={color} />}
           onPress={onDelete}
           busy={deleting}
-          disabled={confirmText !== CONFIRM_PHRASE}
+          disabled={deleting || confirmText !== CONFIRM_PHRASE}
           style={styles.delete}
         />
       </Card>

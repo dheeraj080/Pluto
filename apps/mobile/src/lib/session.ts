@@ -1,5 +1,7 @@
 import type { Schemas } from '@pluto/api-client';
 
+import { readOnboardingCompleted, writeOnboardingCompleted } from '@/lib/session-storage';
+
 import { getQueryClient } from './query-client';
 import { clearPersistedQueryCache } from './query-persistence';
 import {
@@ -22,6 +24,7 @@ export interface SessionState {
   status: SessionStatus;
   user: Schemas['UserProfileDto'] | null;
   mode: AppMode;
+  onboardingCompleted?: boolean;
 }
 
 /**
@@ -36,6 +39,11 @@ let accessToken: string | null = null;
 let refreshToken: string | null = null;
 let appMode: AppMode = 'local';
 let state: SessionState = { status: 'loading', user: null, mode: appMode };
+// Seed from storage so the flag survives app restarts
+readOnboardingCompleted().then((v) => {
+  state = { ...state, onboardingCompleted: v };
+  emit();
+});
 
 const listeners = new Set<() => void>();
 const clearedListeners = new Set<() => void>();

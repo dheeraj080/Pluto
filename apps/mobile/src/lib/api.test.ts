@@ -20,6 +20,9 @@ const storage = vi.hoisted(() => ({
   readProfile: vi.fn<() => Promise<unknown>>(async () => null),
   writeProfile: vi.fn<(profile: unknown) => Promise<void>>(async () => {}),
   deleteProfile: vi.fn<() => Promise<void>>(async () => {}),
+  readOnboardingCompleted: vi.fn<() => Promise<boolean>>(async () => false),
+  writeOnboardingCompleted: vi.fn<(value: boolean) => Promise<void>>(async () => {}),
+  deleteOnboardingCompleted: vi.fn<() => Promise<void>>(async () => {}),
 }));
 
 // `session.clearSession` also drops the disk read-cache, whose storage layer is
@@ -92,6 +95,10 @@ describe('api', () => {
     storage.readProfile.mockResolvedValue(null);
     storage.writeProfile.mockReset();
     storage.deleteProfile.mockReset();
+    storage.readOnboardingCompleted.mockReset();
+    storage.readOnboardingCompleted.mockResolvedValue(false);
+    storage.writeOnboardingCompleted.mockReset();
+    storage.deleteOnboardingCompleted.mockReset();
   });
 
   it('replays a 401 after a successful rotation', async () => {

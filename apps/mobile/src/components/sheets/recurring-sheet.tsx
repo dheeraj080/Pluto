@@ -161,7 +161,7 @@ export function RecurringSheet({
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.modalRoot}
       >
         <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={onClose} />
@@ -318,7 +318,7 @@ export function RecurringSheet({
 }
 
 const styles = StyleSheet.create({
-  modalRoot: { flex: 1, justifyContent: 'flex-end' },
+  modalRoot: { flex: 1, justifyContent: 'flex-end', elevation: 8 },
   backdrop: {
     position: 'absolute',
     top: 0,

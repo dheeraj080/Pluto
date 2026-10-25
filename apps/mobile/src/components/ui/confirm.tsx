@@ -18,7 +18,7 @@
  * false` for a single-button acknowledgement.
  */
 
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
@@ -41,7 +41,7 @@ export interface ConfirmOptions {
   cancelable?: boolean;
 }
 
-type Pending = ConfirmOptions & { resolve: (confirmed: boolean) => void };
+type Pending = ConfirmOptions & { resolve: (confirmed: boolean) => void; generation: number };
 
 export function useConfirm(): {
   /** Ask a question; resolves `true` when the user confirms. */
@@ -50,11 +50,14 @@ export function useConfirm(): {
   sheet: ReactNode;
 } {
   const [pending, setPending] = useState<Pending | null>(null);
+  const generationRef = useRef(0);
 
   const confirm = useCallback(
     (options: ConfirmOptions) =>
       new Promise<boolean>((resolve) => {
-        setPending({ ...options, resolve });
+        generationRef.current += 1;
+        const generation = generationRef.current;
+        setPending(prev => prev && prev.generation < generation ? prev : { ...options, resolve, generation });
       }),
     [],
   );
@@ -141,7 +144,7 @@ function ConfirmSheet({
 }
 
 const styles = StyleSheet.create({
-  modalRoot: { flex: 1, justifyContent: 'flex-end' },
+  modalRoot: { flex: 1, justifyContent: 'flex-end', elevation: 8 },
   backdrop: {
     position: 'absolute',
     top: 0,

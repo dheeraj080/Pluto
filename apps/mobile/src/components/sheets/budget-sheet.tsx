@@ -131,7 +131,7 @@ export function BudgetSheet({
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.modalRoot}
       >
         <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={onClose} />
@@ -181,56 +181,72 @@ export function BudgetSheet({
               </View>
             )}
 
-            <TextField
-              label="Amount"
-              hint={homeHint}
-              value={amount}
-              onChangeText={setAmount}
-              placeholder="0.00"
-              keyboardType="decimal-pad"
-              editable={!busy}
-            />
-
             {!target ? (
               <>
-                <View style={styles.group}>
-                  <Text style={[text.bodyMedium, { color: theme.ink }]}>Currency</Text>
-                  {currencyOptions.length === 0 ? (
-                    <Text style={[text.caption, { color: theme.muted }]}>Loading currencies…</Text>
-                  ) : (
-                    <Select
-                      accessibilityLabel="Currency"
-                      value={effectiveCurrency}
-                      onChange={setCurrency}
-                      options={currencyOptions.map((option) => ({
-                        value: option.code,
-                        label: `${option.code} · ${option.symbol}`,
-                      }))}
-                    />
-                  )}
+                <View style={styles.row}>
+                  <TextField
+                    label="Amount"
+                    hint={homeHint}
+                    value={amount}
+                    onChangeText={setAmount}
+                    placeholder="0.00"
+                    keyboardType="decimal-pad"
+                    editable={!busy}
+                    containerStyle={styles.rowItem}
+                  />
+
+                  <View style={[styles.group, styles.rowItem]}>
+                    <Text style={[text.bodyMedium, { color: theme.ink }]}>Currency</Text>
+                    {currencyOptions.length === 0 ? (
+                      <Text style={[text.caption, { color: theme.muted }]}>Loading currencies…</Text>
+                    ) : (
+                      <Select
+                        accessibilityLabel="Currency"
+                        value={effectiveCurrency}
+                        onChange={setCurrency}
+                        options={currencyOptions.map((option) => ({
+                          value: option.code,
+                          label: `${option.code} · ${option.symbol}`,
+                        }))}
+                      />
+                    )}
+                  </View>
                 </View>
 
-                <View style={styles.group}>
-                  <Text style={[text.bodyMedium, { color: theme.ink }]}>Period</Text>
-                  <SegmentedControl
-                    label="Period"
-                    options={PERIODS}
-                    value={period}
-                    onChange={setPeriod}
+                <View style={styles.row}>
+                  <View style={[styles.group, styles.rowItem]}>
+                    <Text style={[text.bodyMedium, { color: theme.ink }]}>Period</Text>
+                    <SegmentedControl
+                      label="Period"
+                      options={PERIODS}
+                      value={period}
+                      onChange={setPeriod}
+                    />
+                  </View>
+
+                  <TextField
+                    label="Starts"
+                    hint="Spend before this date is not counted"
+                    value={startDate}
+                    onChangeText={setStartDate}
+                    placeholder="2026-10-01"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    containerStyle={styles.rowItem}
                   />
                 </View>
-
-                <TextField
-                  label="Starts"
-                  hint="Spend before this date is not counted"
-                  value={startDate}
-                  onChangeText={setStartDate}
-                  placeholder="2026-10-01"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
               </>
-            ) : null}
+            ) : (
+              <TextField
+                label="Amount"
+                hint={homeHint}
+                value={amount}
+                onChangeText={setAmount}
+                placeholder="0.00"
+                keyboardType="decimal-pad"
+                editable={!busy}
+              />
+            )}
 
             {validationError ? <ErrorNote message={validationError} /> : null}
             {mutationError ? (
@@ -266,7 +282,11 @@ function ReadOnly({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  modalRoot: { flex: 1, justifyContent: 'flex-end' },
+  modalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    elevation: 8,
+  },
   backdrop: {
     position: 'absolute',
     top: 0,
@@ -292,6 +312,15 @@ const styles = StyleSheet.create({
   scroll: { flexShrink: 1 },
   content: { paddingHorizontal: spacing.lg, gap: spacing.md },
   group: { gap: spacing.sm },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  rowItem: {
+    flex: 1,
+    minWidth: 0,
+  },
   readonly: { gap: spacing.xs / 2 },
   actions: {
     flexDirection: 'row',
