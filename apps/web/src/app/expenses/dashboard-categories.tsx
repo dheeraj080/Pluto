@@ -111,7 +111,7 @@ export function CategoryRow({
         </span>
       </div>
       <div className="mt-1 flex items-center gap-2">
-        <div className="h-1 flex-1 overflow-hidden rounded-full bg-surface-muted">
+        <div className="h-1 flex-1 overflow-hidden rounded-full bg-paper">
           <div
             className="h-full rounded-full"
             style={{ width: `${width}%`, backgroundColor: entry.color }}

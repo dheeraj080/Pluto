@@ -245,8 +245,43 @@
 }
 
 @layer base {
+  /* Coral theme tokens (additive, opt-in via data-theme="coral"). */
+  :root[data-theme="coral"] {
+    color-scheme: light;
+    --canvas: oklch(97% 0.006 55);
+    --surface: oklch(94.5% 0.007 55);
+    --surface-muted: oklch(91.5% 0.009 55);
+    --ink: oklch(21% 0.012 38);
+    --muted: oklch(47% 0.013 45);
+    --border: oklch(87% 0.009 55);
+    --border-strong: oklch(81% 0.011 55);
+    --primary: oklch(54% 0.165 29);
+    --primary-hover: oklch(47% 0.16 29);
+    --primary-active: oklch(40% 0.15 29);
+    --primary-subtle: oklch(94.3% 0.008 64);
+    --on-primary: oklch(96.5% 0.006 70);
+    --accent: oklch(74% 0.125 30);
+    --accent-strong: oklch(54% 0.165 29);
+    --accent-subtle: oklch(94.3% 0.008 64);
+    --on-accent: oklch(21% 0.012 38);
+    --color-cotton: oklch(98.8% 0.0045 80);
+    --color-desk: oklch(94.3% 0.008 64);
+    --color-print: oklch(23% 0.012 38);
+    --color-board: oklch(22% 0.011 40);
+    --color-board-type: oklch(96.5% 0.006 70);
+    --color-paid: oklch(55.5% 0.15 33);
+    --font-sans: "General Sans", ui-sans-serif, system-ui, sans-serif;
+    --font-display: "General Sans", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "Geist Mono", ui-monospace, monospace;
+    --radius-card: 8px;
+    --radius-input: 6px;
+    --radius-pill: 999px;
+    --radius-stock: 8px;
+  }
+
   html {
     scroll-behavior: smooth;
+    overflow-x: clip;
   }
 
   body {
@@ -255,6 +290,7 @@
     font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    overflow-x: clip;
   }
 
   h1,

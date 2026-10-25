@@ -40,7 +40,7 @@ export default function SettingsPage() {
 
       {error && <ErrorNote message={error} />}
 
-      <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
+      <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper p-5 sm:p-6">
         <h2 className="text-sm font-medium text-ink">Display currencies</h2>
         <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
           Pluto shows every amount in two currencies: a Base and a Second. Choose both here, then
@@ -102,8 +102,8 @@ export default function SettingsPage() {
         </div>
 
         {base && second && (
-          <div className="mt-6 rounded-2xl border border-border bg-surface-muted px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted">Preview</p>
+          <div className="mt-6 rounded-[var(--radius-card,8px)] border border-border bg-paper px-4 py-3">
+            <p className="text-xs font-medium text-muted">Preview</p>
             <p className="mt-1 flex flex-wrap items-baseline gap-x-2">
               <span className="tabular-nums text-lg font-semibold text-ink">
                 {formatMoney(SAMPLE, base)}
@@ -132,7 +132,7 @@ export default function SettingsPage() {
         )}
       </section>
 
-      <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
+      <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper p-5 sm:p-6">
         <h2 className="text-sm font-medium text-ink">Appearance</h2>
         <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
           Choose a light or dark interface, or follow your device. The setting is saved to this
@@ -143,7 +143,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
+      <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper p-5 sm:p-6">
         <h2 className="text-sm font-medium text-ink">How recorded amounts are kept</h2>
         <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
           An expense is stored in the currency you paid in, and that recorded amount is never

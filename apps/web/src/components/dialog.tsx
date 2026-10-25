@@ -57,7 +57,7 @@ export function Dialog({
       onClick={(event) => {
         if (event.target === ref.current) onClose();
       }}
-      className={`m-auto w-[calc(100vw-2rem)] rounded-2xl border border-border bg-background p-0 text-ink shadow-2xl backdrop:bg-ink/40 backdrop:backdrop-blur-[2px] open:animate-[dialog-in_160ms_ease-out] ${width}`}
+      className={`m-auto w-[calc(100%-2rem)] rounded-[var(--radius-card,8px)] border border-border bg-background p-0 text-ink shadow-2xl backdrop:bg-ink/40 backdrop:backdrop-blur-[2px] open:animate-[dialog-in_160ms_ease-out] ${width}`}
     >
       <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
         <h2 id={titleId} className="text-base font-semibold tracking-tight">
@@ -67,7 +67,7 @@ export function Dialog({
           type="button"
           onClick={onClose}
           aria-label="Close dialog"
-          className="rounded-lg p-1 text-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-primary"
+          className="rounded-lg p-1 text-muted transition-colors hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-primary"
         >
           <IconClose className="h-4 w-4" />
         </button>

@@ -67,7 +67,7 @@ function ChartSkeleton({ height }: { height: number }) {
     <div
       role="status"
       aria-label="Loading chart"
-      className="relative overflow-hidden rounded-2xl bg-surface-muted"
+      className="relative overflow-hidden rounded-[var(--radius-card,8px)] bg-paper"
       style={{ height }}
     >
       <div
@@ -94,7 +94,7 @@ function ChartDataTable({ table }: { table: ChartTable }) {
               <th
                 key={column}
                 scope="col"
-                className="whitespace-nowrap px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted"
+                className="whitespace-nowrap px-3 py-2 text-xs font-medium text-muted"
               >
                 {column}
               </th>
@@ -164,7 +164,7 @@ export function ChartFrame({
   /** Adds the soft emerald glow, reserved for hero cards. */
   glow?: boolean;
   /**
-   * Tighter padding and a small uppercase section label, for the dashboard's
+   * Tighter padding and a small section label, for the dashboard's
    * compact grid. The default is the roomier report-card treatment.
    */
   compact?: boolean;
@@ -191,9 +191,9 @@ export function ChartFrame({
 
   return (
     <section
-      className={`relative border border-border bg-surface ${
+      className={`relative border border-border bg-paper ${
         clip ? "overflow-hidden" : ""
-      } ${compact ? "rounded-[20px]" : "rounded-3xl"} ${className}`}
+      } ${compact ? "rounded-[20px]" : "rounded-[var(--radius-card,8px)]"} ${className}`}
     >
       {glow && (
         <div
@@ -211,7 +211,7 @@ export function ChartFrame({
           <h2
             className={
               compact
-                ? "text-xs font-medium uppercase tracking-wider text-muted"
+                ? "text-xs font-medium text-muted"
                 : "text-sm font-medium text-ink"
             }
           >
@@ -354,7 +354,7 @@ function TrendTooltip({
     typeof label === "string" && xTickFormatter ? xTickFormatter(label) : String(label ?? "");
 
   return (
-    <div className="min-w-[11rem] rounded-xl border border-border bg-surface px-3 py-2 shadow-2xl">
+    <div className="min-w-[11rem] rounded-[var(--radius-stock,8px)] border border-border bg-paper px-3 py-2 shadow-2xl">
       {heading && <p className="mb-1.5 text-xs font-medium text-ink">{heading}</p>}
       <ul className="space-y-1">
         {payload.map((entry, index) => {
@@ -564,7 +564,7 @@ function ComparisonTooltip({
   const signed = (value: number) => `${value > 0 ? "+" : ""}${formatPrimary(value)}`;
 
   return (
-    <div className="min-w-[12rem] rounded-xl border border-border bg-surface px-3 py-2 shadow-2xl">
+    <div className="min-w-[12rem] rounded-[var(--radius-stock,8px)] border border-border bg-paper px-3 py-2 shadow-2xl">
       <p className="mb-1.5 text-xs font-medium text-ink">{heading}</p>
       <ul className="space-y-1">
         <TooltipRow

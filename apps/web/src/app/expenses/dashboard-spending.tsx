@@ -137,7 +137,7 @@ export function SpendingCard({
 function Stat({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-muted">{label}</p>
+      <p className="text-[11px] font-medium text-muted">{label}</p>
       <div className="mt-1 truncate text-sm font-medium text-ink">{children}</div>
     </div>
   );

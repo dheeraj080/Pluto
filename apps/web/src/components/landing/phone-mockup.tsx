@@ -32,17 +32,17 @@ export function PhoneMockup({ className = "" }: { className?: string }) {
         <div className="absolute -left-[13px] top-[225px] w-[3px] h-[48px] bg-[#272B30] rounded-l-md" />
         <div className="absolute -right-[13px] top-[170px] w-[3px] h-[68px] bg-[#272B30] rounded-r-md" />
 
-        <div className="w-full h-full bg-surface rounded-[40px] overflow-hidden flex flex-col relative text-ink border border-subtle">
+        <div className="w-full h-full bg-paper rounded-[40px] overflow-hidden flex flex-col relative text-ink border border-border">
           <div className="pt-3.5 px-6 pb-1.5 flex items-center justify-between text-[11px] font-semibold text-muted z-30 shrink-0">
             <span className="font-mono tracking-tight text-ink">9:41</span>
-            <div className="w-24 h-5 bg-[#0B0C0E] rounded-full shadow-xs border border-white/5" />
+            <div className="w-24 h-5 bg-[#0B0C0E] rounded-full shadow-[var(--edge-stock),var(--cast-stock)] border border-white/5" />
             <div className="flex items-center gap-1.5 text-muted">
               <IconWifi className="w-3 h-3" />
               <IconBattery className="w-3.5 h-3.5" />
             </div>
           </div>
 
-          <div className="px-5 pt-1 pb-2 border-b border-subtle bg-surface/95 backdrop-blur-md shrink-0">
+          <div className="px-5 pt-1 pb-2 border-b border-border bg-paper/95 backdrop-blur-md shrink-0">
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-[11px] text-muted font-medium block">Good morning</span>
@@ -50,17 +50,17 @@ export function PhoneMockup({ className = "" }: { className?: string }) {
                   Munich · Living in EUR
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-muted border border-subtle text-xs font-semibold rounded-full text-ink shadow-2xs">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-paper border border-border text-xs font-semibold rounded-full text-ink shadow-[var(--edge-stock),var(--cast-stock)]">
                 <span>🇮🇳</span>
                 <span className="font-mono text-[11px]">INR</span>
               </div>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-3 relative bg-canvas space-y-3.5">
-            <div className="bg-surface rounded-2xl p-4 border border-subtle shadow-xs space-y-3">
+          <div className="flex-1 overflow-y-auto px-4 py-3 relative bg-desk space-y-3.5">
+            <div className="bg-paper rounded-[var(--radius-card,8px)] p-4 border border-border shadow-[var(--edge-stock),var(--cast-stock)] space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted font-mono">
+                <span className="text-[10px] font-bold text-muted font-mono">
                   This Month
                 </span>
                 <span className="text-[10px] font-mono font-semibold text-muted">
@@ -72,13 +72,13 @@ export function PhoneMockup({ className = "" }: { className?: string }) {
                 <div className="text-3xl font-extrabold tracking-tight text-ink tabular-nums" style={{ fontFamily: "var(--font-landing-display), var(--font-space-grotesk), system-ui, sans-serif" }}>
                   €{monthTotalEur.toFixed(2)}
                 </div>
-                <div className="text-xs font-bold text-primary-brand font-mono mt-0.5 tabular-nums">
+                <div className="text-xs font-bold text-accent font-mono mt-0.5 tabular-nums">
                   ≈ {formatMoney(monthTotalHome, HOME_CURRENCY, "en-US")}
                 </div>
               </div>
 
               <div>
-                <div className="h-2 w-full bg-surface-muted rounded-full flex overflow-hidden gap-0.5">
+                <div className="h-2 w-full bg-paper rounded-full flex overflow-hidden gap-0.5">
                   {monthCategories.map((cat, idx) => (
                     <div
                       key={idx}
@@ -102,18 +102,18 @@ export function PhoneMockup({ className = "" }: { className?: string }) {
               </div>
             </div>
 
-            <div className="bg-surface p-2.5 rounded-xl border border-subtle flex items-center justify-between text-xs shadow-2xs">
+            <div className="bg-paper p-2.5 rounded-[var(--radius-stock,8px)] border border-border flex items-center justify-between text-xs shadow-[var(--edge-stock),var(--cast-stock)]">
               <div className="flex items-center gap-2 font-mono text-[11px] text-muted">
                 <span>Daily avg:</span>
                 <span className="font-bold text-ink tabular-nums">€14.28</span>
               </div>
-              <div className="text-[11px] font-semibold text-primary-brand font-mono tabular-nums">
+              <div className="text-[11px] font-semibold text-accent font-mono tabular-nums">
                 ≈ {formatMoney(convertCurrency(14.28, "EUR", HOME_CURRENCY), HOME_CURRENCY, "en-US")}/day
               </div>
             </div>
 
             <div>
-              <div className="text-[10px] font-bold text-muted uppercase tracking-wider mb-1.5 px-0.5 font-mono">
+              <div className="text-[10px] font-bold text-muted mb-1.5 px-0.5 font-mono">
                 <span>Recent Expenses</span>
               </div>
 
@@ -123,11 +123,11 @@ export function PhoneMockup({ className = "" }: { className?: string }) {
                   return (
                     <div
                       key={exp.id}
-                      className="bg-surface p-2.5 rounded-xl border border-subtle shadow-2xs flex items-center justify-between text-xs"
+                      className="bg-paper p-2.5 rounded-[var(--radius-stock,8px)] border border-border shadow-[var(--edge-stock),var(--cast-stock)] flex items-center justify-between text-xs"
                     >
                       <div className="flex items-center gap-2.5">
                         <span
-                          className="w-7 h-7 rounded-lg bg-surface-muted flex items-center justify-center text-xs"
+                          className="w-7 h-7 rounded-lg bg-paper flex items-center justify-center text-xs"
                           style={{ color: catColor }}
                         >
                           {exp.emoji}
@@ -142,7 +142,7 @@ export function PhoneMockup({ className = "" }: { className?: string }) {
                         <div className="font-bold text-ink tabular-nums">
                           €{exp.eur.toFixed(2)}
                         </div>
-                        <div className="text-[10px] font-semibold text-primary-brand font-mono tabular-nums">
+                        <div className="text-[10px] font-semibold text-accent font-mono tabular-nums">
                           ≈ {formatMoney(convertCurrency(exp.eur, "EUR", HOME_CURRENCY), HOME_CURRENCY, "en-US")}
                         </div>
                       </div>

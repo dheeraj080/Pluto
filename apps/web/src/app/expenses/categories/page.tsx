@@ -72,7 +72,7 @@ function ColorPicker({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           aria-label="Custom colour"
-          className="h-7 w-9 cursor-pointer rounded-md border border-border bg-surface-muted p-0.5"
+          className="h-7 w-9 cursor-pointer rounded-md border border-border bg-paper p-0.5"
         />
         Custom
       </label>
@@ -153,7 +153,7 @@ export default function CategoriesPage() {
       {message && <ErrorNote message={message} />}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <section className="rounded-3xl border border-border bg-surface lg:col-span-5">
+        <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper lg:col-span-5">
           <div className="px-5 pt-5 sm:px-6">
             <h2 className="text-sm font-medium text-ink">Add category</h2>
             <p className="mt-0.5 text-xs text-muted">
@@ -185,7 +185,7 @@ export default function CategoriesPage() {
           </form>
         </section>
 
-        <section className="rounded-3xl border border-border bg-surface lg:col-span-7">
+        <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper lg:col-span-7">
           <div className="px-5 pt-5 sm:px-6">
             <h2 className="text-sm font-medium text-ink">Your categories</h2>
             <p className="mt-0.5 text-xs text-muted">

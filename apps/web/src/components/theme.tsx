@@ -73,7 +73,7 @@ export function ThemeToggle({
     <div
       role="group"
       aria-label="Appearance"
-      className="inline-flex rounded-xl border border-border bg-surface-muted p-0.5"
+      className="inline-flex rounded-[var(--radius-stock,8px)] border border-border bg-paper p-0.5"
     >
       {OPTIONS.map((option) => {
         const active = option.value === preference;

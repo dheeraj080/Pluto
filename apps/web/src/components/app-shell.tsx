@@ -43,10 +43,10 @@ export function AppShell({
   };
 
   return (
-    <div className="min-h-dvh bg-canvas md:flex">
+    <div className="min-h-dvh bg-desk md:flex">
       {/* ------------------------- Desktop sidebar ------------------------- */}
       {/* Icon rail from `md`, full labels and the wordmark from `lg`. */}
-      <aside className="sticky top-0 hidden h-dvh w-[4.75rem] shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-60">
+      <aside className="sticky top-0 hidden h-dvh w-[4.75rem] shrink-0 flex-col border-r border-border bg-paper md:flex lg:w-60">
         <div className="flex h-16 items-center border-b border-border px-2 lg:px-5">
           <Link
             href="/"
@@ -67,10 +67,10 @@ export function AppShell({
                 href={item.href}
                 title={item.label}
                 aria-current={active ? "page" : undefined}
-                className={`flex items-center justify-center gap-2.5 rounded-xl px-2 py-2.5 text-sm font-medium transition-colors duration-150 lg:justify-start lg:px-3 ${
+                className={`flex items-center justify-center gap-2.5 rounded-[var(--radius-stock,8px)] px-2 py-2.5 text-sm font-medium transition-colors duration-150 lg:justify-start lg:px-3 ${
                   active
                     ? "bg-primary-subtle text-primary"
-                    : "text-muted hover:bg-surface-muted hover:text-ink"
+                    : "text-muted hover:bg-paper hover:text-ink"
                 }`}
               >
                 <span aria-hidden="true" className="shrink-0">
@@ -93,7 +93,7 @@ export function AppShell({
       {/* --------------------------- Content ------------------------------- */}
       <div className="min-w-0 flex-1">
         {/* Mobile top bar */}
-        <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-surface/85 px-4 backdrop-blur md:hidden">
+        <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-paper/85 px-4 backdrop-blur md:hidden">
           <Link href="/" className="text-ink transition-opacity hover:opacity-80">
             <Wordmark />
           </Link>
@@ -104,7 +104,7 @@ export function AppShell({
                 type="button"
                 onClick={onSignOut}
                 aria-label="Sign out"
-                className="rounded-lg p-2 text-muted transition-colors hover:bg-surface-muted hover:text-ink"
+                className="rounded-lg p-2 text-muted transition-colors hover:bg-paper hover:text-ink"
               >
                 <IconLogOut className="h-5 w-5" />
               </button>
@@ -120,7 +120,7 @@ export function AppShell({
       {/* ------------------------- Mobile bottom nav ----------------------- */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-paper/95 backdrop-blur md:hidden"
       >
         <div className={`mx-auto grid max-w-md ${gridColumns(nav.length)}`}>
           {nav.map((item) => {
@@ -213,8 +213,8 @@ function AccountMenu({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         title="Account"
-        className={`flex w-full items-center justify-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-surface-muted lg:justify-start lg:px-3 ${
-          open ? "bg-surface-muted" : ""
+        className={`flex w-full items-center justify-center gap-2.5 rounded-[var(--radius-stock,8px)] px-2 py-2 transition-colors hover:bg-paper lg:justify-start lg:px-3 ${
+          open ? "bg-paper" : ""
         }`}
       >
         <Avatar user={user ?? { name: null, email: "", avatarUrl: null }} className="h-7 w-7 shrink-0 text-xs" />
@@ -231,13 +231,13 @@ function AccountMenu({
           id={menuId}
           role="menu"
           aria-label="Account"
-          className="absolute bottom-full left-0 z-50 mb-2 w-56 rounded-xl border border-border bg-surface p-1.5 shadow-2xl"
+          className="absolute bottom-full left-0 z-50 mb-2 w-56 rounded-[var(--radius-stock,8px)] border border-border bg-paper p-1.5 shadow-2xl"
         >
           <Link
             href="/expenses/settings"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface-muted"
+            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-paper"
           >
             <IconSettings className="h-4 w-4 shrink-0 text-muted" />
             <span className="truncate">Settings</span>
@@ -246,7 +246,7 @@ function AccountMenu({
             type="button"
             role="menuitem"
             onClick={onSignOut}
-            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-ink transition-colors hover:bg-surface-muted"
+            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-ink transition-colors hover:bg-paper"
           >
             <IconLogOut className="h-4 w-4 shrink-0 text-muted" />
             <span className="truncate">Sign out</span>

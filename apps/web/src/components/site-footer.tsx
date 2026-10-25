@@ -35,7 +35,7 @@ const COLUMNS = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-surface">
+    <footer className="border-t border-border bg-paper">
       <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -49,7 +49,7 @@ export function SiteFooter() {
           </div>
           {COLUMNS.map((column) => (
             <nav key={column.title} aria-label={column.title}>
-              <h3 className="font-mono text-[11px] uppercase tracking-wider text-muted">
+              <h3 className="font-mono text-[11px] text-muted">
                 {column.title}
               </h3>
               <ul className="mt-3 space-y-2.5">
@@ -67,7 +67,7 @@ export function SiteFooter() {
             </nav>
           ))}
         </div>
-        <div className="mt-12 flex flex-col gap-2 border-t border-border pt-6 font-mono text-[11px] uppercase tracking-wider text-muted sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-12 flex flex-col gap-2 border-t border-border pt-6 font-mono text-[11px] text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>© {CURRENT_YEAR} Pluto. All rights reserved.</p>
           <p>Exchange-rate data provided by the European Central Bank.</p>
         </div>

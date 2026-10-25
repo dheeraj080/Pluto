@@ -309,7 +309,7 @@ export default function TransactionsPage() {
         />
       )}
 
-      <section className="rounded-3xl border border-border bg-surface">
+      <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 sm:px-6">
           <div>
             <h2 className="text-sm font-medium text-ink">All expenses</h2>
@@ -382,7 +382,7 @@ export default function TransactionsPage() {
               {chips.map((chip) => (
                 <span
                   key={chip.key}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border-strong bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border-strong bg-paper px-2.5 py-1 text-xs font-medium text-ink"
                 >
                   {chip.label}
                   <button
@@ -442,21 +442,21 @@ export default function TransactionsPage() {
                 {/* Tablet and up: a table with a sticky header. */}
                 <div className="hidden md:block">
                   <table className="w-full text-left text-sm">
-                    <thead className="sticky top-0 z-10 bg-surface">
+                    <thead className="sticky top-0 z-10 bg-paper">
                       <tr className="border-b border-border">
-                        <th className="px-3 py-3 text-xs font-medium uppercase tracking-wider text-muted">
+                        <th className="px-3 py-3 text-xs font-medium text-muted">
                           Date
                         </th>
-                        <th className="px-3 py-3 text-xs font-medium uppercase tracking-wider text-muted">
+                        <th className="px-3 py-3 text-xs font-medium text-muted">
                           Description
                         </th>
-                        <th className="px-3 py-3 text-xs font-medium uppercase tracking-wider text-muted">
+                        <th className="px-3 py-3 text-xs font-medium text-muted">
                           Category
                         </th>
-                        <th className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted">
+                        <th className="px-3 py-3 text-right text-xs font-medium text-muted">
                           Amount
                         </th>
-                        <th className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted">
+                        <th className="px-3 py-3 text-right text-xs font-medium text-muted">
                           Actions
                         </th>
                       </tr>
@@ -465,7 +465,7 @@ export default function TransactionsPage() {
                       {list.items.map((expense) => {
                         const described = describe(expense);
                         return (
-                          <tr key={expense.id} className="transition-colors hover:bg-surface-muted/60">
+                          <tr key={expense.id} className="transition-colors hover:bg-paper/60">
                             <td className="whitespace-nowrap px-3 py-3 text-sm text-muted">
                               {formatDate(expense.incurredOn)}
                             </td>
@@ -594,7 +594,7 @@ export default function TransactionsPage() {
       </section>
 
       {top && top.items.length > 0 && summary && (
-        <section className="rounded-3xl border border-border bg-surface">
+        <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper">
           <div className="px-5 pt-5 sm:px-6">
             <h2 className="text-sm font-medium text-ink">Top expenses</h2>
             <p className="mt-0.5 text-xs text-muted">{formatDateRange(range.from, range.to)}</p>
@@ -614,7 +614,7 @@ export default function TransactionsPage() {
                 <li key={item.id}>
                   <Link
                     href={`/expenses/${item.id}`}
-                    className="flex items-center justify-between gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-surface-muted"
+                    className="flex items-center justify-between gap-3 rounded-[var(--radius-stock,8px)] px-2 py-2.5 transition-colors hover:bg-paper"
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium text-ink">

@@ -76,7 +76,7 @@ export function TransactionRow({
     <li className={`group relative ${className}`}>
       <Link
         href={href}
-        className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors duration-150 hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="flex items-center gap-3 rounded-[var(--radius-stock,8px)] px-2 py-2.5 transition-colors duration-150 hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         {color && (
           <span
@@ -110,7 +110,7 @@ export function TransactionRow({
       {hasTooltip && (
         <span
           role="tooltip"
-          className="pointer-events-none absolute right-2 top-full z-20 mt-1 hidden w-max max-w-[17rem] rounded-xl border border-border bg-surface px-3 py-2 text-left text-xs shadow-2xl group-hover:block group-focus-within:block"
+          className="pointer-events-none absolute right-2 top-full z-20 mt-1 hidden w-max max-w-[17rem] rounded-[var(--radius-stock,8px)] border border-border bg-paper px-3 py-2 text-left text-xs shadow-2xl group-hover:block group-focus-within:block"
         >
           {showPaid && beneath !== "paid" && (
             <span className="block tabular-nums">

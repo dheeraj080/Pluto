@@ -184,7 +184,7 @@ export function RangeControl({
       <div
         role="group"
         aria-label="Date range"
-        className="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border border-border bg-surface-muted p-0.5"
+        className="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-[var(--radius-stock,8px)] border border-border bg-paper p-0.5"
       >
         {REPORT_PRESETS.map((option) => {
           const active = option.value === preset;
@@ -227,7 +227,7 @@ export function RangeControl({
           id={id}
           role="dialog"
           aria-label="Choose a custom date range"
-          className="absolute left-0 top-full z-40 mt-2 w-max max-w-[calc(100vw-2rem)] rounded-[20px] border border-border bg-surface p-4 shadow-2xl"
+          className="absolute left-0 top-full z-40 mt-2 w-max max-w-[calc(100%-2rem)] rounded-[20px] border border-border bg-paper p-4 shadow-2xl"
         >
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-medium text-ink">
@@ -242,7 +242,7 @@ export function RangeControl({
                 type="button"
                 aria-label="Previous month"
                 onClick={() => setView(shiftMonth(view, -1))}
-                className="inline-flex size-7 items-center justify-center rounded-lg text-muted transition-colors duration-150 hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="inline-flex size-7 items-center justify-center rounded-lg text-muted transition-colors duration-150 hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 <IconChevronDown aria-hidden="true" className="h-4 w-4 rotate-90" />
               </button>
@@ -251,7 +251,7 @@ export function RangeControl({
                 aria-label="Next month"
                 disabled={!canGoForward}
                 onClick={() => setView(shiftMonth(view, 1))}
-                className="inline-flex size-7 items-center justify-center rounded-lg text-muted transition-colors duration-150 hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-35"
+                className="inline-flex size-7 items-center justify-center rounded-lg text-muted transition-colors duration-150 hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-35"
               >
                 <IconChevronDown aria-hidden="true" className="h-4 w-4 -rotate-90" />
               </button>
@@ -281,7 +281,7 @@ export function RangeControl({
             <button
               type="button"
               onClick={close}
-              className="rounded-lg px-2.5 py-1 text-xs font-medium text-muted transition-colors duration-150 hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="rounded-lg px-2.5 py-1 text-xs font-medium text-muted transition-colors duration-150 hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               Cancel
             </button>
@@ -317,7 +317,7 @@ function MonthGrid({
       <p className="mb-1.5 text-center text-xs font-medium text-ink">{monthLabel(month)}</p>
       <div className="grid grid-cols-7 gap-y-0.5 text-center">
         {WEEKDAYS.map((label, index) => (
-          <span key={index} aria-hidden="true" className="py-1 text-[10px] uppercase text-muted">
+          <span key={index} aria-hidden="true" className="py-1 text-[10px] text-muted">
             {label}
           </span>
         ))}
@@ -345,8 +345,8 @@ function MonthGrid({
                   selected
                     ? "bg-primary font-semibold text-on-primary"
                     : cell.inMonth
-                      ? "text-ink hover:bg-surface-muted"
-                      : "text-muted/60 hover:bg-surface-muted"
+                      ? "text-ink hover:bg-paper"
+                      : "text-muted/60 hover:bg-paper"
                 }`}
               >
                 {cell.day}

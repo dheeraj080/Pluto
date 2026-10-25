@@ -24,7 +24,7 @@ export default function NewExpensePage() {
       </Link>
       {error && <ErrorNote message={error} />}
       {loading ? (
-        <div className="space-y-4 rounded-2xl border border-border bg-background p-6">
+        <div className="space-y-4 rounded-[var(--radius-card,8px)] border border-border bg-background p-6">
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />

@@ -30,9 +30,9 @@ export function PrivacyStrip() {
     <section id="privacy" className="scroll-mt-24 border-t border-border">
       <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
         <Reveal>
-          <div className="rounded-2xl border border-border bg-surface p-6 sm:p-9">
+          <div className="rounded-[var(--radius-card,8px)] border border-border bg-paper p-6 sm:p-9">
             <div className="max-w-2xl">
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">Privacy and trust</p>
+              <p className="font-mono text-[11px] text-muted">Privacy and trust</p>
               <h2
                 className="mt-3 text-2xl font-semibold tracking-tight text-ink sm:text-3xl"
                 style={{ fontFamily: "var(--font-landing-display), var(--font-space-grotesk), system-ui, sans-serif" }}
@@ -49,7 +49,7 @@ export function PrivacyStrip() {
                 const Icon = point.icon;
                 return (
                   <li key={point.title} className="flex gap-3.5">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-ink">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-stock,8px)] bg-paper text-ink">
                       <Icon className="h-4.5 w-4.5" />
                     </span>
                     <div>
@@ -65,7 +65,7 @@ export function PrivacyStrip() {
               })}
             </ul>
 
-            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 border-t border-border pt-6 font-mono text-xs uppercase tracking-wider">
+            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 border-t border-border pt-6 font-mono text-xs">
               <Link
                 href="/privacy"
                 className="text-muted underline underline-offset-4 decoration-border-strong transition-colors hover:text-ink"

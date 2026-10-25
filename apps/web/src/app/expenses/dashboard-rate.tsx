@@ -54,7 +54,7 @@ export function RateConverterCard({
         </p>
         <Link
           href="/expenses/settings"
-          className="mt-3 inline-flex h-9 items-center rounded-xl border border-border bg-surface-muted px-3.5 text-sm font-medium text-ink transition-colors duration-150 hover:border-border-strong hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="mt-3 inline-flex h-9 items-center rounded-[var(--radius-stock,8px)] border border-border bg-paper px-3.5 text-sm font-medium text-ink transition-colors duration-150 hover:border-border-strong hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           Choose currencies
         </Link>
@@ -91,7 +91,7 @@ export function RateConverterCard({
       )}
 
       <div className="mt-4 flex items-center gap-2">
-        <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-border bg-surface-muted px-3 py-2">
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-[var(--radius-stock,8px)] border border-border bg-paper px-3 py-2">
           <input
             type="text"
             inputMode="decimal"
@@ -107,12 +107,12 @@ export function RateConverterCard({
           type="button"
           onClick={() => setSwapped((value) => !value)}
           aria-label="Swap currencies"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-muted transition-colors duration-150 hover:border-border-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-paper text-muted transition-colors duration-150 hover:border-border-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <IconSwap className="h-3.5 w-3.5" />
         </button>
 
-        <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-transparent bg-surface-muted/50 px-3 py-2">
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-[var(--radius-stock,8px)] border border-transparent bg-paper/50 px-3 py-2">
           <output
             aria-live="polite"
             className="w-full min-w-0 truncate text-sm font-medium tabular-nums text-ink"
@@ -125,7 +125,7 @@ export function RateConverterCard({
 
       {spark.length >= MIN_HISTORY_POINTS && (
         <div className="mt-4 border-t border-border pt-3">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted">Last 30 days</p>
+          <p className="text-[11px] font-medium text-muted">Last 30 days</p>
           <Sparkline
             data={spark}
             dataKey="value"

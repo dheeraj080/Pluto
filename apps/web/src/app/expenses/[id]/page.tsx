@@ -75,7 +75,7 @@ export default function ExpenseDetailPage() {
   const back = (
     <Link
       href={BACK_HREF}
-      className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-surface-muted px-3.5 text-sm font-medium text-ink transition-colors duration-150 hover:border-border-strong hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      className="inline-flex h-9 items-center gap-2 rounded-[var(--radius-stock,8px)] border border-border bg-paper px-3.5 text-sm font-medium text-ink transition-colors duration-150 hover:border-border-strong hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       <IconArrowLeft className="h-4 w-4" />
       Back to transactions
@@ -86,7 +86,7 @@ export default function ExpenseDetailPage() {
     return (
       <div className="space-y-6">
         <AppPageHeader title="Expense details" actions={back} />
-        <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
+        <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper p-5 sm:p-6">
           <div className="space-y-4">
             <Skeleton className="h-8 w-1/3" />
             <Skeleton className="h-20 w-full" />
@@ -134,7 +134,7 @@ export default function ExpenseDetailPage() {
 
       {error && <ErrorNote message={error} />}
 
-      <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
+      <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper p-5 sm:p-6">
         <div className="flex flex-col gap-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
@@ -148,8 +148,8 @@ export default function ExpenseDetailPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-surface-muted/50 px-5 py-4">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted">Amount</p>
+          <div className="rounded-[var(--radius-card,8px)] border border-border bg-paper/50 px-5 py-4">
+            <p className="text-xs font-medium text-muted">Amount</p>
             <div className="mt-1.5">
               <DualAmount
                 amount={primaryAmount}
@@ -197,7 +197,7 @@ export default function ExpenseDetailPage() {
           <div className="flex flex-wrap gap-3 border-t border-border pt-5">
             <Link
               href={`/expenses/${expense.id}/edit`}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary transition-colors duration-150 hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="inline-flex h-10 items-center gap-2 rounded-[var(--radius-stock,8px)] bg-primary px-4 text-sm font-medium text-on-primary transition-colors duration-150 hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <IconEdit className="h-4 w-4" />
               Edit expense
@@ -239,7 +239,7 @@ export default function ExpenseDetailPage() {
 function Meta({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
-      <dt className="text-xs font-medium uppercase tracking-wider text-muted">{label}</dt>
+      <dt className="text-xs font-medium text-muted">{label}</dt>
       <dd className="mt-1 text-sm font-medium text-ink">{value}</dd>
     </div>
   );

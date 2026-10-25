@@ -85,7 +85,7 @@ export function RecentTransactions({
               ) : (
                 <Link
                   href="/expenses/new"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-stock,8px)] bg-primary px-4 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
                 >
                   <IconPlus className="h-4 w-4" />
                   Add your first expense

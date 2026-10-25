@@ -92,7 +92,7 @@ export function DeleteAccountForm() {
 
   if (step === "done") {
     return (
-      <div className="mt-8 rounded-2xl border border-border bg-background p-6 shadow-[0_1px_2px_rgba(23,33,27,0.04)]">
+      <div className="mt-8 rounded-[var(--radius-card,8px)] border border-border bg-background p-6 shadow-[0_1px_2px_rgba(23,33,27,0.04)]">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-success-subtle text-success">
             <IconCheck className="h-5 w-5" />
@@ -105,7 +105,7 @@ export function DeleteAccountForm() {
         </p>
         <Link
           href="/"
-          className="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
+          className="mt-5 inline-flex h-10 items-center justify-center rounded-[var(--radius-stock,8px)] bg-primary px-5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
         >
           Back to home
         </Link>
@@ -116,7 +116,7 @@ export function DeleteAccountForm() {
   if (step === "deleting") {
     return (
       <div
-        className="mt-8 flex items-center gap-3 rounded-2xl border border-border bg-background p-6 text-sm text-muted"
+        className="mt-8 flex items-center gap-3 rounded-[var(--radius-card,8px)] border border-border bg-background p-6 text-sm text-muted"
         role="status"
       >
         <Spinner className="h-4 w-4" />
@@ -146,7 +146,7 @@ export function DeleteAccountForm() {
             </li>
           ))}
         </ul>
-        <div className="rounded-xl border border-border bg-surface-muted/50 p-4 text-sm text-muted">
+        <div className="rounded-[var(--radius-stock,8px)] border border-border bg-paper/50 p-4 text-sm text-muted">
           Want a copy of your data first? Sign in below and you can download your backups before
           deleting. You can also export them from the app.
         </div>
@@ -168,8 +168,8 @@ export function DeleteAccountForm() {
   /* step === "review" */
   return (
     <div className="mt-6 space-y-6 text-sm leading-relaxed">
-      <div className="rounded-xl border border-border bg-background p-4">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted">Signed in as</p>
+      <div className="rounded-[var(--radius-stock,8px)] border border-border bg-background p-4">
+        <p className="text-xs font-medium text-muted">Signed in as</p>
         <div className="mt-2 flex items-center gap-3">
           {session?.user.avatarUrl && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -196,7 +196,7 @@ export function DeleteAccountForm() {
         ) : backups.length === 0 ? (
           <p className="mt-2 text-sm text-muted">You have no completed backups.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border bg-background">
+          <ul className="mt-3 divide-y divide-border overflow-hidden rounded-[var(--radius-stock,8px)] border border-border bg-background">
             {backups.map((backup) => (
               <li key={backup.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
@@ -230,7 +230,7 @@ export function DeleteAccountForm() {
         </p>
         <label htmlFor="confirm" className="mt-4 block text-sm font-medium text-ink">
           Type{" "}
-          <code className="rounded bg-surface-muted px-1.5 py-0.5 font-mono text-xs">
+          <code className="rounded bg-paper px-1.5 py-0.5 font-mono text-xs">
             {CONFIRM_PHRASE}
           </code>{" "}
           to confirm

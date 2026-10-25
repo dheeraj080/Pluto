@@ -35,7 +35,7 @@ import { ConversionAlert, ConversionPill } from "../conversion-notice";
 /** A quiet status tag; amber for the states worth noticing, grey otherwise. */
 function Tag({ tone = "neutral", children }: { tone?: "neutral" | "warn"; children: ReactNode }) {
   const tones = {
-    neutral: "border-border bg-surface-muted text-muted",
+    neutral: "border-border bg-paper text-muted",
     warn: "border-warning/25 bg-warning-subtle text-warning",
   } as const;
   return (
@@ -109,7 +109,7 @@ function BudgetRow({
           </p>
         </div>
       </div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-muted">
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-paper">
         <div
           className="h-full rounded-full"
           style={{
@@ -241,7 +241,7 @@ export default function BudgetsPage() {
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <section className="rounded-3xl border border-border bg-surface lg:col-span-7">
+        <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper lg:col-span-7">
           <div className="px-5 pt-5 sm:px-6">
             <h2 className="text-sm font-medium text-ink">Progress</h2>
             <p className="mt-0.5 text-xs text-muted">{formatMonth(month)}</p>
@@ -276,7 +276,7 @@ export default function BudgetsPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-border bg-surface lg:col-span-5">
+        <section className="rounded-[var(--radius-card,8px)] border border-border bg-paper lg:col-span-5">
           <div className="px-5 pt-5 sm:px-6">
             <h2 className="text-sm font-medium text-ink">Add budget</h2>
             <p className="mt-0.5 text-xs text-muted">

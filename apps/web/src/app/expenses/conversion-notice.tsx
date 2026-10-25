@@ -94,7 +94,7 @@ export function ConversionAlert({
     return (
       <div
         role="alert"
-        className="rounded-2xl border border-warning/25 bg-warning-subtle px-4 py-3 text-sm text-warning"
+        className="rounded-[var(--radius-card,8px)] border border-warning/25 bg-warning-subtle px-4 py-3 text-sm text-warning"
       >
         Exchange rates are unavailable, so totals are shown per currency only. Converted totals and
         charts appear once rates can be fetched again.
@@ -106,7 +106,7 @@ export function ConversionAlert({
     return (
       <div
         role="alert"
-        className="rounded-2xl border border-warning/25 bg-warning-subtle px-4 py-3 text-sm text-warning"
+        className="rounded-[var(--radius-card,8px)] border border-warning/25 bg-warning-subtle px-4 py-3 text-sm text-warning"
       >
         Some currencies cannot be converted right now ({unconvertedCurrencies.join(", ")}).
         Converted totals cover the rest; native amounts are always shown exactly as recorded.

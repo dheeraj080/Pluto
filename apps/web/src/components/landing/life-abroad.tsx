@@ -49,10 +49,10 @@ const situations = [
 
 export function LifeAbroadSection() {
   return (
-    <section id="life-abroad" className="scroll-mt-24 py-10 md:py-14 relative bg-canvas transition-colors">
+    <section id="life-abroad" className="scroll-mt-24 py-10 md:py-14 relative bg-desk transition-colors">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <Reveal>
-          <div className="flex items-center justify-center gap-3 text-xs font-mono text-muted uppercase tracking-widest mb-3">
+          <div className="flex items-center justify-center gap-3 text-xs font-mono text-muted mb-3">
             <span className="w-6 h-[1px] bg-border-strong" />
             <span>Everyday Situations</span>
             <span className="w-6 h-[1px] bg-border-strong" />
@@ -76,13 +76,13 @@ export function LifeAbroadSection() {
             const Icon = item.icon;
             return (
               <Reveal key={index} delay={index * 60}>
-                <div className="bg-surface rounded-3xl p-6 sm:p-7 border border-subtle shadow-xs hover:border-strong transition-colors flex flex-col justify-between h-full">
+                <div className="bg-paper rounded-[var(--radius-card,8px)] p-6 sm:p-7 border border-border shadow-[var(--edge-stock),var(--cast-stock)] hover:border-strong transition-colors flex flex-col justify-between h-full">
                   <div>
                     <div className="flex items-center justify-between mb-4">
-                      <div className="w-9 h-9 rounded-xl bg-surface-muted border border-subtle flex items-center justify-center text-primary-brand">
+                      <div className="w-9 h-9 rounded-[var(--radius-stock,8px)] bg-paper border border-border flex items-center justify-center text-accent">
                         <Icon className="w-4 h-4" />
                       </div>
-                      <span className="text-[10px] font-bold font-mono text-muted uppercase tracking-wider">
+                      <span className="text-[10px] font-bold font-mono text-muted">
                         {item.route}
                       </span>
                     </div>

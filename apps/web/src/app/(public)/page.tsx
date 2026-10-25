@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <div
-      className="bg-canvas text-ink"
+      className="bg-desk text-ink"
       style={{ fontFamily: "var(--font-landing-sans), var(--font-inter), system-ui, sans-serif" }}
     >
       <Hero />
@@ -45,11 +45,11 @@ export default function HomePage() {
       <PrivacyStrip />
 
       {/* -------------------------------- FAQ ------------------------------ */}
-      <section id="faq" className="scroll-mt-24 py-10 md:py-14 bg-canvas transition-colors">
+      <section id="faq" className="scroll-mt-24 py-10 md:py-14 bg-desk transition-colors">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <Reveal>
             <div className="text-center space-y-3 mb-8 md:mb-10">
-              <div className="flex items-center justify-center gap-3 text-xs font-mono text-muted uppercase tracking-widest">
+              <div className="flex items-center justify-center gap-3 text-xs font-mono text-muted">
                 <span className="w-6 h-[1px] bg-border-strong" />
                 <span>Honest Answers</span>
                 <span className="w-6 h-[1px] bg-border-strong" />

@@ -7,11 +7,11 @@ export function TheProblemSection() {
   const promptExampleHome = convertCurrency(promptExampleEur, "EUR", homeCurrency);
 
   return (
-    <section id="the-problem" className="scroll-mt-24 py-10 md:py-14 bg-canvas relative transition-colors">
+    <section id="the-problem" className="scroll-mt-24 py-10 md:py-14 bg-desk relative transition-colors">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         <Reveal>
           <div className="max-w-2xl mx-auto text-center space-y-3 mb-8 md:mb-10">
-            <div className="flex items-center justify-center gap-3 text-xs font-mono text-muted uppercase tracking-widest mb-2">
+            <div className="flex items-center justify-center gap-3 text-xs font-mono text-muted mb-2">
               <span className="w-6 h-[1px] bg-border-strong" />
               <span>The Everyday Friction</span>
               <span className="w-6 h-[1px] bg-border-strong" />
@@ -29,7 +29,7 @@ export function TheProblemSection() {
         </Reveal>
 
         <Reveal>
-          <div className="bg-surface rounded-3xl p-6 sm:p-10 border border-subtle shadow-xs max-w-3xl mx-auto mb-8 text-center">
+          <div className="bg-paper rounded-[var(--radius-card,8px)] p-6 sm:p-10 border border-border shadow-[var(--edge-stock),var(--cast-stock)] max-w-3xl mx-auto mb-8 text-center">
             <div className="space-y-4">
               <div className="text-sm sm:text-base font-medium text-muted font-mono">At the register in Berlin · Illustrative</div>
               <div
@@ -38,9 +38,9 @@ export function TheProblemSection() {
               >
                 &ldquo;I spent €32 today.&rdquo;
               </div>
-              <div className="text-base sm:text-xl font-medium text-muted italic">&ldquo;But how much did I actually spend?&rdquo;</div>
+              <div className="text-base sm:text-xl font-medium text-muted">&ldquo;But how much did I actually spend?&rdquo;</div>
               <div className="pt-2">
-                <span className="inline-block text-2xl sm:text-4xl font-extrabold text-primary-brand bg-primary-brand/10 border border-primary-brand/20 px-6 py-2.5 rounded-2xl shadow-xs font-mono tabular-nums">
+                <span className="inline-block text-2xl sm:text-4xl font-extrabold text-accent bg-accent/10 border border-accent/20 px-6 py-2.5 rounded-[var(--radius-card,8px)] shadow-[var(--edge-stock),var(--cast-stock)] font-mono tabular-nums">
                   ≈ {formatCurrencyAmount(promptExampleHome, homeCurrency)}
                 </span>
               </div>
@@ -52,9 +52,9 @@ export function TheProblemSection() {
         </Reveal>
 
         <Reveal>
-          <div className="bg-surface rounded-3xl p-6 sm:p-8 border border-subtle shadow-xs max-w-3xl mx-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-subtle mb-4 text-xs font-mono">
-              <span className="font-bold text-ink uppercase">Typical Day Abroad</span>
+          <div className="bg-paper rounded-[var(--radius-card,8px)] p-6 sm:p-8 border border-border shadow-[var(--edge-stock),var(--cast-stock)] max-w-3xl mx-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-border mb-4 text-xs font-mono">
+              <span className="font-bold text-ink">Typical Day Abroad</span>
               <span className="text-muted">EUR (€) · Illustrative</span>
             </div>
 
@@ -69,7 +69,7 @@ export function TheProblemSection() {
                 return (
                   <div
                     key={idx}
-                    className="p-3 rounded-2xl bg-surface-muted border border-subtle flex items-center justify-between text-xs transition-colors"
+                    className="p-3 rounded-[var(--radius-card,8px)] bg-paper border border-border flex items-center justify-between text-xs transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-lg leading-none">{item.emoji}</span>
@@ -81,7 +81,7 @@ export function TheProblemSection() {
 
                     <div className="text-right">
                       <div className="font-bold text-ink text-sm tabular-nums">€{item.eur.toFixed(2)}</div>
-                      <div className="text-xs font-semibold text-primary-brand font-mono tabular-nums">
+                      <div className="text-xs font-semibold text-accent font-mono tabular-nums">
                         ≈ {formatCurrencyAmount(converted, homeCurrency)}
                       </div>
                     </div>

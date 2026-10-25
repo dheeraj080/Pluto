@@ -293,7 +293,7 @@ function ExportToast({
   if (!message) return null;
   return (
     <div role="status" aria-live="polite" className="fixed bottom-4 right-4 z-50">
-      <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface px-4 py-3 shadow-2xl">
+      <div className="flex items-center gap-2.5 rounded-[var(--radius-card,8px)] border border-border bg-paper px-4 py-3 shadow-2xl">
         <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
           <svg
             aria-hidden="true"
@@ -313,7 +313,7 @@ function ExportToast({
           type="button"
           onClick={onClose}
           aria-label="Dismiss notification"
-          className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <svg
             aria-hidden="true"

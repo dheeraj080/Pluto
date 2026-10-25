@@ -69,11 +69,11 @@ export function Card({
 }) {
   return (
     <section
-      className={`rounded-3xl border border-border bg-surface ${className}`}
+      className={`rounded-[var(--radius-card,8px)] border border-border bg-paper shadow-[var(--edge-stock,none),var(--cast-stock,none)] ${className}`}
     >
       {title && (
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5 sm:px-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">{title}</h2>
+          <h2 className="text-xs font-semibold text-muted">{title}</h2>
           {action}
         </div>
       )}
@@ -92,8 +92,8 @@ export function StatCard({
   sub?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-background p-5 shadow-[0_1px_2px_rgba(23,33,27,0.04)]">
-      <p className="text-xs font-medium uppercase tracking-wider text-muted">{label}</p>
+    <div className="rounded-[var(--radius-card,8px)] border border-border bg-paper p-5 shadow-[var(--edge-stock,none),var(--cast-stock,none)]">
+      <p className="text-xs font-medium text-muted">{label}</p>
       <p className="mt-1.5 text-2xl font-semibold tracking-tight text-ink md:text-[1.75rem]">
         {value}
       </p>
@@ -122,7 +122,7 @@ export function Money({
 type BadgeTone = "neutral" | "ok" | "warn" | "danger" | "accent" | "gold";
 
 const BADGE_STYLES: Record<BadgeTone, string> = {
-  neutral: "border-border bg-surface-muted text-muted",
+  neutral: "border-border bg-paper text-muted",
   ok: "border-success/25 bg-success-subtle text-success",
   warn: "border-warning/25 bg-warning-subtle text-warning",
   danger: "border-danger/25 bg-danger-subtle text-danger",
@@ -157,17 +157,17 @@ export type ButtonSize = "sm" | "md" | "lg";
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    "bg-primary text-on-primary shadow-[0_6px_20px_-10px_rgba(0,0,0,0.55)] hover:bg-primary-hover active:bg-primary-active",
+    "bg-board text-board-type shadow-[var(--cast-stock)] hover:shadow-[var(--cast-stock-lift)] active:translate-y-px",
   secondary:
-    "border border-border bg-surface-muted text-ink hover:border-border-strong hover:bg-surface",
-  ghost: "text-muted hover:bg-surface-muted hover:text-ink",
-  danger: "bg-danger-solid text-white shadow-[0_1px_2px_rgba(0,0,0,0.4)] hover:bg-danger-solid-hover",
+    "bg-cotton text-print shadow-[var(--edge-stock),var(--cast-stock)] hover:shadow-[var(--edge-stock),var(--cast-stock-lift)] active:translate-y-px",
+  ghost: "text-muted hover:bg-paper hover:text-ink",
+  danger: "bg-danger-solid text-white shadow-[var(--cast-stock)] hover:bg-danger-solid-hover",
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
-  sm: "h-8 gap-1.5 px-3 text-sm",
-  md: "h-10 gap-2 px-4 text-sm",
-  lg: "h-11 gap-2 px-5 text-[15px]",
+  sm: "min-h-10 gap-1.5 px-3 text-sm rounded-[var(--radius-stock,8px)]",
+  md: "min-h-12 gap-2 px-4 text-sm rounded-[var(--radius-stock,8px)]",
+  lg: "min-h-12 gap-2 px-5 text-[15px] rounded-[var(--radius-stock,8px)]",
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -198,7 +198,7 @@ export function Button({
       {...props}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={`inline-flex select-none items-center justify-center rounded-xl font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-45 ${BUTTON_VARIANTS[resolved]} ${BUTTON_SIZES[size]} ${className}`}
+      className={`inline-flex select-none items-center justify-center font-medium transition-transform duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-45 ${BUTTON_VARIANTS[resolved]} ${BUTTON_SIZES[size]} ${className}`}
     >
       {loading && <Spinner className="h-4 w-4 border-[1.5px]" />}
       {children}
@@ -223,7 +223,7 @@ export function ErrorNote({ message }: { message: string }) {
   return (
     <div
       role="alert"
-      className="flex items-start gap-2.5 rounded-xl border border-danger/25 bg-danger-subtle px-3.5 py-3 text-sm text-danger"
+      className="flex items-start gap-2.5 rounded-[var(--radius-stock,8px)] border border-danger/25 bg-danger-subtle px-3.5 py-3 text-sm text-danger"
     >
       <span aria-hidden="true" className="mt-0.5">
         !
@@ -244,7 +244,7 @@ export function LoadingNote({ label = "Loading…" }: { label?: string }) {
 
 /** Pulsing placeholder used while fetch-based content is in flight. */
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div aria-hidden="true" className={`animate-pulse rounded-lg bg-surface-muted ${className}`} />;
+  return <div aria-hidden="true" className={`animate-pulse rounded-lg bg-paper ${className}`} />;
 }
 
 /**
@@ -255,7 +255,7 @@ export function TableSkeleton({ rows = 4, cols = 4 }: { rows?: number; cols?: nu
   return (
     <div className="space-y-2.5" aria-busy="true">
       {Array.from({ length: rows }).map((_, r) => (
-        <div key={r} className="flex items-center gap-4 rounded-xl border border-border bg-background px-4 py-3.5">
+        <div key={r} className="flex items-center gap-4 rounded-[var(--radius-stock,8px)] border border-border bg-background px-4 py-3.5">
           {Array.from({ length: cols }).map((__, c) => (
             <Skeleton key={c} className={`h-4 ${c === 0 ? "w-1/3" : "flex-1"}`} />
           ))}
@@ -278,9 +278,9 @@ export function EmptyState({
   icon?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-border-strong px-6 py-12 text-center">
+    <div className="rounded-[var(--radius-card,8px)] border border-dashed border-border-strong px-6 py-12 text-center">
       {icon && (
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-surface-muted text-muted">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-paper text-muted">
           {icon}
         </div>
       )}
@@ -304,12 +304,12 @@ export function Table({
   className?: string;
 }) {
   return (
-    <div className={`overflow-x-auto rounded-2xl border border-border bg-background ${className}`}>
+    <div className={`overflow-x-auto rounded-[var(--radius-card,8px)] border border-border bg-background ${className}`}>
       <table className="w-full text-left text-sm">
         <thead className="border-b border-border">
           <tr>
             {headers.map((header) => (
-              <th key={header} className="whitespace-nowrap px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted">
+              <th key={header} className="whitespace-nowrap px-5 py-3 text-xs font-medium text-muted">
                 {header}
               </th>
             ))}
@@ -375,7 +375,7 @@ export function SegmentedControl({
   className?: string;
 }) {
   return (
-    <div role="group" aria-label={label} className={`inline-flex rounded-xl border border-border bg-surface-muted p-0.5 ${className}`}>
+    <div role="group" aria-label={label} className={`inline-flex rounded-[var(--radius-stock,8px)] border border-border bg-paper p-0.5 ${className}`}>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -481,7 +481,7 @@ export function Field({
 }
 
 const CONTROL =
-  "w-full rounded-xl border border-border bg-surface-muted px-3.5 py-2.5 text-sm text-ink transition placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50";
+  "w-full rounded-[var(--radius-stock,8px)] border border-border bg-paper px-3.5 py-2.5 text-sm text-ink transition placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50";
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${CONTROL} ${className ?? ""}`} />;
@@ -679,7 +679,7 @@ export function Select({
           if (!disabled) setOpen((value) => !value);
         }}
         onKeyDown={onTriggerKeyDown}
-        className={`flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-surface-muted py-2.5 pl-3.5 pr-2.5 text-sm text-ink transition focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50 ${
+        className={`flex w-full items-center justify-between gap-2 rounded-[var(--radius-stock,8px)] border border-border bg-paper py-2.5 pl-3.5 pr-2.5 text-sm text-ink transition focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50 ${
           open ? "border-primary" : "focus:border-primary"
         }`}
       >
@@ -699,7 +699,7 @@ export function Select({
             role="listbox"
             aria-label={ariaLabel}
             onKeyDown={onMenuKeyDown}
-            className="fixed z-[70] min-w-40 rounded-xl border border-border bg-surface p-1.5 shadow-2xl animate-[dialog-in_160ms_ease-out]"
+            className="fixed z-[70] min-w-40 rounded-[var(--radius-stock,8px)] border border-border bg-paper p-1.5 shadow-2xl animate-[dialog-in_160ms_ease-out]"
             style={
               openUp
                 ? { top: pos.top - 6, left: pos.left, width: pos.width }
@@ -725,8 +725,8 @@ export function Select({
                       }}
                       className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-45 ${
                         active
-                          ? "bg-surface-muted font-medium text-ink"
-                          : "text-muted hover:bg-surface-muted hover:text-ink"
+                          ? "bg-paper font-medium text-ink"
+                          : "text-muted hover:bg-paper hover:text-ink"
                       }`}
                     >
                       <span className="min-w-0 flex-1 truncate">{option.label}</span>

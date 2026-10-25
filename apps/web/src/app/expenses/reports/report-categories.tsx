@@ -98,7 +98,7 @@ function DonutTooltip({
   const slice = payload?.[0]?.payload;
   if (!active || !slice) return null;
   return (
-    <div className="min-w-[10rem] rounded-xl border border-border bg-surface px-3 py-2 shadow-2xl">
+    <div className="min-w-[10rem] rounded-[var(--radius-stock,8px)] border border-border bg-paper px-3 py-2 shadow-2xl">
       <div className="mb-1 flex items-center gap-1.5">
         <span
           aria-hidden="true"
@@ -151,7 +151,7 @@ function StackTooltip({
   if (rows.length === 0) return null;
   const total = rows.reduce((sum, row) => sum + row.value, 0);
   return (
-    <div className="min-w-[11rem] rounded-xl border border-border bg-surface px-3 py-2 shadow-2xl">
+    <div className="min-w-[11rem] rounded-[var(--radius-stock,8px)] border border-border bg-paper px-3 py-2 shadow-2xl">
       <p className="mb-1.5 text-xs font-medium text-ink">
         {bucketHeading(String(label ?? ""), granularity)}
       </p>
@@ -499,7 +499,7 @@ export function ReportCategories({
                     onFocus={() => setHoveredId(entry.categoryId)}
                     onBlur={() => setHoveredId(null)}
                     className={`block w-full text-left transition-opacity duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${
-                      active ? "rounded-lg bg-surface-muted" : ""
+                      active ? "rounded-lg bg-paper" : ""
                     } ${dimmed ? "opacity-40" : ""}`}
                     style={{ minHeight: 52 }}
                   >
@@ -512,7 +512,7 @@ export function ReportCategories({
                       </span>
                       <span
                         aria-hidden="true"
-                        className="hidden h-1 min-w-8 flex-1 overflow-hidden rounded-full bg-surface-muted md:block"
+                        className="hidden h-1 min-w-8 flex-1 overflow-hidden rounded-full bg-paper md:block"
                       >
                         <span
                           className="block h-full rounded-full"
@@ -539,7 +539,7 @@ export function ReportCategories({
                       </span>
                       <span
                         aria-hidden="true"
-                        className="h-1 min-w-8 flex-1 overflow-hidden rounded-full bg-surface-muted"
+                        className="h-1 min-w-8 flex-1 overflow-hidden rounded-full bg-paper"
                       >
                         <span
                           className="block h-full rounded-full"
@@ -636,7 +636,7 @@ function CategoryDrawer({
         onClick={onClose}
         className="absolute inset-0 bg-black/60"
       />
-      <div className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-border bg-surface shadow-2xl">
+      <div className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-border bg-paper shadow-2xl">
         <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-sm font-medium text-ink">
@@ -657,7 +657,7 @@ function CategoryDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close drawer"
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <svg
               aria-hidden="true"
@@ -675,7 +675,7 @@ function CategoryDrawer({
 
         <div className="flex-1 overflow-y-auto px-5 py-3">
           {list.error ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-danger/25 bg-danger-subtle px-3.5 py-2.5 text-sm text-danger">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-stock,8px)] border border-danger/25 bg-danger-subtle px-3.5 py-2.5 text-sm text-danger">
               <span className="leading-snug">{list.error}</span>
               <button
                 type="button"

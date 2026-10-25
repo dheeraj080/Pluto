@@ -20,7 +20,7 @@ export default function Error({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
-      <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-muted">
+      <p className="font-mono text-[11px] font-medium text-muted">
         Something went wrong
       </p>
       <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">
@@ -32,7 +32,7 @@ export default function Error({
       <button
         type="button"
         onClick={() => retry()}
-        className="mt-6 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover"
+        className="mt-6 rounded-[var(--radius-stock,8px)] bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover"
       >
         Try again
       </button>

@@ -17,7 +17,7 @@ export function CardError({ message, onRetry }: { message: string; onRetry?: () 
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface-muted px-3 py-1.5 text-xs font-medium text-ink transition-colors duration-150 hover:border-border-strong hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="inline-flex items-center gap-1.5 rounded-[var(--radius-stock,8px)] border border-border bg-paper px-3 py-1.5 text-xs font-medium text-ink transition-colors duration-150 hover:border-border-strong hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <IconRefresh className="h-3.5 w-3.5" />
           Retry
