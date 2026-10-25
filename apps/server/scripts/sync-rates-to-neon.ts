@@ -99,7 +99,12 @@ function computeEtag(
 }
 
 async function main(): Promise<void> {
-  const prisma = new PrismaClient();
+  const rawUrl = process.env.DATABASE_URL;
+  if (!rawUrl) throw new Error('DATABASE_URL is required');
+  const directUrl = rawUrl
+    .replace(/-pooler(\.[^/]*neon\.tech)/, '$1')
+    .replace(/[?&]channel_binding=require/, '');
+  const prisma = new PrismaClient({ datasources: { db: { url: directUrl } } });
 
   try {
     const { effectiveDate, rates } = await fetchRates(BASE_CURRENCY);
