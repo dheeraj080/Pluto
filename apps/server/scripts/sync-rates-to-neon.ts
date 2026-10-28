@@ -117,6 +117,57 @@ function computeEtag(
   return `W/"rates-${base}-${effectiveDate}-${hash}"`;
 }
 
+/**
+ * Same distributed lock the server scheduler uses (`exchange_rate_daily_sync`),
+ * so the GitHub Actions job and the server cron can never write concurrently.
+ * Mirrors `RatesScheduler.acquireLock` / `releaseLock` in
+ * `apps/server/src/modules/rates/rates.scheduler.ts`.
+ */
+const SYNC_LOCK_NAME = 'exchange_rate_daily_sync';
+const LOCK_DURATION_MINUTES = 10;
+
+async function acquireSyncLock(
+  prisma: PrismaClient,
+  instanceId: string,
+): Promise<boolean> {
+  const now = new Date();
+  const lockExpiry = new Date(now.getTime() + LOCK_DURATION_MINUTES * 60 * 1000);
+  try {
+    // Atomic single-statement UPSERT that only claims an expired or missing lock.
+    const affected = (await prisma.$executeRawUnsafe(
+      `INSERT INTO "system_locks" ("lockName", "lockedUntil", "lockedBy", "updatedAt")
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT ("lockName") DO UPDATE
+       SET "lockedUntil" = EXCLUDED."lockedUntil",
+           "lockedBy" = EXCLUDED."lockedBy",
+           "updatedAt" = NOW()
+       WHERE "system_locks"."lockedUntil" < $4`,
+      SYNC_LOCK_NAME,
+      lockExpiry,
+      instanceId,
+      now,
+    )) as number;
+    return affected > 0;
+  } catch {
+    // Fail closed: if we can't even touch the lock table, don't sync.
+    return false;
+  }
+}
+
+async function releaseSyncLock(prisma: PrismaClient, instanceId: string): Promise<void> {
+  try {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM "system_locks" WHERE "lockName" = $1 AND "lockedBy" = $2`,
+      SYNC_LOCK_NAME,
+      instanceId,
+    );
+  } catch (err) {
+    console.error(
+      `Failed to release sync lock: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   const rawUrl = process.env.DATABASE_URL;
   if (!rawUrl) throw new Error('DATABASE_URL is required');
@@ -131,6 +182,8 @@ async function main(): Promise<void> {
   directUrl = params.length ? `${origin}?${params.join('&')}` : origin;
   const prisma = new PrismaClient({ datasources: { db: { url: directUrl } } });
 
+  const instanceId = `github-actions-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+
   try {
     const { effectiveDate, rates } = await fetchRates(BASE_CURRENCY);
 
@@ -138,59 +191,86 @@ async function main(): Promise<void> {
     const effectiveDateIso = effectiveDate.split('T')[0];
     const etag = computeEtag(BASE_CURRENCY, effectiveDateIso, rates);
 
-    // Skip if an identical published snapshot already exists (no-op on unchanged rates).
-    const existing = await prisma.rateSnapshot.findFirst({
-      where: { baseCurrency: BASE_CURRENCY, isPublished: true },
-      orderBy: { version: 'desc' },
-      include: { rates: true },
-    });
-
-    if (existing && existing.etag === etag) {
+    // Mutually exclude against the server cron (04:00 UTC) so both writers
+    // never insert at the same time.
+    const acquired = await acquireSyncLock(prisma, instanceId);
+    if (!acquired) {
       console.log(
-        `Rates unchanged for ${BASE_CURRENCY}; reusing snapshot v${existing.version} (etag match).`,
+        `Skipping rate sync: another writer holds the '${SYNC_LOCK_NAME}' lock.`,
       );
       return;
     }
 
-    // Write the snapshot outside a transaction: tx.$executeRawUnsafe does not
-    // reliably join a Prisma transaction (it can fail with "Transaction not
-    // found"), so we create the snapshot first, then insert rates directly via
-    // the main client.
-    const created = await prisma.rateSnapshot.create({
-      data: {
-        baseCurrency: BASE_CURRENCY,
-        effectiveDate: new Date(`${effectiveDateIso}T00:00:00.000Z`),
-        provider: 'frankfurter',
-        etag,
-        isPublished: true,
-      },
-    });
-
     try {
-      // Insert exchange rates via raw SQL to bypass Prisma schema validation:
-      // the target Neon DB may not have the effectiveDate column yet, which
-      // Prisma's ExchangeRate model requires.
-      for (const r of rates) {
-        const id = crypto.randomUUID();
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO "exchange_rates" ("id", "snapshotId", "quoteCurrency", "rate", "effectiveDate") VALUES ($1, $2, $3, $4::numeric, $5::date)`,
-          id,
-          created.id,
-          r.quoteCurrency.toUpperCase(),
-          r.rate.toFixed(6),
-          r.effectiveDate,
+      // Dedup by effective date: rates are per-day, so if a published snapshot
+      // for this base + day already exists (written by either writer), skip.
+      // Comparing in JS avoids any date-column timezone quirks.
+      const published = await prisma.rateSnapshot.findMany({
+        where: { baseCurrency: BASE_CURRENCY, isPublished: true },
+        select: { id: true, version: true, effectiveDate: true, etag: true },
+      });
+      const byDay = published.find(
+        (s) => s.effectiveDate.toISOString().split('T')[0] === effectiveDateIso,
+      );
+      if (byDay) {
+        console.log(
+          `Rates already published for ${BASE_CURRENCY} on ${effectiveDateIso} (v${byDay.version}); skipping.`,
         );
+        return;
       }
-    } catch (err) {
-      // Best-effort cleanup: remove the snapshot if rate insertion fails so we
-      // don't leave an orphaned snapshot with missing or partial rates.
-      await prisma.rateSnapshot.delete({ where: { id: created.id } }).catch(() => {});
-      throw err;
-    }
 
-    console.log(
-      `Published rate snapshot v${created.version} for ${BASE_CURRENCY} (${effectiveDateIso}, ${rates.length} rates).`,
-    );
+      // Belt-and-suspenders: skip if identical content is already stored under
+      // any snapshot (content-addressed ETag).
+      const byEtag = published.find((s) => s.etag === etag);
+      if (byEtag) {
+        console.log(
+          `Rates unchanged for ${BASE_CURRENCY}; reusing snapshot v${byEtag.version} (etag match).`,
+        );
+        return;
+      }
+
+      // Write the snapshot outside a transaction: tx.$executeRawUnsafe does not
+      // reliably join a Prisma transaction (it can fail with "Transaction not
+      // found"), so we create the snapshot first, then insert rates directly via
+      // the main client.
+      const created = await prisma.rateSnapshot.create({
+        data: {
+          baseCurrency: BASE_CURRENCY,
+          effectiveDate: new Date(`${effectiveDateIso}T00:00:00.000Z`),
+          provider: 'frankfurter',
+          etag,
+          isPublished: true,
+        },
+      });
+
+      try {
+        // Insert exchange rates via raw SQL to bypass Prisma schema validation:
+        // the target Neon DB may not have the effectiveDate column yet, which
+        // Prisma's ExchangeRate model requires.
+        for (const r of rates) {
+          const id = crypto.randomUUID();
+          await prisma.$executeRawUnsafe(
+            `INSERT INTO "exchange_rates" ("id", "snapshotId", "quoteCurrency", "rate", "effectiveDate") VALUES ($1, $2, $3, $4::numeric, $5::date)`,
+            id,
+            created.id,
+            r.quoteCurrency.toUpperCase(),
+            r.rate.toFixed(6),
+            r.effectiveDate,
+          );
+        }
+      } catch (err) {
+        // Best-effort cleanup: remove the snapshot if rate insertion fails so we
+        // don't leave an orphaned snapshot with missing or partial rates.
+        await prisma.rateSnapshot.delete({ where: { id: created.id } }).catch(() => {});
+        throw err;
+      }
+
+      console.log(
+        `Published rate snapshot v${created.version} for ${BASE_CURRENCY} (${effectiveDateIso}, ${rates.length} rates).`,
+      );
+    } finally {
+      await releaseSyncLock(prisma, instanceId);
+    }
   } finally {
     await prisma.$disconnect();
   }
