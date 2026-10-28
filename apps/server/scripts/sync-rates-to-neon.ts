@@ -152,22 +152,27 @@ async function main(): Promise<void> {
       return;
     }
 
-    const snapshot = await prisma.$transaction(async (tx) => {
-      const created = await tx.rateSnapshot.create({
-        data: {
-          baseCurrency: BASE_CURRENCY,
-          effectiveDate: new Date(`${effectiveDateIso}T00:00:00.000Z`),
-          provider: 'frankfurter',
-          etag,
-          isPublished: true,
-        },
-      });
+    // Write the snapshot outside a transaction: tx.$executeRawUnsafe does not
+    // reliably join a Prisma transaction (it can fail with "Transaction not
+    // found"), so we create the snapshot first, then insert rates directly via
+    // the main client.
+    const created = await prisma.rateSnapshot.create({
+      data: {
+        baseCurrency: BASE_CURRENCY,
+        effectiveDate: new Date(`${effectiveDateIso}T00:00:00.000Z`),
+        provider: 'frankfurter',
+        etag,
+        isPublished: true,
+      },
+    });
 
-      // Insert exchange rates via raw SQL to bypass Prisma schema validation.
-      const now = new Date();
+    try {
+      // Insert exchange rates via raw SQL to bypass Prisma schema validation:
+      // the target Neon DB may not have the effectiveDate column yet, which
+      // Prisma's ExchangeRate model requires.
       for (const r of rates) {
         const id = crypto.randomUUID();
-        await tx.$executeRawUnsafe(
+        await prisma.$executeRawUnsafe(
           `INSERT INTO "exchange_rates" ("id", "snapshotId", "quoteCurrency", "rate", "effectiveDate") VALUES ($1, $2, $3, $4::numeric, $5::date)`,
           id,
           created.id,
@@ -176,12 +181,15 @@ async function main(): Promise<void> {
           r.effectiveDate,
         );
       }
-
-      return created;
-    });
+    } catch (err) {
+      // Best-effort cleanup: remove the snapshot if rate insertion fails so we
+      // don't leave an orphaned snapshot with missing or partial rates.
+      await prisma.rateSnapshot.delete({ where: { id: created.id } }).catch(() => {});
+      throw err;
+    }
 
     console.log(
-      `Published rate snapshot v${snapshot.version} for ${BASE_CURRENCY} (${effectiveDateIso}, ${rates.length} rates).`,
+      `Published rate snapshot v${created.version} for ${BASE_CURRENCY} (${effectiveDateIso}, ${rates.length} rates).`,
     );
   } finally {
     await prisma.$disconnect();
