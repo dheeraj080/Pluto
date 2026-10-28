@@ -25,60 +25,79 @@ async function fetchRates(base: string): Promise<{
   rates: { quoteCurrency: string; rate: number; effectiveDate: string }[];
 }> {
   const url = `${BASE_URL}/rates?base=${encodeURIComponent(base)}`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  let lastError: Error | null = null;
+  const maxRetries = 3;
 
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'PlutoRatesSync/1.0',
-      },
-    });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
-    if (!response.ok) {
-      throw new Error(`Frankfurter HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const payload = (await response.json()) as Array<{
-      date: string;
-      base: string;
-      quote: string;
-      rate: number;
-    }>;
-
-    if (!Array.isArray(payload) || payload.length === 0) {
-      throw new Error('Malformed provider payload: expected a non-empty rate array');
-    }
-
-    const rows: { quoteCurrency: string; rate: number; effectiveDate: string }[] = [];
-    let asOf: string | null = null;
-
-    for (const entry of payload) {
-      if (!entry || typeof entry.quote !== 'string' || typeof entry.rate !== 'number') continue;
-      if (!Number.isFinite(entry.rate) || entry.rate <= 0) continue;
-      rows.push({
-        quoteCurrency: entry.quote.toUpperCase(),
-        rate: entry.rate,
-        effectiveDate: entry.date,
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'PlutoRatesSync/1.0',
+        },
       });
-      if (asOf === null || entry.date > asOf) asOf = entry.date;
-    }
 
-    if (rows.length === 0 || asOf === null) {
-      throw new Error('Provider payload contained no positive, dated rates');
-    }
+      clearTimeout(timeout);
 
-    // Guarantee base quotes exactly 1.0.
-    if (!rows.some((r) => r.quoteCurrency === base)) {
-      rows.push({ quoteCurrency: base, rate: 1.0, effectiveDate: asOf });
-    }
+      if (!response.ok) {
+        throw new Error(`Frankfurter HTTP ${response.status}: ${response.statusText}`);
+      }
 
-    return { effectiveDate: asOf, rates: rows };
-  } finally {
-    clearTimeout(timeout);
+      const payload = (await response.json()) as Array<{
+        date: string;
+        base: string;
+        quote: string;
+        rate: number;
+      }>;
+
+      if (!Array.isArray(payload) || payload.length === 0) {
+        throw new Error('Malformed provider payload: expected a non-empty rate array');
+      }
+
+      const rows: { quoteCurrency: string; rate: number; effectiveDate: string }[] = [];
+      let asOf: string | null = null;
+
+      for (const entry of payload) {
+        if (!entry || typeof entry.quote !== 'string' || typeof entry.rate !== 'number') continue;
+        if (!Number.isFinite(entry.rate) || entry.rate <= 0) continue;
+        rows.push({
+          quoteCurrency: entry.quote.toUpperCase(),
+          rate: entry.rate,
+          effectiveDate: entry.date,
+        });
+        if (asOf === null || entry.date > asOf) asOf = entry.date;
+      }
+
+      if (rows.length === 0 || asOf === null) {
+        throw new Error('Provider payload contained no positive, dated rates');
+      }
+
+      // Guarantee base quotes exactly 1.0.
+      if (!rows.some((r) => r.quoteCurrency === base)) {
+        rows.push({ quoteCurrency: base, rate: 1.0, effectiveDate: asOf });
+      }
+
+      return { effectiveDate: asOf, rates: rows };
+    } catch (err) {
+      clearTimeout(timeout);
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      if (attempt < maxRetries) {
+        // Exponential backoff with jitter so retries do not form a thundering
+        // herd against the provider.
+        const backoff = attempt * 1000 + Math.floor(Math.random() * 500);
+        await new Promise((res) => setTimeout(res, backoff));
+      }
+    }
   }
+
+  throw new Error(
+    `Failed to fetch exchange rates after ${maxRetries} attempts: ${lastError?.message}`,
+  );
 }
 
 function computeEtag(
@@ -90,7 +109,7 @@ function computeEtag(
     .sort((a, b) => a.quoteCurrency.localeCompare(b.quoteCurrency))
     .map((r) => `${r.quoteCurrency}:${r.rate.toFixed(6)}:${r.effectiveDate}`)
     .join(',');
-  const hash = require('crypto')
+  const hash = crypto
     .createHash('sha256')
     .update(`${base}:${effectiveDate}:${fingerprint}`)
     .digest('hex')
@@ -101,9 +120,15 @@ function computeEtag(
 async function main(): Promise<void> {
   const rawUrl = process.env.DATABASE_URL;
   if (!rawUrl) throw new Error('DATABASE_URL is required');
-  const directUrl = rawUrl
-    .replace(/-pooler(\.[^/]*neon\.tech)/, '$1')
-    .replace(/[?&]channel_binding=require/, '');
+  // Convert the Neon pooled host (-pooler.*) to the direct host: transactions
+  // are not supported over the pooled endpoint. Prisma's driver does not
+  // implement channel_binding, so drop it if the provider added it. Rebuild the
+  // query string so removing the param (first, last, or only) never leaves a
+  // malformed URL such as '.../db&sslmode=require'.
+  let directUrl = rawUrl.replace(/-pooler(\.[^/]*neon\.tech)/, '$1');
+  const [origin, ...queryParts] = directUrl.split('?');
+  const params = queryParts.join('?').split('&').filter((p) => p && p !== 'channel_binding=require');
+  directUrl = params.length ? `${origin}?${params.join('&')}` : origin;
   const prisma = new PrismaClient({ datasources: { db: { url: directUrl } } });
 
   try {
