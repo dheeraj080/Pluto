@@ -56,13 +56,13 @@ export function SiteHeader() {
 
         <button
           type="button"
-          className="rounded-lg p-2 text-ink transition-colors hover:bg-surface-muted lg:hidden"
+          className="rounded-xl p-2.5 text-ink transition-colors hover:bg-surface-muted lg:hidden"
           aria-expanded={menuOpen}
           aria-controls="site-nav"
           aria-label={menuOpen ? "Close menu" : "Open menu"}
           onClick={() => setMenuOpen((open) => !open)}
         >
-          {menuOpen ? <IconClose className="h-5 w-5" /> : <IconMenu className="h-5 w-5" />}
+          {menuOpen ? <IconClose className="h-6 w-6" /> : <IconMenu className="h-6 w-6" />}
         </button>
       </div>
 

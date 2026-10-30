@@ -1,0 +1,313 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-30T12:00:00Z",
+  "title": "Design System: Pluto",
+  "extensions": {
+    "colorMeta": {
+      "graphite-deep": {
+        "role": "neutral",
+        "displayName": "Graphite Deep",
+        "canonical": "#0b0c0e",
+        "tonalRamp": ["#050507", "#0b0c0e", "#1a1b1e", "#2a2b2e", "#3e3f42", "#525356", "#6e6f72", "#8a8b8e"]
+      },
+      "graphite-surface": {
+        "role": "neutral",
+        "displayName": "Graphite Surface",
+        "canonical": "#131518",
+        "tonalRamp": ["#0d0e11", "#131518", "#242629", "#36383b", "#4e5053", "#66686b", "#828487", "#9e9fa1"]
+      },
+      "graphite-surface-muted": {
+        "role": "neutral",
+        "displayName": "Graphite Surface Muted",
+        "canonical": "#1b1e22",
+        "tonalRamp": ["#15171a", "#1b1e22", "#2e3134", "#414447", "#5a5d60", "#737679", "#929497", "#b1b2b5"]
+      },
+      "graphite-ink": {
+        "role": "neutral",
+        "displayName": "Graphite Ink",
+        "canonical": "#f2f4f5",
+        "tonalRamp": ["#2a2c2f", "#4a4c4f", "#6e7073", "#929497", "#b6b8ba", "#d2d4d6", "#e2e4e5", "#f2f4f5"]
+      },
+      "graphite-muted": {
+        "role": "neutral",
+        "displayName": "Graphite Muted",
+        "canonical": "#a4abb2",
+        "tonalRamp": ["#5a6067", "#6e747b", "#868c93", "#9ea4ab", "#a4abb2", "#b8bec5", "#ccced2", "#e0e2e4"]
+      },
+      "border-hairline": {
+        "role": "neutral",
+        "displayName": "Border Hairline",
+        "canonical": "rgba(255, 255, 255, 0.07)",
+        "tonalRamp": ["rgba(255, 255, 255, 0.03)", "rgba(255, 255, 255, 0.05)", "rgba(255, 255, 255, 0.07)", "rgba(255, 255, 255, 0.09)", "rgba(255, 255, 255, 0.11)", "rgba(255, 255, 255, 0.13)", "rgba(255, 255, 255, 0.15)", "rgba(255, 255, 255, 0.17)"]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Border Strong",
+        "canonical": "rgba(255, 255, 255, 0.14)",
+        "tonalRamp": ["rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.10)", "rgba(255, 255, 255, 0.12)", "rgba(255, 255, 255, 0.14)", "rgba(255, 255, 255, 0.16)", "rgba(255, 255, 255, 0.18)", "rgba(255, 255, 255, 0.20)"]
+      },
+      "mint-emerald": {
+        "role": "primary",
+        "displayName": "Mint Emerald",
+        "canonical": "#34d399",
+        "tonalRamp": ["#064e31", "#057a53", "#0fa375", "#1fc097", "#34d399", "#62e0ad", "#90eed1", "#bef7e5"]
+      },
+      "mint-emerald-hover": {
+        "role": "primary",
+        "displayName": "Mint Emerald Hover",
+        "canonical": "#10b981",
+        "tonalRamp": ["#064e31", "#057a53", "#0fa375", "#10b981", "#34d399", "#62e0ad", "#90eed1", "#bef7e5"]
+      },
+      "mint-emerald-active": {
+        "role": "primary",
+        "displayName": "Mint Emerald Active",
+        "canonical": "#059669",
+        "tonalRamp": ["#064e31", "#057a53", "#059669", "#0fa375", "#1fc097", "#34d399", "#62e0ad", "#90eed1"]
+      },
+      "mint-emerald-subtle": {
+        "role": "primary",
+        "displayName": "Mint Emerald Subtle",
+        "canonical": "rgba(52, 211, 153, 0.12)",
+        "tonalRamp": ["rgba(52, 211, 153, 0.04)", "rgba(52, 211, 153, 0.06)", "rgba(52, 211, 153, 0.08)", "rgba(52, 211, 153, 0.10)", "rgba(52, 211, 153, 0.12)", "rgba(52, 211, 153, 0.14)", "rgba(52, 211, 153, 0.16)", "rgba(52, 211, 153, 0.18)"]
+      },
+      "on-mint-emerald": {
+        "role": "primary",
+        "displayName": "On Mint Emerald",
+        "canonical": "#05130d",
+        "tonalRamp": ["#020906", "#05130d", "#0a1d14", "#0f271c", "#143124", "#1a3b2c", "#1f4534", "#244f3c"]
+      },
+      "warm-gold": {
+        "role": "tertiary",
+        "displayName": "Warm Gold",
+        "canonical": "#fbbf24",
+        "tonalRamp": ["#78350f", "#9c4221", "#c2410c", "#d97706", "#fbbf24", "#fcd34d", "#fde047", "#fef3c7"]
+      },
+      "warm-gold-subtle": {
+        "role": "tertiary",
+        "displayName": "Warm Gold Subtle",
+        "canonical": "rgba(251, 191, 36, 0.14)",
+        "tonalRamp": ["rgba(251, 191, 36, 0.04)", "rgba(251, 191, 36, 0.06)", "rgba(251, 191, 36, 0.08)", "rgba(251, 191, 36, 0.10)", "rgba(251, 191, 36, 0.12)", "rgba(251, 191, 36, 0.14)", "rgba(251, 191, 36, 0.16)", "rgba(251, 191, 36, 0.18)"]
+      },
+      "alert-red": {
+        "role": "danger",
+        "displayName": "Alert Red",
+        "canonical": "#f87171",
+        "tonalRamp": ["#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#f87171", "#fca5a5", "#fecaca", "#fee2e2"]
+      },
+      "alert-red-hover": {
+        "role": "danger",
+        "displayName": "Alert Red Hover",
+        "canonical": "#fca5a5",
+        "tonalRamp": ["#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fb7185", "#fca5a5", "#fcd5d5"]
+      },
+      "alert-red-solid": {
+        "role": "danger",
+        "displayName": "Alert Red Solid",
+        "canonical": "#b91c1c",
+        "tonalRamp": ["#450a0a", "#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fca5a5"]
+      },
+      "alert-red-solid-hover": {
+        "role": "danger",
+        "displayName": "Alert Red Solid Hover",
+        "canonical": "#991b1b",
+        "tonalRamp": ["#450a0a", "#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fca5a5"]
+      },
+      "alert-red-subtle": {
+        "role": "danger",
+        "displayName": "Alert Red Subtle",
+        "canonical": "rgba(248, 113, 113, 0.14)",
+        "tonalRamp": ["rgba(248, 113, 113, 0.04)", "rgba(248, 113, 113, 0.06)", "rgba(248, 113, 113, 0.08)", "rgba(248, 113, 113, 0.10)", "rgba(248, 113, 113, 0.12)", "rgba(248, 113, 113, 0.14)", "rgba(248, 113, 113, 0.16)", "rgba(248, 113, 113, 0.18)"]
+      },
+      "on-alert-red": {
+        "role": "danger",
+        "displayName": "On Alert Red",
+        "canonical": "#2a0808",
+        "tonalRamp": ["#140404", "#2a0808", "#400c0c", "#561010", "#6c1414", "#821818", "#981c1c", "#ae2020"]
+      },
+      "focus-ring": {
+        "role": "primary",
+        "displayName": "Focus Ring",
+        "canonical": "#34d399",
+        "tonalRamp": ["#064e31", "#057a53", "#0fa375", "#1fc097", "#34d399", "#62e0ad", "#90eed1", "#bef7e5"]
+      },
+      "glow": {
+        "role": "neutral",
+        "displayName": "Glow",
+        "canonical": "rgba(255, 255, 255, 0.06)",
+        "tonalRamp": ["rgba(255, 255, 255, 0.02)", "rgba(255, 255, 255, 0.03)", "rgba(255, 255, 255, 0.04)", "rgba(255, 255, 255, 0.05)", "rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.07)", "rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.09)"]
+      },
+      "glow-strong": {
+        "role": "neutral",
+        "displayName": "Glow Strong",
+        "canonical": "rgba(255, 255, 255, 0.1)",
+        "tonalRamp": ["rgba(255, 255, 255, 0.04)", "rgba(255, 255, 255, 0.05)", "rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.07)", "rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.09)", "rgba(255, 255, 255, 0.10)", "rgba(255, 255, 255, 0.12)"]
+      },
+      "cat-mint": {
+        "role": "tertiary",
+        "displayName": "Category Mint",
+        "canonical": "#34d399",
+        "tonalRamp": ["#064e31", "#057a53", "#0fa375", "#1fc097", "#34d399", "#62e0ad", "#90eed1", "#bef7e5"]
+      },
+      "cat-sky": {
+        "role": "tertiary",
+        "displayName": "Category Sky",
+        "canonical": "#7dd3fc",
+        "tonalRamp": ["#0c4a6e", "#0369a1", "#075985", "#0ea5e9", "#7dd3fc", "#bae6fd", "#dbeafe", "#eff6ff"]
+      },
+      "cat-amber": {
+        "role": "tertiary",
+        "displayName": "Category Amber",
+        "canonical": "#fcd34d",
+        "tonalRamp": ["#78350f", "#b45309", "#d97706", "#f59e0b", "#fcd34d", "#fde047", "#fef08a", "#fef9c3"]
+      },
+      "cat-rose": {
+        "role": "tertiary",
+        "displayName": "Category Rose",
+        "canonical": "#fda4af",
+        "tonalRamp": ["#881337", "#be123c", "#e11d48", "#fb7185", "#fda4af", "#fbcfe8", "#fce7f3", "#fdf2f8"]
+      },
+      "cat-violet": {
+        "role": "tertiary",
+        "displayName": "Category Violet",
+        "canonical": "#c4b5fd",
+        "tonalRamp": ["#4c1d95", "#6d28d9", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe", "#f5f3ff"]
+      },
+      "cat-slate": {
+        "role": "neutral",
+        "displayName": "Category Slate",
+        "canonical": "#94a3b8",
+        "tonalRamp": ["#0f172a", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f1f5f9"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero and section headlines; wordmark." },
+      "body": { "displayName": "Body", "purpose": "Working prose and figures; money uses tabular numerals." },
+      "label": { "displayName": "Label", "purpose": "Table headers, card section titles, form labels; uppercase, letter-spaced." },
+      "mono": { "displayName": "Mono", "purpose": "Technical admin values (IDs, versions)." }
+    },
+    "shadows": [
+      { "name": "primary-button-glow", "value": "0 6px 20px -10px rgba(0,0,0,0.55)", "purpose": "Diffuse glow under the primary accent button in its active state." },
+      { "name": "stat-card", "value": "0 1px 2px rgba(23,33,27,0.04)", "purpose": "Subtle lift on metric cards." },
+      { "name": "dialog-menu", "value": "shadow-2xl", "purpose": "Elevated floating lists and dialogs portaled to document.body." }
+    ],
+    "motion": [
+      { "name": "scroll-reveal", "value": "opacity 0.6s ease-out, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Elements fade in and rise 14px when scrolled into view." },
+      { "name": "dialog-in", "value": "160ms ease-out", "purpose": "Dialogs and floating menus scale up from 0.985 and fade in." },
+      { "name": "chart-draw", "value": "stroke-dashoffset 1 → 0", "purpose": "Hero chart line draws in resolution-independently via pathLength=1." },
+      { "name": "transition-colors", "value": "150ms", "purpose": "Default button and input state transition duration." },
+      { "name": "reduced-motion", "value": "0.01ms", "purpose": "All animation/transition durations collapse under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary CTA in mint-emerald with near-black text; hover and active deepen the accent; diffuse glow shadow on active.",
+      "html": "<button class=\"ds-btn-primary\">Save changes</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; select-none: none; gap: 0.5rem; height: 2.5rem; min-height: 2.5rem; padding-left: 1rem; padding-right: 1rem; border-radius: 0.75rem; font-size: 0.875rem; font-weight: 500; background-color: var(--color-primary); color: var(--color-on-primary); transition: background-color 150ms, color 150ms, border-color 150ms; cursor: pointer; border: none; outline: none; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.45; } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; } .ds-btn-primary:hover:not(:disabled) { background-color: var(--color-mint-emerald-hover); } .ds-btn-primary:active:not(:disabled) { background-color: var(--color-mint-emerald-active); box-shadow: 0 6px 20px -10px rgba(0,0,0,0.55); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Subdued action on graphite-surface-muted with a hairline border; hover strengthens the border.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: 2.5rem; min-height: 2.5rem; padding-left: 1rem; padding-right: 1rem; border-radius: 0.75rem; font-size: 0.875rem; font-weight: 500; background-color: var(--color-surface-muted); color: var(--color-foreground); border: 1px solid var(--color-border); transition: background-color 150ms, color 150ms, border-color 150ms; cursor: pointer; outline: none; } .ds-btn-secondary:disabled { cursor: not-allowed; opacity: 0.45; } .ds-btn-secondary:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; } .ds-btn-secondary:hover:not(:disabled) { border-color: var(--color-border-strong); background-color: var(--color-surface); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Quiet action with no background at rest; hover fills surface-muted and shifts text to ink.",
+      "html": "<button class=\"ds-btn-ghost\">Learn more</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: 2.5rem; min-height: 2.5rem; padding-left: 1rem; padding-right: 1rem; border-radius: 0.75rem; font-size: 0.875rem; font-weight: 500; color: var(--color-muted); background-color: transparent; transition: background-color 150ms, color 150ms; cursor: pointer; outline: none; } .ds-btn-ghost:disabled { cursor: not-allowed; opacity: 0.45; } .ds-btn-ghost:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; } .ds-btn-ghost:hover:not(:disabled) { background-color: var(--color-surface-muted); color: var(--color-foreground); }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive action in alert-red-solid with white text; hover deepens the red.",
+      "html": "<button class=\"ds-btn-danger\">Delete account</button>",
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: 2.5rem; min-height: 2.5rem; padding-left: 1rem; padding-right: 1rem; border-radius: 0.75rem; font-size: 0.875rem; font-weight: 500; background-color: var(--color-danger-solid); color: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.4); transition: background-color 150ms; cursor: pointer; border: none; outline: none; } .ds-btn-danger:disabled { cursor: not-allowed; opacity: 0.45; } .ds-btn-danger:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; } .ds-btn-danger:hover:not(:disabled) { background-color: var(--color-danger-solid-hover); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Form control on graphite-surface-muted with a hairline border; focus shifts border to mint-emerald with a subtle focus ring.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Enter amount\" />",
+      "css": ".ds-input { width: 100%; border-radius: 0.75rem; border: 1px solid var(--color-border); background-color: var(--color-surface-muted); padding-top: 0.625rem; padding-bottom: 0.625rem; padding-left: 0.875rem; padding-right: 0.875rem; font-size: 0.875rem; color: var(--color-ink); transition: border-color 150ms, box-shadow 150ms; outline: none; } .ds-input::placeholder { color: var(--color-muted); opacity: 0.6; } .ds-input:disabled { cursor: not-allowed; opacity: 0.5; } .ds-input:focus { border-color: var(--color-focus-ring); box-shadow: 0 0 0 2px var(--color-focus-ring); box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.15); outline: none; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Raised container on graphite-surface with a hairline border and generous internal padding.",
+      "html": "<section class=\"ds-card\"><h2 class=\"ds-card-title\">Card title</h2><div class=\"ds-card-body\">Card content.</div></section>",
+      "css": ".ds-card { border-radius: 0.75rem; border: 1px solid var(--color-border); background-color: var(--color-surface); padding: 1.25rem; } .ds-card-title { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.025em; text-transform: uppercase; color: var(--color-muted); margin: 0 0 0.75rem 0; } .ds-card-body { color: var(--color-foreground); }"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Metric card with subtle lift, an uppercase muted label, and a large tabular value.",
+      "html": "<div class=\"ds-statcard\"><p class=\"ds-statcard-label\">Total spent</p><p class=\"ds-statcard-value\">$1,234.56</p></div>",
+      "css": ".ds-statcard { border-radius: 1rem; border: 1px solid var(--color-border); background-color: var(--color-surface); box-shadow: 0 1px 2px rgba(23,33,27,0.04); padding: 1.25rem; } .ds-statcard-label { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.025em; text-transform: uppercase; color: var(--color-muted); margin: 0 0 0.5rem 0; } .ds-statcard-value { font-size: 1.75rem; font-weight: 600; color: var(--color-foreground); font-variant-numeric: tabular-nums; margin: 0; }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Inline status pill in neutral default or tone variants (ok/warn/danger/accent/gold) with tinted border and subtle fill.",
+      "html": "<span class=\"ds-badge ds-badge-neutral\">Neutral</span><span class=\"ds-badge ds-badge-accent\">Accent</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 9999px; border: 1px solid var(--color-border); background-color: var(--color-surface-muted); padding-top: 0.125rem; padding-bottom: 0.125rem; padding-left: 0.625rem; padding-right: 0.625rem; font-size: 0.75rem; font-weight: 500; color: var(--color-muted); } .ds-badge-accent { border-color: rgba(52, 211, 153, 0.25); background-color: rgba(52, 211, 153, 0.12); color: var(--color-primary); }"
+    },
+    {
+      "name": "Currency Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Fully rounded chip mapping a currency to a soft tint so EUR/USD/JPY stay distinct without flag images.",
+      "html": "<span class=\"ds-chip ds-chip-usd\">USD</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 9999px; border: 1px solid var(--color-border); background-color: var(--color-surface-muted); padding-top: 0.125rem; padding-bottom: 0.125rem; padding-left: 0.625rem; padding-right: 0.625rem; font-size: 0.75rem; font-weight: 500; color: var(--color-muted); } .ds-chip:selected { background-color: var(--color-surface-muted); color: var(--color-foreground); }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "nav",
+      "refersTo": "button-primary",
+      "description": "Pill-style single-choice switcher; active state fills surface with a subtle shadow.",
+      "html": "<div class=\"ds-segmented\"><button class=\"ds-segment-option ds-segment-option-active\">Week</button><button class=\"ds-segment-option\">Month</button></div>",
+      "css": ".ds-segmented { display: inline-flex; border-radius: 0.75rem; border: 1px solid var(--color-border); background-color: var(--color-surface-muted); padding: 0.125rem; } .ds-segment-option { height: 2rem; border-radius: 0.625rem; padding-left: 0.875rem; padding-right: 0.875rem; font-size: 0.875rem; font-weight: 500; color: var(--color-muted); background-color: transparent; border: none; outline: none; cursor: pointer; transition: background-color 150ms, color 150ms; } .ds-segment-option:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; } .ds-segment-option:hover:not(.ds-segment-option-active) { color: var(--color-foreground); } .ds-segment-option-active { background-color: var(--color-surface); color: var(--color-foreground); box-shadow: 0 1px 2px rgba(23,33,27,0.08); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Graphite Ledger",
+    "overview": "Calm, precise, and low-pressure. Dark graphite surfaces carry hairline borders and tonal surface variants instead of colour; a single mint-emerald accent is reserved for CTAs, the brand mark, active and positive states, and key converted numbers — never as a decorative wash. Every money figure uses tabular numerals, every interactive control shows a visible focus ring, and all motion collapses to near-still under `prefers-reduced-motion`. Light mode is a 1:1 mirror of the dark ramp, shifted to darker steps so ink keeps WCAG AA on a white surface.",
+    "keyCharacteristics": ["Near-black graphite canvas (#0b0c0e) with off-white ink (#f2f4f5)", "Single bright accent: mint-emerald (#34d399), used sparingly", "Hairline borders (rgba(255,255,255,0.07)) and tonal layering over shadows", "Tabular numerals for all money figures", "Visible focus rings on every interactive control", "Light theme is a value-for-value mirror of the dark ramp"],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Mint-emerald is the single bright colour; it appears on primary CTAs, the brand mark, active/positive states, and key converted numbers — never as a decorative wash, glow, shadow, or eyebrow.", "section": "colors" },
+      { "name": "The Restraint Rule", "body": "Category chips and chart series draw from a six-hue muted palette — never a saturated rainbow, never flag images.", "section": "colors" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. Shadows appear only as a response to state (hover, active, elevation, focus); no ambient coloured glows.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use mint-emerald (#34d399) as the single bright accent, on primary CTAs, the brand mark, active/positive states, and key converted numbers only.",
+      "Do render all money figures with `tabular-nums` so digits align.",
+      "Do show a visible 2px mint-emerald focus ring on every interactive control.",
+      "Do honour `prefers-reduced-motion` — collapse all transitions and animations to ~0.01ms.",
+      "Do keep category distinctions to the six-hue muted palette; never use flag images or a saturated rainbow."
+    ],
+    "donts": [
+      "Don't use mint-emerald as a decorative wash, glow, shadow, or eyebrow — it is reserved for functional emphasis.",
+      "Don't introduce a second bright accent hue; secondary and tertiary roles are expressed through tonal graphite, not colour.",
+      "Don't use dark-green bank sterility, generic dollar signs, globes with arrows, or bird silhouettes.",
+      "Don't add gradients, shadows, or outlines to the orbit mark; use the light/dark SVG variants only.",
+      "Don't reassert token hex values in prose; the YAML frontmatter is normative."
+    ]
+  }
+}

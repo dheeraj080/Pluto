@@ -37,7 +37,6 @@ import { hydrateThemePreference } from '@/lib/theme-preference';
 import { fontFamily, palettes } from '@/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSession } from '@/hooks/use-session';
-import { readOnboardingCompleted } from '@/lib/session-storage';
 
 // Started before the first render, not inside it: the SDK's job is to catch a
 // crash in the layout itself, and a no-op when EXPO_PUBLIC_SENTRY_DSN is unset.
@@ -59,19 +58,6 @@ export default function RootLayout() {
   useEffect(() => {
     setCrashReportingUser(user);
   }, [user]);
-
-  // Onboarding gate: if the user hasn't completed onboarding, route to onboarding
-  // before rendering any drawer/screens. This ensures new users get the guided
-  // experience (choose mode, currency, categories, first expense).
-  useEffect(() => {
-    if (pathname === '/' || pathname === '/(drawer)' || pathname === '/(drawer)/index') {
-      readOnboardingCompleted().then((completed) => {
-        if (!completed) {
-          router.push('/onboarding' as any);
-        }
-      });
-    }
-  }, [pathname]);
 
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,

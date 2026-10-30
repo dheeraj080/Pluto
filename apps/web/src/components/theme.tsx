@@ -84,7 +84,7 @@ export function ThemeToggle({
             aria-pressed={active}
             title={option.label}
             onClick={() => setThemePreference(option.value)}
-            className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-[10px] px-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
+            className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-[10px] px-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
               active
                 ? "bg-background text-ink shadow-[0_1px_2px_rgba(23,33,27,0.08)]"
                 : "text-muted hover:text-ink"

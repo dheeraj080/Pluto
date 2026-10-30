@@ -15,6 +15,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -69,6 +70,7 @@ export function Select({
 }: SelectProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -183,7 +185,12 @@ export function Select({
             accessibilityRole="none"
             style={[
               styles.sheet,
-              { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, spacing.xl) },
+              {
+                backgroundColor: theme.surface,
+                paddingBottom: Math.max(insets.bottom, spacing.xl),
+                maxHeight: windowHeight * 0.85,
+                overflow: 'hidden',
+              },
             ]}
             onPress={(e: any) => e.stopPropagation()}
           >
@@ -202,12 +209,13 @@ export function Select({
                 />
               </View>
             ) : null}
-            <ScrollView
-              style={styles.options}
-              contentContainerStyle={styles.optionsContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
+            <View style={styles.scrollWrapper}>
+              <ScrollView
+                style={[styles.options, { flex: 1 }]}
+                contentContainerStyle={styles.optionsContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
               {filteredOptions.map((option) => {
                 const isSelected = options.findIndex((o) => o.value === option.value) === selectedIndex && option.value === value;
                 const isDisabled = option.disabled;
@@ -240,6 +248,7 @@ export function Select({
                 );
               })}
             </ScrollView>
+            </View>
           </Pressable>
         </View>
       </Modal>
@@ -295,7 +304,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.xxl,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl,
-    maxHeight: '80%',
   },
   sheetHandle: {
     alignSelf: 'center',
@@ -303,6 +311,9 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: radius.pill,
     marginBottom: spacing.sm,
+  },
+  scrollWrapper: {
+    flex: 1,
   },
   searchWrap: {
     marginHorizontal: spacing.lg,

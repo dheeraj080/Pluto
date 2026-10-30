@@ -141,7 +141,7 @@ export function Badge({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${BADGE_STYLES[tone]} ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium ${BADGE_STYLES[tone]} ${className}`}
     >
       {children}
     </span>
@@ -384,7 +384,7 @@ export function SegmentedControl({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(option.value)}
-            className={`h-8 rounded-[10px] px-3.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
+            className={`h-10 rounded-[10px] px-3.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
               active ? "bg-background text-ink shadow-[0_1px_2px_rgba(23,33,27,0.08)]" : "text-muted hover:text-ink"
             }`}
           >

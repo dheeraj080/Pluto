@@ -7,12 +7,12 @@
  * equivalent window before it, so the shape of the month is legible at a
  * glance. The chart fills the card — a fixed 300px plot area that scales with
  * its container, a y-axis that tops out at the data maximum plus headroom, and
- * dots only on hover and on the latest point. The table and the opt-in
- * second-currency axis live behind a small "…" menu, so the header stays to
- * title, subtitle and the range toggle.
+ * dots only on hover and on the latest point. A built-in Table/Chart toggle
+ * exposes an accessible data-table alternative; the second-currency axis is
+ * opt-in via a toggle button beside the range picker.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { compareWindows, type CompareRange } from "@/lib/ranges";
 import { formatDate, formatMoney, formatMonth } from "@/lib/format";
 import {
@@ -23,7 +23,6 @@ import {
   type ComparisonRow,
 } from "@/components/charts";
 import { SegmentedControl, Skeleton } from "@/components/ui";
-import { IconCheck, IconDots } from "@/components/icons";
 import { CardError } from "./dashboard-error";
 
 const RANGES = [
@@ -52,26 +51,7 @@ export function ComparisonCard({
   onRetry: () => void;
 }) {
   const [showSecond, setShowSecond] = useState(false);
-  const [showTable, setShowTable] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const granularity = useMemo(() => compareWindows(range).granularity, [range]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onPointerDown = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [menuOpen]);
 
   const currentLabel = range === "month" ? "This month" : range === "3m" ? "Last 3 months" : "Last 12 months";
   const previousLabel = range === "month" ? "Last month" : range === "3m" ? "Previous 3" : "Previous 12";
@@ -133,9 +113,6 @@ export function ComparisonCard({
       subtitle={subtitle}
       className="order-3"
       table={table}
-      hideTableToggle
-      showTable={showTable}
-      onShowTableChange={setShowTable}
       loading={loading}
       skeleton={<Skeleton className="h-[300px]" />}
       action={
@@ -146,44 +123,19 @@ export function ComparisonCard({
             value={range}
             onChange={(value) => onRangeChange(value as CompareRange)}
           />
-          {/* <div ref={menuRef} className="relative">
+          {second && (
             <button
               type="button"
-              aria-label="Spending-chart options"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((value) => !value)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted transition-colors duration-150 hover:border-border-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              aria-pressed={showSecond}
+              aria-label={showSecond ? "Hide second currency axis" : "Show second currency axis"}
+              onClick={() => setShowSecond((value) => !value)}
+              className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border ${showSecond ? "bg-surface text-ink" : "bg-surface-muted text-muted"} transition-colors duration-150 hover:border-border-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
             >
-              <IconDots className="h-4 w-4" />
+              <span className="sr-only">
+                {showSecond ? "Second axis on" : "Second axis off"}
+              </span>
             </button>
-            {menuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-border bg-surface p-1.5 shadow-2xl"
-              >
-                <MenuCheckItem
-                  label="Table"
-                  checked={showTable}
-                  disabled={!table}
-                  onSelect={() => {
-                    setShowTable((value) => !value);
-                    setMenuOpen(false);
-                  }}
-                />
-                {second && (
-                  <MenuCheckItem
-                    label="Second axis"
-                    checked={showSecond}
-                    onSelect={() => {
-                      setShowSecond((value) => !value);
-                      setMenuOpen(false);
-                    }}
-                  />
-                )}
-              </div>
-            )}
-          </div> */}
+          )}
         </div>
       }
     >
@@ -209,32 +161,6 @@ export function ComparisonCard({
         />
       )}
     </ChartFrame>
-  );
-}
-
-function MenuCheckItem({
-  label,
-  checked,
-  onSelect,
-  disabled = false,
-}: {
-  label: string;
-  checked: boolean;
-  onSelect: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitemcheckbox"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={onSelect}
-      className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm text-ink transition-colors hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      <span>{label}</span>
-      {checked && <IconCheck className="h-4 w-4 text-primary" aria-hidden="true" />}
-    </button>
   );
 }
 

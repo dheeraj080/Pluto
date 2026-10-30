@@ -17,7 +17,7 @@
  * rather than zero.
  */
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { isoDaysAgo, todayIso, type CompareRange } from "@/lib/ranges";
 import { formatDateRange } from "@/lib/format";
 import { Button, EmptyState } from "@/components/ui";
@@ -75,13 +75,36 @@ export default function ExpensesDashboardPage() {
   const delta = comparisonDeltaPct(comparison);
   const estimated = comparison?.rateProvenance?.policies?.includes("estimate") ?? false;
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     reloadMonth();
     budget.reload();
     recent.reload();
     setSeriesNonce((value) => value + 1);
-  };
+  }, [reloadMonth, budget, recent]);
   const refreshing = monthLoading || budget.loading || recent.loading;
+
+  // Keyboard shortcuts for the power-user loop: `a` adds an expense,
+  // `r` refreshes everything. Ignored while typing in any input.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (
+        target.isContentEditable ||
+        (target.tagName && /^(INPUT|TEXTAREA|SELECT)$/i.test(target.tagName))
+      ) {
+        return;
+      }
+      if (event.key === "a" || event.key === "A") {
+        event.preventDefault();
+        setShowAdd(true);
+      } else if (event.key === "r" || event.key === "R") {
+        event.preventDefault();
+        refresh();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [refresh, setShowAdd]);
 
   // A brand-new account sees one friendly card, never a grid of empty charts.
   const isEmpty =
@@ -111,7 +134,7 @@ export default function ExpensesDashboardPage() {
         pair={<PairSwitcher base={base} second={second} onSwap={swap} />}
         actions={
           <>
-            <Button variant="primary" onClick={() => setShowAdd(true)}>
+            <Button variant="primary" onClick={() => setShowAdd(true)} title="Add expense (A)">
               <IconPlus className="h-4 w-4" />
               Add expense
             </Button>
@@ -121,7 +144,7 @@ export default function ExpensesDashboardPage() {
               onClick={refresh}
               loading={refreshing}
               aria-label="Refresh"
-              title="Refresh"
+              title="Refresh (R)"
             >
               <IconRefresh className="h-4 w-4" />
             </Button>

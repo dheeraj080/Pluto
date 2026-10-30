@@ -14,7 +14,6 @@ import { errorMessage } from '@/lib/errors';
 import { requestGoogleIdToken } from '@/lib/google-sign-in';
 import { HOME } from '@/lib/routes';
 import { ensureLocalSession } from '@/lib/session';
-import { readOnboardingCompleted, writeOnboardingCompleted } from '@/lib/session-storage';
 
 /**
  * The way in.
@@ -38,8 +37,7 @@ export default function SignInScreen() {
         const idToken = await requestGoogleIdToken();
         if (!idToken) return; // The account sheet was dismissed.
         await googleLogin(idToken);
-        await writeOnboardingCompleted(true);
-        router.replace('/onboarding/currency' as any);
+        router.replace('/' as any);
       } catch (cause) {
         setError(errorMessage(cause) ?? 'Could not sign in with Google.');
       } finally {
@@ -53,8 +51,7 @@ export default function SignInScreen() {
     setBusy('dev');
     devLogin()
       .then(() => {
-        writeOnboardingCompleted(true);
-        router.replace('/onboarding/currency' as any);
+        router.replace('/' as any);
       })
       .catch((cause: unknown) => setError(errorMessage(cause) ?? 'Could not sign in.'))
       .finally(() => setBusy(null));
@@ -64,8 +61,7 @@ export default function SignInScreen() {
   const onContinueOffline = useCallback(() => {
     setError(null);
     ensureLocalSession();
-    writeOnboardingCompleted(true);
-    router.replace('/onboarding/currency' as any);
+    router.replace('/' as any);
   }, []);
 
   return (

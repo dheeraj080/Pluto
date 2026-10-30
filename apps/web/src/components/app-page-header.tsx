@@ -87,7 +87,7 @@ export function PairSwitcher({
       <button
         type="button"
         aria-pressed="true"
-        className="h-7 rounded-[10px] bg-primary-subtle px-2.5 text-xs font-semibold tabular-nums text-primary"
+        className="h-10 rounded-[10px] bg-primary-subtle px-2.5 text-xs font-semibold tabular-nums text-primary"
       >
         {base}
       </button>
@@ -96,7 +96,7 @@ export function PairSwitcher({
         aria-pressed="false"
         onClick={onSwap}
         title={`Show ${second} as the base currency`}
-        className="inline-flex h-7 items-center gap-1 rounded-[10px] px-2.5 text-xs font-medium tabular-nums text-muted transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="inline-flex h-10 items-center gap-1 rounded-[10px] px-2.5 text-xs font-medium tabular-nums text-muted transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <IconSwap aria-hidden="true" className="h-3 w-3" />
         {second}
