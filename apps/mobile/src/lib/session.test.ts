@@ -22,9 +22,6 @@ const storage = vi.hoisted(() => ({
   readProfile: vi.fn<() => Promise<unknown>>(async () => null),
   writeProfile: vi.fn<(profile: unknown) => Promise<void>>(async () => {}),
   deleteProfile: vi.fn<() => Promise<void>>(async () => {}),
-  readOnboardingCompleted: vi.fn<() => Promise<boolean>>(async () => false),
-  writeOnboardingCompleted: vi.fn<() => Promise<void>>(async () => {}),
-  deleteOnboardingCompleted: vi.fn<() => Promise<void>>(async () => {}),
 }));
 
 // Sign-out also deletes the disk read-cache, and that module reaches for
@@ -82,7 +79,7 @@ describe('session store', () => {
   });
 
   it('starts as loading with no user', () => {
-    expect(session.getSessionState()).toEqual({ status: 'loading', user: null, mode: 'local', onboardingCompleted: false });
+    expect(session.getSessionState()).toEqual({ status: 'loading', user: null, mode: 'local' });
   });
 
   it('notifies subscribers when the session flips', () => {
