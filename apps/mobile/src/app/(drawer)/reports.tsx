@@ -21,12 +21,13 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router, useNavigation } from 'expo-router';
+import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useConfirm } from '@/components/ui/confirm';
 import { ConversionNote } from '@/components/ui/conversion-note';
 import { AppPageHeader } from '@/components/ui/page-header';
+import { BottomNavBar, BAR_HEIGHT, FLOAT_GAP } from '@/components/ui/bottom-nav-bar';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { SegmentedControl } from '@/components/ui/segmented-control';
@@ -62,9 +63,6 @@ const TAB_OPTIONS: { value: Tab; label: string }[] = [
 ];
 
 export default function ReportsScreen() {
-  // `useNavigation()` returns the generic root navigation type; the drawer
-  // navigator adds `openDrawer` at runtime, so cast for the drawer screens.
-  const navigation = useNavigation() as { openDrawer: () => void };
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const { base, second } = usePair();
@@ -203,7 +201,7 @@ export default function ReportsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <View style={[styles.header, { paddingTop: screenPadding.paddingTop }]}>
-        <AppPageHeader title="Reports" onOpenDrawer={() => navigation.openDrawer()}>
+        <AppPageHeader title="Reports">
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Refresh"
@@ -260,7 +258,10 @@ export default function ReportsScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: screenPadding.paddingBottom }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: screenPadding.paddingBottom + BAR_HEIGHT + FLOAT_GAP },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -357,6 +358,7 @@ export default function ReportsScreen() {
       ) : null}
 
       {confirmSheet}
+      <BottomNavBar />
     </View>
   );
 }

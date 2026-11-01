@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 
@@ -13,6 +13,7 @@ import { Chip } from '@/components/ui/chip';
 import { Divider } from '@/components/ui/divider';
 import { EmptyState, ErrorNote, Spinner } from '@/components/ui/feedback';
 import { AppPageHeader } from '@/components/ui/page-header';
+import { BottomNavBar, BAR_HEIGHT, FLOAT_GAP } from '@/components/ui/bottom-nav-bar';
 import { Select } from '@/components/ui/select';
 import { TextField } from '@/components/ui/text-field';
 import { IconRefresh } from '@/components/icons';
@@ -54,9 +55,6 @@ function dateChipLabel(range: ActivityDateRange): string {
 }
 
 export default function ActivityScreen() {
-  // `useNavigation()` returns the generic root navigation type; the drawer
-  // navigator adds `openDrawer` at runtime, so cast for the drawer screens.
-  const navigation = useNavigation() as { openDrawer: () => void };
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const [now] = useState(() => new Date());
@@ -188,7 +186,11 @@ export default function ActivityScreen() {
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.content, screenPadding]}
+        contentContainerStyle={[
+          styles.content,
+          screenPadding,
+          { paddingBottom: screenPadding.paddingBottom + BAR_HEIGHT + FLOAT_GAP },
+        ]}
         ItemSeparatorComponent={Divider}
         renderItem={({ item }) => (
           <Pressable onPress={() => router.push(expenseHref(item.id))}>
@@ -210,7 +212,7 @@ export default function ActivityScreen() {
         }
         ListHeaderComponent={
           <View style={styles.header}>
-            <AppPageHeader title="Activity" subtitle={countLabel} onOpenDrawer={() => navigation.openDrawer()}>
+            <AppPageHeader title="Activity" subtitle={countLabel}>
               <Button
                 label="Recurring"
                 size="sm"
@@ -299,6 +301,7 @@ export default function ActivityScreen() {
         value={dateRange}
         onApply={(next) => setDateRange(next)}
       />
+      <BottomNavBar />
     </View>
   );
 }

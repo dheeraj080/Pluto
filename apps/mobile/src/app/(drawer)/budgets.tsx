@@ -15,7 +15,7 @@
 
 import { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { router, useNavigation } from 'expo-router';
+import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { BudgetRow } from '@/components/budgets/budget-row';
@@ -28,6 +28,7 @@ import { Divider } from '@/components/ui/divider';
 import { EmptyState, ErrorNote } from '@/components/ui/feedback';
 import { MonthStepper } from '@/components/ui/month-stepper';
 import { AppPageHeader } from '@/components/ui/page-header';
+import { BottomNavBar, BAR_HEIGHT, FLOAT_GAP } from '@/components/ui/bottom-nav-bar';
 import { IconPlus } from '@/components/icons';
 import { layout, spacing } from '@/theme';
 import { useBudgetStatus, useDeleteBudget, type BudgetStatus } from '@/hooks/use-budgets';
@@ -41,9 +42,6 @@ import { monthEndIso, shiftMonth } from '@/lib/ranges';
 import { activityHref } from '@/lib/routes';
 
 export default function BudgetsScreen() {
-  // `useNavigation()` returns the generic root navigation type; the drawer
-  // navigator adds `openDrawer` at runtime, so cast for the drawer screens.
-  const navigation = useNavigation() as { openDrawer: () => void };
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const queryClient = useQueryClient();
@@ -112,7 +110,11 @@ export default function BudgetsScreen() {
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, screenPadding]}
+        contentContainerStyle={[
+          styles.content,
+          screenPadding,
+          { paddingBottom: screenPadding.paddingBottom + BAR_HEIGHT + FLOAT_GAP },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={status.isFetching}
@@ -122,7 +124,7 @@ export default function BudgetsScreen() {
           />
         }
       >
-        <AppPageHeader title="Budgets" subtitle="Limits and what's left this month." onOpenDrawer={() => navigation.openDrawer()}>
+        <AppPageHeader title="Budgets" subtitle="Limits and what's left this month.">
           <MonthStepper
             label={formatMonth(month)}
             onPrevious={() => setMonth((value) => shiftMonth(value, -1))}
@@ -188,6 +190,7 @@ export default function BudgetsScreen() {
 
       {sheet ? <BudgetSheet target={sheet.target} onClose={closeSheet} /> : null}
       {confirmSheet}
+      <BottomNavBar />
     </View>
   );
 }

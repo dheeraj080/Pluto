@@ -19,7 +19,7 @@
  */
 
 import { useCallback } from 'react';
-import { router, useNavigation } from 'expo-router';
+import { router } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PairCard } from '@/components/dashboard/pair-card';
@@ -27,6 +27,7 @@ import { RecentCard } from '@/components/dashboard/recent-card';
 import { ThisMonthCard } from '@/components/dashboard/this-month-card';
 import { TopCategoriesCard } from '@/components/dashboard/top-categories-card';
 import { Button } from '@/components/ui/button';
+import { BottomNavBar, BAR_HEIGHT, FLOAT_GAP } from '@/components/ui/bottom-nav-bar';
 import { Card } from '@/components/ui/card';
 import { ConversionNote } from '@/components/ui/conversion-note';
 import { EmptyState } from '@/components/ui/feedback';
@@ -43,9 +44,6 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatDateRange } from '@/lib/format';
 
 export default function DashboardScreen() {
-  // `useNavigation()` returns the generic root navigation type; the drawer
-  // navigator adds `openDrawer` at runtime, so cast for the drawer screens.
-  const navigation = useNavigation() as { openDrawer: () => void };
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const { base, second } = usePair();
@@ -92,19 +90,24 @@ export default function DashboardScreen() {
     !month.loading && summary !== null && summary.count === 0 && recent.items.length === 0;
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.canvas }]}
-      contentContainerStyle={[styles.content, screenPadding]}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={theme.accent}
-          colors={[theme.accent]}
-        />
-      }
-    >
-      <AppPageHeader title="Dashboard" onOpenDrawer={() => navigation.openDrawer()}>
+    <View style={[styles.container, { backgroundColor: theme.canvas }]}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.content,
+          screenPadding,
+          { paddingBottom: screenPadding.paddingBottom + BAR_HEIGHT + FLOAT_GAP },
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+          />
+        }
+      >
+        <AppPageHeader title="Dashboard">
         <View style={[styles.dateChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
           <IconCalendar size={14} color={theme.muted} />
           <Text style={[text.captionMedium, { color: theme.muted }]}>
@@ -186,12 +189,15 @@ export default function DashboardScreen() {
           />
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+      <BottomNavBar />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  scroll: { flex: 1 },
   content: {
     padding: layout.gutter,
     gap: spacing.lg,
