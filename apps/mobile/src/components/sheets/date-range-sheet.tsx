@@ -4,12 +4,27 @@
  * Presets are applied immediately on tap (there is nothing to confirm), and the
  * visible selection is driven entirely by the `value` prop — so the sheet has no
  * local state to keep in sync with its parent. Tapping the backdrop closes it.
+ *
+ * A "Custom range" option lets the user pick arbitrary from/to dates — parity
+ * with the Reports range sheet.
  */
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  AccessibilityInfo,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { borderWidth, radius, spacing, text } from '@/theme';
+import { Button } from '@/components/ui/button';
+import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/hooks/use-theme';
 import { lastMonthRange, thisMonthRange } from '@/lib/date';
+import { isValidIsoDate } from '@/lib/format';
 
 export type DateRangePreset = 'this_month' | 'last_month' | 'all_time' | 'custom';
 
@@ -32,6 +47,8 @@ const PRESET_OPTIONS: { value: DateRangePreset; label: string; hint: string }[] 
   { value: 'all_time', label: 'All time', hint: 'Every recorded expense' },
 ];
 
+const DATE_ERROR = 'Use a date like 2026-10-01';
+
 /** Resolves a preset into concrete bounds, using the device's local calendar. */
 export function dateRangeForPreset(preset: DateRangePreset, now: Date = new Date()): ActivityDateRange {
   switch (preset) {
@@ -47,19 +64,42 @@ export function dateRangeForPreset(preset: DateRangePreset, now: Date = new Date
       // No bounds: an absent from/to means "everything" to the API.
       return { preset, from: undefined, to: undefined };
     case 'custom':
-      // `custom` is never *chosen* here — the sheet only offers the three
-      // presets above. It exists so a drill-down (e.g. from Reports) can hand
-      // the list an arbitrary window, and its bounds travel with that caller
-      // rather than being derived from a preset.
       return { preset, from: undefined, to: undefined };
   }
 }
 
 export function DateRangeSheet({ visible, onClose, value, onApply }: DateRangeSheetProps) {
   const theme = useTheme();
+  const [from, setFrom] = useState(value.from ?? '');
+  const [to, setTo] = useState(value.to ?? '');
+  const [errors, setErrors] = useState<{ from?: string; to?: string }>({});
+
+  useEffect(() => {
+    if (visible) {
+      void AccessibilityInfo.announceForAccessibility('Date range');
+    }
+    return () => {
+      void AccessibilityInfo.announceForAccessibility('Date range sheet closed');
+    };
+  }, [visible]);
 
   const handleSelect = (preset: DateRangePreset) => {
+    if (preset === 'custom') {
+      // Stay on the sheet so the user can enter custom bounds.
+      setErrors({});
+      return;
+    }
     onApply(dateRangeForPreset(preset));
+    onClose();
+  };
+
+  const handleApplyCustom = () => {
+    const next: { from?: string; to?: string } = {};
+    if (!isValidIsoDate(from)) next.from = DATE_ERROR;
+    if (!isValidIsoDate(to)) next.to = DATE_ERROR;
+    setErrors(next);
+    if (next.from || next.to) return;
+    onApply({ preset: 'custom', from, to });
     onClose();
   };
 
@@ -68,8 +108,10 @@ export function DateRangeSheet({ visible, onClose, value, onApply }: DateRangeSh
       <View style={styles.modalRoot}>
         <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={onClose} />
         <Pressable
+          accessible
+          accessibilityRole={('dialog' as any)}
+          accessibilityLabel="Date range"
           accessibilityViewIsModal
-          accessibilityRole="none"
           style={[styles.sheet, { backgroundColor: theme.surface }]}
           onPress={(e: any) => e.stopPropagation()}
         >
@@ -103,7 +145,61 @@ export function DateRangeSheet({ visible, onClose, value, onApply }: DateRangeSh
                   </Pressable>
                 );
               })}
+              {value.preset as DateRangePreset !== 'custom' && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: value.preset === 'custom' }}
+                  onPress={() => handleSelect('custom')}
+                  style={({ pressed }) => [
+                    styles.preset,
+                    {
+                      backgroundColor:
+                        value.preset === 'custom' ? theme.surfaceMuted : 'transparent',
+                      borderColor: value.preset === 'custom' ? theme.primary : theme.border,
+                    },
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={[text.bodyMedium, { color: theme.ink }]}>Custom range</Text>
+                  <Text style={[text.caption, { color: theme.muted }]}>Choose your own dates</Text>
+                </Pressable>
+              )}
             </View>
+
+            {value.preset === 'custom' && (
+              <>
+                <View style={[styles.customHead, { borderColor: theme.border }]}>
+                  <Text style={[text.overline, { color: theme.muted }]}>Custom</Text>
+                </View>
+                <View style={styles.customFields}>
+                  <View style={styles.field}>
+                    <TextField
+                      label="From"
+                      value={from}
+                      onChangeText={setFrom}
+                      placeholder="YYYY-MM-DD"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="numbers-and-punctuation"
+                      error={errors.from}
+                    />
+                  </View>
+                  <View style={styles.field}>
+                    <TextField
+                      label="To"
+                      value={to}
+                      onChangeText={setTo}
+                      placeholder="YYYY-MM-DD"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="numbers-and-punctuation"
+                      error={errors.to}
+                    />
+                  </View>
+                </View>
+                <Button label="Apply range" onPress={handleApplyCustom} />
+              </>
+            )}
           </ScrollView>
         </Pressable>
       </View>
@@ -126,7 +222,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.xxl,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl,
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   sheetHandle: {
     alignSelf: 'center',
@@ -146,4 +242,15 @@ const styles = StyleSheet.create({
     borderWidth: borderWidth.hairline,
   },
   pressed: { opacity: 0.7 },
+  customHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+    paddingTop: spacing.md,
+    borderTopWidth: borderWidth.hairline,
+  },
+  customFields: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+  field: { flexGrow: 1, flexBasis: 0, minWidth: 140 },
+  apply: { alignSelf: 'flex-start' },
 });

@@ -73,8 +73,38 @@ const DEFAULT_BASE_CURRENCY = 'USD';
 /** Guards against overlapping runs: a timer tick and a reconnect can race. */
 let inFlight: Promise<SyncOutcome> | null = null;
 
+/** Subscribers for sync state changes (used by the connection banner UI). */
+const syncStateListeners = new Set<() => void>();
+
+function notifySyncState(): void {
+  for (const listener of syncStateListeners) listener();
+}
+
+/** Subscribe to sync in-flight state changes. Returns an unsubscribe function. */
+export function subscribeSyncState(listener: () => void): () => void {
+  syncStateListeners.add(listener);
+  return () => {
+    syncStateListeners.delete(listener);
+  };
+}
+
+/** True when a sync is currently in flight. */
+export function isSyncing(): boolean {
+  return inFlight !== null;
+}
+
 /** Pull page bound; the loop keeps pulling while the server reports `hasMore`. */
 const MAX_PULL_PAGES = 50;
+
+/**
+ * True when the current session is on a paid plan with an active subscription.
+ * Free-tier users keep local-first storage but cannot push to or pull from
+ * the server.
+ */
+export function isPaidPlan(): boolean {
+  const user = getSessionState().user;
+  return Boolean(user && user.plan === 'PAID');
+}
 
 /**
  * Reconciles the local store with the server: replay offline decisions, push
@@ -86,9 +116,12 @@ const MAX_PULL_PAGES = 50;
  */
 export function syncNow(): Promise<SyncOutcome> {
   if (!localStoreEnabled) return Promise.resolve(DISABLED);
+  if (!isPaidPlan()) return Promise.resolve(DISABLED);
   if (!inFlight) {
+    notifySyncState();
     inFlight = runSync().finally(() => {
       inFlight = null;
+      notifySyncState();
     });
   }
   return inFlight;

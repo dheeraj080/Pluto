@@ -23,10 +23,11 @@ import {
 } from './dto/backup-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { PlanGuard } from '../plan/plan.guard';
 
 @ApiTags('Backups')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PlanGuard)
 @Controller('backups')
 export class BackupsController {
   constructor(private readonly backupsService: BackupsService) {}
@@ -36,7 +37,7 @@ export class BackupsController {
   @ApiOperation({
     summary: 'Initiate a new cloud backup upload',
     description:
-      'Allocates the next sequential version for the user and generates a short-lived presigned S3 PUT URL for direct binary upload.',
+      'Allocates the next sequential version for the user and generates a short-lived presigned S3 PUT URL for direct binary upload. Requires a paid plan.',
   })
   @ApiResponse({
     status: 201,

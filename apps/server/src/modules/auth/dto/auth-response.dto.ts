@@ -26,6 +26,9 @@ export class UserProfileDto {
   })
   baseCurrency!: string | null;
 
+  @ApiProperty({ enum: ['FREE', 'PAID'], example: 'FREE' })
+  plan!: 'FREE' | 'PAID';
+
   @ApiProperty({ example: '2026-10-09T03:45:00.000Z' })
   createdAt!: Date;
 }

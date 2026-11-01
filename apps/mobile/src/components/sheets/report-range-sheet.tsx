@@ -12,8 +12,16 @@
  * from the last applied bounds instead of an abandoned edit.
  */
 
-import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  AccessibilityInfo,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { IconCheck } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -53,6 +61,15 @@ export function ReportRangeSheet({
   onApplyCustom: (from: string, to: string) => void;
 }) {
   const theme = useTheme();
+
+  useEffect(() => {
+    if (visible) {
+      void AccessibilityInfo.announceForAccessibility('Date range');
+    }
+    return () => {
+      void AccessibilityInfo.announceForAccessibility('Date range sheet closed');
+    };
+  }, [visible]);
   const [from, setFrom] = useState(customFrom);
   const [to, setTo] = useState(customTo);
   const [errors, setErrors] = useState<{ from?: string; to?: string }>({});
@@ -78,8 +95,10 @@ export function ReportRangeSheet({
       <View style={styles.modalRoot}>
         <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={onClose} />
         <Pressable
+          accessible
+          accessibilityRole={('dialog' as any)}
+          accessibilityLabel="Date range"
           accessibilityViewIsModal
-          accessibilityRole="none"
           style={[styles.sheet, { backgroundColor: theme.surface }]}
           onPress={(event) => event.stopPropagation()}
         >

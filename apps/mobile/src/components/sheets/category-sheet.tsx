@@ -10,8 +10,9 @@
  * validated `#rrggbb` field is the honest replacement.
  */
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  AccessibilityInfo,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -52,6 +53,15 @@ export function CategorySheet({
 }) {
   const theme = useTheme();
   const editing = target !== null;
+
+  useEffect(() => {
+    void AccessibilityInfo.announceForAccessibility(
+      editing ? 'Edit category' : 'Add category',
+    );
+    return () => {
+      void AccessibilityInfo.announceForAccessibility('Category sheet closed');
+    };
+  }, [editing]);
 
   const create = useCreateCategory();
   const update = useUpdateCategory();
@@ -104,8 +114,10 @@ export function CategorySheet({
       >
         <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={onClose} />
         <Pressable
+          accessible
+          accessibilityRole={('dialog' as any)}
+          accessibilityLabel={editing ? 'Edit category' : 'Add category'}
           accessibilityViewIsModal
-          accessibilityRole="none"
           style={[styles.sheet, { backgroundColor: theme.surface }]}
           onPress={(event: { stopPropagation: () => void }) => event.stopPropagation()}
         >
@@ -142,7 +154,7 @@ export function CategorySheet({
                       accessibilityLabel={`Colour ${option}`}
                       accessibilityState={{ selected }}
                       onPress={() => setColor(option)}
-                      hitSlop={4}
+                      hitSlop={8}
                       style={[
                         styles.swatch,
                         {
@@ -222,7 +234,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: spacing.lg, gap: spacing.md },
   group: { gap: spacing.sm },
   swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  swatch: { width: 36, height: 36, borderRadius: radius.pill },
+  swatch: { width: 44, height: 44, borderRadius: radius.pill },
   preview: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   previewDot: { width: 12, height: 12, borderRadius: radius.pill },
   previewName: { flexShrink: 1 },

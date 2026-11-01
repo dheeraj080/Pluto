@@ -170,6 +170,7 @@ export function createLocalSession(baseCurrency = 'USD'): Schemas['UserProfileDt
     name: 'Local User',
     avatarUrl: null,
     baseCurrency,
+    plan: 'FREE',
     createdAt: new Date().toISOString(),
   };
   accessToken = null;

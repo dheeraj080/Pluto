@@ -15,7 +15,11 @@
  * admin and marketing screens, so mobile falls back to the platform monospace.
  */
 
-import { Platform, type TextStyle } from 'react-native';
+import { Platform, PixelRatio, type TextStyle } from 'react-native';
+
+/** Scale a font size by the device's font scale for dynamic type support. */
+const fontScale = PixelRatio.getFontScale();
+const scaleFont = (size: number): number => Math.round(size * fontScale * 100) / 100;
 
 export const fontFamily = {
   /** Inter — body copy, labels, controls. */
@@ -35,27 +39,27 @@ export const fontFamily = {
 } as const;
 
 export const fontSize = {
-  xs: 12,
-  sm: 14,
-  base: 15,
-  md: 16,
-  lg: 18,
-  xl: 20,
-  xxl: 24,
-  xxxl: 30,
-} as const;
+  xs: scaleFont(12),
+  sm: scaleFont(14),
+  base: scaleFont(15),
+  md: scaleFont(16),
+  lg: scaleFont(18),
+  xl: scaleFont(20),
+  xxl: scaleFont(24),
+  xxxl: scaleFont(30),
+};
 
 export const lineHeight = {
-  xs: 16,
-  sm: 20,
-  base: 22,
-  md: 24,
+  xs: scaleFont(16),
+  sm: scaleFont(20),
+  base: scaleFont(22),
+  md: scaleFont(24),
   /** 26, not `text-lg`'s 28, so the 18px display and subtitle share one leading. */
-  lg: 26,
-  xl: 28,
-  xxl: 32,
-  xxxl: 36,
-} as const;
+  lg: scaleFont(26),
+  xl: scaleFont(28),
+  xxl: scaleFont(32),
+  xxxl: scaleFont(36),
+};
 
 /**
  * Tabular figures, shared rather than inlined: `['tabular-nums'] as const`

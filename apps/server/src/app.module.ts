@@ -13,6 +13,7 @@ import { BackupsModule } from './modules/backups/backups.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { PlanModule } from './modules/plan/plan.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 @Module({
@@ -38,6 +39,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     ExpensesModule,
     SyncModule,
     AdminModule,
+    PlanModule,
   ],
   providers: [
     {

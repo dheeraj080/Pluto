@@ -3,8 +3,9 @@
  * the original.
  */
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  AccessibilityInfo,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -44,6 +45,17 @@ export function ReassignCategorySheet({
   const theme = useTheme();
   const [targetId, setTargetId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (visible && source) {
+      void AccessibilityInfo.announceForAccessibility(
+        `Reassign expenses from ${source.name}`,
+      );
+    }
+    return () => {
+      void AccessibilityInfo.announceForAccessibility('Reassign sheet closed');
+    };
+  }, [visible, source]);
+
   const others = categories.filter((c) => c.id !== source?.id);
   const hasTarget = targetId != null;
 
@@ -54,15 +66,17 @@ export function ReassignCategorySheet({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.modalRoot}
       >
         <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={onClose} />
         <Pressable
+          accessible
+          accessibilityRole={('dialog' as any)}
+          accessibilityLabel={source ? `Reassign expenses from ${source.name}` : 'Reassign expenses'}
           accessibilityViewIsModal
-          accessibilityRole="none"
           style={[styles.sheet, { backgroundColor: theme.surface }]}
           onPress={(event: { stopPropagation: () => void }) => event.stopPropagation()}
         >

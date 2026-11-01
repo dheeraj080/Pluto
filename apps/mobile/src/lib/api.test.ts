@@ -65,6 +65,7 @@ function authDto(overrides: Partial<Schemas['AuthResponseDto']> = {}): Schemas['
       name: 'A',
       avatarUrl: null,
       baseCurrency: 'USD',
+      plan: 'FREE',
       createdAt: '2026-01-01T00:00:00.000Z',
     },
     ...overrides,
@@ -149,7 +150,7 @@ describe('api', () => {
 
     await api.bootstrapSession();
 
-    expect(session.getSessionState()).toEqual({ status: 'signed-in', user: { id: 'local-user', email: 'local@pluto.app', name: 'Local User', avatarUrl: null, baseCurrency: 'USD', createdAt: expect.any(String) }, mode: 'local' });
+    expect(session.getSessionState()).toEqual({ status: 'signed-in', user: { id: 'local-user', email: 'local@pluto.app', name: 'Local User', avatarUrl: null, baseCurrency: 'USD', plan: 'FREE', createdAt: expect.any(String) }, mode: 'local' });
     // No access token until a rotation succeeds, but the stored credential
     // survives, so the next attempt (or launch) can retry instead of forcing
     // a fresh sign-in.

@@ -2417,7 +2417,7 @@
     },
     "/v1/backups/initiate": {
       "post": {
-        "description": "Allocates the next sequential version for the user and generates a short-lived presigned S3 PUT URL for direct binary upload.",
+        "description": "Allocates the next sequential version for the user and generates a short-lived presigned S3 PUT URL for direct binary upload. Requires a paid plan.",
         "operationId": "BackupsController_initiateBackup",
         "parameters": [],
         "requestBody": {
@@ -2632,7 +2632,7 @@
     },
     "/v1/sync/push": {
       "post": {
-        "description": "Applies device changes idempotently by last-write-wins on clientUpdatedAt. Each change is independent, so one rejection does not fail the batch.",
+        "description": "Applies device changes idempotently by last-write-wins on clientUpdatedAt. Each change is independent, so one rejection does not fail the batch. Requires a paid plan.",
         "operationId": "SyncController_push",
         "parameters": [],
         "requestBody": {
@@ -2658,6 +2658,9 @@
           },
           "400": {
             "description": "Malformed change payload"
+          },
+          "403": {
+            "description": "Paid plan required"
           }
         },
         "security": [
@@ -2673,7 +2676,7 @@
     },
     "/v1/sync/pull": {
       "get": {
-        "description": "Returns expenses modified after `since`, including deletion tombstones (non-null `deletedAt`). Omit `since` for a full snapshot on first install.",
+        "description": "Returns expenses modified after `since`, including deletion tombstones (non-null `deletedAt`). Omit `since` for a full snapshot on first install. Requires a paid plan.",
         "operationId": "SyncController_pull",
         "parameters": [
           {
@@ -2700,6 +2703,9 @@
           },
           "400": {
             "description": "Malformed cursor"
+          },
+          "403": {
+            "description": "Paid plan required"
           }
         },
         "security": [
@@ -3221,6 +3227,14 @@
             "example": "USD",
             "nullable": true
           },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "FREE",
+              "PAID"
+            ],
+            "example": "FREE"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string",
@@ -3233,6 +3247,7 @@
           "name",
           "avatarUrl",
           "baseCurrency",
+          "plan",
           "createdAt"
         ]
       },

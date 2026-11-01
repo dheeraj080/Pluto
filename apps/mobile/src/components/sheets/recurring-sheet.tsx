@@ -10,8 +10,9 @@
  * by re-seeding the generation cursor so a paused gap is never back-filled.
  */
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  AccessibilityInfo,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -58,6 +59,15 @@ export function RecurringSheet({
 }) {
   const theme = useTheme();
   const editing = target !== null;
+
+  useEffect(() => {
+    void AccessibilityInfo.announceForAccessibility(
+      editing ? 'Edit recurring expense' : 'Add recurring expense',
+    );
+    return () => {
+      void AccessibilityInfo.announceForAccessibility('Recurring sheet closed');
+    };
+  }, [editing]);
 
   const categories = useCategories();
   const currencies = useSupportedCurrencies();
@@ -166,8 +176,10 @@ export function RecurringSheet({
       >
         <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={onClose} />
         <Pressable
+          accessible
+          accessibilityRole={('dialog' as any)}
+          accessibilityLabel={editing ? 'Edit recurring expense' : 'Add recurring expense'}
           accessibilityViewIsModal
-          accessibilityRole="none"
           style={[styles.sheet, { backgroundColor: theme.surface }]}
           onPress={(event: { stopPropagation: () => void }) => event.stopPropagation()}
         >

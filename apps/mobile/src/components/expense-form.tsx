@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { IconSwap } from '@/components/icons';
@@ -55,6 +55,11 @@ const FREQUENCIES: { value: RecurrenceFrequency; label: string }[] = [
   { value: 'YEARLY', label: 'Yearly' },
 ];
 
+/** Validates that a currency code is a plausible ISO 4217 code. */
+function isValidCurrencyCode(code: string): boolean {
+  return /^[A-Za-z]{3}$/.test(code.trim());
+}
+
 /**
  * The create/edit form.
  *
@@ -69,6 +74,7 @@ export function ExpenseForm({
   initial,
   submitLabel,
   onSubmit,
+  onCancel,
   busy = false,
   submitError,
   defaultCurrency = 'USD',
@@ -77,6 +83,8 @@ export function ExpenseForm({
   initial?: ExpenseFormInitial;
   submitLabel: string;
   onSubmit: (draft: ExpenseDraft) => void;
+  /** Dismiss the form without saving. */
+  onCancel?: () => void;
   busy?: boolean;
   /** Error from the write itself, e.g. a rejected category. */
   submitError?: string | null;
@@ -131,8 +139,14 @@ export function ExpenseForm({
     if (!categoryId) {
       nextErrors.categoryId = 'Choose a category.';
     }
-    if (!/^[A-Za-z]{3}$/.test(currency.trim())) {
+    if (!isValidCurrencyCode(currency.trim())) {
       nextErrors.currency = 'Use a 3-letter currency code.';
+    } else if (
+      currencies.data &&
+      currencies.data.length > 0 &&
+      !currencies.data.some((c) => c.code === currency.trim().toUpperCase())
+    ) {
+      nextErrors.currency = 'This currency cannot be converted. Choose another.';
     }
 
     const step = Number(interval);
@@ -319,13 +333,24 @@ export function ExpenseForm({
 
       {submitError ? <ErrorNote message={submitError} /> : null}
 
-      <Button label={submitLabel} onPress={handleSubmit} busy={busy} />
+      <View style={styles.actions}>
+        {onCancel ? (
+          <Button label="Cancel" variant="secondary" onPress={onCancel} disabled={busy} />
+        ) : null}
+        <Button label={submitLabel} onPress={handleSubmit} busy={busy} />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   form: { gap: spacing.xl },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
   group: { gap: spacing.sm },
   spinner: { alignSelf: 'flex-start' },
   row: {

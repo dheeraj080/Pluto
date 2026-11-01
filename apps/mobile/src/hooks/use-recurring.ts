@@ -332,7 +332,10 @@ export function useConfirmAllOccurrences() {
         for (const occurrence of occurrences) {
           await queueOccurrenceDecision(database, occurrence, 'confirm');
         }
-        return { confirmed: occurrences.length };
+        // A parked decision has not been confirmed by the server. Returning the
+        // full count would falsely claim success; callers should treat a parked
+        // result as pending, not completed.
+        return { confirmed: 0 };
       }
     },
     onSuccess: () => invalidateRecurring(client),

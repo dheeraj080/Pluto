@@ -2,6 +2,7 @@ import { ApiError, createApiClient, type Schemas } from '@pluto/api-client';
 
 import { API_URL } from './env';
 import * as session from './session';
+import { isNetworkLevelError } from './store/local/network-errors';
 
 /**
  * The app's configured API client.
@@ -106,14 +107,21 @@ export async function bootstrapSession(): Promise<void> {
     // Unreachable server - go to local/offline mode instead of trying to sync
     const localProfile = await session.loadProfile();
     session.ensureLocalSession(localProfile?.baseCurrency ?? 'USD');
-  } catch {
-    // Any bootstrap error - fall back to local session
-    try {
-      const localProfile = await session.loadProfile();
-      session.ensureLocalSession(localProfile?.baseCurrency ?? 'USD');
-    } catch {
-      session.ensureLocalSession('USD');
+  } catch (error) {
+    // Only fall back to a local session when the failure is a network-level
+    // problem (offline, DNS, TLS, or no HTTP verdict at all). Unexpected errors
+    // (secure store corruption, etc.) should not silently create a phantom
+    // local session that hides the real problem from the user.
+    if (isNetworkLevelError(error)) {
+      try {
+        const localProfile = await session.loadProfile();
+        session.ensureLocalSession(localProfile?.baseCurrency ?? 'USD');
+      } catch {
+        session.ensureLocalSession('USD');
+      }
+      return;
     }
+    throw error;
   }
 }
 

@@ -234,14 +234,25 @@ export default function SettingsScreen() {
 
       <Card>
         <Text style={[text.overline, { color: theme.muted }]}>PLAN</Text>
-        <Text style={[text.body, { color: theme.muted }]}>
-          Free plan — local only. Data stays on this device. Rates are fetched from public sources when online.
-        </Text>
-        <Button
-          label="Sign in for sync &amp; backup"
-          variant="secondary"
-          onPress={() => router.push('/sign-in' as any)}
-        />
+        {user?.plan === 'PAID' ? (
+          <>
+            <Text style={[text.body, { color: theme.muted }]}>
+              Paid plan — cloud backups and cross-device sync are enabled.
+            </Text>
+            <Button label="Manage subscription" variant="secondary" onPress={() => {}} />
+          </>
+        ) : (
+          <>
+            <Text style={[text.body, { color: theme.muted }]}>
+              Free plan — local only. Data stays on this device. Rates are fetched from public sources when online.
+            </Text>
+            <Button
+              label="Upgrade to paid"
+              variant="secondary"
+              onPress={() => router.push('/sign-in' as any)}
+            />
+          </>
+        )}
       </Card>
 
       <Card>
@@ -260,12 +271,13 @@ export default function SettingsScreen() {
             <Card>
         <Text style={[text.overline, { color: theme.danger }]}>DANGER ZONE</Text>
         <Text style={[text.body, { color: theme.muted }]}>
-          Account deletion is only available for signed-in accounts with server data.
+          Account deletion is only available for signed-in accounts. Cloud backup deletion requires a paid plan.
         </Text>
         <Button
           label="Delete account"
           variant="danger"
           onPress={() => router.push(DELETE_ACCOUNT)}
+          disabled={user?.plan !== 'PAID'}
         />
       </Card>
     </ScrollView>

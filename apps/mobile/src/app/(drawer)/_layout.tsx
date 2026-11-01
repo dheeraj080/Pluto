@@ -4,7 +4,8 @@ import { useEffect } from 'react';
 
 import { Spinner } from '@/components/ui/feedback';
 import { IconChart, IconHome, IconReceipt, IconSettings, IconWallet } from '@/components/icons';
-import { radius, text } from '@/theme';
+import { ConnectionBanner } from '@/components/ui/connection-banner';
+import { radius, spacing, text } from '@/theme';
 import { useSession } from '@/hooks/use-session';
 import { useTheme } from '@/hooks/use-theme';
 import { ensureLocalSession } from '@/lib/session';
@@ -53,7 +54,11 @@ export default function DrawerLayout() {
   }
 
   return (
-    <Drawer
+    <>
+      <ConnectionBanner />
+      <View style={styles.spacer} />
+
+      <Drawer
       screenOptions={{
         // The drawer has no top-level header bar; each screen carries its own
         // page header with the hamburger menu beside the title.
@@ -111,9 +116,11 @@ export default function DrawerLayout() {
         }}
       />
     </Drawer>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  spacer: { height: spacing.xs },
 });

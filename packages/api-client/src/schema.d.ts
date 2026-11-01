@@ -738,7 +738,7 @@ export interface paths {
         put?: never;
         /**
          * Initiate a new cloud backup upload
-         * @description Allocates the next sequential version for the user and generates a short-lived presigned S3 PUT URL for direct binary upload.
+         * @description Allocates the next sequential version for the user and generates a short-lived presigned S3 PUT URL for direct binary upload. Requires a paid plan.
          */
         post: operations["BackupsController_initiateBackup"];
         delete?: never;
@@ -838,7 +838,7 @@ export interface paths {
         put?: never;
         /**
          * Replay queued offline changes
-         * @description Applies device changes idempotently by last-write-wins on clientUpdatedAt. Each change is independent, so one rejection does not fail the batch.
+         * @description Applies device changes idempotently by last-write-wins on clientUpdatedAt. Each change is independent, so one rejection does not fail the batch. Requires a paid plan.
          */
         post: operations["SyncController_push"];
         delete?: never;
@@ -856,7 +856,7 @@ export interface paths {
         };
         /**
          * Mirror server changes since a cursor
-         * @description Returns expenses modified after `since`, including deletion tombstones (non-null `deletedAt`). Omit `since` for a full snapshot on first install.
+         * @description Returns expenses modified after `since`, including deletion tombstones (non-null `deletedAt`). Omit `since` for a full snapshot on first install. Requires a paid plan.
          */
         get: operations["SyncController_pull"];
         put?: never;
@@ -1056,6 +1056,11 @@ export interface components {
              * @example USD
              */
             baseCurrency: string | null;
+            /**
+             * @example FREE
+             * @enum {string}
+             */
+            plan: "FREE" | "PAID";
             /**
              * Format: date-time
              * @example 2026-10-09T03:45:00.000Z
@@ -4270,6 +4275,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Paid plan required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     SyncController_pull: {
@@ -4295,6 +4307,13 @@ export interface operations {
             };
             /** @description Malformed cursor */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Paid plan required */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

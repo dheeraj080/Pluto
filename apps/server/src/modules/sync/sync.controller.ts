@@ -18,16 +18,20 @@ import {
   SyncPushDto,
   SyncPushResponseDto,
 } from './dto/sync.dto';
+import { PlanGuard } from '../plan/plan.guard';
 
 /**
  * Offline-write reconciliation for the mobile client.
  *
  * The phone writes to its local store first and replays the queue here when a
  * connection returns; the client mirror is refreshed from the pull side.
+ *
+ * Sync endpoints require a paid plan. Free users keep working offline with
+ * local-first storage but cannot push to or pull from the server.
  */
 @ApiTags('Sync')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PlanGuard)
 @Controller('sync')
 export class SyncController {
   constructor(private readonly syncService: SyncService) {}
@@ -37,10 +41,11 @@ export class SyncController {
   @ApiOperation({
     summary: 'Replay queued offline changes',
     description:
-      'Applies device changes idempotently by last-write-wins on clientUpdatedAt. Each change is independent, so one rejection does not fail the batch.',
+      'Applies device changes idempotently by last-write-wins on clientUpdatedAt. Each change is independent, so one rejection does not fail the batch. Requires a paid plan.',
   })
   @ApiResponse({ status: 200, description: 'Per-change outcomes', type: SyncPushResponseDto })
   @ApiResponse({ status: 400, description: 'Malformed change payload' })
+  @ApiResponse({ status: 403, description: 'Paid plan required' })
   async push(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: SyncPushDto,
@@ -52,7 +57,7 @@ export class SyncController {
   @ApiOperation({
     summary: 'Mirror server changes since a cursor',
     description:
-      'Returns expenses modified after `since`, including deletion tombstones (non-null `deletedAt`). Omit `since` for a full snapshot on first install.',
+      'Returns expenses modified after `since`, including deletion tombstones (non-null `deletedAt`). Omit `since` for a full snapshot on first install. Requires a paid plan.',
   })
   @ApiResponse({
     status: 200,
@@ -60,6 +65,7 @@ export class SyncController {
     type: SyncPullResponseDto,
   })
   @ApiResponse({ status: 400, description: 'Malformed cursor' })
+  @ApiResponse({ status: 403, description: 'Paid plan required' })
   async pull(
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: SyncPullQueryDto,

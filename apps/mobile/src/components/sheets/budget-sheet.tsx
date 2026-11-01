@@ -16,8 +16,9 @@
  * the form never labels one currency's number with the other's code.
  */
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  AccessibilityInfo,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -61,6 +62,16 @@ export function BudgetSheet({
 }) {
   const theme = useTheme();
   const editing = target !== null;
+
+  // Announce to screen readers when the sheet opens or closes.
+  useEffect(() => {
+    void AccessibilityInfo.announceForAccessibility(
+      editing ? 'Edit budget' : 'Add budget',
+    );
+    return () => {
+      void AccessibilityInfo.announceForAccessibility('Budget sheet closed');
+    };
+  }, [editing]);
 
   const categories = useCategories();
   const currencies = useSupportedCurrencies();
@@ -129,15 +140,17 @@ export function BudgetSheet({
   };
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.modalRoot}
       >
         <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={onClose} />
         <Pressable
+          accessible
+          accessibilityRole={('dialog' as any)}
+          accessibilityLabel={editing ? 'Edit budget' : 'Add budget'}
           accessibilityViewIsModal
-          accessibilityRole="none"
           style={[styles.sheet, { backgroundColor: theme.surface }]}
           onPress={(event: { stopPropagation: () => void }) => event.stopPropagation()}
         >

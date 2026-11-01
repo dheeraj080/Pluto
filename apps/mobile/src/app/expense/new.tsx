@@ -36,6 +36,7 @@ export default function NewExpenseScreen() {
           <ExpenseForm
             submitLabel="Save expense"
             onSubmit={onSubmit}
+            onCancel={() => router.back()}
             busy={create.isPending}
             submitError={errorMessage(create.error)}
             defaultCurrency={user?.baseCurrency ?? 'USD'}

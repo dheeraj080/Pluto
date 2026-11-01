@@ -45,6 +45,7 @@ function authResponse(overrides: Partial<Schemas['AuthResponseDto']> = {}): Sche
       name: 'A',
       avatarUrl: null,
       baseCurrency: 'USD',
+      plan: 'FREE',
       createdAt: '2026-01-01T00:00:00.000Z',
     },
     ...overrides,

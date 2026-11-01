@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -20,7 +20,12 @@ import { formatDate } from '@/lib/format';
 import { editExpenseHref } from '@/lib/routes';
 
 export default function ExpenseDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const pathname = usePathname();
+  // `expense/[id]/index.tsx` serves canonical URLs like /expense/<id>. The id is
+  // a path segment, not a query param — useLocalSearchParams would return
+  // undefined here.
+  const idMatch = pathname.match(/\/expense\/([^/]+)/);
+  const id = idMatch?.[1] ?? '';
   const theme = useTheme();
   const expense = useExpense(id);
   const remove = useDeleteExpense();

@@ -3,6 +3,7 @@ import type { Schemas } from '@pluto/api-client';
 
 import { api } from '@/lib/api';
 import { queryKeys } from '@/lib/query-keys';
+import { getSessionState } from '@/lib/session';
 
 /**
  * The completed cloud backups belonging to the signed-in user.
@@ -11,12 +12,19 @@ import { queryKeys } from '@/lib/query-keys';
  * keep a copy of the data the server is about to erase, so the list is fetched
  * there rather than on launch — an account with nothing to lose pays nothing
  * for it.
+ *
+ * Cloud backups require a paid plan. Free-tier users get an empty list.
  */
 export function useBackups() {
+  const { status, user } = getSessionState();
+  const isPaid = Boolean(user && user.plan === 'PAID');
+
   return useQuery({
     queryKey: queryKeys.backups.list(),
     queryFn: () =>
       api.get<Schemas['PaginatedBackupsResponseDto']>('/backups', { query: { limit: 5 } }),
+    enabled: isPaid && status === 'signed-in',
+    initialData: isPaid ? undefined : { items: [], page: 1, limit: 5, total: 0 },
   });
 }
 
@@ -26,6 +34,8 @@ export function useBackups() {
  * The download itself is the browser's job (the URL needs no Authorization
  * header and expires in minutes), so this hook stops at the URL and the caller
  * opens it.
+ *
+ * Requires a paid plan.
  */
 export function useBackupDownload() {
   return useMutation({

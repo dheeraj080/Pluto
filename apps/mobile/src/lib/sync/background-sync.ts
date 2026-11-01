@@ -9,7 +9,7 @@ import {
 } from '@/lib/session';
 import { localStoreEnabled } from '@/lib/store';
 import { clearLocalDatabase } from '@/lib/store/local/database';
-import { syncNow } from './sync-engine';
+import { syncNow, isPaidPlan } from './sync-engine';
 
 /** Backstop cadence; reconnect and foreground events are the primary triggers. */
 const PERIODIC_SYNC_MS = 5 * 60 * 1000;
@@ -31,6 +31,7 @@ const PERIODIC_SYNC_MS = 5 * 60 * 1000;
  */
 export function startBackgroundSync(): () => void {
   if (!localStoreEnabled) return () => {};
+  if (!isPaidPlan()) return () => {};
   // The free plan keeps everything on-device: there is no account to reconcile
   // with, so no trigger (reconnect, foreground, timer) should ever call the API.
   if ((getSessionState() as any).mode === 'local') return () => {};

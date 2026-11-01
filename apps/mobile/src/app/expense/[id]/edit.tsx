@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { useCallback } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -12,7 +12,12 @@ import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/errors';
 
 export default function EditExpenseScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const pathname = usePathname();
+  // `expense/[id]/edit.tsx` serves canonical URLs like /expense/<id>/edit. The id
+  // is a path segment, not a query param — useLocalSearchParams would return
+  // undefined here.
+  const idMatch = pathname.match(/\/expense\/([^/]+)/);
+  const id = idMatch?.[1] ?? '';
   const theme = useTheme();
   const expense = useExpense(id);
   const update = useUpdateExpense();
@@ -24,6 +29,10 @@ export default function EditExpenseScreen() {
     },
     [id, update],
   );
+
+  const onCancel = useCallback(() => {
+    router.back();
+  }, []);
 
   if (expense.isPending) {
     return (
@@ -67,6 +76,7 @@ export default function EditExpenseScreen() {
             }}
             submitLabel="Save changes"
             onSubmit={onSubmit}
+            onCancel={onCancel}
             busy={update.isPending}
             submitError={errorMessage(update.error)}
           />

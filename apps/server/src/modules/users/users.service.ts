@@ -11,6 +11,7 @@ const PROFILE_SELECT = {
   name: true,
   avatarUrl: true,
   baseCurrency: true,
+  plan: true,
   createdAt: true,
 } as const;
 
