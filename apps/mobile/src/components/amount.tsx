@@ -24,9 +24,10 @@ export type AmountSize = 'display' | 'hero' | 'kpi' | 'lg' | 'md' | 'sm';
 /**
  * The primary figure.
  *
- * The web uses `font-light` for the display sizes; Inter is bundled in four
- * weights on mobile and none of them is light, so the regular cut stands in —
- * it reads the same at these sizes, where the large body does most of the work.
+ * The web uses `font-light` for the display sizes; Plus Jakarta Sans is bundled
+ * in four weights on mobile and none of them is light, so the regular cut
+ * stands in — it reads the same at these sizes, where the large body does most
+ * of the work.
  */
 const PRIMARY: Record<AmountSize, TextStyle> = {
   display: { fontFamily: fontFamily.sans.regular, fontSize: 40, lineHeight: 44, letterSpacing: -1 },

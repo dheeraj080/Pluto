@@ -1,14 +1,9 @@
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from '@expo-google-fonts/inter';
-import {
-  SpaceGrotesk_500Medium,
-  SpaceGrotesk_600SemiBold,
-  SpaceGrotesk_700Bold,
-} from '@expo-google-fonts/space-grotesk';
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
@@ -42,8 +37,8 @@ import { useSession } from '@/hooks/use-session';
 // crash in the layout itself, and a no-op when EXPO_PUBLIC_SENTRY_DSN is unset.
 initCrashReporting();
 
-// Held until both the session has been restored and the Inter and Space
-// Grotesk faces have loaded, so the app never flashes the sign-in prompt or a
+// Held until both the session has been restored and the Plus Jakarta Sans
+// faces have loaded, so the app never flashes the sign-in prompt or a
 // fallback typeface.
 void SplashScreen.preventAutoHideAsync();
 
@@ -60,13 +55,10 @@ export default function RootLayout() {
   }, [user]);
 
   const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    SpaceGrotesk_500Medium,
-    SpaceGrotesk_600SemiBold,
-    SpaceGrotesk_700Bold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
   });
   const [restored, setRestored] = useState(false);
 

@@ -1,10 +1,10 @@
 /**
  * Pluto typography.
  *
- * The web app loads Inter (body), Space Grotesk (display/headings) and Geist
- * Mono via `next/font`. React Native has no CSS cascade, so every style states
- * its family and weight explicitly — and because Android will not reliably
- * pick a weight out of a bundled variable family, each weight is its own
+ * The web app loads Plus Jakarta Sans (body and display) and Geist Mono via
+ * `next/font`. React Native has no CSS cascade, so every style states its
+ * family and weight explicitly — and because Android will not reliably pick
+ * a weight out of a bundled variable family, each weight is its own
  * registered family name (see `app/_layout.tsx`).
  *
  * Sizes and line heights mirror the Tailwind scale the web app actually uses
@@ -22,18 +22,18 @@ const fontScale = PixelRatio.getFontScale();
 const scaleFont = (size: number): number => Math.round(size * fontScale * 100) / 100;
 
 export const fontFamily = {
-  /** Inter — body copy, labels, controls. */
+  /** Plus Jakarta Sans — body copy, labels, controls. */
   sans: {
-    regular: 'Inter_400Regular',
-    medium: 'Inter_500Medium',
-    semibold: 'Inter_600SemiBold',
-    bold: 'Inter_700Bold',
+    regular: 'PlusJakartaSans_400Regular',
+    medium: 'PlusJakartaSans_500Medium',
+    semibold: 'PlusJakartaSans_600SemiBold',
+    bold: 'PlusJakartaSans_700Bold',
   },
-  /** Space Grotesk — page titles and the wordmark only. */
+  /** Plus Jakarta Sans — page titles and the wordmark only. */
   display: {
-    medium: 'SpaceGrotesk_500Medium',
-    semibold: 'SpaceGrotesk_600SemiBold',
-    bold: 'SpaceGrotesk_700Bold',
+    medium: 'PlusJakartaSans_500Medium',
+    semibold: 'PlusJakartaSans_600SemiBold',
+    bold: 'PlusJakartaSans_700Bold',
   },
   mono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) as string,
 } as const;

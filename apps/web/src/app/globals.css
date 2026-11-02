@@ -237,11 +237,11 @@
   --color-chart-9: var(--chart-9);
   --color-chart-10: var(--chart-10);
 
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-space-grotesk);
+  --font-sans: var(--font-plus-jakarta-sans);
+  --font-display: var(--font-plus-jakarta-sans);
   --font-mono: var(--font-geist-mono);
   --font-landing-sans: var(--font-plus-jakarta-sans);
-  --font-landing-display: var(--font-outfit);
+  --font-landing-display: var(--font-plus-jakarta-sans);
 }
 
 @layer base {
