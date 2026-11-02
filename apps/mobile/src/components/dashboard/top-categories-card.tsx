@@ -68,7 +68,7 @@ export function TopCategoriesCard({
         </Text>
       }
       footer={
-        <Pressable hitSlop={8} onPress={() => router.push('/reports')}>
+        <Pressable hitSlop={8} onPress={() => router.push('/insights')}>
           <Text style={[text.captionMedium, { color: theme.primary }]}>View all reports</Text>
         </Pressable>
       }

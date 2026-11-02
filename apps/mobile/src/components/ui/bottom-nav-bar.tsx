@@ -26,7 +26,7 @@ import { useEffect, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, usePathname, type Href } from 'expo-router';
 
-import { IconChart, IconHome, IconReceipt, IconSettings, IconWallet } from '@/components/icons';
+import { IconChart, IconHome, IconReceipt, IconSettings } from '@/components/icons';
 import { borderWidth, radius, spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -40,9 +40,11 @@ type Tab = {
 const TABS: Tab[] = [
   { path: '/', label: 'Dashboard', icon: IconHome },
   { path: '/transactions', label: 'Activity', icon: IconReceipt },
-  { path: '/reports', label: 'Reports', icon: IconChart },
-  { path: '/budgets', label: 'Budgets', icon: IconWallet },
+  { path: '/insights', label: 'Insights', icon: IconChart },
   { path: '/settings', label: 'Settings', icon: IconSettings },
+  // New component slot — merging Reports + Budgets freed one tab. Define the
+  // new destination and its icon here (needs a matching route file).
+  // { path: '/new-component', label: 'New', icon: IconNew },
 ];
 
 /** Height of the bar excluding the bottom safe-area inset. */

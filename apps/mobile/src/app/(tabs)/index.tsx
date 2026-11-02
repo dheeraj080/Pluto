@@ -236,7 +236,7 @@ function OverBudgetNudge({ count }: { count: number }) {
       accessibilityLabel={`${count} ${
         count === 1 ? 'category is' : 'categories are'
       } over budget. Open Budgets.`}
-      onPress={() => router.push('/budgets')}
+      onPress={() => router.push('/insights')}
       style={({ pressed }) => [
         styles.nudge,
         { backgroundColor: theme.warningSubtle, borderColor: theme.warning },

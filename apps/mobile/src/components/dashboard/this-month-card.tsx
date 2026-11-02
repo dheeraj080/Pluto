@@ -156,7 +156,7 @@ function BudgetSection({
           variant="secondary"
           size="sm"
           icon={(color) => <IconTarget size={16} color={color} />}
-          onPress={() => router.push('/budgets')}
+          onPress={() => router.push('/insights')}
         />
       </View>
     );
@@ -284,7 +284,7 @@ function BudgetHeading() {
   return (
     <View style={styles.budgetHead}>
       <Text style={[text.overline, { color: theme.muted }]}>Budget</Text>
-      <Pressable hitSlop={8} onPress={() => router.push('/budgets')}>
+      <Pressable hitSlop={8} onPress={() => router.push('/insights')}>
         <Text style={[text.captionMedium, { color: theme.primary }]}>Budgets →</Text>
       </Pressable>
     </View>
