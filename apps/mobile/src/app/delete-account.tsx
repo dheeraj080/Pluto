@@ -15,6 +15,7 @@ import { useBackupDownload, useBackups } from '@/hooks/use-backups';
 import { useScreenPadding } from '@/hooks/use-screen-padding';
 import { useSession } from '@/hooks/use-session';
 import { useTheme } from '@/hooks/use-theme';
+import { clearSession } from '@/lib/session';
 import { deleteAccount } from '@/lib/api';
 import { errorMessage } from '@/lib/errors';
 import { formatBytes, formatDate } from '@/lib/format';
@@ -104,7 +105,10 @@ export default function DeleteAccountScreen() {
     // sign-in screen is pushed explicitly below because this screen sits
     // outside the guarded tab shell.
     deleteAccount()
-      .then(() => setDeleted(true))
+      .then(() => {
+        clearSession();
+        setDeleted(true);
+      })
       .catch((cause: unknown) => setError(errorMessage(cause) ?? 'Account deletion failed.'))
       .finally(() => setDeleting(false));
   }, [confirmText]);

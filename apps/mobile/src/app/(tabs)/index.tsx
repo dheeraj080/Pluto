@@ -76,7 +76,7 @@ export default function DashboardScreen() {
     budgetStatus.data?.items.filter((item) => item.categoryId != null && item.overBudget)
       .length ?? 0;
 
-  const refreshing = month.loading || budgetStatus.isPending || recent.isRefetching;
+  const refreshing = month.loading || budgetStatus.isPending || recent.isRefetching || snapshot.isRefetching;
 
   const onRefresh = useCallback(() => {
     month.refetch();

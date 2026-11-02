@@ -57,13 +57,11 @@ function dateChipLabel(range: ActivityDateRange): string {
 export default function ActivityScreen() {
   const theme = useTheme();
   const screenPadding = useScreenPadding();
-  const [now] = useState(() => new Date());
-
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<ExpenseSort>('date_desc');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
-  const [dateRange, setDateRange] = useState<ActivityDateRange>(() => dateRangeForPreset('this_month', now));
+  const [dateRange, setDateRange] = useState<ActivityDateRange>(() => dateRangeForPreset('this_month', new Date()));
   const [currency, setCurrency] = useState<string | null>(null);
 
   // A Reports drill-down arrives as route params. Adjusting state during render
@@ -130,8 +128,8 @@ export default function ActivityScreen() {
     setSearch('');
     setCategoryId(null);
     setCurrency(null);
-    setDateRange(dateRangeForPreset('this_month', now));
-  }, [now]);
+    setDateRange(dateRangeForPreset('this_month', new Date()));
+  }, []);
 
   const dateLabel = dateChipLabel(dateRange);
 

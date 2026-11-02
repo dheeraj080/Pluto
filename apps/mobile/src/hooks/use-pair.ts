@@ -62,6 +62,10 @@ export function usePair(): Pair {
   const swap = useCallback(() => {
     if (!second) return;
     const previousBase = base;
+    const current = getSessionState().user;
+    if (current) {
+      setUser({ ...current, baseCurrency: second });
+    }
     updateProfile({ baseCurrency: second });
     writeSecondaryCurrency(previousBase);
   }, [base, second, updateProfile]);

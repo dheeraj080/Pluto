@@ -193,6 +193,7 @@ export function ExpenseForm({
               accessibilityLabel="Currency"
               value={currency}
               onChange={setCurrency}
+              error={errors.currency}
               options={currencies.data.map((item) => ({
                 value: item.code,
                 label: `${item.code} · ${item.symbol}`,
