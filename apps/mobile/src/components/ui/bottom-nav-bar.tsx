@@ -22,7 +22,7 @@
  */
 
 import { StyleSheet, Text, View, Pressable } from 'react-native';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, usePathname, type Href } from 'expo-router';
 
@@ -65,9 +65,15 @@ export function BottomNavBar() {
   // highlighted instead of silently falling back to Dashboard.
   const lastTabRef = useRef<Tab>(TABS[0]);
   const matchedTab = TABS.find((tab) => pathname === tab.path);
-  if (matchedTab) {
-    lastTabRef.current = matchedTab;
-  }
+
+  // Only record a visit when the URL is a real tab — modals and stack screens
+  // must not overwrite the originating tab.
+  useEffect(() => {
+    if (matchedTab) {
+      lastTabRef.current = matchedTab;
+    }
+  }, [matchedTab]);
+
   const active = matchedTab ?? lastTabRef.current;
 
   return (
