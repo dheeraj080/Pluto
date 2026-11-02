@@ -22,6 +22,7 @@
  */
 
 import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, usePathname, type Href } from 'expo-router';
 
@@ -59,7 +60,15 @@ export function BottomNavBar() {
   // Keep the bar above the home indicator on devices with large bottom insets.
   const bottom = Math.max(FLOAT_GAP, bottomInset);
 
-  const active = TABS.find((tab) => pathname === tab.path) ?? TABS[0];
+  // Remember the last tab the user visited so stack/modal screens (expense
+  // detail, edit, recurring, delete account) keep the originating tab
+  // highlighted instead of silently falling back to Dashboard.
+  const lastTabRef = useRef<Tab>(TABS[0]);
+  const matchedTab = TABS.find((tab) => pathname === tab.path);
+  if (matchedTab) {
+    lastTabRef.current = matchedTab;
+  }
+  const active = matchedTab ?? lastTabRef.current;
 
   return (
     <View
@@ -84,7 +93,7 @@ export function BottomNavBar() {
             accessibilityLabel={tab.label}
             accessibilityState={{ selected: isActive }}
             testID={`bottom-nav-${tab.label.toLowerCase()}`}
-            onPress={() => void router.replace(tab.path as unknown as Href)}
+            onPress={() => void router.push(tab.path as unknown as Href)}
             hitSlop={12}
             style={({ pressed }) => [
               styles.tab,

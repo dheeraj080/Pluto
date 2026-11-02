@@ -16,7 +16,7 @@ import { AppPageHeader } from '@/components/ui/page-header';
 import { BottomNavBar, BAR_HEIGHT, FLOAT_GAP } from '@/components/ui/bottom-nav-bar';
 import { Select } from '@/components/ui/select';
 import { TextField } from '@/components/ui/text-field';
-import { IconRefresh } from '@/components/icons';
+import { IconPlus, IconRefresh } from '@/components/icons';
 import { layout, spacing, text } from '@/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
@@ -295,6 +295,32 @@ export default function ActivityScreen() {
         value={dateRange}
         onApply={(next) => setDateRange(next)}
       />
+
+      <Pressable
+        accessibilityLabel="Add expense"
+        onPress={() => router.push('/expense/new')}
+        style={[
+          {
+            position: 'absolute',
+            right: spacing.lg,
+            bottom: BAR_HEIGHT + FLOAT_GAP + spacing.lg,
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: theme.primary,
+            alignItems: 'center',
+            justifyContent: 'center',
+            elevation: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+          },
+        ]}
+      >
+        <IconPlus size={20} color={theme.onPrimary} />
+      </Pressable>
+
       <BottomNavBar />
     </View>
   );

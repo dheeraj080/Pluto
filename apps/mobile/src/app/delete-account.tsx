@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { openBrowserAsync } from 'expo-web-browser';
@@ -70,6 +70,16 @@ export default function DeleteAccountScreen() {
     () => (backups.data?.items ?? []).filter((backup) => backup.status === 'COMPLETED'),
     [backups.data],
   );
+
+  // Auto-return to sign-in after the deletion confirmation is shown, so the
+  // user is not stranded on a screen outside the tab shell.
+  useEffect(() => {
+    if (!deleted) return;
+    const timer = setTimeout(() => {
+      void router.replace('/sign-in');
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [deleted]);
 
   /**
    * Cloud backups are an opt-in server feature: with `OBJECT_STORAGE_ENABLED`

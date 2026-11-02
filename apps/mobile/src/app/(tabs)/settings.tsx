@@ -47,7 +47,7 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const screenPadding = useScreenPadding();
   const themePreference = useThemePreference();
-  const { user } = useSession();
+  const { user, mode } = useSession();
   const currencies = useSupportedCurrencies();
   const { base, second, setBase, setSecond, swap, savingBase, baseError } = usePair();
 
@@ -238,18 +238,19 @@ export default function SettingsScreen() {
               <Text style={[text.body, { color: theme.muted }]}>
                 Paid plan — cloud backups and cross-device sync are enabled.
               </Text>
-              <Button label="Manage subscription" variant="secondary" onPress={() => {}} />
             </>
           ) : (
             <>
               <Text style={[text.body, { color: theme.muted }]}>
                 Free plan — local only. Data stays on this device. Rates are fetched from public sources when online.
               </Text>
-              <Button
-                label="Upgrade to paid"
-                variant="secondary"
-                onPress={() => router.push('/sign-in' as any)}
-              />
+              {mode === 'local' && (
+                <Button
+                  label="Upgrade to paid"
+                  variant="secondary"
+                  onPress={() => router.push('/sign-in' as any)}
+                />
+              )}
             </>
           )}
         </Card>
