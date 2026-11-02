@@ -93,11 +93,7 @@ export default function DashboardScreen() {
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[
-          styles.content,
-          screenPadding,
-          { paddingBottom: screenPadding.paddingBottom + BAR_HEIGHT + FLOAT_GAP },
-        ]}
+        contentContainerStyle={[styles.content, screenPadding, { paddingBottom: screenPadding.paddingBottom + BAR_HEIGHT + FLOAT_GAP }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -108,87 +104,87 @@ export default function DashboardScreen() {
         }
       >
         <AppPageHeader title="Dashboard">
-        <View style={[styles.dateChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-          <IconCalendar size={14} color={theme.muted} />
-          <Text style={[text.captionMedium, { color: theme.muted }]}>
-            {formatDateRange(month.window.from, month.window.to)}
-          </Text>
-        </View>
+          <View style={[styles.dateChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+            <IconCalendar size={14} color={theme.muted} />
+            <Text style={[text.captionMedium, { color: theme.muted }]}>
+              {formatDateRange(month.window.from, month.window.to)}
+            </Text>
+          </View>
 
-        <Button
-          label="Add expense"
-          icon={(color) => <IconPlus size={16} color={color} />}
-          onPress={() => router.push('/expense/new')}
-        />
-      </AppPageHeader>
+          <Button
+            label="Add expense"
+            icon={(color) => <IconPlus size={16} color={color} />}
+            onPress={() => router.push('/expense/new')}
+          />
+        </AppPageHeader>
 
-      {comparison ? (
-        <ConversionNote
-          status={comparison.conversionStatus}
-          unconvertedCurrencies={comparison.unconvertedCurrencies}
-        />
-      ) : null}
+        {comparison ? (
+          <ConversionNote
+            status={comparison.conversionStatus}
+            unconvertedCurrencies={comparison.unconvertedCurrencies}
+          />
+        ) : null}
 
-      {isEmpty ? (
-        <Card>
-          <EmptyState
-            title="Add your first expense"
-            message="Once you record a purchase, this dashboard shows what you spent, how it compares with last month, and where the money went."
-          >
-            <Button
-              label="Add your first expense"
-              icon={(color) => <IconPlus size={16} color={color} />}
-              onPress={() => router.push('/expense/new')}
+        {isEmpty ? (
+          <Card>
+            <EmptyState
+              title="Add your first expense"
+              message="Once you record a purchase, this dashboard shows what you spent, how it compares with last month, and where the money went."
+            >
+              <Button
+                label="Add your first expense"
+                icon={(color) => <IconPlus size={16} color={color} />}
+                onPress={() => router.push('/expense/new')}
+              />
+            </EmptyState>
+          </Card>
+        ) : (
+          <View style={styles.cards}>
+            <ThisMonthCard
+              summary={summary}
+              second={second}
+              delta={delta}
+              loading={month.loading}
+              error={month.error}
+              onRetry={month.refetch}
+              budget={budget}
+              window={month.window}
+              budgetLoading={budgetStatus.isPending}
+              budgetError={budgetStatus.isError ? 'Failed to load your budget.' : null}
+              onBudgetRetry={() => void budgetStatus.refetch()}
             />
-          </EmptyState>
-        </Card>
-      ) : (
-        <View style={styles.cards}>
-          <ThisMonthCard
-            summary={summary}
-            second={second}
-            delta={delta}
-            loading={month.loading}
-            error={month.error}
-            onRetry={month.refetch}
-            budget={budget}
-            window={month.window}
-            budgetLoading={budgetStatus.isPending}
-            budgetError={budgetStatus.isError ? 'Failed to load your budget.' : null}
-            onBudgetRetry={() => void budgetStatus.refetch()}
-          />
 
-          {overCategoryCount > 0 ? <OverBudgetNudge count={overCategoryCount} /> : null}
+            {overCategoryCount > 0 ? <OverBudgetNudge count={overCategoryCount} /> : null}
 
-          <RecentCard
-            items={recent.items}
-            loading={recent.isPending}
-            error={recent.error ? 'Failed to load recent expenses.' : null}
-            base={baseCurrency}
-            second={second}
-            snapshot={snapshot.data ?? null}
-            estimated={estimated}
-            onRetry={() => void recent.refetch()}
-          />
+            <RecentCard
+              items={recent.items}
+              loading={recent.isPending}
+              error={recent.error ? 'Failed to load recent expenses.' : null}
+              base={baseCurrency}
+              second={second}
+              snapshot={snapshot.data ?? null}
+              estimated={estimated}
+              onRetry={() => void recent.refetch()}
+            />
 
-          <TopCategoriesCard
-            entries={summary?.byCategory ?? []}
-            count={summary?.count ?? 0}
-            loading={month.loading}
-            base={baseCurrency}
-            second={second}
-            snapshot={snapshot.data ?? null}
-            window={month.window}
-          />
+            <TopCategoriesCard
+              entries={summary?.byCategory ?? []}
+              count={summary?.count ?? 0}
+              loading={month.loading}
+              base={baseCurrency}
+              second={second}
+              snapshot={snapshot.data ?? null}
+              window={month.window}
+            />
 
-          <PairCard
-            base={baseCurrency}
-            second={second}
-            snapshot={snapshot.data ?? null}
-            loading={snapshot.isPending}
-          />
-        </View>
-      )}
+            <PairCard
+              base={baseCurrency}
+              second={second}
+              snapshot={snapshot.data ?? null}
+              loading={snapshot.isPending}
+            />
+          </View>
+        )}
       </ScrollView>
       <BottomNavBar />
     </View>

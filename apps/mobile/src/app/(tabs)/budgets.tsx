@@ -22,13 +22,13 @@ import { BudgetRow } from '@/components/budgets/budget-row';
 import { DashboardCard } from '@/components/dashboard/card';
 import { BudgetSheet } from '@/components/sheets/budget-sheet';
 import { Button } from '@/components/ui/button';
+import { BottomNavBar, BAR_HEIGHT, FLOAT_GAP } from '@/components/ui/bottom-nav-bar';
 import { useConfirm } from '@/components/ui/confirm';
 import { ConversionNote } from '@/components/ui/conversion-note';
 import { Divider } from '@/components/ui/divider';
 import { EmptyState, ErrorNote } from '@/components/ui/feedback';
 import { MonthStepper } from '@/components/ui/month-stepper';
 import { AppPageHeader } from '@/components/ui/page-header';
-import { BottomNavBar, BAR_HEIGHT, FLOAT_GAP } from '@/components/ui/bottom-nav-bar';
 import { IconPlus } from '@/components/icons';
 import { layout, spacing } from '@/theme';
 import { useBudgetStatus, useDeleteBudget, type BudgetStatus } from '@/hooks/use-budgets';
@@ -110,11 +110,7 @@ export default function BudgetsScreen() {
     <View style={[styles.container, { backgroundColor: theme.canvas }]}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[
-          styles.content,
-          screenPadding,
-          { paddingBottom: screenPadding.paddingBottom + BAR_HEIGHT + FLOAT_GAP },
-        ]}
+        contentContainerStyle={[styles.content, screenPadding, { paddingBottom: screenPadding.paddingBottom + BAR_HEIGHT + FLOAT_GAP }]}
         refreshControl={
           <RefreshControl
             refreshing={status.isFetching}

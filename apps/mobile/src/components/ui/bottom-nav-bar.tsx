@@ -1,9 +1,9 @@
 /**
  * Bottom navigation bar.
  *
- * Floating pill-shaped bar for Pluto's four main destinations — Dashboard,
- * Activity, Reports, Budgets. Settings stays in the drawer, so it has no tab
- * here.
+ * Floating pill-shaped bar for Pluto's five destinations — Dashboard, Activity,
+ * Reports, Budgets, Settings. Everything lives in the bar; there is no drawer
+ * and no hamburger menu.
  *
  * The bar floats above the screen content: it is inset from the left and right
  * edges, sits above the bottom edge (clearing the bottom safe-area inset), has
@@ -25,7 +25,7 @@ import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, usePathname, type Href } from 'expo-router';
 
-import { IconChart, IconHome, IconReceipt, IconWallet } from '@/components/icons';
+import { IconChart, IconHome, IconReceipt, IconSettings, IconWallet } from '@/components/icons';
 import { borderWidth, radius, spacing, text } from '@/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -41,6 +41,7 @@ const TABS: Tab[] = [
   { path: '/transactions', label: 'Activity', icon: IconReceipt },
   { path: '/reports', label: 'Reports', icon: IconChart },
   { path: '/budgets', label: 'Budgets', icon: IconWallet },
+  { path: '/settings', label: 'Settings', icon: IconSettings },
 ];
 
 /** Height of the bar excluding the bottom safe-area inset. */

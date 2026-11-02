@@ -6,11 +6,11 @@
 # on copy the user sees rather than on test ids, so the flow cannot pass while
 # the UI is empty.
 #
-# The four main destinations (Dashboard, Activity, Reports, Budgets) live in a
-# floating bottom nav bar and are reached by tapping their tab; Settings stays in
-# the slide-out drawer, reached by swiping the drawer open from the edge.
-# The bottom-nav tabs carry no copy, so the flow finds them by their test id;
-# everything else is tapped by the label the user reads.
+# All five destinations (Dashboard, Activity, Reports, Budgets, Settings) live
+# in the floating bottom nav bar and are reached by tapping their tab. There is
+# no drawer and no hamburger menu. The bottom-nav tabs carry no copy, so the
+# flow finds them by their test id; everything else is tapped by the label the
+# user reads.
 #
 # Prerequisites (see .maestro/README.md): a booted emulator or device with the
 # dev client installed, EXPO_PUBLIC_API_URL pointing at a reachable server, and
@@ -38,11 +38,6 @@ appId: com.pluto.app
 - tapOn: { id: "bottom-nav-budgets" }
 - assertVisible: "Budgets"
 
-- swipe:
-    fromX: 0%
-    fromY: 50%
-    toX: 30%
-    toY: 50%
-- tapOn: "Settings"
+- tapOn: { id: "bottom-nav-settings" }
 - assertVisible: "Your account and preferences."
 - assertVisible: "Sign out"

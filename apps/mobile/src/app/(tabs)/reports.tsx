@@ -258,10 +258,7 @@ export default function ReportsScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: screenPadding.paddingBottom + BAR_HEIGHT + FLOAT_GAP },
-        ]}
+        contentContainerStyle={[styles.content, { paddingBottom: screenPadding.paddingBottom + BAR_HEIGHT + FLOAT_GAP }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

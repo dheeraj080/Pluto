@@ -186,11 +186,7 @@ export default function ActivityScreen() {
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[
-          styles.content,
-          screenPadding,
-          { paddingBottom: screenPadding.paddingBottom + BAR_HEIGHT + FLOAT_GAP },
-        ]}
+        contentContainerStyle={[styles.content, screenPadding, { paddingBottom: screenPadding.paddingBottom + BAR_HEIGHT + FLOAT_GAP }]}
         ItemSeparatorComponent={Divider}
         renderItem={({ item }) => (
           <Pressable onPress={() => router.push(expenseHref(item.id))}>
