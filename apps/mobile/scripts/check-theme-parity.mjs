@@ -269,9 +269,11 @@ function parseNumericObject(source, exportName, file) {
     const line = raw.trim();
     if (!line || line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) continue;
 
-    const pair = /^(\w+)\s*:\s*(-?[\d.]+),$/.exec(line);
+    // Values may be wrapped in `scaleFont(...)` for runtime dynamic type.
+    // Compare the base size; the device font scale is applied at runtime.
+    const pair = /^(\w+)\s*:\s*(?:scaleFont\(\s*(-?[\d.]+)\s*\)|(-?[\d.]+)),$/.exec(line);
     if (pair) {
-      values[pair[1]] = Number(pair[2]);
+      values[pair[1]] = Number(pair[2] ?? pair[3]);
       continue;
     }
 
