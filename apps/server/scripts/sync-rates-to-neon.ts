@@ -126,15 +126,12 @@ function computeEtag(
 const SYNC_LOCK_NAME = 'exchange_rate_daily_sync';
 const LOCK_DURATION_MINUTES = 10;
 
-async function acquireSyncLock(
-  prisma: PrismaClient,
-  instanceId: string,
-): Promise<boolean> {
+async function acquireSyncLock(prisma: PrismaClient, instanceId: string): Promise<boolean> {
   const now = new Date();
   const lockExpiry = new Date(now.getTime() + LOCK_DURATION_MINUTES * 60 * 1000);
   try {
     // Atomic single-statement UPSERT that only claims an expired or missing lock.
-    const affected = (await prisma.$executeRawUnsafe(
+    const affected = await prisma.$executeRawUnsafe<number>(
       `INSERT INTO "system_locks" ("lockName", "lockedUntil", "lockedBy", "updatedAt")
        VALUES ($1, $2, $3, NOW())
        ON CONFLICT ("lockName") DO UPDATE
@@ -146,7 +143,7 @@ async function acquireSyncLock(
       lockExpiry,
       instanceId,
       now,
-    )) as number;
+    );
     return affected > 0;
   } catch {
     // Fail closed: if we can't even touch the lock table, don't sync.
@@ -178,7 +175,10 @@ async function main(): Promise<void> {
   // malformed URL such as '.../db&sslmode=require'.
   let directUrl = rawUrl.replace(/-pooler(\.[^/]*neon\.tech)/, '$1');
   const [origin, ...queryParts] = directUrl.split('?');
-  const params = queryParts.join('?').split('&').filter((p) => p && p !== 'channel_binding=require');
+  const params = queryParts
+    .join('?')
+    .split('&')
+    .filter((p) => p && p !== 'channel_binding=require');
   directUrl = params.length ? `${origin}?${params.join('&')}` : origin;
   const prisma = new PrismaClient({ datasources: { db: { url: directUrl } } });
 
@@ -195,9 +195,7 @@ async function main(): Promise<void> {
     // never insert at the same time.
     const acquired = await acquireSyncLock(prisma, instanceId);
     if (!acquired) {
-      console.log(
-        `Skipping rate sync: another writer holds the '${SYNC_LOCK_NAME}' lock.`,
-      );
+      console.log(`Skipping rate sync: another writer holds the '${SYNC_LOCK_NAME}' lock.`);
       return;
     }
 
