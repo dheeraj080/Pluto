@@ -12,12 +12,14 @@ describe('RatesService', () => {
   const mockPrismaService = {
     rateSnapshot: {
       create: jest.fn(),
+      upsert: jest.fn(),
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
     },
     exchangeRate: {
       createMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
     $transaction: jest.fn().mockImplementation(async (callback) => {
       if (typeof callback === 'function') {
@@ -62,7 +64,7 @@ describe('RatesService', () => {
       ],
     });
 
-    mockPrismaService.rateSnapshot.create.mockResolvedValue({
+    mockPrismaService.rateSnapshot.upsert.mockResolvedValue({
       id: 'snap-1',
       version: 1,
       baseCurrency: 'USD',
@@ -93,6 +95,85 @@ describe('RatesService', () => {
     expect(result.rates.EUR).toBe('0.920000');
     expect(result.rates.USD).toBe('1.000000');
     expect(mockPrismaService.exchangeRate.createMany).toHaveBeenCalled();
+    expect(mockPrismaService.rateSnapshot.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          baseCurrency_effectiveDate: {
+            baseCurrency: 'USD',
+            effectiveDate: new Date('2026-10-09'),
+          },
+        },
+      }),
+    );
+  });
+
+  it('updates the existing same-day snapshot instead of inserting a duplicate', async () => {
+    mockRateProvider.fetchLatestRates.mockResolvedValue({
+      baseCurrency: 'USD',
+      effectiveDate: '2026-10-10',
+      provider: 'frankfurter',
+      rates: [
+        { quoteCurrency: 'USD', rate: 1.0, effectiveDate: '2026-10-10' },
+        { quoteCurrency: 'EUR', rate: 0.93, effectiveDate: '2026-10-10' },
+      ],
+    });
+
+    // A snapshot already exists for this day with different content.
+    mockPrismaService.rateSnapshot.findFirst.mockResolvedValue({
+      id: 'snap-existing',
+      version: 9,
+      effectiveDate: new Date('2026-10-10'),
+      etag: 'W/"rates-USD-2026-10-10-old"',
+      rates: [
+        {
+          quoteCurrency: 'USD',
+          rate: new Prisma.Decimal('1.000000'),
+          effectiveDate: new Date('2026-10-10'),
+        },
+      ],
+    });
+    mockPrismaService.rateSnapshot.upsert.mockResolvedValue({
+      id: 'snap-existing',
+      version: 9,
+      baseCurrency: 'USD',
+      effectiveDate: new Date('2026-10-10'),
+      provider: 'frankfurter',
+      etag: 'W/"rates-USD-2026-10-10-new"',
+      isPublished: true,
+    });
+    mockPrismaService.rateSnapshot.findUnique.mockResolvedValue({
+      id: 'snap-existing',
+      version: 9,
+      baseCurrency: 'USD',
+      effectiveDate: new Date('2026-10-10'),
+      fetchedAt: new Date(),
+      provider: 'frankfurter',
+      etag: 'W/"rates-USD-2026-10-10-new"',
+      rates: [
+        { quoteCurrency: 'EUR', rate: new Prisma.Decimal('0.930000') },
+        { quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') },
+      ],
+    });
+
+    await ratesService.syncExchangeRates('USD');
+
+    expect(mockPrismaService.rateSnapshot.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          baseCurrency_effectiveDate: {
+            baseCurrency: 'USD',
+            effectiveDate: new Date('2026-10-10'),
+          },
+        },
+        update: expect.objectContaining({
+          etag: expect.stringContaining('2026-10-10'),
+        }),
+      }),
+    );
+    expect(mockPrismaService.exchangeRate.deleteMany).toHaveBeenCalledWith({
+      where: { snapshotId: 'snap-existing' },
+    });
+    expect(mockPrismaService.exchangeRate.createMany).toHaveBeenCalledTimes(1);
   });
 
   it('should preserve and serve last valid snapshot when current provider fetch fails', async () => {
@@ -139,7 +220,7 @@ describe('RatesService', () => {
     });
     // No snapshot exists yet → both callers share a single on-demand sync.
     mockPrismaService.rateSnapshot.findFirst.mockResolvedValue(null);
-    mockPrismaService.rateSnapshot.create.mockResolvedValue({
+    mockPrismaService.rateSnapshot.upsert.mockResolvedValue({
       id: 'snap-2',
       version: 2,
       baseCurrency: 'USD',
@@ -226,7 +307,7 @@ describe('RatesService', () => {
       etag: 'W/"rates-USD-2026-10-10-new"',
       rates: [{ quoteCurrency: 'USD', rate: new Prisma.Decimal('1.000000') }],
     };
-    mockPrismaService.rateSnapshot.create.mockResolvedValue(newSnapshot);
+    mockPrismaService.rateSnapshot.upsert.mockResolvedValue(newSnapshot);
     mockPrismaService.rateSnapshot.findUnique.mockResolvedValue(newSnapshot);
 
     const synced = await ratesService.syncExchangeRates('USD');
@@ -533,7 +614,7 @@ describe('RatesService', () => {
         },
       ],
     });
-    mockPrismaService.rateSnapshot.create.mockResolvedValue({
+    mockPrismaService.rateSnapshot.upsert.mockResolvedValue({
       id: 'snap-cf',
       version: 8,
       baseCurrency: 'USD',
@@ -586,7 +667,7 @@ describe('RatesService', () => {
       ],
     });
     mockPrismaService.rateSnapshot.findFirst.mockResolvedValue(null);
-    mockPrismaService.rateSnapshot.create.mockResolvedValue({
+    mockPrismaService.rateSnapshot.upsert.mockResolvedValue({
       id: 'snap-filtered',
       version: 1,
       baseCurrency: 'USD',

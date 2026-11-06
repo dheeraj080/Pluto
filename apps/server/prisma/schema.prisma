@@ -108,6 +108,10 @@ model RateSnapshot {
 
   rates        ExchangeRate[]
 
+  // A daily rate table has one identity: base + day. This is the database
+  // guarantee that the cron, the GitHub Action, and any future writer cannot
+  // publish a second snapshot for the same day.
+  @@unique([baseCurrency, effectiveDate])
   @@index([isPublished, fetchedAt])
   @@index([baseCurrency, isPublished])
   @@index([baseCurrency, isPublished, effectiveDate])

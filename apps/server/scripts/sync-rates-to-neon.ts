@@ -233,15 +233,31 @@ async function main(): Promise<void> {
       // reliably join a Prisma transaction (it can fail with "Transaction not
       // found"), so we create the snapshot first, then insert rates directly via
       // the main client.
-      const created = await prisma.rateSnapshot.create({
-        data: {
-          baseCurrency: BASE_CURRENCY,
-          effectiveDate: new Date(`${effectiveDateIso}T00:00:00.000Z`),
-          provider: 'frankfurter',
-          etag,
-          isPublished: true,
-        },
-      });
+      //
+      // The same-day check above is an optimization. The database's unique
+      // (baseCurrency, effectiveDate) key is the actual guarantee: if another
+      // writer wins the race, this create raises P2002 and we skip instead of
+      // inserting a duplicate.
+      let created: { id: string; version: number };
+      try {
+        created = await prisma.rateSnapshot.create({
+          data: {
+            baseCurrency: BASE_CURRENCY,
+            effectiveDate: new Date(`${effectiveDateIso}T00:00:00.000Z`),
+            provider: 'frankfurter',
+            etag,
+            isPublished: true,
+          },
+        });
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          console.log(
+            `Rates already published for ${BASE_CURRENCY} on ${effectiveDateIso} (unique constraint); skipping.`,
+          );
+          return;
+        }
+        throw err;
+      }
 
       try {
         // Insert exchange rates via raw SQL to bypass Prisma schema validation:

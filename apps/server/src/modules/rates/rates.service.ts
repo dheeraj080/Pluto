@@ -172,28 +172,48 @@ export class RatesService {
         return dto;
       }
 
-      // 6. Atomically persist snapshot and rates in a transaction
+      // 6. Atomically persist snapshot and rates in a transaction. The
+      //    (baseCurrency, effectiveDate) unique key is the source of truth for
+      //    one snapshot per day: a later same-day sync updates that snapshot
+      //    and replaces its rates rather than inserting a duplicate.
+      const effectiveDate = new Date(asOf);
       const snapshot = await this.prisma.$transaction(async (tx) => {
-        const createdSnapshot = await tx.rateSnapshot.create({
-          data: {
+        const storedSnapshot = await tx.rateSnapshot.upsert({
+          where: {
+            baseCurrency_effectiveDate: {
+              baseCurrency: base,
+              effectiveDate,
+            },
+          },
+          create: {
             baseCurrency: base,
-            effectiveDate: new Date(asOf),
+            effectiveDate,
             provider: providerData.provider,
             etag,
             isPublished: true, // Only published on transaction success
           },
+          update: {
+            provider: providerData.provider,
+            etag,
+            fetchedAt: new Date(),
+            isPublished: true,
+          },
+        });
+
+        await tx.exchangeRate.deleteMany({
+          where: { snapshotId: storedSnapshot.id },
         });
 
         await tx.exchangeRate.createMany({
           data: merged.map((row) => ({
-            snapshotId: createdSnapshot.id,
+            snapshotId: storedSnapshot.id,
             quoteCurrency: row.quoteCurrency,
             rate: new Prisma.Decimal(row.rate.toFixed(6)),
             effectiveDate: new Date(row.effectiveDate),
           })),
         });
 
-        return createdSnapshot;
+        return storedSnapshot;
       });
 
       this.logger.log(
