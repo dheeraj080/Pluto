@@ -316,6 +316,8 @@ describe('Pluto Server API (e2e)', () => {
         name: 'E2E User',
         googleId: 'google-sub-e2e',
         avatarUrl: null,
+        // Backups are a paid feature; this fixture exercises the paid path.
+        plan: 'PAID',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -1157,6 +1159,8 @@ describe('Pluto Server API (e2e)', () => {
         name: 'Sync User',
         googleId: 'google-sub-sync',
         avatarUrl: null,
+        // Offline sync is a paid feature; this fixture exercises the paid path.
+        plan: 'PAID',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
