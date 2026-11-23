@@ -68,6 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       className={`${geistMono.variable} ${plusJakartaSans.variable} h-full antialiased`}
       // The inline script may rewrite `data-theme` and the colour-scheme before
       // React hydrates; suppress the resulting attribute mismatch.

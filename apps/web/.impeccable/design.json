@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-30T12:00:00Z",
+  "generatedAt": "2026-11-23T00:00:00Z",
   "title": "Design System: Pluto",
   "extensions": {
     "colorMeta": {
@@ -177,31 +177,100 @@
         "displayName": "Category Slate",
         "canonical": "#94a3b8",
         "tonalRamp": ["#0f172a", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f1f5f9"]
+      },
+      "folded-paper": {
+        "role": "neutral",
+        "displayName": "Folded Paper",
+        "canonical": "#f2eee3",
+        "tonalRamp": ["#d9d3c5", "#e3ddd0", "#e8e2d4", "#eee9dd", "#f2eee3", "#f6f3ea", "#faf8f2", "#fdfcf8"]
+      },
+      "folded-paper-deep": {
+        "role": "neutral",
+        "displayName": "Folded Paper Deep",
+        "canonical": "#e8e2d4",
+        "tonalRamp": ["#cec7b7", "#dad3c3", "#e2dccd", "#e8e2d4", "#ede8dc", "#f2eee5", "#f7f4ed", "#fbf9f4"]
+      },
+      "folded-ink": {
+        "role": "neutral",
+        "displayName": "Folded Ink",
+        "canonical": "#1c2b33",
+        "tonalRamp": ["#0a1115", "#101a20", "#17262d", "#1c2b33", "#2d414a", "#425b66", "#617986", "#8ea2ab"]
+      },
+      "folded-muted": {
+        "role": "neutral",
+        "displayName": "Folded Muted",
+        "canonical": "#4f6169",
+        "tonalRamp": ["#27373e", "#354850", "#425660", "#4f6169", "#64757d", "#829097", "#a4afb4", "#c2cacc"]
+      },
+      "folded-rule": {
+        "role": "neutral",
+        "displayName": "Rule Blue",
+        "canonical": "#3e6478",
+        "tonalRamp": ["#1b3442", "#264657", "#315469", "#3e6478", "#557a8e", "#7395a5", "#98b0bc", "#bfced5"]
+      },
+      "folded-rule-soft": {
+        "role": "neutral",
+        "displayName": "Rule Blue Soft",
+        "canonical": "rgba(62, 100, 120, 0.28)",
+        "tonalRamp": ["rgba(62, 100, 120, 0.08)", "rgba(62, 100, 120, 0.14)", "rgba(62, 100, 120, 0.21)", "rgba(62, 100, 120, 0.28)", "rgba(62, 100, 120, 0.36)", "rgba(62, 100, 120, 0.45)", "rgba(62, 100, 120, 0.55)", "rgba(62, 100, 120, 0.65)"]
+      },
+      "folded-tab": {
+        "role": "primary",
+        "displayName": "Fold Vermilion",
+        "canonical": "#c54a2c",
+        "tonalRamp": ["#5e1d0f", "#802817", "#9f351d", "#b23f24", "#c54a2c", "#d3664b", "#e08d79", "#efc0b4"]
+      },
+      "folded-tab-text": {
+        "role": "primary",
+        "displayName": "Fold Vermilion Text",
+        "canonical": "#9f351d",
+        "tonalRamp": ["#5e1d0f", "#712512", "#872c17", "#9f351d", "#b23f24", "#c54a2c", "#d3664b", "#e08d79"]
+      },
+      "folded-night": {
+        "role": "neutral",
+        "displayName": "Night Desk",
+        "canonical": "#0a1115",
+        "tonalRamp": ["#05090b", "#0a1115", "#101a20", "#17262d", "#1f3239", "#2a424b", "#3a5863", "#53727d"]
+      },
+      "folded-on-night": {
+        "role": "neutral",
+        "displayName": "On Night",
+        "canonical": "#f4f0e6",
+        "tonalRamp": ["#b8b3a8", "#cdc8bd", "#ded9cf", "#e9e5db", "#f4f0e6", "#f8f5ee", "#fbf9f5", "#ffffff"]
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Hero and section headlines; wordmark." },
-      "body": { "displayName": "Body", "purpose": "Working prose and figures; money uses tabular numerals." },
-      "label": { "displayName": "Label", "purpose": "Table headers, card section titles, form labels; uppercase, letter-spaced." },
-      "mono": { "displayName": "Mono", "purpose": "Technical admin values (IDs, versions)." }
+      "display": { "displayName": "Display", "purpose": "App hero and section headlines; wordmark." },
+      "body": { "displayName": "Body", "purpose": "App working prose and figures; money uses tabular numerals." },
+      "label": { "displayName": "Label", "purpose": "App table headers, card section titles, form labels; uppercase, letter-spaced." },
+      "mono": { "displayName": "Mono", "purpose": "App technical admin values (IDs, versions)." },
+      "folded-display": { "displayName": "Folded Display", "purpose": "Landing hero and close headline in self-hosted Barlow Condensed." },
+      "folded-heading": { "displayName": "Folded Heading", "purpose": "Landing section headings." },
+      "folded-body": { "displayName": "Folded Body", "purpose": "Landing explanatory prose in the system UI stack." },
+      "folded-mono": { "displayName": "Folded Mono", "purpose": "Landing folios, rate stamps, routes, and measurements." }
     },
     "shadows": [
       { "name": "primary-button-glow", "value": "0 6px 20px -10px rgba(0,0,0,0.55)", "purpose": "Diffuse glow under the primary accent button in its active state." },
       { "name": "stat-card", "value": "0 1px 2px rgba(23,33,27,0.04)", "purpose": "Subtle lift on metric cards." },
-      { "name": "dialog-menu", "value": "shadow-2xl", "purpose": "Elevated floating lists and dialogs portaled to document.body." }
+      { "name": "dialog-menu", "value": "shadow-2xl", "purpose": "Elevated floating lists and dialogs portaled to document.body." },
+      { "name": "folded-spread", "value": "0 24px 46px -30px rgba(16,30,36,0.8)", "purpose": "Paper sheet above the landing ground." },
+      { "name": "folded-plaque-hover", "value": "0 16px 30px -20px rgba(16,30,36,0.8)", "purpose": "Soft lift on landing action plaques." }
     ],
     "motion": [
       { "name": "scroll-reveal", "value": "opacity 0.6s ease-out, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Elements fade in and rise 14px when scrolled into view." },
       { "name": "dialog-in", "value": "160ms ease-out", "purpose": "Dialogs and floating menus scale up from 0.985 and fade in." },
       { "name": "chart-draw", "value": "stroke-dashoffset 1 → 0", "purpose": "Hero chart line draws in resolution-independently via pathLength=1." },
       { "name": "transition-colors", "value": "150ms", "purpose": "Default button and input state transition duration." },
+      { "name": "fold-unfold", "value": "clip-path inset(0 100% 0 0) to inset(0 0 0 0), rotateY(-16deg) to 0, 520ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Single authored landing motion when a preset or slider commits a new amount." },
       { "name": "reduced-motion", "value": "0.01ms", "purpose": "All animation/transition durations collapse under prefers-reduced-motion." }
     ],
     "breakpoints": [
       { "name": "sm", "value": "640px" },
       { "name": "md", "value": "768px" },
       { "name": "lg", "value": "1024px" },
-      { "name": "xl", "value": "1280px" }
+      { "name": "xl", "value": "1280px" },
+      { "name": "folded-compact", "value": "760px" },
+      { "name": "folded-narrow", "value": "480px" }
     ]
   },
   "components": [
@@ -284,29 +353,54 @@
       "description": "Pill-style single-choice switcher; active state fills surface with a subtle shadow.",
       "html": "<div class=\"ds-segmented\"><button class=\"ds-segment-option ds-segment-option-active\">Week</button><button class=\"ds-segment-option\">Month</button></div>",
       "css": ".ds-segmented { display: inline-flex; border-radius: 0.75rem; border: 1px solid var(--color-border); background-color: var(--color-surface-muted); padding: 0.125rem; } .ds-segment-option { height: 2rem; border-radius: 0.625rem; padding-left: 0.875rem; padding-right: 0.875rem; font-size: 0.875rem; font-weight: 500; color: var(--color-muted); background-color: transparent; border: none; outline: none; cursor: pointer; transition: background-color 150ms, color 150ms; } .ds-segment-option:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; } .ds-segment-option:hover:not(.ds-segment-option-active) { color: var(--color-foreground); } .ds-segment-option-active { background-color: var(--color-surface); color: var(--color-foreground); box-shadow: 0 1px 2px rgba(23,33,27,0.08); }"
+    },
+    {
+      "name": "Landing Action Plaque",
+      "kind": "button",
+      "refersTo": "landing-action",
+      "description": "Square co-primary landing action; web variant on folded paper, Android variant on folded ink, both with a vermilion bottom rule.",
+      "html": "<a class=\"fm-plaque fm-plaque--web\" href=\"/login\"><strong>Start on the web</strong><small>Google sign-in · your account in the browser</small></a>",
+      "css": ".fm-plaque { display: flex; align-items: center; gap: 0.8rem; min-height: 76px; padding: 0.85rem 0.95rem; border: 1px solid var(--fm-rule); border-bottom: 3px solid var(--fm-tab-bright); border-radius: 0; text-decoration: none; box-shadow: 0 12px 24px -20px rgba(16, 30, 36, 0.7); transition: transform 160ms ease-out, box-shadow 160ms ease-out; } .fm-plaque:hover { transform: translateY(-2px); box-shadow: 0 16px 30px -20px rgba(16, 30, 36, 0.8); } .fm-plaque:focus-visible { outline: 2px solid var(--fm-tab); outline-offset: 3px; }"
+    },
+    {
+      "name": "Fold Spread",
+      "kind": "container",
+      "refersTo": "landing-fold-leaf",
+      "description": "Three-column paper artifact with ruled leaves, stitched gutter, dated sample rate stamp, and one fold-unfold motion.",
+      "html": "<div class=\"fm-spread\"><div class=\"fm-leaf fm-leaf--outer\"></div><div class=\"fm-gutter\"></div><div class=\"fm-leaf fm-leaf--home\"></div></div>",
+      "css": ".fm-spread { display: grid; grid-template-columns: minmax(0, 1fr) 128px minmax(0, 0.92fr); min-height: clamp(320px, 30vw, 410px); border: 1px solid var(--fm-rule); box-shadow: 0 24px 46px -30px rgba(16, 30, 36, 0.8); perspective: 1200px; } .fm-leaf { border-radius: 0; background-image: linear-gradient(to bottom, transparent 27px, var(--fm-rule-soft) 27px); background-size: 100% 28px; background-repeat: repeat-y; } .fm-fold-panel { animation: fm-unfold 520ms cubic-bezier(0.16, 1, 0.3, 1) both; }"
+    },
+    {
+      "name": "Landing Preset",
+      "kind": "button",
+      "refersTo": "landing-preset",
+      "description": "Square tabular amount preset; selected state fills with the dark landing surface and cream text.",
+      "html": "<button class=\"fm-preset\" type=\"button\" aria-pressed=\"true\">€38.20</button>",
+      "css": ".fm-preset { min-height: 36px; padding: 0.35rem 0.7rem; border: 1px solid var(--fm-rule); border-radius: 0; background: transparent; color: var(--fm-ink); font-family: var(--font-geist-mono), ui-monospace, monospace; font-size: 0.75rem; font-variant-numeric: tabular-nums; cursor: pointer; } .fm-preset[aria-pressed=\"true\"] { background: var(--fm-dark-surface); border-color: var(--fm-dark-surface); color: var(--fm-on-dark); }"
     }
   ],
   "narrative": {
-    "northStar": "The Graphite Ledger",
-    "overview": "Calm, precise, and low-pressure. Dark graphite surfaces carry hairline borders and tonal surface variants instead of colour; a single mint-emerald accent is reserved for CTAs, the brand mark, active and positive states, and key converted numbers — never as a decorative wash. Every money figure uses tabular numerals, every interactive control shows a visible focus ring, and all motion collapses to near-still under `prefers-reduced-motion`. Light mode is a 1:1 mirror of the dark ramp, shifted to darker steps so ink keeps WCAG AA on a white surface.",
-    "keyCharacteristics": ["Near-black graphite canvas (#0b0c0e) with off-white ink (#f2f4f5)", "Single bright accent: mint-emerald (#34d399), used sparingly", "Hairline borders (rgba(255,255,255,0.07)) and tonal layering over shadows", "Tabular numerals for all money figures", "Visible focus rings on every interactive control", "Light theme is a value-for-value mirror of the dark ramp"],
+    "northStar": "Two registers, one truth — the Graphite Ledger and the Folded Margin",
+    "overview": "The signed-in product remains the Graphite Ledger: calm, precise, graphite tonal layers, hairlines, and one mint-emerald accent for functional emphasis. The public landing route is Folded Margin: a traveller's paper spread where the foreign price sits in the outer margin and one fold reveals the home figure in the crease. It is ruled, folioed, stitched, and square-cornered, with vermilion reserved for fold tabs, rate marks, active states, and focus. Both registers share tabular money figures, plain language, visible focus, and reduced-motion collapse.",
+    "keyCharacteristics": ["App: near-black graphite canvas with one mint-emerald accent and hairline tonal layering", "Landing: uncoated paper, deep ink, rule blue, one vermilion fold accent", "Landing first viewport: two-leaf paper spread, stitched gutter, rate stamp, two equal action plaques", "Money figures are tabular in both registers", "Landing surfaces are square; app surfaces use the rounded scale", "Light and dark are use-scene choices: desk paper and night desk"],
     "rules": [
-      { "name": "The One Accent Rule", "body": "Mint-emerald is the single bright colour; it appears on primary CTAs, the brand mark, active/positive states, and key converted numbers — never as a decorative wash, glow, shadow, or eyebrow.", "section": "colors" },
-      { "name": "The Restraint Rule", "body": "Category chips and chart series draw from a six-hue muted palette — never a saturated rainbow, never flag images.", "section": "colors" },
-      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. Shadows appear only as a response to state (hover, active, elevation, focus); no ambient coloured glows.", "section": "elevation" }
+      { "name": "The One Accent Per Register Rule", "body": "Mint-emerald is the only bright accent in the app; vermilion is the only bright accent on the landing route. Neither becomes a wash, glow, or decorative halo.", "section": "colors" },
+      { "name": "The Fold Rule", "body": "Vermilion marks a fold, a rate, an active state, or focus. It never becomes body copy.", "section": "colors" },
+      { "name": "The Restraint Rule", "body": "Category chips and chart series draw from a six-hue muted palette in the app — never a saturated rainbow, never flag images.", "section": "colors" },
+      { "name": "The Flat-By-Default Rule", "body": "App surfaces are flat at rest; landing depth comes from rules, creases, and soft offset shadows, never coloured halos.", "section": "elevation" }
     ],
     "dos": [
-      "Do use mint-emerald (#34d399) as the single bright accent, on primary CTAs, the brand mark, active/positive states, and key converted numbers only.",
-      "Do render all money figures with `tabular-nums` so digits align.",
-      "Do show a visible 2px mint-emerald focus ring on every interactive control.",
-      "Do honour `prefers-reduced-motion` — collapse all transitions and animations to ~0.01ms.",
-      "Do keep category distinctions to the six-hue muted palette; never use flag images or a saturated rainbow."
+      "Do keep the landing first viewport built around the two-figure fold and two equal actions.",
+      "Do label demonstration rates and figures as sample or illustrative.",
+      "Do keep every landing label at 11px or above and every money figure tabular.",
+      "Do theme selection, caret, scrollbars, focus, and reduced motion from the active register.",
+      "Do preserve the Graphite Ledger for signed-in screens."
     ],
     "donts": [
-      "Don't use mint-emerald as a decorative wash, glow, shadow, or eyebrow — it is reserved for functional emphasis.",
-      "Don't introduce a second bright accent hue; secondary and tertiary roles are expressed through tonal graphite, not colour.",
-      "Don't use dark-green bank sterility, generic dollar signs, globes with arrows, or bird silhouettes.",
-      "Don't add gradients, shadows, or outlines to the orbit mark; use the light/dark SVG variants only.",
+      "Don't put a phone mockup, feature-card grid, or kicker-and-heading hero on the landing route.",
+      "Don't use mint-emerald as a landing accent or vermilion as an app accent.",
+      "Don't add gradients, glows, glass, or rounded card shells to Folded Margin.",
+      "Don't invent testimonials, statistics, claims, or unlabelled exchange-rate figures.",
       "Don't reassert token hex values in prose; the YAML frontmatter is normative."
     ]
   }

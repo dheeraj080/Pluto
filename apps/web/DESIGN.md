@@ -1,6 +1,6 @@
 ---
 name: Pluto
-description: Multi-currency expense tracker — spend in any currency, understand it in yours.
+description: Multi-currency expense tracker — spend in any currency, understand it in yours. The signed-in app uses the Graphite Ledger register; the public landing route uses Folded Margin.
 colors:
   graphite-deep: "#0b0c0e"
   graphite-surface: "#131518"
@@ -31,6 +31,20 @@ colors:
   cat-rose: "#fda4af"
   cat-violet: "#c4b5fd"
   cat-slate: "#94a3b8"
+  folded-paper: "#f2eee3"
+  folded-paper-deep: "#e8e2d4"
+  folded-ink: "#1c2b33"
+  folded-muted: "#4f6169"
+  folded-rule: "#3e6478"
+  folded-rule-soft: "rgba(62, 100, 120, 0.28)"
+  folded-tab: "#b23f24"
+  folded-tab-text: "#9f351d"
+  folded-tab-bright: "#c54a2c"
+  folded-night: "#0a1115"
+  folded-night-raised: "#17262d"
+  folded-on-night: "#f4f0e6"
+  folded-on-night-muted: "#d7d3c8"
+  folded-focus: "#c54a2c"
 typography:
   display:
     fontFamily: "Space Grotesk, system-ui, sans-serif"
@@ -46,12 +60,35 @@ typography:
   mono:
     fontFamily: "Geist Mono, ui-monospace, monospace"
     fontWeight: 400
+  folded-display:
+    fontFamily: "Barlow Condensed Local, Arial Narrow, sans-serif"
+    fontWeight: 700
+    fontSize: "clamp(3.1rem, 5.4vw, 5.4rem)"
+    lineHeight: 0.96
+    letterSpacing: "-0.025em"
+  folded-heading:
+    fontFamily: "Barlow Condensed Local, Arial Narrow, sans-serif"
+    fontWeight: 700
+    fontSize: "clamp(2.2rem, 3.6vw, 3.5rem)"
+    lineHeight: 1.01
+    letterSpacing: "-0.02em"
+  folded-body:
+    fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontWeight: 400
+    fontSize: "1rem"
+    lineHeight: 1.72
+  folded-mono:
+    fontFamily: "Geist Mono, ui-monospace, monospace"
+    fontWeight: 400
+    fontSize: "0.72rem"
+    letterSpacing: "0.06em"
 rounded:
   lg: "0.5rem"
   xl: "0.75rem"
   "2xl": "1rem"
   "3xl": "1.5rem"
   full: "9999px"
+  none: "0"
 spacing:
   1: "0.25rem"
   2: "0.5rem"
@@ -59,6 +96,7 @@ spacing:
   4: "1rem"
   5: "1.25rem"
   6: "1.5rem"
+  folded-section: "clamp(4.375rem, 8vw, 7.375rem)"
 components:
   button-primary:
     backgroundColor: "{colors.mint-emerald}"
@@ -111,137 +149,148 @@ components:
     backgroundColor: "{colors.graphite-surface}"
     rounded: "{rounded.xl}"
     padding: "1.25rem"
+  landing-action:
+    backgroundColor: "{colors.folded-paper}"
+    textColor: "{colors.folded-ink}"
+    rounded: "{rounded.none}"
+    padding: "0.85rem 0.95rem"
+  landing-action-android:
+    backgroundColor: "{colors.folded-ink}"
+    textColor: "{colors.folded-on-night}"
+    rounded: "{rounded.none}"
+    padding: "0.85rem 0.95rem"
+  landing-fold-leaf:
+    backgroundColor: "{colors.folded-paper}"
+    textColor: "{colors.folded-ink}"
+    rounded: "{rounded.none}"
+    padding: "clamp(1.1rem, 2vw, 1.8rem)"
+  landing-preset:
+    backgroundColor: "transparent"
+    textColor: "{colors.folded-ink}"
+    rounded: "{rounded.none}"
+    padding: "0.35rem 0.7rem"
 ---
 # Design System: Pluto
 
 ## Overview
 
-**Creative North Star: "The Graphite Ledger"**
+**Creative North Star: "Two registers, one truth — the Graphite Ledger and the Folded Margin."**
 
-Calm, precise, and low-pressure. Dark graphite surfaces carry hairline borders and tonal surface variants instead of colour; a single mint-emerald accent is reserved for CTAs, the brand mark, active and positive states, and key converted numbers — never as a decorative wash. Every money figure uses tabular numerals, every interactive control shows a visible focus ring, and all motion collapses to near-still under `prefers-reduced-motion`. Light mode is a 1:1 mirror of the dark ramp, shifted to darker steps so ink keeps WCAG AA on a white surface.
+The signed-in product remains the Graphite Ledger: calm, precise, low-pressure, with graphite tonal layers, hairlines, and one mint-emerald accent for functional emphasis. The public landing route is Folded Margin: a traveller's paper spread where the foreign price sits in the outer margin and one fold reveals the home figure in the crease. It is ruled, folioed, stitched, and square-cornered, with vermilion reserved for fold tabs, rate marks, and focus.
+
+Both registers share the same discipline: tabular money figures, plain language, visible focus, and motion that collapses under `prefers-reduced-motion`. Landing figures are labelled illustrative; the app remains the source of truth.
 
 **Key Characteristics:**
-- Near-black graphite canvas (`#0b0c0e`) with off-white ink (`#f2f4f5`)
-- Single bright accent: mint-emerald (`#34d399`), used sparingly
-- Hairline borders (`rgba(255,255,255,0.07)`) and tonal layering over shadows
-- Tabular numerals for all money figures
-- Visible focus rings on every interactive control
-- Light theme is a value-for-value mirror of the dark ramp
+- App: near-black graphite canvas with a single mint-emerald accent and hairline tonal layering.
+- Landing: uncoated paper ground, deep ink, rule blue, one vermilion fold accent.
+- Landing first viewport: two-leaf paper spread, stitched gutter, rate stamp, two equal action plaques.
+- Money figures are tabular in both registers.
+- Landing surfaces are square; app surfaces use the existing rounded scale.
+- Light and dark are use-scene choices: desk paper and night desk, not category defaults.
 
 ## Colors
 
-One bright accent on a graphite neutral base; the accent is the only saturated colour in the system.
-
-**The One Accent Rule.** Mint-emerald is the single bright colour; it appears on primary CTAs, the brand mark, active/positive states, and key converted numbers — never as a decorative wash, glow, shadow, or eyebrow.
+Two scoped palettes; never mix their accents inside one register.
 
 ### Primary
-- **Mint Emerald** (#34d399): primary actions, links, the brand mark's orbit ring, active and positive states, and key converted numbers. Pairs with near-black on-mint-emerald (`#05130d`) for contrast.
-- **Mint Emerald Hover** (#10b981): primary button hover state.
-- **Mint Emerald Active** (#059669): primary button active state.
-- **Mint Emerald Subtle** (`rgba(52, 211, 153, 0.12)`): soft fills for active navigation chips and badge backgrounds.
+- **Mint Emerald** (#34d399): app CTAs, brand mark, active and positive states, key converted numbers. Pairs with near-black on-mint-emerald (#05130d).
+- **Fold Vermilion** (#c54a2c): landing fold tabs, arrows, active markers, focus rings, and the one emphasis on the converted figure. Text on paper uses the darker #9f351d for AA contrast.
+- **Fold Ink** (#1c2b33): landing headings, body text, and dark plaques.
 
 ### Secondary
-Omitted. The project has one accent; secondary roles are expressed through tonal graphite surfaces rather than a second hue.
+- **Rule Blue** (#3e6478): landing hairlines, ruled paper lines, and panel borders.
+- **Warm Gold** (#fbbf24): app warning and gold-tone state only.
 
 ### Tertiary
-Omitted. No tertiary hue exists in the system.
+- **Night Desk** (#0a1115): landing dark surfaces for plaques, close section, and footer.
+- **Category palette**: app chart and chip tones only (mint, sky, amber, rose, violet, slate).
 
 ### Neutral
-- **Graphite Deep** (#0b0c0e): page canvas and default dark-theme background.
-- **Graphite Surface** (#131518): cards, header, and raised containers.
-- **Graphite Surface Muted** (#1b1e22): inset panels and hover fills.
-- **Graphite Ink** (#f2f4f5): body and headline text (~17:1 on canvas).
-- **Graphite Muted** (#a4abb2): secondary text (~8:1 on canvas).
-- **Border Hairline** (`rgba(255,255,255,0.07)`): dividers and input borders.
-- **Border Strong** (`rgba(255,255,255,0.14)`): stronger dividers and active states.
-- **Focus Ring** (#34d399): keyboard focus indicator, 2px with 2px offset.
-- **Glow** (`rgba(255,255,255,0.06)`) / **Glow Strong** (`rgba(255,255,255,0.1)`): neutral radial spotlight behind hero/product surfaces — never coloured.
+- **Graphite Deep / Surface / Surface Muted** (#0b0c0e / #131518 / #1b1e22): app canvas and layered containers.
+- **Graphite Ink / Muted** (#f2f4f5 / #a4abb2): app text and secondary text.
+- **Folded Paper / Paper Deep** (#f2eee3 / #e8e2d4): landing ground and inset leaf.
+- **Folded Muted** (#4f6169): landing secondary text; switches to #b8c2c4 on the night desk.
+- **On Night / On Night Muted** (#f4f0e6 / #d7d3c8): text on landing dark surfaces.
 
-### Named Rules (Optional)
-**The Restraint Rule.** Category chips and chart series draw from a six-hue muted palette (mint, sky, amber, rose, violet, slate) — never a saturated rainbow, never flag images.
+### Named Rules
+**The One Accent Per Register Rule.** Mint-emerald is the only bright accent in the app; vermilion is the only bright accent on the landing route. Neither becomes a wash, glow, or decorative halo.
+
+**The Fold Rule.** Vermilion marks a fold, a rate, an active state, or focus. It never becomes body copy.
 
 ## Typography
 
-**Display Font:** Space Grotesk (with system-ui, sans-serif fallback) — used for headlines and the wordmark; expressive but still clear.
-**Body Font:** Inter (with system-ui, -apple-system, "Segoe UI", sans-serif fallback) — highly legible at small sizes; money always uses tabular numerals.
-**Label/Mono Font:** Geist Mono (with ui-monospace, monospace fallback) — technical values in the admin area (IDs, versions).
+**Display Font:** app — Space Grotesk; landing — locally self-hosted Barlow Condensed (with Arial Narrow fallback).
+**Body Font:** app — Inter; landing — system UI stack.
+**Label/Mono Font:** Geist Mono for app technical data and landing rates, folios, and measurements.
 
-**Character:** A clean, rational pairing. Space Grotesk carries the expressive display moments; Inter does the working text and figures; Geist Mono handles technical admin data. Landing pages additionally use Outfit (landing display) and Plus Jakarta Sans (landing sans).
+**Character:** The app pairing is clean and rational. The landing pairing is compressed and printed: tall display lettering for the folded-page headline, workmanlike system text for explanation, and monospaced stamps for rates and folios.
 
 ### Hierarchy
-- **Display** (600, clamp-scale hero/section headings): hero and section headlines; `text-wrap: balance` for even racking.
-- **Headline** (bold, ~1.125–1.25rem): card and section titles.
-- **Title** (semibold, ~1rem): app page headers.
-- **Body** (400, 1rem, leading-relaxed): supporting prose; max comfortable line length.
-- **Label** (500, 0.875rem, letter-spaced, uppercase): table headers, card section titles, form labels.
-- **Mono** (400): money figures and technical IDs with `tabular-nums`.
+- **Display** (700, clamp 3.1–5.4rem, 0.96 line-height): landing hero and close headline.
+- **Headline / Heading** (700, clamp 2.2–3.5rem, 1.01 line-height): landing section headings.
+- **Title** (600, app scale): app page headers.
+- **Body** (400, 1rem, 1.72 line-height): landing prose, max 65–75ch; app body unchanged.
+- **Label** (500, 0.875rem, letter-spaced): app table headers and form labels.
+- **Fold Label** (400, ≥0.7rem, 0.06em letter-spacing): landing folios, rate kind, route notes, and slider label; never below 11px.
+
+### Named Rules
+**The Tabular Rule.** Every money figure uses tabular numerals, in Inter or Geist Mono in the app and Barlow Condensed or Geist Mono on the landing page.
 
 ## Layout
 
-A single-column content model on the public site; the signed-in app uses a shell with a top header and scrollable content regions. Containers are full-bleed with section vertical padding of 80px on marketing surfaces. Cards use 24px internal padding (20px default, 24px at sm breakpoint); tight stacks use 8–12px gaps. The dashboard and reports accept deep-link pre-filters (`?categoryId=`, `?from=`, `?to=`) that drill from chart elements into matching expense lists.
+The app keeps its existing shell: top header, scrollable content, Tailwind breakpoints, and deep-linked report filters.
 
-Breakpoints follow the Tailwind default scale (sm 640px, md 768px, lg 1024px, xl 1280px); no custom breakpoints are defined in source.
+The landing route is a route-scoped grid. The hero is two columns above 1100px (copy left, paper spread right) and one column below. The paper spread itself is three columns above 760px (outer leaf, gutter, folded leaf) and stacks below 760px. Sections use a margin-folio column of 96–140px beside a 980px content column; the folio column collapses below 760px. Vertical rhythm is `clamp(4.375rem, 8vw, 7.375rem)` per section. The close section and shared footer use night-desk surfaces.
 
 ## Elevation & Depth
 
-Flat-by-default. Depth is conveyed through tonal surface layering (canvas → surface → surface-muted) and hairline borders rather than shadows. Shadows appear only as a response to state: a diffuse glow under primary buttons on hover/active, and a lift on dialogs and floating menus.
+App: flat at rest, with tonal layering and hairlines; state shadows only.
 
-### Shadow Vocabulary (if applicable)
-- **Primary button glow** (`0 6px 20px -10px rgba(0,0,0,0.55)`): diffuse shadow under the primary accent button in its active state.
-- **Stat card shadow** (`0 1px 2px rgba(23,33,27,0.04)`): subtle lift on metric cards.
-- **Dialog / menu lift** (`shadow-2xl`): elevated floating lists and dialogs portaled to `document.body`.
+Landing: paper depth comes from ruled lines, a crease shadow inset on the folded leaf, and soft offset shadows under the spread and plaques. No zero-blur coloured halos.
 
-### Named Rules (Optional)
-**The Flat-By-Default Rule.** Surfaces are flat at rest. Shadows appear only as a response to state (hover, active, elevation, focus); no ambient coloured glows.
+### Shadow Vocabulary
+- **App primary button glow** (`0 6px 20px -10px rgba(0,0,0,0.55)`): active app CTA only.
+- **App stat card** (`0 1px 2px rgba(23,33,27,0.04)`): metric lift.
+- **Landing spread** (`0 24px 46px -30px rgba(16,30,36,0.8)`): paper sheet above the ground.
+- **Landing plaque hover** (`0 16px 30px -20px rgba(16,30,36,0.8)`): action lift.
 
 ## Shapes
 
-Corners are generous but not extreme: buttons and cards use `0.75rem` radius; stat cards, empty states, and tables use `1rem`; card section headers use `1.5rem`; badges, chips, and the orbit mark's ring ends are fully rounded (`9999px`); the segmented control's active state uses `0.625rem`. Borders are hairlines (`1px`, `rgba(255,255,255,0.07)`); strong dividers use `rgba(255,255,255,0.14)`. No clipping beyond border-radius; no drop-shadow silhouettes.
+App surfaces keep their 0.5–1.5rem radii and pill chips. Landing surfaces are square: 0px radius, 1px rule borders, a 3px vermilion bottom rule on action plaques, and a dashed stitch in the gutter. No rounded card shells on the landing route.
 
 ## Components
 
-### Buttons
-- **Shape:** rounded-xl (0.75rem) on all variants; medium height (h-10, ~2.5rem) with px-4 (~1rem) horizontal padding.
-- **Primary:** mint-emerald (#34d399) background, near-black text (#05130d); hover shifts to #10b981, active to #059669; carries a diffuse glow shadow.
-- **Secondary:** graphite-surface-muted background, graphite-ink text, hairline border; hover strengthens the border to border-strong.
-- **Ghost:** graphite-muted text, no background at rest; hover fills surface-muted and shifts text to ink.
-- **Danger:** alert-red-solid (#b91c1c) background, white text; hover deepens to #991b1b.
-- **Focus:** all variants show a 2px outline-2 focus ring in mint-emerald with 2px offset; disabled state drops opacity to 45%.
+### App Buttons and Controls
+Unchanged from the incumbent system: rounded-xl variants, mint-emerald primary, graphite secondary/ghost, alert-red danger, and 2px focus rings.
 
-### Chips
-- **Style:** fully rounded (9999px), hairline border, surface-muted background, muted text, px-2.5 / py-0.5 padding, text-xs font-medium.
-- **State:** neutral default; tone variants (ok/warn/danger/accent/gold) tint the border at 25–30% opacity, the background as a subtle fill, and the text to the tone colour. Selected state fills surface-muted and sets text to ink.
+### Landing Action Plaque
+- **Shape:** square plaque, 1px rule border, 3px vermilion bottom rule.
+- **Web:** folded-paper background, fold-ink text, Google icon.
+- **Android:** fold-ink / night-desk background, on-night text, device icon.
+- **Hover:** 2px lift with soft shadow; focus uses a 2px vermilion outline at 3px offset.
+- **Voice:** short action name plus one plain-language line; no hype.
 
-### Cards / Containers
-- **Corner Style:** rounded-xl (0.75rem).
-- **Background:** graphite-surface (#131518).
-- **Shadow Strategy:** flat at rest; refer to Elevation & Depth.
-- **Border:** hairline border-hairline.
-- **Internal Padding:** p-5 (1.25rem) default, sm:p-6 (1.5rem); section headers px-5 / py-3.5.
+### Landing Fold Spread
+Three-column paper artifact: outer leaf, stitched gutter carrying the sample rate and arrow, folded leaf carrying the converted figure. Ruled lines are a repeating 28px line tile. The folded panel replays one `clip-path` + `rotateY` unfold when a preset or slider commits a new amount. Content is visible by default and the animation collapses under reduced motion.
 
-### Inputs / Fields
-- **Style:** rounded-xl (0.75rem), hairline border, surface-muted background, px-3.5 / py-2.5 padding, text-sm, ink text.
-- **Focus:** border shifts to mint-emerald with a 2px focus ring in mint-emerald at 15% opacity; no outline.
-- **Error / Disabled:** error text uses alert-red (#f87171); disabled controls show cursor-not-allowed and 50% opacity.
+### Landing Presets and Slider
+Square preset buttons with tabular numerals; selected state fills with the dark surface and cream text. Range slider uses the vermilion accent. Labels never drop below 11px.
 
 ### Navigation
-- **Style:** top shell header; tabs use a border-bottom hairline with an active state in border-primary / text-primary, inactive in border-transparent / text-muted with hover states. Segmented controls are pill-style (rounded-xl, surface-muted background, p-0.5) with an active state in rounded-[10px], surface background, text-ink, and a subtle shadow.
-
-### Signature Component — The Orbit Mark
-A planet (circle, currentColor) wrapped by an orbit ring whose gap closes with an exchange arrowhead, painted in mint-emerald. The planet reads correctly on light and dark surfaces; the ring uses the accent. Light/dark variants only; no gradients, shadows, or outlines. Kept simple so it survives at 16px (see the static favicon, which drops the faint orbit and thickens the ring).
+App navigation is unchanged. On the landing route the shared header takes the paper ground and ink; the shared footer takes the night-desk ground and cream text. Auth buttons keep their own app-system colours.
 
 ## Do's and Don'ts
 
-### Do:
-- **Do** use mint-emerald (#34d399) as the single bright accent, on primary CTAs, the brand mark, active/positive states, and key converted numbers only.
-- **Do** render all money figures with `tabular-nums` in Inter or Geist Mono so digits align.
-- **Do** show a visible 2px mint-emerald focus ring on every interactive control.
-- **Do** honour `prefers-reduced-motion` — collapse all transitions and animations to ~0.01ms.
-- **Do** keep category distinctions to the six-hue muted palette; never use flag images or a saturated rainbow.
+### Do
+- **Do** keep the landing first viewport built around the two-figure fold and two equal actions.
+- **Do** label demonstration rates and figures as sample or illustrative.
+- **Do** keep every landing label at 11px or above and every money figure tabular.
+- **Do** theme selection, caret, scrollbars, focus, and reduced motion from the active register.
+- **Do** preserve the Graphite Ledger for signed-in screens.
 
-### Don't:
-- **Don't** use mint-emerald as a decorative wash, glow, shadow, or eyebrow — it is reserved for functional emphasis.
-- **Don't** introduce a second bright accent hue; secondary and tertiary roles are expressed through tonal graphite, not colour.
-- **Don't** use dark-green bank sterility, generic dollar signs, globes with arrows, or bird silhouettes.
-- **Don't** add gradients, shadows, or outlines to the orbit mark; use the light/dark SVG variants only.
+### Don't
+- **Don't** put a phone mockup, feature-card grid, or kicker-and-heading hero on the landing route.
+- **Don't** use mint-emerald as a landing accent or vermilion as an app accent.
+- **Don't** add gradients, glows, glass, or rounded card shells to Folded Margin.
+- **Don't** invent testimonials, statistics, claims, or unlabelled exchange-rate figures.
 - **Don't** reassert token hex values in prose; the YAML frontmatter is normative.
