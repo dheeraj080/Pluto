@@ -2,7 +2,7 @@
   "name": "@pluto/api-client",
   "version": "0.1.0",
   "private": true,
-  "description": "Generated OpenAPI types and a typed fetch client shared by pluto-web and pluto-mobile.",
+  "description": "Generated OpenAPI types and a typed fetch client used by pluto-web.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

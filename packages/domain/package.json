@@ -2,7 +2,7 @@
   "name": "@pluto/domain",
   "version": "0.1.0",
   "private": true,
-  "description": "Framework-free domain logic shared by pluto-web and pluto-mobile: date ranges, byte/percent formatting and display-only currency conversion.",
+  "description": "Framework-free domain logic used by pluto-web and mirrored by pluto-server: date ranges, byte/percent formatting and display-only currency conversion.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

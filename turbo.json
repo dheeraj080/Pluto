@@ -25,7 +25,7 @@
     },
     "test:e2e": {
       "outputs": [],
-      "env": ["DATABASE_URL"]
+      "env": ["DATABASE_URL", "JWT_ACCESS_SECRET"]
     }
   }
 }
