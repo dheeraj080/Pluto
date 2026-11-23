@@ -16,9 +16,10 @@ read or write production data, tokens or credentials.
 | **staging** | you / testers, before a release | `pluto-server-staging` on Render | a Neon `staging` branch |
 | **production** | real users | `pluto-server` on Render | the Neon `main` branch |
 
-Mobile already models three tiers in `apps/mobile/eas.json`: `development`,
-`preview` (this is *staging*) and `production`. The web app and the API are the
-pieces that need the split.
+`apps/mobile` is a native Gradle project with debug and release build types;
+staging and production are distinguished by which Firebase project's
+`google-services.json` is injected at build time. The web app and the API are
+the pieces that need a database/secret split.
 
 ## What must differ per environment
 
@@ -200,33 +201,35 @@ pre-registered. Assign a **stable domain** to the staging branch in Vercel
 Both origins must also be registered on their Google Web client's *Authorized
 JavaScript origins*.
 
-## Mobile (EAS + Google OAuth)
+## Mobile (Gradle + Firebase)
 
-`eas.json` already provides the tiers; wire values per profile with EAS
-environment variables (they are read at build time, never committed):
+`apps/mobile` uses Gradle `debug` / `release` build types. The Firebase config
+is supplied at build time from a local `app/google-services.json` (git-ignored)
+or the `GOOGLE_SERVICES_JSON` CI secret. Never commit a Firebase config bound to
+another project or another package name.
 
-```bash
-eas env:create --environment preview    --name EXPO_PUBLIC_API_URL --value https://pluto-server-staging.onrender.com/v1
-eas env:create --environment production --name EXPO_PUBLIC_API_URL --value https://api.pluto.example/v1
-```
+Separate tiers by Firebase project or by a named Firestore database:
 
-Each tier should have its **own Android OAuth client** with its own SHA-1, and
-ideally its own application id so dev/staging builds do not collide with the
-production client:
+- development: your own Firebase project, debug SHA-1 registered
+- staging: a staging Firebase project (or database) and its own Android OAuth client
+- production: the production Firebase project, release/Play-app-signing SHA-1 registered
 
-- production: `com.pluto.app`
-- staging: `com.pluto.app.staging` (e.g. via `android.package` overridden per
-  profile / `expo-build-properties`)
+`app/src/main/res/values/firebase_applet_config.xml` and `firebase.json` both use
+the **`(default)`** database, so switching Firebase projects only requires a new
+`google-services.json`. If you use a named database instead, change both files
+together.
 
-For iOS, a distinct `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` per tier is enough — its
-reversed form becomes the app's URL scheme (see `apps/mobile/app.config.ts`).
+Release signing values live in the CI secrets documented in `docs/RELEASE.md`;
+`.env` carries only `DEV_MODE` and `SEED_SAMPLE_DATA`. The native app does not
+read `EXPO_PUBLIC_*` or call the NestJS API yet — see the deferred integration
+notes in `apps/mobile/README.md`.
 
 ## Secrets
 
 - Never commit a `.env` file. `.env` is git-ignored; `.env.example` is the
   template and contains **no real secrets**.
 - Production/staging secrets live in the platform: Render env vars (server),
-  the web host's env vars, and EAS env vars (mobile).
+  the web host's env vars, and GitHub Actions secrets / Gradle properties (mobile).
 - Do not copy production secrets into staging. If they leak from staging the
   blast radius should be limited to staging data.
 
@@ -245,7 +248,7 @@ reversed form becomes the app's URL scheme (see `apps/mobile/app.config.ts`).
 - One extra free Render web service (`pluto-server-staging`): **$0** (spins down
   when idle, like the production free service).
 - Web preview deployments on Vercel: **$0** on the Hobby plan.
-- EAS `preview` builds: within the free build quota.
+- GitHub Actions Android builds: free minutes on a public repository (subject to limits).
 
 ## Enabling this (checklist)
 
@@ -258,5 +261,5 @@ reversed form becomes the app's URL scheme (see `apps/mobile/app.config.ts`).
       branch already exists on `origin`; merge `main` into it to soak a build).
 - [ ] Vercel project with Root Directory `apps/web`; set `NEXT_PUBLIC_*` per
       Vercel environment and assign a stable staging domain.
-- [ ] Set EAS env vars for the `preview` and `production` profiles.
+- [ ] Create the mobile Firebase Android app (`com.pluto.app`) and set `GOOGLE_SERVICES_JSON` in CI.
 - [ ] Add each environment's origins to the server's `CORS_ORIGIN`.

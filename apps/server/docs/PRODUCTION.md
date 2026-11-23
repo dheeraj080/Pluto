@@ -3,7 +3,7 @@
 This document outlines the minimal production setup and common pitfalls. It's intentionally concise; expand as needed.
 
 For how development, staging and production are separated (databases, secrets,
-the Render staging service, EAS profiles), see
+the Render staging service, mobile build configurations), see
 [`docs/ENVIRONMENTS.md`](../../../docs/ENVIRONMENTS.md). Staging runs with
 `NODE_ENV=production` — it enforces the same guards below, just against
 different data.
