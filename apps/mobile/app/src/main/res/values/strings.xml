@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Pluto</string>
+    <string name="sign_in_continue_offline">Continue Offline</string>
+    <string name="sign_in_offline_hint">Expenses and wallets stay saved on this device. Sign in with Google anytime in Settings to back up and merge.</string>
+    <string name="settings_local_vault_title">Pluto Local Vault</string>
+    <string name="settings_offline_status">Offline Mode · Local Vault</string>
+    <string name="settings_offline_merge_description">Sign in with Google to back up your device records and merge them into your cloud account.</string>
+    <string name="settings_sign_in_to_merge">Sign in with Google</string>
+    <string name="dual_clock_local_prefix">LOCAL</string>
+    <string name="dual_clock_home_prefix">HOME</string>
+    <string name="dual_clock_picker_title">Home Time Zone</string>
+    <string name="dual_clock_picker_subtitle">Live comparison with your device\u2019s local clock</string>
+    <string name="dual_clock_search_hint">Search city, country, or UTC offset</string>
+    <string name="dual_clock_suggested_label">Suggested for %1$s</string>
+    <string name="dual_clock_reset_default">Use %1$s default</string>
+</resources>

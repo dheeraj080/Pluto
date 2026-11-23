@@ -1,683 +1,150 @@
-# pluto-mobile
+# Pluto (Android)
 
-Expo (React Native + TypeScript + Expo Router) client for Pluto, living in the
-`apps/mobile` workspace of the Pluto monorepo.
+The native Android client for Pluto, written in Kotlin with Jetpack Compose,
+Material 3 and Gradle. It replaced the former Expo/React Native app in
+`apps/mobile`. This is an **Android-only** app; there is no iOS or web target.
 
 ## Prerequisites
 
-- Node >= 20.19 (repo `engines`), npm 11
-- Install from the **repository root** so npm workspaces hoist correctly:
-  ```bash
-  npm install
-  ```
+- JDK 21 (the Gradle toolchain compiles with Java 21)
+- Android SDK with platform 36 and build-tools 36
+- A Pluto-owned Firebase project with an Android app registered as `com.pluto.app`
 
-## Running
+Install the root npm dependencies only for the server and web workspaces; the
+Android app has no npm scripts and is not an npm workspace:
 
-The API must be reachable; see `apps/server` and `apps/mobile/.env.example`.
-Start it first, in its own terminal:
-
-```bash
-npm run dev --workspace pluto-server
+```powershell
+npm install   # from the repository root
 ```
 
-Then start Metro. Prefer `dev:lan`, which detects this machine's LAN address,
-writes it to `.env`, and launches Expo — one value that works for both the
-physical device and the web preview:
+## Firebase configuration
 
-```bash
-# from the repo root
-npm run dev:lan --workspace pluto-mobile
+`app/google-services.json` is deliberately **not** committed. Copy the template
+and replace every placeholder with the values from your own Firebase project:
+
+```powershell
+Copy-Item app\google-services.example.json app\google-services.json
 ```
 
-Plain `npm run dev --workspace pluto-mobile` also works, but only uses whatever
-`.env` already holds. Then press `a` (Android) or `i` (iOS) in the Expo CLI, or
-scan the QR code. `npm run typecheck`, `npm run lint` and `npm run test` run from
-this directory (or via Turbo).
+The committed template contains obvious placeholders and matches the package
+name `com.pluto.app`, so Gradle can parse it during a first build, but Firebase
+Auth, Firestore and Google Sign-In will not work until you replace it.
 
-### Expo Go or a development build
+Setup checklist:
 
-`expo-dev-client` is installed, so `expo start` targets a **development build** —
-which is what Google Sign-In and any other native module require. To keep
-running in Expo Go instead (JS-only, no native Google sign-in):
+1. Create (or use) a Firebase project and add an Android app with package
+   `com.pluto.app`.
+2. Enable Cloud Firestore using the **(default)** database. The app reads the
+   database id from `app/src/main/res/values/firebase_applet_config.xml`, which
+   is set to `(default)`; `firebase.json` uses the same value for the emulator.
+3. Download `google-services.json` into `app/`. The Google Services Gradle
+   plugin generates `default_web_client_id` from the type-3 OAuth client in that
+   file; `GoogleAuthManager` uses it for Google Sign-In.
+4. In Google Cloud Console, register the Android OAuth client for
+   `com.pluto.app` and the SHA-1 of every signing certificate that ships a build
+   (local debug, CI debug, release). `scripts/apk-fingerprint.mjs` prints the
+   pair from a built APK:
+   ```powershell
+   node scripts/apk-fingerprint.mjs apps/mobile/app/build/outputs/apk/debug/app-debug.apk
+   ```
+5. Deploy `firestore.rules` to the project. The rules scope every
+   `users/{uid}/...` collection to the signed-in Firebase Auth user.
 
-```bash
-npx expo start --go
+`.env` is local-only. `DEV_MODE` enables developer controls in Settings and
+`SEED_SAMPLE_DATA` populates a fresh install with sample expenses.
+
+## Build and test
+
+From `apps/mobile`:
+
+```powershell
+.\gradlew.bat :app:testDebugUnitTest     # hermetic JVM/Robolectric tests
+.\gradlew.bat :app:assembleDebug         # app/build/outputs/apk/debug/app-debug.apk
+.\gradlew.bat :app:assembleRelease       # requires signing values (below)
 ```
 
-### Backend must be up, or every screen shows "Internal server error"
+Two tests (`FirestoreSyncRepositoryRuleTest` and `OfflineModeAndCloudMergeTest`)
+talk to the Firebase Auth and Firestore emulators and are excluded from
+`testDebugUnitTest`. Run them explicitly:
 
-That message is the server's 500 envelope, not a client bug. The usual cause is
-that `apps/server/.env`'s `DATABASE_URL` points at a host Prisma cannot reach,
-which surfaces as:
-
-```
-PrismaClientInitializationError: Can't reach database server at `<host>:5432`
-```
-
-Every request that touches the database then fails after a ~5s connection
-timeout. `/v1/health` is the fastest way to tell: `"database":{"status":
-"connected"}` means good, `"status":"unreachable"` means the DB is the problem,
-not the app.
-
-For local development run the bundled Postgres and point `DATABASE_URL` at it:
-
-```bash
-docker compose -f apps/server/docker-compose.yml up -d postgres
-# DATABASE_URL="postgresql://postgres:postgres@localhost:5432/pluto_db?schema=public"
-npm exec --workspace pluto-server -- prisma migrate deploy
+```powershell
+npx --yes firebase-tools@latest emulators:exec `
+  --only firestore,auth --project demo-no-project --config firebase.json `
+  '.\gradlew.bat :app:testEmulator --no-daemon'
 ```
 
-### Never build or test the server while its watcher is running
+The Firestore rules themselves have a Node test suite (`firestore.test.js`) that
+uses the same emulators:
 
-`npm run build`/`npm test` in `pluto-server` overwrite `apps/server/dist/` while
-`nest start --watch` is serving from it, which kills the running API. Stop the
-watcher first.
+```powershell
+npx --yes firebase-tools@latest emulators:exec `
+  --only firestore,auth --project demo-no-project --config firebase.json `
+  'node --test --test-reporter=spec firestore.test.js'
+# needs @firebase/rules-unit-testing available to node
+```
 
-### API base URL
+`.github/workflows/android.yml` runs the unit tests, emulator tests and a debug
+build on every push that touches this directory, and reports the APK's signing
+fingerprint in the job summary.
 
-`EXPO_PUBLIC_API_URL` (see `.env.example`) is inlined by Metro at build time.
-It must include the `/v1` prefix:
+## Release signing
 
-| Target | Value |
+Release builds are signed from the environment, never from a committed
+keystore. Set either environment variables or Gradle properties:
+
+| Environment variable | Gradle property |
 | :--- | :--- |
-| Android emulator | `http://10.0.2.2:3000/v1` |
-| iOS simulator | `http://localhost:3000/v1` |
-| Physical device | `http://<your-lan-ip>:3000/v1` |
-
-## App structure
-
-Routes live in `src/app` (Expo Router, typed routes enabled):
-
-| Route | Screen |
-| :--- | :--- |
-| `(drawer)/index` | Dashboard — spending, budget, comparison, recent, categories, rate |
-| `(drawer)/transactions` | Activity — full list, search, sort, category filter, infinite scroll |
-| `(drawer)/budgets` | Budgets — per-category and whole-account limits, month by month |
-| `(drawer)/reports` | Reports — one range control over a summary, a trend, the category split and the currencies paid in |
-| `categories` | Categories — create, rename, recolour, delete |
-| `(drawer)/settings` | Profile, base currency, sign out |
-| `expense/new` | Create (modal) |
-| `expense/[id]/index` | Detail, with edit and delete |
-| `expense/[id]/edit` | Edit |
-| `delete-account` | In-app account deletion (see below) |
-
-`(drawer)/reports` is a deliberate mobile adaptation of the web's report page: one
-range control drives everything, and the figures a hover tooltip would reveal are
-stated in a per-card chart/table toggle instead — a touch screen has no pointer.
-The `GET /expenses/comparison` response is the single source for both its tabs,
-so they can never disagree with each other or with the "vs previous" pills.
-
-`(drawer)/_layout.tsx` guards the whole shell: `loading` shows a spinner and
-`signed-out` redirects to `/sign-in`, so no screen ever mounts and fires an
-authenticated request before the session is restored.
-
-Navigation lives in a slide-out drawer rather than a bottom tab bar, so the
-phone gives the content the full height and the destinations stay one tap away
-from wherever the user is. The drawer is navigation only — the panel carries
-just the five destinations, and signing out stays in Settings — and the top bar
-(`src/components/app-top-bar.tsx`) carries the menu button and the wordmark.
-
-The drawer is Expo Router's own `Drawer` layout, which is the only supported
-import path for it: `import { Drawer } from 'expo-router/drawer'`. The
-underlying `react-native-drawer-layout` package reaches the app only as a
-dependency of `expo-router`, so it is never imported directly and needs no
-entry in `package.json`.
-
-Data access is TanStack Query. Hooks in `src/hooks` own every request
-(`use-expenses` — list and summary, `use-expense`, `use-expense-mutations`,
-`use-categories` + `use-category-mutations`, `use-currencies`, `use-user`,
-`use-budgets`, `use-pair`, `use-rates`, `use-dashboard`, `use-reports`);
-screens never call `fetch` directly. Query keys and the filter/sort vocabulary
-are in `src/lib/query-keys.ts`.
-
-The dashboard's month comparison has its own key namespace
-(`queryKeys.dashboard.comparison`) even though it takes the same parameters as
-the reports one: it pairs month-to-date with *the same days of last month*,
-while a report range pairs with the trailing window of equal length. Same
-parameters, different requests — sharing a cache entry would serve the wrong
-figures.
-
-A category write invalidates both the `categories` and the `expenses`
-namespaces, because a rename or a recolour changes the label and dot on every
-cached expense row — not just the category list.
-
-Shared UI lives in `src/components/ui`: `Card`/`StatCard`, `Button`, `Chip`,
-`TextField`, `Badge`, `ChangePill`, `ConversionNote`, `AppPageHeader`, and the
-`Spinner`/`ErrorNote`/`Skeleton`/`EmptyState` family. Screens compose those
-rather than hand-rolling styles, so a change to the design language is one edit,
-not twenty.
-
-Dashboard cards share one frame (`src/components/dashboard/card.tsx`, ported
-from the web's `ChartFrame`) so the six read as a single surface, and the
-cross-currency display (`src/components/amount.tsx`) is the same
-Base-plus-Second pairing the web uses.
-
-Charts are drawn directly with `react-native-svg` in `src/components/charts.tsx`
-rather than through a charting library. Recharts cannot run without a DOM, and
-adding a React Native chart library for two line shapes would mean another
-native dependency and another dev-client rebuild. Two deliberate differences
-from the web:
-
-- **No hover tooltip.** There is no pointer on a touch screen, so the figures a
-  tooltip would reveal are stated in the card body instead of hiding behind a
-  gesture nobody can perform.
-- **No `Table` toggle** on the dashboard comparison card. The web passes
-  `hideTableToggle` there too, so the two agree.
-
-Three things are deliberate and easy to "fix" by mistake:
-
-- `src/lib/routes.ts` casts a few hrefs. Typed routes derive their union from
-  *file paths*, so `expense/[id]/index.tsx` generates `/expense/[id]/index`
-  while the router serves `/expense/<id>`. The cast bridges that naming gap; the
-  URLs themselves are the canonical ones.
-- Icons and the brand mark are **Pluto's own**, drawn with `react-native-svg` in
-  `src/components/icons.tsx` and `src/components/logo.tsx`, ported glyph-for-glyph
-  from the web app. There is no icon font: every glyph takes an explicit `size`
-  and `color`, because React Native has neither `currentColor` nor CSS sizing.
-- Progress bars (`BudgetCard`, `TopCategoriesCard`) are **two flex children**
-  rather than a percentage width. React Native's `DimensionValue` will not
-  accept a computed percentage string, and the ratio is what matters anyway.
-
-## Design system
-
-`src/theme` is the single source of every colour, radius, spacing step and text
-style. Screens compose those tokens; they do not invent values.
-
-| Module | Holds |
-| :--- | :--- |
-| `src/theme/palette.ts` | `darkPalette` / `lightPalette` — the colour ramps |
-| `src/theme/typography.ts` | `fontFamily`, `fontSize`, `text` (named styles) |
-| `src/theme/tokens.ts` | `spacing`, `radius`, `controlHeight`, `borderWidth`, `layout` |
-
-**Both palettes mirror `apps/web/src/app/globals.css` exactly.** `darkPalette`
-matches the `:root` ramp and `lightPalette` matches `:root[data-theme="light"]`.
-`npm run check:theme` cross-checks all 39 mapped tokens in both themes between
-the two files and runs as part of `typecheck`, so editing one side without the
-other fails the build.
-
-Appearance is a user preference (`system` / `light` / `dark`), stored in
-`src/lib/theme-preference.ts` and resolved into the active palette by
-`src/hooks/use-color-scheme.ts`. The control lives on the Settings screen.
-
-Fonts are Inter (body) and Space Grotesk (display/headings), loaded via
-`expo-font` in `src/app/_layout.tsx`, which holds the splash screen until they
-register. Each weight is registered as its own family name because Android will
-not resolve a weight out of a bundled family.
-
-App icons and the splash mark are generated, not hand-drawn:
-
-```bash
-npm run assets:brand   # writes assets/images/*.png from the brand geometry
-```
-
-`scripts/generate-brand-assets.mjs` rasterises the same planet-and-orbit mark as
-the web's `lib/brand-mark.ts`, so the launcher icon, the splash and the in-app
-`PlutoMark` cannot drift apart.
-
-## Dashboard
-
-`src/app/(drawer)/index.tsx` answers six questions in order, and the order is the
-web's own phone order — it is what the web's 12-column grid collapses to below
-the `lg` breakpoint:
-
-| Card | Question |
-| :--- | :--- |
-| `dashboard/spending-card` | how much have I spent this month? |
-| `dashboard/budget-card` | am I on budget, and how much per day? |
-| `dashboard/comparison-card` | faster or slower than last month? |
-| `dashboard/recent-card` | what did I buy recently? |
-| `dashboard/top-categories-card` | where is the money going? |
-| `dashboard/rate-card` | what is today's rate, and what is X worth? |
-
-A brand-new account gets one friendly empty card instead of a grid of empty
-charts. Each card owns its own loading, error and retry state, so one failed
-request degrades one card rather than the page.
-
-The month comparison is **month-to-date against the same days of last month**,
-never a partial month against a whole one; that pairing lives in
-`monthToDate()` in `src/lib/ranges.ts`.
-
-## Offline store
-
-Native builds are offline-first: expenses (including one that starts a
-recurrence), budgets, categories, profile edits, recurring **rules** and
-recurring-occurrence decisions can all be **written with no connection**, and
-every report figure — including the CSV export — is computed on-device. The
-supported-currency list (seeded from the bundled registry before the first
-fetch) and the latest rate snapshot are also cached, so the
-currency pickers and the conversion previews keep working. The web build stays
-online-only.
-
-**Native.** `src/lib/store/local/` keeps a SQLite mirror (`pluto.db`) behind the
-same `ExpenseStore` / `CategoryStore` / `BudgetStore` / `ReportStore` seams the
-web build satisfies with direct requests (`src/lib/store/remote.ts`); the
-platform picks one in `src/lib/store/index.ts`, and screens never branch.
-
-- Every write — expense, budget, category — lands locally first and appends to a
-  **write-ahead queue** (`mutations`). An edit to a row that has never reached
-  the server rewrites its queued `create` instead of stacking a second op;
-  deleting such a row drops it. Recurring rules use their own queue
-  (`rule_actions`) for the same reason.
-- `src/lib/sync/sync-engine.ts` reconciles in the background: it replays the
-  offline decision queues (those below), pushes the write-ahead
-  queue to `POST /sync/push`, then pulls changes with
-  `GET /sync/pull?since=<cursor>`. Conflicts are last-write-wins on
-  `clientUpdatedAt`; expense deletes are soft tombstones and budget and
-  category deletes are hard, so the phone — the primary writer — always
-  converges. A superseded *expense* push clears the cursor to force a full
-  pull. Budgets and categories are not cursor-based (they're refreshed
-  wholesale after sync). Categories mirror rows with queued mutations are
-  protected from wholesale replacement.
-- The category seam supports queued writes offline: `use-category-mutations.ts`
-  routes through `categoryStore` so creates/renames/recolors/deletes take effect
-  locally (with reassignment of expenses/budgets when requested) and replay via
-  the sync queue, falling back to the API on web. The same invalidation rules
-  apply (both `categories` and `expenses` namespaces).
-- Reports and budgets are aggregated by the shared engine in `@pluto/domain`
-  (`src/lib/store/local/reports.ts`), so an offline total equals the server's
-  once synced. The engine converts at each row's own date, so the sync also
-  mirrors rate snapshots (`GET /rates/tables`) and the account's budgets. The
-  mirror starts at a 400-day warm window and **deepens on demand — uncapped**,
-  bottom-up in ≤18-month chunks, from the oldest live expense or earliest
-  budget start; `planRateRefresh` in
-  `src/lib/store/local/rate-mirror-policy.ts` decides when to fetch and from
-  where (and records how far back the provider has already been asked, so a
-  range older than the provider's history is not refetched forever). There is
-  no API fallback: a range the mirror still cannot convert runs on-device
-  anyway, and the engine's provenance labels (`estimate`/`unavailable`) mark
-  what it could not. The period **summary** computes
-  the same way through the `ReportStore.summary` seam, and the CSV **export**
-  is rebuilt on-device in `src/lib/store/local/csv.ts` — same columns, same
-  quoting, same per-line rate provenance as `GET /expenses/export.csv` — so
-  both work with no connection at all.
-- **Profile updates queue offline.** A `PATCH /users/me` that the server never
-  answered parks its payload in `pending_profile`
-  (`src/lib/store/local/profile-patch.ts`) — one row, latest choice wins — and
-  the session keeps the optimistic value, so a base-currency pick sticks (and
-  survives a restart) without a connection. The sync engine replays it before
-  anything else; a 4xx the server *did* answer voids it and rolls back. The
-  disk profile an offline boot restores is written by `setUser`, not just at
-  sign-in.
-- **Occurrence decisions queue offline.** The recurring screen reads the
-  `occurrences` mirror (`src/lib/store/local/occurrences.ts`): fetches write
-  through, and an offline fetch reads the mirror back once it has been seeded
-  by a real fetch — an unseeded device answers a request the server never saw
-  as a quiet empty list, while a status the server *did* answer with surfaces
-  as an error. Confirming or skipping parks the decision in
-  `recurring_actions` (`src/lib/store/local/recurring-actions.ts`) and flips
-  the mirrored row in the same transaction; a queued confirm also mints the
-  stand-in expense it implies, which is held back from `/sync/push` until its
-  replay posts it — with the stand-in's current (possibly edited) field values
-  as the confirm's overrides — and retires it in favour of the server's copy.
-  Deleting a queued confirm's expense before the replay withdraws the decision.
-- **Recurring rules queue offline.** The rules list is served from a mirror
-  (`src/lib/store/local/recurring-rules.ts`) the same way budgets are — a rule
-  created with no connection has no server id, so only the mirror can show it —
-  and a fetch the server never answered reads the mirror back once a stored
-  "seeded" marker exists (an empty rule list is legitimate, so a row count
-  cannot stand in for it; an unseeded device answers a request the server never
-  saw as a quiet empty list, and surfaces a status the server did answer with).
-  Creates, edits, pauses and deletes park in
-  `rule_actions` (one change per rule) and replay in `sync-engine.ts`:
-  `POST /expenses/recurring`, `PATCH /expenses/recurring/:id`, or `DELETE`. A
-  rule the server has not seen keeps its queued create (with edits merged in);
-  deleting one drops it outright; a pause queued before the first sync replays
-  as a follow-up patch, because the server always creates a rule `ACTIVE`. An
-  expense created with the form's "repeat" option writes the rule and a stand-in
-  charge locally and one action captures both, so its replay is the single
-  `POST /expenses` (with a recurrence) that going online would have made; the
-  stand-in is held back from `/sync/push` while that action is queued.
-- **Currency list and latest rates are cached.** `use-currencies`
-  caches the rate provider's list (`src/lib/store/local/currencies.ts`) so every
-  currency picker — the expense form, the budget and rule sheets, Settings —
-  works offline. The table is seeded from the shared ISO 4217 registry in
-  `@pluto/domain` when the database opens, so it answers even on a device that
-  has never reached the server; a fetched list then replaces the seed
-  wholesale (the sync engine warms it too). `use-rate-snapshot`'s
-  offline stand-in is the mirrored rate window the Reports
-  conversion already keeps, mapped to the snapshot shape for the requested
-  base (re-based on read when the mirror holds another base — a profile base
-  change keeps its conversion depth); the
-  endpoint is only reached when the cache cannot answer.
-
-**Web.** The browser has no local database (`expo-sqlite` needs COOP/COEP headers
-the static web target does not serve), so `src/lib/store/index.ts` routes reads
-and writes to the API. The last-known-read cache below still applies.
-
-The web target resolves `src/lib/store/local/database.web.ts` instead of
-`database.ts`, so the browser bundle never pulls `expo-sqlite` in at all: its web
-build is SQLite compiled to WebAssembly and needs a 600 KB `.wasm` binary plus a
-separate web-worker chunk, which Metro cannot resolve without extra resolver
-configuration — enough to fail the whole web build for a database the web target
-never opens. The two files must keep the same exported signature
-(`getDatabase`, `clearLocalDatabase`), and every `expo-sqlite` import outside
-`database.ts` must stay a type-only import (`import type`), or the WASM binary
-is back in the web graph.
-
-**Last-known-read cache (both platforms).** The app keeps the last successful
-read on disk so a launch without a connection paints known figures instead of an
-error.
-
-- `src/lib/query-persistence.ts` dehydrates the query cache and writes it through
-  `src/lib/query-cache-storage.ts` — the document directory on device
-  (`expo-file-system`), `localStorage` on web — debounced behind cache changes.
-- Only **successful queries** are stored. Mutations, pending queries and errors
-  never are, so nothing on disk can be replayed at the server.
-- Restored queries keep their original `dataUpdatedAt`, so they arrive already
-  stale and refetch in the background as screens mount. Offline that refetch
-  fails quietly: a card shows its error state only when it has nothing to show,
-  so last-known figures outrank a retry prompt.
-- A snapshot older than 7 days, or one that cannot be parsed, is discarded at
-  startup rather than trusted.
-- It is restored **only while a refresh token is held**, and the file is deleted
-  when the cache empties — which is what `clearSession()` does on sign-out and on
-  account deletion — so a signed-out device never boots from another account's
-  figures.
-
-## Monorepo notes
-
-`metro.config.js` is **required** and must not be removed:
-
-- `watchFolders` includes the repo root so `packages/*` hot-reload.
-- `nodeModulesPaths` lists the app's `node_modules` before the hoisted root
-  one, because npm nests a second copy of `react`/`react-dom` here (the web app
-  pins a different React).
-- `resolver.disableHierarchicalLookup = true` prevents a second React copy
-  being pulled in from the root — two React copies in one bundle breaks hooks.
-- `wasm` is deliberately **not** in `resolver.assetExts`. Adding it is Expo's
-  documented way to make `expo-sqlite` work on the web, but the web target has
-  no local database (see the "Web." note above), so the WASM binary would only
-  bloat the bundle. The web build fails with `Unable to resolve module
-  ./wa-sqlite/wa-sqlite.wasm` if `expo-sqlite` ever re-enters the web graph —
-  fix that by keeping the import out (`database.web.ts`), not by teaching Metro
-  about `.wasm`.
-
-Restart Metro (`npx expo start --clear`) after installing a package. Metro's
-file map is built at startup, so a package added while it is running resolves as
-missing — the symptom is an `UnableToResolveError` for an asset that is plainly
-on disk.
-
-`@types/react` is pinned via an `overrides` entry in the **root** `package.json`
-so TypeScript sees a single React type identity across web and mobile.
-
-## Shared code
-
-- `@pluto/api-client` — OpenAPI-generated DTO types plus a typed fetch client
-  that unwraps the server's `{ success, data, timestamp }` envelope and handles
-  `401 → refresh → replay`. Regenerate with `npm run generate --workspace
-  @pluto/api-client` after the server's API changes (see that package for how
-  the spec is produced).
-
-## Auth
-
-- Access token: memory only (`src/lib/session.ts`).
-- Refresh token: `expo-secure-store` on device, `localStorage` on web
-  (`src/lib/session-storage.ts`).
-- Profile: stored alongside the refresh token, so a launch that restores the
-  session **offline** still knows the account's base currency.
-
-A launch whose refresh token cannot reach the server restores to a usable
-signed-in session from that profile — the local store and read cache paint the
-app, and the first authenticated call retries the rotation. Only a token the
-server *refuses* is credential loss: that clears the session (tokens, query
-cache, persisted snapshot, and the native SQLite mirror).
-
-Two ways in:
-
-| | Offered | Endpoint |
-| :--- | :--- | :--- |
-| **Google Sign-In** | every build | `POST /v1/auth/google` |
-| Development login | `__DEV__` builds only | `POST /v1/auth/dev-login`, needs `ENABLE_DEV_AUTH=true` |
-
-Google runs through `src/lib/google-sign-in.ts`: the native SDK yields an ID
-token, which is posted to the same endpoint the web client uses. The SDK is
-imported **lazily**, so a session with no native module (Expo Go) still renders
-the screen and reports why sign-in cannot start, instead of dying at launch.
-
-Two client IDs are involved and are easy to mix up:
-
-- `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` — the *web* client, the audience Google
-  stamps on the ID token. It must be a **Web application** client: the native SDK
-  hands this value to `requestIdToken`, so a native (Android/iOS) client ID here
-  makes Google reject the sign-in intent as an invalid audience, which surfaces as
-  the same `DEVELOPER_ERROR` (status `10`) as an unregistered Android client — see
-  below. **`apps/server` must list the same ID in `GOOGLE_ALLOWED_CLIENT_IDS`**, or
-  `/auth/google` rejects every token. This is the usual cause of a 401 after a
-  successful-looking sign-in.
-- `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` — the iOS client. Its reversed form
-  (`com.googleusercontent.apps.<id>`) is registered as a URL scheme by the
-  Google config plugin in `app.config.ts`, which is added *only* when this is
-  set — the plugin refuses to run with neither that option nor Firebase files.
-
-The Android client is a third, separate credential, keyed on the package name
-(`com.pluto.app`) plus the **SHA-1** of the certificate that signed the installed
-APK. The native SDK resolves it from the running app rather than being handed it,
-so it is not an ID-token audience and does **not** belong in
-`GOOGLE_ALLOWED_CLIENT_IDS` — only client IDs that can appear as the token's
-`aud` (the web client, and the iOS client when iOS ships) go there.
-
-`DEVELOPER_ERROR` (status `10`) has **two** causes, and the picker fails before
-either is obvious:
-
-1. no Android client matches the package name plus the installed APK's SHA-1;
-2. `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is not a *Web application* client.
-
-Both put a bad value in the same sign-in intent, so the status code alone cannot
-tell them apart. Which client types a Console credential is can be checked on the
-**Credentials** page — the type is printed under each client ID — and from the
-command line without Console access, since a Web client requires a
-`client_secret` while a native one does not:
-
-```bash
-# Web clients are confidential and demand a secret; native clients are not.
-curl -s https://oauth2.googleapis.com/token \
-  -d grant_type=authorization_code -d code=x \
-  -d redirect_uri=http://localhost -d client_id="$CLIENT_ID"
-#   "client_secret is missing"  -> Web client  (correct for this variable)
-#   "Malformed auth code"       -> Android/iOS (belongs on the Android client)
-```
-
-The web target resolves `src/lib/google-sign-in.web.ts` instead, which points at
-the web app — so the mobile bundle never pulls a native module in.
-
-> The button reuses Pluto's `Button` rather than Google's branded control. If the
-> client is ever submitted for OAuth verification that restricts displayed
-> branding, swap in `GoogleSigninButton`.
-
-## Account deletion
-
-Google Play requires an app that offers account creation to offer account
-*deletion* without leaving the app. `src/app/delete-account.tsx` is that surface,
-linked from the **Danger zone** card on Settings; the website answers the same
-requirement with `apps/web/src/app/(public)/delete-account/page.tsx`, and the
-mobile flow mirrors it step for step:
-
-1. **What will be erased** — the profile, every cloud backup, and all sessions.
-2. **Download a copy (optional)** — the completed backups are listed and each is
-   opened through its presigned URL (`openBrowserAsync`).
-3. **Type `DELETE`** — the destructive button stays disabled until the phrase
-   matches. A tap alone is too little consent for the one irreversible action in
-   the app.
-4. `DELETE /v1/users/me` — the server cascades the profile, backups and refresh
-   sessions (deleting the S3 objects first), so a failure leaves the account
-   intact and retryable.
-
-`deleteAccount()` in `src/lib/api.ts` clears the local session **only once the
-server confirms**. Unlike `signOut()` it skips the web client's best-effort
-`/auth/logout` call first: there is no session row left to revoke. The done state
-returns to `/sign-in`.
-
-## Crash reporting
-
-Sentry, behind `EXPO_PUBLIC_SENTRY_DSN`. `src/lib/crash-reporting.ts` wraps the
-SDK so that **every export is a no-op when the DSN is unset**: local development,
-Expo Go and CI run identically with no Sentry project, and a release opts in by
-setting the variable on its EAS profile. The native config plugin in
-`app.config.ts` is registered under the same condition, so a repo that never sets
-a DSN never sees a missing-organization warning from `expo config`.
-
-- `initCrashReporting()` runs at module scope in `src/app/_layout.tsx` — before
-  the first render, and idempotent — so a crash in the layout itself is caught.
-- `Sentry.ErrorBoundary` wraps the providers rather than sitting inside them, so a
-  crash in a provider is reported; its fallback paints from module-level theme
-  values because it cannot use hooks.
-- `setCrashReportingUser()` attaches **only the user id**, never the email or
-  name: an opaque id is enough to say "one account or many?" without shipping PII
-  to a third party.
-- `captureException()` is for errors the app *recovers* from (a failed export, a
-  dropped request); render errors reach Sentry through the boundary.
-
-## Testing
-
-Vitest — the runner the other workspaces use; the app's config is
-`vitest.config.ts`. From this directory (or via Turbo):
-
-```bash
-npm run test          # vitest run
-npm run test:watch    # vitest
-```
-
-The suite is deliberately node-only (`environment: 'node'`): no component
-renderer and no native modules, because the logic worth pinning does not need a
-device. What each file holds still:
-
-| File | What it pins down |
-| :--- | :--- |
-| `ranges.test.ts` | the window math — month-to-date against *the same days of last month*, equal-length trailing windows, granularity thresholds |
-| `format.test.ts` | `parseAmount` / `isValidIsoDate` / `formatBytes` — the contract with the DTOs and the backup list |
-| `convert.test.ts` | `rateBetween` / `recordedAmounts` / `summaryAmounts` — the display-only conversion, and its null paths |
-| `report-utils.test.ts` | report bucket bounds (incl. leap February), Monday-first weekday rows, effective rates |
-| `date.test.ts`, `date-grouping.test.ts` | Today/Yesterday labelling and Activity list bucketing |
-| `recurrence.test.ts`, `errors.test.ts` | cadence wording and error-message extraction |
-| `session.test.ts` | a sign-out drops the token *and* the query cache |
-| `query-persistence.test.ts` | which reads reach the disk cache, that an emptied cache deletes the file, and that stale or unreadable snapshots are dropped |
-| `api.test.ts` | `401 → refresh → replay`, refused vs unreachable rotation, and that `deleteAccount` clears the session only once the server confirms |
-| `export.test.ts` | the CSV share boundary — the availability check, the request shape, and the file handed to `expo-sharing` |
-| `crash-reporting.test.ts` | every reporting call is a no-op without `EXPO_PUBLIC_SENTRY_DSN` |
-| `app.config.test.ts` | the production guard — https API URL, a real host, a Google client ID — and that the Sentry config plugin registers only with a DSN |
-
-`@pluto/api-client` is aliased straight to its TypeScript source and the
-secure-store boundary is mocked, so the suite needs no device, network or native
-build.
-
-There is also a device layer, because none of the above can catch a screen that
-renders nothing: `.maestro/smoke.yaml` signs in and walks all five destinations,
-and `.maestro/delete-account.yaml` proves the destructive action is gated behind the
-typed confirmation. It is run by name (`npm run e2e --workspace pluto-mobile`),
-not through the root `test:e2e` task, which stays a device-free command — see
-`.maestro/README.md` for the prerequisites.
-
-## Building and releasing
-
-There are two paths: the **Android development client** is built by GitHub
-Actions and needs no local toolchain and no Expo account; **release builds** go
-through EAS.
-
-### Android dev client (GitHub Actions)
-
-`.github/workflows/android-dev-client.yml` runs `expo prebuild` and
-`gradlew assembleDebug` on a GitHub runner and uploads the APK as the
-`pluto-android-dev-client` artifact. Trigger it from **Actions → Android dev
-client → Run workflow**, or push to `main` with a change under `apps/mobile/**`.
-Nothing is installed on your machine; download the artifact and `adb install` it.
-
-A development client loads its JavaScript from Metro, so `EXPO_PUBLIC_*` values
-still come from `.env` on the machine running `expo start` — restart Metro after
-changing them. (Only release builds bake the bundle in.) The APK's *signing*,
-however, is fixed at build time, which is why the key below matters.
-
-#### The signing key, and why the SHA-1 matters
-
-Google rejects Android sign-in unless the Cloud Console **Android** OAuth client
-lists the app's package name (`com.pluto.app`) *and* the SHA-1 of the certificate
-that signed the installed APK. Runner filesystems are discarded after each job,
-so unless a key is pinned, every run signs with a throwaway one and both the
-SHA-1 and the registration go stale.
-
-Set the **`ANDROID_DEBUG_KEYSTORE_B64`** repository secret to the base64 of a
-`debug.keystore` (alias `androiddebugkey`, storepass/keypass `android`); the
-`keytool` command that generates it is in the workflow's header comment. Without
-it the workflow warns that the reported SHA-1 will not survive the next run.
-
-The **Verify and report the signing fingerprint** step prints `PLUTO_ANDROID_PACKAGE=` and
-`PLUTO_ANDROID_SHA1=` and writes both to the run's *Summary*. Register that pair
-on the Android client, or the native SDK fails with `DEVELOPER_ERROR` (status
-code `10`) — which looks like a broken app but is really an unregistered build.
-
-To read the same pair off *any* APK — a local build, an EAS build, or one pulled
-from a device — without an Android SDK:
-
-```bash
-npm run apk:fingerprint --workspace pluto-mobile -- ../../internal/app-debug.apk
-```
-
-It prints the package name and the SHA-1/SHA-256 of every signing certificate in
-the APK, in the form Console wants. It reads the v2/v3 signing block directly,
-because a modern APK no longer carries the v1 JAR signature that
-`keytool -printcert -jarfile` looks for, and the library's own `config-doctor`
-needs a paid licence. The app also names this command itself: a
-`DEVELOPER_ERROR` is rewritten on the sign-in screen into the two values to
-compare.
-
-CI runs this same reader (`--sha1`) against the built APK and fails the job if
-the artifact's certificate cannot be read or does not match the pinned key — so
-a green run reporting `PLUTO_ANDROID_SHA1_SOURCE=apk` means the artifact really
-is signed with that key, not merely that a keystore file was present.
-
-This is a *debug* key: right for dev clients, never for a release build. A
-release build needs its own key (see below); if you enable Play App Signing, the
-fingerprint that matters is Google's app-signing one, which only exists after the
-first upload.
-
-### Release builds (EAS)
-
-Release builds go through EAS (`eas.json`); there is no local signing setup.
-`docs/RELEASE.md` is the full checklist — a production build is refused until
-the API URL and Google client ID exist on the `production` EAS environment.
-Install the CLI once and sign in with the Expo account that owns the project:
-
-```bash
-npm install -g eas-cli      # or call `npx eas-cli@latest` directly
-eas login
-eas init                    # once: links the app to the EAS project
-```
-
-Then, from this directory:
-
-| Command | Profile | Output |
-| :--- | :--- | :--- |
-| `npm run eas:build:dev` | `development` | Dev client, for native modules |
-| `npm run eas:build:preview` | `preview` | Installable APK / ad-hoc iOS build |
-| `npm run eas:build:prod` | `production` | Store-ready AAB / IPA |
-| `npm run eas:submit:prod` | `production` | Upload to Google Play / App Store |
-
-### Build-time environment variables
-
-`EXPO_PUBLIC_API_URL` is inlined at bundle time and defaults to
-`http://localhost:3000/v1`, which is correct only for local development.
-`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is inlined the same way, and is the audience
-the server's token check matches against.
-
-Set both as **EAS environment variables** scoped to each non-development profile
-(`eas env:create`), pointing at the deployed API over HTTPS.
-
-`EXPO_PUBLIC_SENTRY_DSN` turns on crash reporting (see above) and is inlined the
-same way. When it is set, EAS also needs `SENTRY_ORG`, `SENTRY_PROJECT` and
-`SENTRY_AUTH_TOKEN` so the config plugin can upload sourcemaps; those are read
-from the build environment and are never written into the app config.
-
-`app.config.ts` refuses a `production` build whose `EXPO_PUBLIC_API_URL` is
-missing, plain `http`, or a development host — or whose
-`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is unset, which would ship a release with no
-way to sign in — so a misconfigured build fails at build time rather than on a
-user's phone.
-
-### Versioning
-
-`cli.appVersionSource` is `remote`, so EAS owns the iOS build number and the
-Android version code and the `production` profile increments them automatically.
-The user-facing `version` in `app.config.ts` is still edited by hand.
-
-`expo-dev-client` is installed, so the `development` profile is usable as-is.
-`npx expo start --go` is the fallback for keeping to Expo Go (JS-only, no
-native Google sign-in) while you work.
+| `PLUTO_RELEASE_STORE_FILE` | `pluto.release.storeFile` |
+| `PLUTO_RELEASE_STORE_PASSWORD` | `pluto.release.storePassword` |
+| `PLUTO_RELEASE_KEY_ALIAS` | `pluto.release.keyAlias` |
+| `PLUTO_RELEASE_KEY_PASSWORD` | `pluto.release.keyPassword` |
+
+`assembleRelease` fails with an explicit message when these are missing. Debug
+builds use Android's own default debug key; the old project's custom
+`debugConfig` pointed at a `debug.keystore` that was never checked in.
+
+`versionCode` and `versionName` live in `app/build.gradle.kts`; raise both for
+each store release.
+
+CI secrets used by `android.yml`:
+
+- `GOOGLE_SERVICES_JSON` — the Firebase config described above
+- `PLUTO_RELEASE_KEYSTORE_B64`, `PLUTO_RELEASE_STORE_PASSWORD`,
+  `PLUTO_RELEASE_KEY_ALIAS`, `PLUTO_RELEASE_KEY_PASSWORD` — release signing
+- `GOOGLE_SERVICE_ACCOUNT_KEY` — only for the optional Play upload (Release
+  manager service-account key)
+
+## Architecture
+
+- `ui/` — Compose screens (home, expenses, wallets, converter, budgets,
+  insights, settings, onboarding, auth) and the shared theme tokens.
+- `domain/` — models (`BigDecimal`-backed `Money`), repository interfaces and
+  use cases.
+- `data/local/` — Room database `global_expense.db` (schema v6) plus
+  SharedPreferences settings/session state. The app is usable offline.
+- `data/remote/exchange/` — Retrofit client for `https://open.er-api.com/`,
+  with an LRU → Room → network cache in `OfflineFirstExchangeRateRepository`.
+- `data/remote/cloud/` — optional Google Sign-In and Firestore sync decorators;
+  signed-out users stay in "Local Vault" mode and merge when they sign in.
+- `data/worker/` — WorkManager prefetch of exchange rates.
+- Manual dependency wiring lives in `MainActivity.kt`; there is no DI framework.
+
+## Deferred integration with `apps/server`
+
+This app currently uses **Firebase Auth + Firestore** for sign-in and data. It
+does not call the Pluto NestJS API. That is deliberate for this swap: a Pluto
+JWT cannot authorize Firestore rules, so changing auth alone would break sync.
+
+The next step is a data-layer port with these constraints:
+
+- Sign-in must either keep Firebase Auth in parallel or exchange the Google ID
+  token with both Firebase and `POST /v1/auth/google`.
+- The server stores expenses, categories, budgets and recurring rules, but has
+  no wallets, wallet ledger, dual-currency expense fields, persona/term
+  settings, or Firestore-style realtime listeners.
+- `/v1/sync` and `/v1/backups` are PAID-gated. FREE users' offline writes need
+  to replay through the ordinary REST endpoints; PAID users can use
+  `/sync/push` (batches ≤ 500, client-generated UUIDs, `clientUpdatedAt` wins)
+  and paged `/sync/pull` (expenses only, with a separate cursor).
+- Restore, realtime merge and the unsupported native features need explicit
+  decisions before the Firebase code is removed.

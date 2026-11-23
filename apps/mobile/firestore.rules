@@ -1,0 +1,274 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidCurrencyCode(code) {
+      return code is string && code.size() >= 2 && code.size() <= 10;
+    }
+
+    function isValidAmountString(val) {
+      return val is string && val.size() >= 1 && val.size() <= 40;
+    }
+
+    function isValidSettings(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+        isValidCurrencyCode(data.homeCurrencyCode) &&
+        isValidCurrencyCode(data.destinationCurrencyCode) &&
+        data.persona is string && data.persona in ['INTERNATIONAL_STUDENT', 'EXPAT', 'TOURIST'] &&
+        data.budgetCycleType is string && data.budgetCycleType in ['ACADEMIC_TERM', 'MONTHLY', 'TRIP'] &&
+        data.termName is string && data.termName.size() <= 100 &&
+        data.termStartDate is int &&
+        data.termEndDate is int &&
+        data.totalAllowanceHome is number && data.totalAllowanceHome >= 0 &&
+        data.tuitionAndFixedCommittedHome is number && data.tuitionAndFixedCommittedHome >= 0 &&
+        data.tripName is string && data.tripName.size() <= 100 &&
+        data.tripStartDate is int &&
+        data.tripEndDate is int &&
+        data.totalTripBudgetHome is number && data.totalTripBudgetHome >= 0 &&
+        data.firstDayOfWeek is int && data.firstDayOfWeek >= 1 && data.firstDayOfWeek <= 7 &&
+        data.defaultCategoryId is string && data.defaultCategoryId.size() >= 1 && data.defaultCategoryId.size() <= 64 &&
+        (!('dailySpendingCap' in data) || data.dailySpendingCap == null || (data.dailySpendingCap is number && data.dailySpendingCap >= 0)) &&
+        (!('monthlySpendingCap' in data) || data.monthlySpendingCap == null || (data.monthlySpendingCap is number && data.monthlySpendingCap >= 0)) &&
+        (!('safeToSpendWarningThreshold' in data) || data.safeToSpendWarningThreshold == null || (data.safeToSpendWarningThreshold is number && data.safeToSpendWarningThreshold >= 0)) &&
+        data.warningNotificationsEnabled is bool &&
+        (!('categoryMonthlyBudgets' in data) || data.categoryMonthlyBudgets == null || (data.categoryMonthlyBudgets is map && data.categoryMonthlyBudgets.size() <= 30)) &&
+        data.themeMode is string && data.themeMode in ['SYSTEM', 'LIGHT', 'DARK'] &&
+        data.isOnboardingCompleted is bool &&
+        data.isBiometricLockEnabled is bool &&
+        data.autoLockTimeoutMinutes is int && data.autoLockTimeoutMinutes >= 0 && data.autoLockTimeoutMinutes <= 1440 &&
+        data.isPrivacyModeEnabled is bool &&
+        (!('homeTimeZoneId' in data) || data.homeTimeZoneId == null || (data.homeTimeZoneId is string && data.homeTimeZoneId.size() >= 1 && data.homeTimeZoneId.size() <= 64)) &&
+        (!('homeModules' in data) || data.homeModules == null || (data.homeModules is list && data.homeModules.size() <= 16)) &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidExpense(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+        isValidAmountString(data.originalAmount) &&
+        isValidCurrencyCode(data.originalCurrencyCode) &&
+        isValidAmountString(data.homeAmount) &&
+        isValidCurrencyCode(data.homeCurrencyCode) &&
+        isValidAmountString(data.exchangeRate) &&
+        data.exchangeRateTimestamp is int &&
+        data.exchangeRateSource is string && data.exchangeRateSource.size() >= 1 && data.exchangeRateSource.size() <= 40 &&
+        data.categoryId is string && data.categoryId.size() >= 1 && data.categoryId.size() <= 64 &&
+        data.timestamp is int &&
+        data.merchant is string && data.merchant.size() <= 160 &&
+        data.note is string && data.note.size() <= 500 &&
+        (!('location' in data) || data.location == null || (data.location is string && data.location.size() <= 160)) &&
+        (!('tripId' in data) || data.tripId == null || (data.tripId is string && data.tripId.size() <= 128)) &&
+        (!('receiptUri' in data) || data.receiptUri == null || (data.receiptUri is string && data.receiptUri.size() <= 500)) &&
+        data.isRecurring is bool &&
+        (!('recurrenceFrequency' in data) || data.recurrenceFrequency == null || (data.recurrenceFrequency is string && data.recurrenceFrequency.size() <= 40)) &&
+        (!('lastRecurrenceLoggedMillis' in data) || data.lastRecurrenceLoggedMillis == null || data.lastRecurrenceLoggedMillis is int) &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidWallet(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+        isValidCurrencyCode(data.currencyCode) &&
+        isValidAmountString(data.balance) &&
+        isValidAmountString(data.initialBalance) &&
+        data.localCreatedAt is int &&
+        data.localUpdatedAt is int &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidWalletTransaction(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+        isValidId(data.walletId) &&
+        data.type is string && data.type in ['DEPOSIT', 'WITHDRAWAL', 'TRANSFER_OUT', 'TRANSFER_IN'] &&
+        isValidAmountString(data.amount) &&
+        isValidCurrencyCode(data.currencyCode) &&
+        data.timestamp is int &&
+        data.note is string && data.note.size() <= 500 &&
+        (!('targetWalletId' in data) || data.targetWalletId == null || isValidId(data.targetWalletId)) &&
+        (!('targetAmount' in data) || data.targetAmount == null || isValidAmountString(data.targetAmount)) &&
+        (!('targetCurrencyCode' in data) || data.targetCurrencyCode == null || isValidCurrencyCode(data.targetCurrencyCode)) &&
+        (!('exchangeRate' in data) || data.exchangeRate == null || isValidAmountString(data.exchangeRate)) &&
+        (!('exchangeRateSource' in data) || data.exchangeRateSource == null || (data.exchangeRateSource is string && data.exchangeRateSource.size() <= 40)) &&
+        data.localCreatedAt is int &&
+        data.createdAt is timestamp && data.createdAt <= request.time &&
+        data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /users/{userId} {
+      allow read, write: if false;
+
+      match /profile/{docId} {
+        allow get: if isOwner(userId) && isValidId(docId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          isValidId(docId) &&
+          docId == 'settings' &&
+          incoming().keys().hasAll([
+            'userId', 'homeCurrencyCode', 'destinationCurrencyCode', 'persona',
+            'budgetCycleType', 'termName', 'termStartDate', 'termEndDate',
+            'totalAllowanceHome', 'tuitionAndFixedCommittedHome', 'tripName',
+            'tripStartDate', 'tripEndDate', 'totalTripBudgetHome', 'firstDayOfWeek',
+            'defaultCategoryId', 'warningNotificationsEnabled', 'themeMode',
+            'isOnboardingCompleted', 'isBiometricLockEnabled', 'autoLockTimeoutMinutes',
+            'isPrivacyModeEnabled', 'createdAt', 'updatedAt'
+          ]) &&
+          incoming().keys().hasOnly([
+            'userId', 'homeCurrencyCode', 'destinationCurrencyCode', 'persona',
+            'budgetCycleType', 'termName', 'termStartDate', 'termEndDate',
+            'totalAllowanceHome', 'tuitionAndFixedCommittedHome', 'tripName',
+            'tripStartDate', 'tripEndDate', 'totalTripBudgetHome', 'firstDayOfWeek',
+            'defaultCategoryId', 'dailySpendingCap', 'monthlySpendingCap',
+            'safeToSpendWarningThreshold', 'warningNotificationsEnabled',
+            'categoryMonthlyBudgets', 'themeMode', 'isOnboardingCompleted',
+            'isBiometricLockEnabled', 'autoLockTimeoutMinutes', 'isPrivacyModeEnabled',
+            'homeTimeZoneId', 'homeModules', 'createdAt', 'updatedAt'
+          ]) &&
+          isValidSettings(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(docId) &&
+          docId == 'settings' &&
+          isValidSettings(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'homeCurrencyCode', 'destinationCurrencyCode', 'persona',
+            'budgetCycleType', 'termName', 'termStartDate', 'termEndDate',
+            'totalAllowanceHome', 'tuitionAndFixedCommittedHome', 'tripName',
+            'tripStartDate', 'tripEndDate', 'totalTripBudgetHome', 'firstDayOfWeek',
+            'defaultCategoryId', 'dailySpendingCap', 'monthlySpendingCap',
+            'safeToSpendWarningThreshold', 'warningNotificationsEnabled',
+            'categoryMonthlyBudgets', 'themeMode', 'isOnboardingCompleted',
+            'isBiometricLockEnabled', 'autoLockTimeoutMinutes', 'isPrivacyModeEnabled',
+            'homeTimeZoneId', 'homeModules', 'updatedAt'
+          ]);
+
+        allow delete: if isOwner(userId) && isValidId(docId);
+      }
+
+      match /expenses/{expenseId} {
+        allow get: if isOwner(userId) && isValidId(expenseId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          isValidId(expenseId) &&
+          incoming().keys().hasAll([
+            'userId', 'originalAmount', 'originalCurrencyCode', 'homeAmount',
+            'homeCurrencyCode', 'exchangeRate', 'exchangeRateTimestamp',
+            'exchangeRateSource', 'categoryId', 'timestamp', 'merchant',
+            'note', 'isRecurring', 'createdAt', 'updatedAt'
+          ]) &&
+          incoming().keys().hasOnly([
+            'userId', 'originalAmount', 'originalCurrencyCode', 'homeAmount',
+            'homeCurrencyCode', 'exchangeRate', 'exchangeRateTimestamp',
+            'exchangeRateSource', 'categoryId', 'timestamp', 'merchant',
+            'note', 'location', 'tripId', 'receiptUri', 'isRecurring',
+            'recurrenceFrequency', 'lastRecurrenceLoggedMillis',
+            'createdAt', 'updatedAt'
+          ]) &&
+          isValidExpense(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(expenseId) &&
+          isValidExpense(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'originalAmount', 'originalCurrencyCode', 'homeAmount',
+            'homeCurrencyCode', 'exchangeRate', 'exchangeRateTimestamp',
+            'exchangeRateSource', 'categoryId', 'timestamp', 'merchant',
+            'note', 'location', 'tripId', 'receiptUri', 'isRecurring',
+            'recurrenceFrequency', 'lastRecurrenceLoggedMillis',
+            'updatedAt'
+          ]);
+
+        allow delete: if isOwner(userId) && isValidId(expenseId);
+      }
+
+      match /wallets/{walletId} {
+        allow get: if isOwner(userId) && isValidId(walletId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          isValidId(walletId) &&
+          incoming().keys().hasAll([
+            'userId', 'currencyCode', 'balance', 'initialBalance',
+            'localCreatedAt', 'localUpdatedAt', 'createdAt', 'updatedAt'
+          ]) &&
+          incoming().keys().hasOnly([
+            'userId', 'currencyCode', 'balance', 'initialBalance',
+            'localCreatedAt', 'localUpdatedAt', 'createdAt', 'updatedAt'
+          ]) &&
+          isValidWallet(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(walletId) &&
+          isValidWallet(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'currencyCode', 'balance', 'initialBalance',
+            'localCreatedAt', 'localUpdatedAt', 'updatedAt'
+          ]);
+
+        allow delete: if isOwner(userId) && isValidId(walletId);
+      }
+
+      match /wallet_transactions/{txId} {
+        allow get: if isOwner(userId) && isValidId(txId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          isValidId(txId) &&
+          incoming().keys().hasAll([
+            'userId', 'walletId', 'type', 'amount', 'currencyCode',
+            'timestamp', 'note', 'localCreatedAt', 'createdAt', 'updatedAt'
+          ]) &&
+          incoming().keys().hasOnly([
+            'userId', 'walletId', 'type', 'amount', 'currencyCode',
+            'timestamp', 'note', 'targetWalletId', 'targetAmount',
+            'targetCurrencyCode', 'exchangeRate', 'exchangeRateSource',
+            'localCreatedAt', 'createdAt', 'updatedAt'
+          ]) &&
+          isValidWalletTransaction(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(txId) &&
+          isValidWalletTransaction(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'walletId', 'type', 'amount', 'currencyCode',
+            'timestamp', 'note', 'targetWalletId', 'targetAmount',
+            'targetCurrencyCode', 'exchangeRate', 'exchangeRateSource',
+            'localCreatedAt', 'updatedAt'
+          ]);
+
+        allow delete: if isOwner(userId) && isValidId(txId);
+      }
+    }
+  }
+}

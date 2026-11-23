@@ -1,0 +1,514 @@
+package com.pluto.app.ui.components
+
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.PieChart
+import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.pluto.app.domain.model.CategorySpendingSummary
+import com.pluto.app.domain.model.Currency
+import com.pluto.app.domain.model.Money
+import com.pluto.app.ui.theme.PlutoMotion
+import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.plutoHeading
+import com.pluto.app.ui.theme.rememberPrefersReducedMotion
+import java.math.BigDecimal
+
+private fun parseCategoryColor(hex: String): Color {
+  return try {
+    Color(android.graphics.Color.parseColor(hex))
+  } catch (_: Exception) {
+    Color(0xFF15805A)
+  }
+}
+
+/**
+ * Modern Compose-based Data Visualization for Category Spending Breakdown & High-Cost Area Identification.
+ * Features:
+ * 1. Interactive multi-segment Canvas Donut Chart with center summary inspection.
+ * 2. High-Cost Area Detection Banner flagging disproportionate category expenses (>20%).
+ * 3. Comparative ranked horizontal bars for easy visual scanning of outflow distribution.
+ */
+@Composable
+fun CategoryBreakdownChart(
+  categorySummaries: List<CategorySpendingSummary>,
+  homeCurrency: Currency,
+  totalHomeSpending: Money,
+  modifier: Modifier = Modifier
+) {
+  var selectedCategory by remember { mutableStateOf<CategorySpendingSummary?>(null) }
+
+  // High-cost identification: sort descending by home spending amount
+  val sortedSummaries = remember(categorySummaries) {
+    categorySummaries.sortedByDescending { it.totalHomeAmount.amount }
+  }
+
+  val highestCostCategory = sortedSummaries.firstOrNull()
+  val isHighConcentration = highestCostCategory != null &&
+    highestCostCategory.percentageOfTotal >= BigDecimal("20.0") &&
+    totalHomeSpending.amount > BigDecimal.ZERO
+
+  Card(
+    modifier = modifier
+      .fillMaxWidth()
+      .testTag("category_breakdown_chart_card"),
+    shape = PlutoShapes.extraLarge,
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+  ) {
+    Column(
+      modifier = Modifier
+        .padding(18.dp)
+        .animateContentSize()
+    ) {
+      // Header
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.size(34.dp)
+          ) {
+            Box(contentAlignment = Alignment.Center) {
+              Icon(
+                imageVector = Icons.Rounded.PieChart,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+              )
+            }
+          }
+          Spacer(modifier = Modifier.width(10.dp))
+          Column {
+            Text(
+              text = "Category Breakdown",
+              style = MaterialTheme.typography.titleMedium,
+              fontWeight = FontWeight.Bold,
+              modifier = Modifier.plutoHeading()
+            )
+            Text(
+              text = "Visual spending distribution",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+        }
+
+        if (sortedSummaries.isNotEmpty()) {
+          Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant
+          ) {
+            Text(
+              text = "${sortedSummaries.size} Categories",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+          }
+        }
+      }
+
+      Spacer(modifier = Modifier.height(18.dp))
+
+      if (sortedSummaries.isEmpty() || totalHomeSpending.amount <= BigDecimal.ZERO) {
+        Box(
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(140.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(14.dp)),
+          contentAlignment = Alignment.Center
+        ) {
+          Text(
+            text = "No expenses recorded in this period",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+        }
+      } else {
+        // 1. Interactive Donut Chart with Center Data Callout
+        Box(
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(210.dp),
+          contentAlignment = Alignment.Center
+        ) {
+          DonutChartCanvas(
+            categorySummaries = sortedSummaries,
+            selectedCategory = selectedCategory,
+            onCategoryTapped = { tapped ->
+              selectedCategory = if (selectedCategory?.category?.id == tapped.category.id) null else tapped
+            },
+            modifier = Modifier.size(200.dp)
+          )
+
+          // Center Hole Info Display
+          Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+              .clickable { selectedCategory = null }
+              .padding(horizontal = 16.dp)
+          ) {
+            if (selectedCategory != null) {
+              Text(
+                text = selectedCategory!!.category.name,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = parseCategoryColor(selectedCategory!!.category.colorHex)
+              )
+              Spacer(modifier = Modifier.height(2.dp))
+              Text(
+                text = selectedCategory!!.totalHomeAmount.format(),
+                style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface
+              )
+              Text(
+                text = "${selectedCategory!!.percentageOfTotal}% of total",
+                style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+            } else {
+              Text(
+                text = "Total Spent",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+              Spacer(modifier = Modifier.height(2.dp))
+              Text(
+                text = totalHomeSpending.format(),
+                style = MaterialTheme.typography.titleLarge.merge(PlutoNumericStyle),
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+              )
+              Text(
+                text = "Tap slice to inspect",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+              )
+            }
+          }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 2. High-Cost Area Alert Callout (Helps users immediately identify runaway costs)
+        highestCostCategory?.takeIf { isHighConcentration }?.let { highCat ->
+          Surface(
+            shape = PlutoShapes.large,
+            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.28f)),
+            modifier = Modifier
+              .fillMaxWidth()
+              .testTag("high_cost_area_alert")
+          ) {
+            Row(
+              modifier = Modifier.padding(14.dp),
+              verticalAlignment = Alignment.Top
+            ) {
+              Icon(
+                imageVector = Icons.Rounded.WarningAmber,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                  .size(20.dp)
+                  .padding(top = 1.dp)
+              )
+              Spacer(modifier = Modifier.width(10.dp))
+              Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  Text(
+                    text = "High-Cost Area: ${highCat.category.name}",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error
+                  )
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.error
+                  ) {
+                    Text(
+                      text = "${highCat.percentageOfTotal}%",
+                      style = MaterialTheme.typography.labelSmall,
+                      fontWeight = FontWeight.Bold,
+                      color = MaterialTheme.colorScheme.onError,
+                      modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                  }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                  text = "${highCat.category.name} represents ${highCat.percentageOfTotal}% (${highCat.totalHomeAmount.format()}) of all expenses. Review recent transactions to keep spending balanced.",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  lineHeight = 17.sp
+                )
+              }
+            }
+          }
+
+          Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // 3. Ranked Expenditure Progress Bars
+        Text(
+          text = "RANKED BY EXPENDITURE",
+          style = MaterialTheme.typography.labelSmall,
+          fontWeight = FontWeight.Bold,
+          color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        val maxAmount = sortedSummaries.maxOfOrNull { it.totalHomeAmount.amount } ?: BigDecimal.ONE
+
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+          sortedSummaries.forEachIndexed { index, summaryItem ->
+            val isSelected = selectedCategory?.category?.id == summaryItem.category.id
+            val isHighCost = summaryItem.percentageOfTotal >= BigDecimal("20.0")
+
+            RankedCategoryBarRow(
+              rank = index + 1,
+              item = summaryItem,
+              maxAmount = maxAmount,
+              isSelected = isSelected,
+              isHighCost = isHighCost,
+              onClick = {
+                selectedCategory = if (isSelected) null else summaryItem
+              }
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun DonutChartCanvas(
+  categorySummaries: List<CategorySpendingSummary>,
+  selectedCategory: CategorySpendingSummary?,
+  onCategoryTapped: (CategorySpendingSummary) -> Unit,
+  modifier: Modifier = Modifier
+) {
+  val strokeWidthPx = 32f
+
+  Canvas(
+    modifier = modifier.clickable {
+      // Tap default cycle
+      val first = categorySummaries.firstOrNull()
+      if (first != null) onCategoryTapped(first)
+    }
+  ) {
+    val canvasSize = size.minDimension
+    val radius = (canvasSize - strokeWidthPx) / 2f
+    val center = Offset(size.width / 2f, size.height / 2f)
+
+    var currentAngle = -90f
+    val totalPct = categorySummaries.sumOf { it.percentageOfTotal.toDouble() }
+
+    if (totalPct > 0.0) {
+      categorySummaries.forEach { cat ->
+        val sweepAngle = ((cat.percentageOfTotal.toFloat() / 100f) * 360f).coerceAtLeast(3f)
+        val gap = if (categorySummaries.size > 1) 2.5f else 0f
+        val effectiveSweep = (sweepAngle - gap).coerceAtLeast(1f)
+        val isSelected = selectedCategory?.category?.id == cat.category.id
+        val catColor = parseCategoryColor(cat.category.colorHex)
+
+        drawArc(
+          color = if (selectedCategory == null || isSelected) catColor else catColor.copy(alpha = 0.3f),
+          startAngle = currentAngle + (gap / 2f),
+          sweepAngle = effectiveSweep,
+          useCenter = false,
+          topLeft = Offset(center.x - radius, center.y - radius),
+          size = Size(radius * 2f, radius * 2f),
+          style = Stroke(
+            width = if (isSelected) strokeWidthPx + 8f else strokeWidthPx,
+            cap = StrokeCap.Round
+          )
+        )
+
+        currentAngle += sweepAngle
+      }
+    }
+  }
+}
+
+@Composable
+private fun RankedCategoryBarRow(
+  rank: Int,
+  item: CategorySpendingSummary,
+  maxAmount: BigDecimal,
+  isSelected: Boolean,
+  isHighCost: Boolean,
+  onClick: () -> Unit
+) {
+  val progress = if (maxAmount > BigDecimal.ZERO) {
+    (item.totalHomeAmount.amount.toDouble() / maxAmount.toDouble()).toFloat().coerceIn(0.05f, 1f)
+  } else 0f
+
+  val prefersReducedMotion = rememberPrefersReducedMotion()
+  val animatedProgress by animateFloatAsState(
+    targetValue = progress,
+    animationSpec = if (prefersReducedMotion) snap() else PlutoMotion.NoBounceSpring,
+    label = "category_bar_progress"
+  )
+
+  val categoryColor = parseCategoryColor(item.category.colorHex)
+
+  Surface(
+    shape = PlutoShapes.large,
+    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+    border = BorderStroke(
+      width = 1.dp,
+      color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.45f) else MaterialTheme.colorScheme.outlineVariant
+    ),
+    modifier = Modifier
+      .fillMaxWidth()
+      .minimumInteractiveComponentSize()
+      .clip(PlutoShapes.large)
+      .clickable(role = Role.Button, onClick = onClick)
+  ) {
+    Column(modifier = Modifier.padding(12.dp)) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          // Rank pill (#1, #2, etc.)
+          Surface(
+            shape = PlutoShapes.small,
+            color = if (rank == 1) categoryColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.padding(end = 8.dp)
+          ) {
+            Text(
+              text = "#$rank",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              color = if (rank == 1) categoryColor else MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+          }
+
+          // Category Color Indicator Dot
+          Box(
+            modifier = Modifier
+              .size(10.dp)
+              .clip(CircleShape)
+              .background(categoryColor)
+          )
+
+          Spacer(modifier = Modifier.width(8.dp))
+
+          Text(
+            text = item.category.name,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+          )
+
+          if (isHighCost) {
+            Spacer(modifier = Modifier.width(6.dp))
+            Surface(
+              shape = PlutoShapes.small,
+              color = MaterialTheme.colorScheme.errorContainer
+            ) {
+              Text(
+                text = "HIGH COST",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 9.sp,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+              )
+            }
+          }
+        }
+
+        // Amount & Percentage
+        Column(horizontalAlignment = Alignment.End) {
+          Text(
+            text = item.totalHomeAmount.format(),
+            style = MaterialTheme.typography.titleSmall.merge(PlutoNumericStyle),
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          Text(
+            text = "${item.percentageOfTotal}% • ${item.transactionCount} txn",
+            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+        }
+      }
+
+      Spacer(modifier = Modifier.height(8.dp))
+
+      // Horizontal Bar
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .height(6.dp)
+          .clip(PlutoShapes.extraSmall)
+          .background(MaterialTheme.colorScheme.surfaceVariant)
+      ) {
+        Box(
+          modifier = Modifier
+            .fillMaxWidth(animatedProgress)
+            .height(6.dp)
+            .clip(PlutoShapes.extraSmall)
+            .background(categoryColor)
+        )
+      }
+    }
+  }
+}
