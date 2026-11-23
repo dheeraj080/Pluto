@@ -1,7 +1,7 @@
 # Continuous integration for the monorepo.
 #
-# `android-dev-client.yml` builds an installable dev client; this workflow is
-# the gate that keeps the three apps agreeing with each other, which is the
+# `android.yml` builds and tests the native Android app; this workflow is the
+# gate that keeps the two npm workspaces agreeing with each other, which is the
 # thing that has actually broken in practice (a native Google client id used as
 # the web audience; a stale committed OpenAPI snapshot).
 #
@@ -100,9 +100,8 @@ jobs:
       # Dependency advisories. Only `critical` in a *shipped* dependency fails
       # the run: that is a release blocker. The high/moderate backlog is
       # reported (for all dependencies, not just shipped ones) but tolerated —
-      # it is almost entirely transitive Expo/React Native build tooling that
-      # cannot move without a major upgrade, and a gate that fails on day one
-      # gets switched off.
+      # it is mostly transitive build tooling that cannot move without a major
+      # upgrade, and a gate that fails on day one gets switched off.
       - name: Audit shipped dependencies (critical blocks)
         run: npm run audit:deps
 
@@ -115,9 +114,10 @@ jobs:
       - name: Generate the Prisma client
         run: npm run prisma:generate --workspace pluto-server
 
-      # turbo covers all three apps: each now has a `typecheck` script (the web
-      # one runs `next typegen` first, which is how Next 16 materialises
-      # `next-env.d.ts` and the route types).
+      # turbo covers the two npm workspaces (server and web); the native Android
+      # app has no npm scripts and is built by `android.yml`. The web typecheck
+      # runs `next typegen` first, which is how Next 16 materialises
+      # `next-env.d.ts` and the route types.
       - name: Typecheck
         run: npm run typecheck
 
