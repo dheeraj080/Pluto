@@ -21,11 +21,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/server/package.json ./apps/server/package.json
 COPY apps/web/package.json ./apps/web/package.json
-COPY apps/mobile/package.json ./apps/mobile/package.json
 COPY packages/api-client/package.json ./packages/api-client/package.json
 
-# Install only the web workspace (plus the root); the server/mobile trees are
-# irrelevant here. api-client is a local workspace dependency of the web app.
+# Install only the web workspace (plus the root); the server tree is irrelevant
+# here. api-client is a local workspace dependency of the web app.
 RUN npm ci --workspace pluto-web --include-workspace-root
 
 COPY packages/api-client ./packages/api-client

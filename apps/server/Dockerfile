@@ -24,13 +24,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/server/package.json ./apps/server/package.json
 COPY apps/web/package.json ./apps/web/package.json
-COPY apps/mobile/package.json ./apps/mobile/package.json
 COPY packages/api-client/package.json ./packages/api-client/package.json
 COPY packages/domain/package.json ./packages/domain/package.json
 
 # Install only the server workspace (plus the root) rather than the whole
-# monorepo: the web (Next.js) and mobile (Expo) dependency trees are irrelevant
-# to this image.
+# monorepo: the web (Next.js) dependency tree is irrelevant to this image.
 RUN npm ci --workspace pluto-server --include-workspace-root
 
 # Source needed to generate the Prisma client and compile the API.
@@ -65,7 +63,6 @@ ENV PRISMA_HIDE_UPDATE_MESSAGE=1
 COPY package.json package-lock.json ./
 COPY apps/server/package.json ./apps/server/package.json
 COPY apps/web/package.json ./apps/web/package.json
-COPY apps/mobile/package.json ./apps/mobile/package.json
 COPY packages/api-client/package.json ./packages/api-client/package.json
 COPY packages/domain/package.json ./packages/domain/package.json
 
