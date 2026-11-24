@@ -53,7 +53,10 @@ jobs:
         with:
           node-version: 20.19
 
-      - uses: android-actions/setup-android@v3
+      # ubuntu-latest already ships the SDK. setup-android@v3 tries to install
+      # the retired `tools` package, which makes it fail on current runners.
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses > /dev/null
 
       - name: Install Android SDK 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
@@ -133,7 +136,10 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
+      # ubuntu-latest already ships the SDK. setup-android@v3 tries to install
+      # the retired `tools` package, which makes it fail on current runners.
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses > /dev/null
 
       - name: Install Android SDK 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
