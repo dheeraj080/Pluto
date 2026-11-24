@@ -18,9 +18,10 @@ describe("landing page anchors", () => {
     expect(html).toContain(`id="${anchor}"`);
   });
 
-  it("keeps the primary sign-in call to action", () => {
+  it("keeps both primary calls to action", () => {
     expect(html).toContain('href="/login"');
-    expect(html).toContain("Start tracking");
+    expect(html).toContain("Start on the web");
+    expect(html).toContain("Get the Android app");
   });
 
   it("marks illustrative currency figures as illustrative", () => {

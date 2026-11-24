@@ -182,7 +182,7 @@ export function FoldedMarginPage() {
         </div>
       </section>
 
-      <section className="fm-section fm-privacy">
+      <section className="fm-section fm-privacy" id="privacy">
         <div className="fm-section__folio" aria-hidden="true">In the margin / 05</div>
         <div className="fm-section__body fm-privacy__grid">
           <div>
