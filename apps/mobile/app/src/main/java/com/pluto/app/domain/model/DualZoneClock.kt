@@ -108,6 +108,10 @@ object DualZoneClockEngine {
     TimeZoneOption("Asia/Dubai", "Dubai", "UAE"),
     TimeZoneOption("Asia/Riyadh", "Riyadh", "Saudi Arabia"),
     TimeZoneOption("Asia/Jerusalem", "Tel Aviv", "Israel"),
+    TimeZoneOption("Asia/Kuwait", "Kuwait City", "Kuwait", setOf("KWD")),
+    TimeZoneOption("Asia/Bahrain", "Manama", "Bahrain", setOf("BHD")),
+    TimeZoneOption("Asia/Muscat", "Muscat", "Oman", setOf("OMR")),
+    TimeZoneOption("Asia/Amman", "Amman", "Jordan", setOf("JOD")),
 
     // Oceania
     TimeZoneOption("Australia/Sydney", "Sydney", "Australia", setOf("AUD")),
@@ -126,6 +130,7 @@ object DualZoneClockEngine {
     TimeZoneOption("Africa/Johannesburg", "Johannesburg", "South Africa"),
     TimeZoneOption("Africa/Lagos", "Lagos", "Nigeria"),
     TimeZoneOption("Africa/Nairobi", "Nairobi", "Kenya"),
+    TimeZoneOption("Africa/Tunis", "Tunis", "Tunisia", setOf("TND")),
     TimeZoneOption("UTC", "UTC", "Coordinated Universal Time")
   )
 
@@ -143,11 +148,32 @@ object DualZoneClockEngine {
     "CHF" to "Europe/Zurich",
     "CNY" to "Asia/Shanghai",
     "KRW" to "Asia/Seoul",
-    "THB" to "Asia/Bangkok"
+    "THB" to "Asia/Bangkok",
+    "KWD" to "Asia/Kuwait",
+    "BHD" to "Asia/Bahrain",
+    "OMR" to "Asia/Muscat",
+    "JOD" to "Asia/Amman",
+    "TND" to "Africa/Tunis"
   )
 
   fun defaultZoneIdForCurrency(currency: Currency): String {
     return currencyDefaultZones[currency.code.uppercase(Locale.US)] ?: "UTC"
+  }
+
+  fun hasCurrencyDefaultForCurrency(currency: Currency): Boolean {
+    return currencyDefaultZones.containsKey(currency.code.uppercase(Locale.US))
+  }
+
+  /**
+   * Normalizes a stored home time zone to the invariant used everywhere in the app:
+   * `null` means "derive from home currency", and a non-null value must be a valid
+   * IANA zone that differs from the current currency default.
+   */
+  fun normalizeHomeTimeZoneId(timeZoneId: String?, homeCurrency: Currency): String? {
+    val trimmed = timeZoneId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    if (!isValidZoneId(trimmed)) return null
+    if (trimmed == defaultZoneIdForCurrency(homeCurrency)) return null
+    return trimmed
   }
 
   fun isValidZoneId(zoneId: String?): Boolean {
@@ -164,13 +190,9 @@ object DualZoneClockEngine {
   }
 
   fun suggestedZonesForCurrency(currency: Currency): List<TimeZoneOption> {
+    if (!hasCurrencyDefaultForCurrency(currency)) return emptyList()
     val code = currency.code.uppercase(Locale.US)
-    val matches = CURATED_ZONES.filter { code in it.currencyCodes }
-    return if (matches.isNotEmpty()) {
-      matches
-    } else {
-      CURATED_ZONES.take(6)
-    }
+    return CURATED_ZONES.filter { code in it.currencyCodes }
   }
 
   fun friendlyCityName(zoneId: String): String {
@@ -303,8 +325,29 @@ object DualZoneClockEngine {
       )
     }.toMutableList()
 
+    val seenIds = results.map { it.zoneId }.toHashSet()
+    // The resolved zone (including a non-curated custom city) is always visible and checked.
+    if (isValidZoneId(selectedZoneId) && selectedZoneId !in seenIds) {
+      val tz = TimeZone.getTimeZone(selectedZoneId)
+      val region = selectedZoneId.substringBefore('/').replace('_', ' ')
+      results.add(
+        0,
+        buildPickerItem(
+          zoneId = selectedZoneId,
+          city = friendlyCityName(selectedZoneId),
+          country = region,
+          tz = tz,
+          nowMillis = nowMillis,
+          nowDate = nowDate,
+          formatter = formatter,
+          locale = locale,
+          isSelected = true
+        )
+      )
+      seenIds.add(selectedZoneId)
+    }
+
     if (trimmed.isNotEmpty() && results.size < 25) {
-      val seenIds = results.map { it.zoneId }.toHashSet()
       val extraIds = TimeZone.getAvailableIDs()
         .asSequence()
         .filter { id ->
@@ -317,6 +360,7 @@ object DualZoneClockEngine {
         .take(25 - results.size)
 
       for (id in extraIds) {
+        if (id in seenIds) continue
         val tz = TimeZone.getTimeZone(id)
         val region = id.substringBefore('/').replace('_', ' ')
         results.add(
@@ -332,6 +376,7 @@ object DualZoneClockEngine {
             isSelected = id == selectedZoneId
           )
         )
+        seenIds.add(id)
       }
     }
 

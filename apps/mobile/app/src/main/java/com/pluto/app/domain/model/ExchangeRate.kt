@@ -10,7 +10,7 @@ import java.math.RoundingMode
  * @property toCurrency Destination currency (e.g. INR)
  * @property rate Numerical conversion multiplier: (fromAmount * rate = toAmount)
  * @property timestamp Epoch millisecond timestamp when this rate was captured or validated
- * @property source Indicator of where the rate originated (e.g. "manual", "system_seed", "ecb", "api")
+ * @property source Indicator of where the rate originated (e.g. "open_er_api", "system_seed", "derived_inverse_cached")
  */
 data class ExchangeRate(
   val fromCurrency: Currency,

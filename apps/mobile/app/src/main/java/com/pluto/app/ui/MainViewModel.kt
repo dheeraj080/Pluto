@@ -28,7 +28,11 @@ class MainViewModel(
 
   fun updateHomeCurrency(currency: Currency) {
     viewModelScope.launch {
-      userSettingsRepository.updateHomeCurrency(currency)
+      // A custom home zone is only meaningful for the currency it was chosen with.
+      val current = userSettingsRepository.getSettings()
+      userSettingsRepository.updateSettings(
+        current.copy(homeCurrency = currency, homeTimeZoneId = null)
+      )
     }
   }
 

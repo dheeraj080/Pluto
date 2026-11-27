@@ -8,8 +8,6 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.pluto.app.data.local.exchange.ExchangeRateDao
 import com.pluto.app.data.local.exchange.ExchangeRateEntity
-import com.pluto.app.data.local.exchange.ManualExchangeRateDao
-import com.pluto.app.data.local.exchange.ManualExchangeRateEntity
 import com.pluto.app.data.local.expense.ExpenseDao
 import com.pluto.app.data.local.expense.ExpenseEntity
 import com.pluto.app.data.local.wallet.CurrencyWalletDao
@@ -20,18 +18,16 @@ import com.pluto.app.data.local.wallet.WalletTransactionEntity
 @Database(
   entities = [
     ExchangeRateEntity::class,
-    ManualExchangeRateEntity::class,
     ExpenseEntity::class,
     CurrencyWalletEntity::class,
     WalletTransactionEntity::class
   ],
-  version = 8,
+  version = 9,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
   abstract fun exchangeRateDao(): ExchangeRateDao
-  abstract fun manualExchangeRateDao(): ManualExchangeRateDao
   abstract fun expenseDao(): ExpenseDao
   abstract fun currencyWalletDao(): CurrencyWalletDao
   abstract fun walletTransactionDao(): WalletTransactionDao
@@ -254,6 +250,18 @@ abstract class AppDatabase : RoomDatabase() {
       }
     }
 
+    /**
+     * Migration from Version 8 to Version 9 (Removing custom/manual exchange-rate overrides).
+     * Drops the dedicated override table and removes any legacy manual rows that may still exist
+     * in the market cache. Recorded expense FX snapshots are intentionally untouched.
+     */
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DROP TABLE IF EXISTS `manual_exchange_rates`")
+        db.execSQL("DELETE FROM `exchange_rates` WHERE `source` LIKE 'manual%'")
+      }
+    }
+
     fun getInstance(context: Context): AppDatabase {
       return INSTANCE ?: synchronized(this) {
         INSTANCE ?: Room.databaseBuilder(
@@ -269,7 +277,8 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_4_5,
             MIGRATION_5_6,
             MIGRATION_6_7,
-            MIGRATION_7_8
+            MIGRATION_7_8,
+            MIGRATION_8_9
           )
           .build()
           .also { INSTANCE = it }

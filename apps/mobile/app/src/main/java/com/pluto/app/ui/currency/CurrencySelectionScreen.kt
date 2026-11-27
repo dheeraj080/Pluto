@@ -23,10 +23,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.pluto.app.domain.model.Currency
 import com.pluto.app.ui.components.CurrencyRow
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
 import com.pluto.app.ui.components.PlutoTopBar
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
@@ -95,13 +98,37 @@ fun CurrencySelectionScreen(
         verticalArrangement = Arrangement.spacedBy(PlutoSpacing.sm),
         contentPadding = PaddingValues(bottom = PlutoSpacing.lg)
       ) {
-        items(filteredCurrencies, key = { it.code }) { currency ->
-          CurrencyRow(
-            currency = currency,
-            isSelected = currency == selectedCurrency,
-            onClick = { onCurrencySelected(currency) },
-            testTag = "currency_select_${currency.code.lowercase()}"
-          )
+        if (filteredCurrencies.isEmpty()) {
+          item {
+            Column(
+              modifier = Modifier
+                .fillMaxWidth()
+                .testTag("currency_selection_empty"),
+              horizontalAlignment = Alignment.CenterHorizontally,
+              verticalArrangement = Arrangement.spacedBy(PlutoSpacing.md)
+            ) {
+              Text(
+                text = "No currencies match \"$searchQuery\"",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+              PlutoButton(
+                text = "Clear Search",
+                onClick = { searchQuery = "" },
+                variant = PlutoButtonVariant.OUTLINED,
+                testTag = "currency_selection_clear_search"
+              )
+            }
+          }
+        } else {
+          items(filteredCurrencies, key = { it.code }) { currency ->
+            CurrencyRow(
+              currency = currency,
+              isSelected = currency == selectedCurrency,
+              onClick = { onCurrencySelected(currency) },
+              testTag = "currency_select_${currency.code.lowercase()}"
+            )
+          }
         }
       }
     }

@@ -64,20 +64,6 @@ class FakeExchangeRateRepository : ExchangeRateRepository {
   }
 
   override fun observeAllRates(): Flow<List<ExchangeRate>> = ratesFlow.asStateFlow()
-
-  override suspend fun setManualOverride(from: Currency, to: Currency, rate: BigDecimal) {
-    setRate(ExchangeRate(from, to, rate, System.currentTimeMillis(), "manual_override"))
-  }
-
-  override suspend fun clearManualOverride(from: Currency, to: Currency) {
-    rates.remove(Pair(from.code, to.code))
-    rates.remove(Pair(to.code, from.code))
-    ratesFlow.value = rates.values.toList()
-  }
-
-  override suspend fun getManualOverrides(): List<ExchangeRate> {
-    return rates.values.filter { it.source.startsWith("manual") }
-  }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

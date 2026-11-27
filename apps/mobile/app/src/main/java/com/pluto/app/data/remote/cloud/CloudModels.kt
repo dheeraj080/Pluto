@@ -5,6 +5,7 @@ import com.pluto.app.domain.model.BudgetCycleType
 import com.pluto.app.domain.model.Category
 import com.pluto.app.domain.model.Currency
 import com.pluto.app.domain.model.CurrencyWallet
+import com.pluto.app.domain.model.DualZoneClockEngine
 import com.pluto.app.domain.model.ExchangeRate
 import com.pluto.app.domain.model.Expense
 import com.pluto.app.domain.model.HomeLayoutPresets
@@ -104,7 +105,7 @@ data class CloudUserSettings(
       isBiometricLockEnabled = isBiometricLockEnabled,
       autoLockTimeoutMinutes = autoLockTimeoutMinutes,
       isPrivacyModeEnabled = isPrivacyModeEnabled,
-      homeTimeZoneId = homeTimeZoneId?.trim()?.takeIf { it.isNotEmpty() },
+      homeTimeZoneId = DualZoneClockEngine.normalizeHomeTimeZoneId(homeTimeZoneId, home),
       homeModules = parseCloudHomeModules(homeModules, resolvedPersona)
     )
   }
@@ -157,11 +158,13 @@ data class CloudUserSettings(
 
       val modulesRaw = data["homeModules"] as? List<*>
       val parsedModules = modulesRaw?.mapNotNull { it as? String } ?: emptyList()
+      val rawHomeCurrencyCode = (data["homeCurrencyCode"] as? String) ?: Currency.USD.code
+      val homeCurrency = Currency.findByCode(rawHomeCurrencyCode) ?: Currency.USD
 
       return CloudUserSettings(
         id = id,
         userId = (data["userId"] as? String) ?: "",
-        homeCurrencyCode = (data["homeCurrencyCode"] as? String) ?: Currency.USD.code,
+        homeCurrencyCode = rawHomeCurrencyCode,
         destinationCurrencyCode = (data["destinationCurrencyCode"] as? String) ?: Currency.EUR.code,
         persona = (data["persona"] as? String) ?: UserPersona.INTERNATIONAL_STUDENT.name,
         budgetCycleType = (data["budgetCycleType"] as? String) ?: BudgetCycleType.ACADEMIC_TERM.name,
@@ -190,7 +193,10 @@ data class CloudUserSettings(
         isBiometricLockEnabled = (data["isBiometricLockEnabled"] as? Boolean) ?: false,
         autoLockTimeoutMinutes = (data["autoLockTimeoutMinutes"] as? Number)?.toInt() ?: 1,
         isPrivacyModeEnabled = (data["isPrivacyModeEnabled"] as? Boolean) ?: false,
-        homeTimeZoneId = data["homeTimeZoneId"] as? String,
+        homeTimeZoneId = DualZoneClockEngine.normalizeHomeTimeZoneId(
+          data["homeTimeZoneId"] as? String,
+          homeCurrency
+        ),
         homeModules = parsedModules,
         createdAt = createdAt,
         updatedAt = updatedAt
@@ -216,7 +222,7 @@ data class CloudUserSettings(
 
     fun toUpdateMap(s: UserSettings): Map<String, Any> {
       val map = toMutableFieldMap(s)
-      if (s.homeTimeZoneId.isNullOrBlank()) {
+      if (DualZoneClockEngine.normalizeHomeTimeZoneId(s.homeTimeZoneId, s.homeCurrency) == null) {
         map["homeTimeZoneId"] = FieldValue.delete()
       }
       if (s.dailySpendingCap == null || s.dailySpendingCap <= BigDecimal.ZERO) {
@@ -265,7 +271,8 @@ data class CloudUserSettings(
       s.dailySpendingCap?.takeIf { it > BigDecimal.ZERO }?.let { map["dailySpendingCap"] = it.toPlainString().take(40) }
       s.monthlySpendingCap?.takeIf { it > BigDecimal.ZERO }?.let { map["monthlySpendingCap"] = it.toPlainString().take(40) }
       s.safeToSpendWarningThreshold?.takeIf { it > BigDecimal.ZERO }?.let { map["safeToSpendWarningThreshold"] = it.toPlainString().take(40) }
-      s.homeTimeZoneId?.trim()?.takeIf { it.isNotEmpty() }?.let { map["homeTimeZoneId"] = it.take(64) }
+      DualZoneClockEngine.normalizeHomeTimeZoneId(s.homeTimeZoneId, s.homeCurrency)
+        ?.let { map["homeTimeZoneId"] = it.take(64) }
       return map
     }
   }

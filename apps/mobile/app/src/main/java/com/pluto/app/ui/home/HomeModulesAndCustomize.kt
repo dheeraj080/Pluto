@@ -87,6 +87,7 @@ import com.pluto.app.domain.model.DashboardSummary
 import com.pluto.app.domain.model.HomeLayoutPresets
 import com.pluto.app.domain.model.HomeModuleConfig
 import com.pluto.app.domain.model.HomeModuleId
+import com.pluto.app.domain.model.Money
 import com.pluto.app.domain.model.PortfolioValuationSummary
 import com.pluto.app.domain.model.RunwayPaceStatus
 import com.pluto.app.domain.model.TermRunwaySummary
@@ -332,13 +333,12 @@ fun StackedCardsHero(
                 }
               }
               else -> {
-                val isManualRate = fxStatus.source?.startsWith("manual") == true
                 val formattedRate = fxStatus.rate?.setScale(4, RoundingMode.HALF_EVEN)?.stripTrailingZeros()?.toPlainString()
                 val updatedAt = fxStatus.timestampMillis?.let { timeFormat.format(Date(it)) }
                 buildString {
-                  if (isManualRate) append("Custom FX") else append("FX live")
+                  append("FX live")
                   if (formattedRate != null) append(" · 1 ${homeCurrency.code} = $formattedRate ${destinationCurrency.code}")
-                  if (updatedAt != null && !isManualRate) append(" · $updatedAt")
+                  if (updatedAt != null) append(" · $updatedAt")
                 }
               }
             }
@@ -755,19 +755,20 @@ fun DailySafeToSpendModuleCard(
   val isRemainingNegative = summary.safeToSpendTodayHome.amount < BigDecimal.ZERO
   val primaryAmountFormatted = if (summary.safeToSpendTodayDest != null) {
     if (isRemainingNegative) {
-      "-${destCurrency.symbol}${summary.safeToSpendTodayDest.amount.abs().toPlainString()}"
+      "-${Money.of(summary.safeToSpendTodayDest.amount.abs(), destCurrency).formatWithCode()}"
     } else {
-      summary.safeToSpendTodayDest.format()
+      "LOCAL · ${summary.safeToSpendTodayDest.formatWithCode()}"
     }
   } else if (hasBudgetBase) {
-    summary.safeToSpendTodayHome.format()
+    "HOME · ${summary.safeToSpendTodayHome.formatWithCode()}"
   } else {
-    summary.todayDestSpending?.format() ?: summary.todayHomeSpending.format()
+    val todayAmount = summary.todayDestSpending ?: summary.todayHomeSpending
+    "${if (summary.todayDestSpending != null) "LOCAL · " else "HOME · "}${todayAmount.formatWithCode()}"
   }
   val secondaryAmountFormatted = if (hasBudgetBase) {
-    summary.safeToSpendTodayHome.format()
+    "HOME · ${summary.safeToSpendTodayHome.formatWithCode()}"
   } else {
-    summary.todayHomeSpending.format()
+    "HOME · ${summary.todayHomeSpending.formatWithCode()}"
   }
 
   val prefersReducedMotion = rememberPrefersReducedMotion()
@@ -911,7 +912,7 @@ fun DailySafeToSpendModuleCard(
           modifier = Modifier.testTag("gauge_primary_amount")
         )
         Text(
-          text = "≈ $secondaryAmountFormatted in ${homeCurrency.code}",
+          text = secondaryAmountFormatted,
           style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
           fontWeight = FontWeight.SemiBold,
           color = MaterialTheme.colorScheme.primary,
@@ -936,15 +937,16 @@ fun DailySafeToSpendModuleCard(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalArrangement = Arrangement.spacedBy(4.dp)
       ) {
-        val capText = summary.dailySpendingCapDest?.format()
-          ?: dailyCap?.let { com.pluto.app.domain.model.Money.of(it, homeCurrency).format() }
+        val capText = summary.dailySpendingCapDest?.formatWithCode()
+          ?: dailyCap?.let { Money.of(it, homeCurrency).formatWithCode() }
           ?: "—"
         Text(
           text = "Daily Cap: $capText",
           style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        val spentDestText = summary.todayDestSpending?.format() ?: summary.todayHomeSpending.format()
+        val todayAmount = summary.todayDestSpending ?: summary.todayHomeSpending
+        val spentDestText = "${if (summary.todayDestSpending != null) "LOCAL · " else "HOME · "}${todayAmount.formatWithCode()}"
         Text(
           text = "Spent today: $spentDestText",
           style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
@@ -1137,17 +1139,17 @@ fun CycleRunwayModuleCard(
       ) {
         Column(modifier = Modifier.weight(1f)) {
           val primaryDaily = runwaySummary.dailyRunwaySafeToSpendDest ?: runwaySummary.dailyRunwaySafeToSpendHome
-          val secondaryDaily = if (primaryDaily.currency != homeCurrency) runwaySummary.dailyRunwaySafeToSpendHome else null
+          val hasDestDaily = runwaySummary.dailyRunwaySafeToSpendDest != null
           Text(
-            text = "${primaryDaily.format()} / day",
+            text = "${if (hasDestDaily) "LOCAL · " else "HOME · "}${primaryDaily.formatWithCode()} / day",
             style = MaterialTheme.typography.headlineSmall.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.testTag("runway_safe_to_spend_value")
           )
-          if (secondaryDaily != null) {
+          if (hasDestDaily) {
             Text(
-              text = "≈ ${secondaryDaily.format()} / day in ${homeCurrency.code}",
+              text = "HOME · ${runwaySummary.dailyRunwaySafeToSpendHome.formatWithCode()} / day",
               style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1196,7 +1198,7 @@ fun CycleRunwayModuleCard(
         verticalArrangement = Arrangement.spacedBy(4.dp)
       ) {
         Text(
-          text = "Discretionary: ${remainingMoney.format()} left",
+          text = "Discretionary: ${remainingMoney.formatWithCode()} left",
           style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )

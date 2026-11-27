@@ -7,6 +7,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,8 +41,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,6 +61,8 @@ import com.pluto.app.ui.theme.parseCategoryColor
 import com.pluto.app.ui.theme.plutoHeading
 import com.pluto.app.ui.theme.rememberPrefersReducedMotion
 import java.math.BigDecimal
+import kotlin.math.atan2
+import kotlin.math.sqrt
 
 /**
  * Modern Compose-based Data Visualization for Category Spending Breakdown & High-Cost Area Identification.
@@ -321,6 +328,12 @@ fun CategoryBreakdownChart(
   }
 }
 
+private data class DonutSlice(
+  val summary: CategorySpendingSummary,
+  val startAngle: Float,
+  val sweepAngle: Float
+)
+
 @Composable
 private fun DonutChartCanvas(
   categorySummaries: List<CategorySpendingSummary>,
@@ -329,32 +342,74 @@ private fun DonutChartCanvas(
   modifier: Modifier = Modifier
 ) {
   val strokeWidthPx = 32f
-
-  Canvas(
-    modifier = modifier.clickable {
-      // Tap default cycle
-      val first = categorySummaries.firstOrNull()
-      if (first != null) onCategoryTapped(first)
-    }
-  ) {
-    val canvasSize = size.minDimension
-    val radius = (canvasSize - strokeWidthPx) / 2f
-    val center = Offset(size.width / 2f, size.height / 2f)
-
-    var currentAngle = -90f
+  val slices = remember(categorySummaries) {
     val totalPct = categorySummaries.sumOf { it.percentageOfTotal.toDouble() }
+    if (totalPct <= 0.0) {
+      emptyList()
+    } else {
+      var angle = -90f
+      categorySummaries.map { cat ->
+        val sweep = ((cat.percentageOfTotal.toFloat() / 100f) * 360f).coerceAtLeast(3f)
+        val slice = DonutSlice(summary = cat, startAngle = angle, sweepAngle = sweep)
+        angle += sweep
+        slice
+      }
+    }
+  }
 
-    if (totalPct > 0.0) {
-      categorySummaries.forEach { cat ->
-        val sweepAngle = ((cat.percentageOfTotal.toFloat() / 100f) * 360f).coerceAtLeast(3f)
-        val gap = if (categorySummaries.size > 1) 2.5f else 0f
-        val effectiveSweep = (sweepAngle - gap).coerceAtLeast(1f)
+  Box(modifier = modifier.testTag("category_breakdown_donut_chart")) {
+    Canvas(
+      modifier = Modifier
+        .matchParentSize()
+        .pointerInput(slices) {
+          detectTapGestures { offset ->
+            val radius = (size.minDimension - strokeWidthPx) / 2f
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val dx = offset.x - center.x
+            val dy = offset.y - center.y
+            val distance = sqrt(dx * dx + dy * dy)
+            if (distance < radius - strokeWidthPx || distance > radius + strokeWidthPx + 8f) {
+              return@detectTapGestures
+            }
+
+            // Compose angles grow clockwise from 3 o'clock; slices start at 12 o'clock (-90°).
+            val rawAngle = Math.toDegrees(atan2(dy, dx).toDouble()).toFloat()
+            val relativeAngle = ((rawAngle + 90f) % 360f + 360f) % 360f
+
+            // Minimum sweeps can push the accumulated angle past 360°, so hit ranges are
+            // compared modulo the circle instead of assuming a single unwrapped lap.
+            slices.forEach { slice ->
+              val rawStart = ((slice.startAngle + 90f) % 360f + 360f) % 360f
+              val rawEnd = rawStart + slice.sweepAngle
+              val normalizedEnd = ((rawEnd % 360f) + 360f) % 360f
+              val isHit = if (rawEnd <= 360f) {
+                relativeAngle >= rawStart && relativeAngle < normalizedEnd
+              } else {
+                relativeAngle >= rawStart || relativeAngle < normalizedEnd
+              }
+              if (isHit) {
+                onCategoryTapped(slice.summary)
+                return@detectTapGestures
+              }
+            }
+          }
+        }
+    ) {
+      val canvasSize = size.minDimension
+      val radius = (canvasSize - strokeWidthPx) / 2f
+      val center = Offset(size.width / 2f, size.height / 2f)
+      val gap = if (slices.size > 1) 2.5f else 0f
+
+      slices.forEach { slice ->
+        val cat = slice.summary
+        val effectiveSweep = (slice.sweepAngle - gap).coerceAtLeast(1f)
         val isSelected = selectedCategory?.category?.id == cat.category.id
         val catColor = parseCategoryColor(cat.category.colorHex)
 
+        val normalizedStartAngle = ((slice.startAngle + 90f) % 360f + 360f) % 360f - 90f
         drawArc(
           color = if (selectedCategory == null || isSelected) catColor else catColor.copy(alpha = 0.3f),
-          startAngle = currentAngle + (gap / 2f),
+          startAngle = normalizedStartAngle + (gap / 2f),
           sweepAngle = effectiveSweep,
           useCenter = false,
           topLeft = Offset(center.x - radius, center.y - radius),
@@ -364,9 +419,26 @@ private fun DonutChartCanvas(
             cap = StrokeCap.Round
           )
         )
-
-        currentAngle += sweepAngle
       }
+    }
+
+    // Semantics-only overlays keep each slice individually reachable by assistive tech and tests
+    // without stealing touch events from the canvas gesture detector above.
+    slices.forEach { slice ->
+      val label = "${slice.summary.category.name}: ${slice.summary.totalHomeAmount.format()}, " +
+        "${slice.summary.percentageOfTotal}% of total"
+      Box(
+        modifier = Modifier
+          .matchParentSize()
+          .semantics(mergeDescendants = true) {
+            contentDescription = label
+            role = Role.Button
+            onClick {
+              onCategoryTapped(slice.summary)
+              true
+            }
+          }
+      )
     }
   }
 }

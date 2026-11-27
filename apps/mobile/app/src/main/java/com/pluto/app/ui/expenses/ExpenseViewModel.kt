@@ -51,7 +51,10 @@ sealed interface ExpenseListUiState {
     val totalDestSpending: Money?,
     val destinationCurrency: Currency,
     val homeCurrency: Currency,
-    val destinationExchangeRate: BigDecimal?
+    val destinationExchangeRate: BigDecimal?,
+    val homeAmountById: Map<String, Money> = emptyMap(),
+    val destinationAmountById: Map<String, Money> = emptyMap(),
+    val hasUnconvertedAmounts: Boolean = false
   ) : ExpenseListUiState
   data class Error(val message: String) : ExpenseListUiState
 }
@@ -81,10 +84,8 @@ data class ExpenseEntryFormState(
   val recurrenceFrequency: RecurrenceFrequency = RecurrenceFrequency.MONTHLY,
   val conversionPreview: ConversionPreviewState = ConversionPreviewState(),
   val rateUpdatePolicy: RateUpdatePolicy = RateUpdatePolicy.PRESERVE_EXISTING,
-  val isCustomRateActive: Boolean = false,
-  val customRateInput: String = "",
-  val customRateError: String? = null,
   val preservedOriginalRate: ExchangeRate? = null,
+  val currencyChangeNotice: String? = null,
   val isSubmitting: Boolean = false,
   val isRefreshingRate: Boolean = false,
   val errorMessage: String? = null
@@ -104,20 +105,12 @@ data class ExpenseEntryFormState(
       false
     }
 
-  val isValidCustomRate: Boolean
-    get() {
-      if (!isCustomRateActive || localCurrency == homeCurrency) return true
-      val parsed = customRateInput.trim().toBigDecimalOrNull() ?: return false
-      return parsed > BigDecimal.ZERO
-    }
-
   val isPriorDayTransaction: Boolean
     get() = ConvertCurrencyUseCase.isPriorCalendarDay(transactionDateMillis)
 
   val requiresExplicitRateChoice: Boolean
     get() = localCurrency != homeCurrency &&
       conversionPreview.isRateUnavailable &&
-      !isCustomRateActive &&
       !conversionPreview.isLoading
 }
 
@@ -155,31 +148,56 @@ class ExpenseViewModel(
         userSettingsRepository.observeSettings()
       ) { expenses, currentFilter, settings ->
         val filtered = expenses.filter { currentFilter.matches(it) }
-        val totalHomeBigDecimal = filtered.fold(BigDecimal.ZERO) { acc, exp ->
-          acc.add(exp.homeAmount.amount)
-        }
-        val totalHomeMoney = Money.of(totalHomeBigDecimal, settings.homeCurrency)
+        val rateCache = mutableMapOf<Pair<Currency, Currency>, BigDecimal?>()
+        val homeAmountById = linkedMapOf<String, Money>()
+        val destinationAmountById = linkedMapOf<String, Money>()
+        var totalHomeMoney = Money.zero(settings.homeCurrency)
+        var totalDestMoney = Money.zero(settings.destinationCurrency)
+        var hasUnconvertedAmounts = false
 
+        // Match GetDashboardSummaryUseCase: derive local totals from translated home snapshots,
+        // with original-currency conversion used only when a snapshot cannot be translated.
         val destRate = if (settings.destinationCurrency == settings.homeCurrency) {
           BigDecimal.ONE
         } else {
           exchangeRateRepository?.getRate(settings.homeCurrency, settings.destinationCurrency)?.rate
         }
 
-        val totalDestMoney = if (destRate != null && destRate > BigDecimal.ZERO) {
-          val converted = totalHomeBigDecimal.multiply(destRate).setScale(settings.destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
-          Money.of(converted, settings.destinationCurrency)
-        } else null
+        filtered.forEach { expense ->
+          val homeMoney = convertMoneyTo(expense.homeAmount, settings.homeCurrency, rateCache)
+          if (homeMoney != null) {
+            homeAmountById[expense.id] = homeMoney
+            totalHomeMoney += homeMoney
+          } else {
+            hasUnconvertedAmounts = true
+          }
+
+          val destMoney = when {
+            homeMoney != null && destRate != null && destRate > BigDecimal.ZERO ->
+              Money.of(homeMoney.amount.multiply(destRate), settings.destinationCurrency)
+            expense.originalCurrency == settings.destinationCurrency -> expense.originalAmount
+            else -> convertMoneyTo(expense.originalAmount, settings.destinationCurrency, rateCache)
+          }
+          if (destMoney != null) {
+            destinationAmountById[expense.id] = destMoney
+            totalDestMoney += destMoney
+          } else {
+            hasUnconvertedAmounts = true
+          }
+        }
 
         ExpenseListUiState.Success(
           allExpenses = expenses,
           filteredExpenses = filtered,
           filter = currentFilter,
           totalHomeSpending = totalHomeMoney,
-          totalDestSpending = totalDestMoney,
+          totalDestSpending = if (filtered.isNotEmpty() && destinationAmountById.isEmpty()) null else totalDestMoney,
           destinationCurrency = settings.destinationCurrency,
           homeCurrency = settings.homeCurrency,
-          destinationExchangeRate = destRate
+          destinationExchangeRate = destRate,
+          homeAmountById = homeAmountById,
+          destinationAmountById = destinationAmountById,
+          hasUnconvertedAmounts = hasUnconvertedAmounts
         ) as ExpenseListUiState
       }.catch { throwable ->
         emit(
@@ -277,9 +295,7 @@ class ExpenseViewModel(
       current.copy(
         localCurrency = currency,
         amount = currency.normalizeForScale(current.amount),
-        isCustomRateActive = false,
-        customRateInput = "",
-        customRateError = null,
+        currencyChangeNotice = "Spent currency changed to ${currency.code}; the entered amount was not converted.",
         rateUpdatePolicy = if (willUseLocalSnapshot) {
           RateUpdatePolicy.PRESERVE_EXISTING
         } else {
@@ -303,9 +319,7 @@ class ExpenseViewModel(
       val willUseLocalSnapshot = current.isEditing && pairMatchesOriginal
       current.copy(
         homeCurrency = currency,
-        isCustomRateActive = false,
-        customRateInput = "",
-        customRateError = null,
+        currencyChangeNotice = "Home currency changed to ${currency.code}; existing amounts stay unchanged until saved.",
         rateUpdatePolicy = if (willUseLocalSnapshot) {
           RateUpdatePolicy.PRESERVE_EXISTING
         } else {
@@ -338,9 +352,7 @@ class ExpenseViewModel(
         localCurrency = nextLocal,
         homeCurrency = nextHome,
         amount = nextLocal.normalizeForScale(current.amount),
-        isCustomRateActive = false,
-        customRateInput = "",
-        customRateError = null,
+        currencyChangeNotice = "Currencies swapped. The entered amount was not converted.",
         rateUpdatePolicy = if (willUseLocalSnapshot) {
           RateUpdatePolicy.PRESERVE_EXISTING
         } else {
@@ -357,73 +369,13 @@ class ExpenseViewModel(
     updateConversionPreview(immediate = true)
   }
 
-  fun onToggleCustomRate(enabled: Boolean) {
-    if (enabled) {
-      val current = _formState.value
-      val compatiblePreviewRate = current.conversionPreview.exchangeRate
-        ?.takeIf { it.fromCurrency == current.localCurrency && it.toCurrency == current.homeCurrency }
-        ?.rate
-      val prefill = compatiblePreviewRate
-        ?.let { formatPrefillCustomRate(it) }
-        ?: ""
-      _formState.update {
-        it.copy(
-          isCustomRateActive = true,
-          customRateInput = if (it.customRateInput.isNotBlank()) it.customRateInput else prefill,
-          customRateError = null,
-          rateUpdatePolicy = RateUpdatePolicy.USE_CUSTOM_RATE,
-          errorMessage = null
-        )
-      }
-      updateConversionPreview(immediate = true)
-    } else {
-      _formState.update { current ->
-        val pairMatchesOriginal = isOriginalCurrencyPair(current.localCurrency, current.homeCurrency)
-        current.copy(
-          isCustomRateActive = false,
-          customRateInput = "",
-          customRateError = null,
-          rateUpdatePolicy = if (current.isEditing && pairMatchesOriginal) {
-            RateUpdatePolicy.PRESERVE_EXISTING
-          } else {
-            RateUpdatePolicy.REFRESH_FOR_DATE
-          },
-          errorMessage = null
-        )
-      }
-      updateConversionPreview(immediate = shouldCalculateLocally(_formState.value))
-    }
-  }
-
-  fun onCustomRateInputChanged(input: String) {
-    val sanitized = sanitizeRateInput(input) ?: return
-    val parsed = sanitized.trim().toBigDecimalOrNull()
-    val rateError = when {
-      sanitized.isBlank() -> null
-      parsed == null || parsed <= BigDecimal.ZERO -> "Enter a valid rate greater than 0"
-      else -> null
-    }
-    _formState.update {
-      it.copy(
-        isCustomRateActive = true,
-        customRateInput = sanitized,
-        customRateError = rateError,
-        rateUpdatePolicy = RateUpdatePolicy.USE_CUSTOM_RATE,
-        errorMessage = null
-      )
-    }
-    updateConversionPreview(immediate = true)
-  }
-
   fun refreshLiveExchangeRate() {
     viewModelScope.launch {
       _formState.update {
         it.copy(
           isRefreshingRate = true,
-          isCustomRateActive = false,
-          customRateInput = "",
-          customRateError = null,
           rateUpdatePolicy = RateUpdatePolicy.REFRESH_LIVE,
+          currencyChangeNotice = null,
           errorMessage = null
         )
       }
@@ -436,10 +388,8 @@ class ExpenseViewModel(
   fun onRefreshRateForTransactionDate() {
     _formState.update {
       it.copy(
-        isCustomRateActive = false,
-        customRateInput = "",
-        customRateError = null,
         rateUpdatePolicy = RateUpdatePolicy.REFRESH_FOR_DATE,
+        currencyChangeNotice = null,
         errorMessage = null
       )
     }
@@ -453,10 +403,8 @@ class ExpenseViewModel(
         localCurrency = original.originalCurrency,
         homeCurrency = original.homeCurrency,
         amount = original.originalCurrency.normalizeForScale(it.amount),
-        isCustomRateActive = false,
-        customRateInput = "",
-        customRateError = null,
         rateUpdatePolicy = RateUpdatePolicy.PRESERVE_EXISTING,
+        currencyChangeNotice = null,
         errorMessage = null
       )
     }
@@ -470,10 +418,12 @@ class ExpenseViewModel(
   fun onDateChanged(timestamp: Long) {
     if (_formState.value.transactionDateMillis == timestamp) return
     _formState.update { current ->
-      val keepCurrentPolicy = current.rateUpdatePolicy == RateUpdatePolicy.PRESERVE_EXISTING ||
-        current.rateUpdatePolicy == RateUpdatePolicy.USE_CUSTOM_RATE
-      val nextPolicy = if (keepCurrentPolicy) current.rateUpdatePolicy else RateUpdatePolicy.REFRESH_FOR_DATE
-      val shouldResetPreview = !keepCurrentPolicy && current.localCurrency != current.homeCurrency
+      val nextPolicy = if (current.rateUpdatePolicy == RateUpdatePolicy.REFRESH_LIVE) {
+        RateUpdatePolicy.REFRESH_LIVE
+      } else {
+        RateUpdatePolicy.REFRESH_FOR_DATE
+      }
+      val shouldResetPreview = current.localCurrency != current.homeCurrency
       current.copy(
         transactionDateMillis = timestamp,
         rateUpdatePolicy = nextPolicy,
@@ -481,8 +431,8 @@ class ExpenseViewModel(
         errorMessage = null
       )
     }
-    // When editing with PRESERVE_EXISTING, changing date keeps the original FX rate snapshot
-    // and only updates the local preview amount/display without querying replacement rates.
+    // A changed transaction date must resolve the market rate for that date instead of
+    // silently reusing the snapshot recorded for the old date.
     updateConversionPreview(immediate = true)
   }
 
@@ -546,9 +496,6 @@ class ExpenseViewModel(
         isRecurring = false,
         recurrenceFrequency = RecurrenceFrequency.MONTHLY,
         rateUpdatePolicy = RateUpdatePolicy.REFRESH_FOR_DATE,
-        isCustomRateActive = false,
-        customRateInput = "",
-        customRateError = null,
         preservedOriginalRate = null
       )
       updateConversionPreview()
@@ -588,9 +535,6 @@ class ExpenseViewModel(
       recurrenceFrequency = expense.recurrenceFrequency ?: RecurrenceFrequency.MONTHLY,
       conversionPreview = initialPreview,
       rateUpdatePolicy = RateUpdatePolicy.PRESERVE_EXISTING,
-      isCustomRateActive = false,
-      customRateInput = "",
-      customRateError = null,
       preservedOriginalRate = expense.exchangeRate,
       isSubmitting = false,
       errorMessage = null
@@ -604,7 +548,6 @@ class ExpenseViewModel(
 
   private fun shouldCalculateLocally(state: ExpenseEntryFormState): Boolean {
     if (state.localCurrency == state.homeCurrency) return true
-    if (state.isCustomRateActive) return true
     if (state.isEditing &&
       state.rateUpdatePolicy == RateUpdatePolicy.PRESERVE_EXISTING &&
       isOriginalCurrencyPair(state.localCurrency, state.homeCurrency)
@@ -621,52 +564,6 @@ class ExpenseViewModel(
       val localCurrency = state.localCurrency
       val homeCurrency = state.homeCurrency
       val input = state.amount.trim()
-
-      // Custom rate preview works immediately even before amount is typed
-      if (state.isCustomRateActive && localCurrency != homeCurrency) {
-        val parsedRate = state.customRateInput.trim().toBigDecimalOrNull()
-        if (parsedRate != null && parsedRate > BigDecimal.ZERO) {
-          val customRateObj = ExchangeRate(
-            fromCurrency = localCurrency,
-            toCurrency = homeCurrency,
-            rate = parsedRate,
-            timestamp = System.currentTimeMillis(),
-            source = "expense_custom_rate"
-          )
-          val convertedMoney = if (input.isNotBlank() && state.isValidAmount) {
-            customRateObj.convert(Money.of(input, localCurrency))
-          } else null
-          _formState.update {
-            it.copy(
-              conversionPreview = ConversionPreviewState(
-                isLoading = false,
-                convertedMoney = convertedMoney,
-                exchangeRate = customRateObj,
-                rateFormatted = formatRateDisplay(localCurrency, homeCurrency, parsedRate),
-                isRateUnavailable = false,
-                isLiveApi = false,
-                isCached = false,
-                lastUpdatedMillis = customRateObj.timestamp
-              )
-            )
-          }
-        } else {
-          _formState.update {
-            it.copy(
-              conversionPreview = ConversionPreviewState(
-                isLoading = false,
-                convertedMoney = null,
-                exchangeRate = null,
-                rateFormatted = null,
-                isRateUnavailable = false,
-                isLiveApi = false,
-                isCached = false
-              )
-            )
-          }
-        }
-        return@launch
-      }
 
       // Preserved original FX snapshot on edit when currency pair is unchanged
       val editingExpense = currentEditingExpense
@@ -805,21 +702,17 @@ class ExpenseViewModel(
       return
     }
 
-    val customRateBigDecimal: BigDecimal? = if (state.isCustomRateActive && state.localCurrency != state.homeCurrency) {
-      val parsed = state.customRateInput.trim().toBigDecimalOrNull()
-      if (parsed == null || parsed <= BigDecimal.ZERO) {
-        _formState.update {
-          it.copy(
-            customRateError = "Enter a valid rate greater than 0",
-            errorMessage = "Please enter a valid custom exchange rate greater than 0"
-          )
-        }
-        return
+    if (state.localCurrency != state.homeCurrency &&
+      state.conversionPreview.isRateUnavailable &&
+      state.conversionPreview.exchangeRate == null
+    ) {
+      _formState.update {
+        it.copy(errorMessage = "Exchange rate unavailable for this date. Choose another date or try again.")
       }
-      parsed
-    } else null
+      return
+    }
 
-    _formState.update { it.copy(isSubmitting = true, errorMessage = null, customRateError = null) }
+    _formState.update { it.copy(isSubmitting = true, errorMessage = null) }
 
     viewModelScope.launch {
       try {
@@ -827,11 +720,6 @@ class ExpenseViewModel(
 
         if (state.isEditing && currentEditingExpense != null) {
           // --- EDIT PATH ---
-          val effectivePolicy = if (customRateBigDecimal != null) {
-            RateUpdatePolicy.USE_CUSTOM_RATE
-          } else {
-            state.rateUpdatePolicy
-          }
           val result = updateExpenseUseCase(
             existingExpense = currentEditingExpense!!,
             newAmount = parsedAmount,
@@ -844,8 +732,7 @@ class ExpenseViewModel(
             newReceiptUri = state.receiptUri,
             newIsRecurring = state.isRecurring,
             newRecurrenceFrequency = if (state.isRecurring) state.recurrenceFrequency else null,
-            rateUpdatePolicy = effectivePolicy,
-            customExchangeRate = customRateBigDecimal
+            rateUpdatePolicy = state.rateUpdatePolicy
           )
 
           _formState.update { it.copy(isSubmitting = false) }
@@ -864,7 +751,7 @@ class ExpenseViewModel(
 
             is UpdateExpenseResult.ConversionUnavailable -> {
               _formState.update {
-                it.copy(errorMessage = "Exchange rate unavailable for ${result.fromCurrency.code} to ${result.homeCurrency.code}. Try again or enter a custom rate.")
+                it.copy(errorMessage = "Exchange rate unavailable for ${result.fromCurrency.code} to ${result.homeCurrency.code}. Try again or choose another date.")
               }
             }
 
@@ -885,7 +772,6 @@ class ExpenseViewModel(
             receiptUri = state.receiptUri,
             isRecurring = state.isRecurring,
             recurrenceFrequency = if (state.isRecurring) state.recurrenceFrequency else null,
-            customExchangeRate = customRateBigDecimal,
             forceLiveRate = state.rateUpdatePolicy == RateUpdatePolicy.REFRESH_LIVE
           )
 
@@ -904,7 +790,7 @@ class ExpenseViewModel(
 
             is CreateExpenseResult.ConversionUnavailable -> {
               _formState.update {
-                it.copy(errorMessage = "Exchange rate unavailable for ${result.fromCurrency.code} to ${result.homeCurrency.code}. Try again or enter a custom rate.")
+                it.copy(errorMessage = "Exchange rate unavailable for ${result.fromCurrency.code} to ${result.homeCurrency.code}. Try again or choose another date.")
               }
             }
 
@@ -950,6 +836,22 @@ class ExpenseViewModel(
     }
   }
 
+  private suspend fun convertMoneyTo(
+    money: Money,
+    targetCurrency: Currency,
+    rateCache: MutableMap<Pair<Currency, Currency>, BigDecimal?>
+  ): Money? {
+    if (money.currency == targetCurrency) return money
+    val key = money.currency to targetCurrency
+    val rate = rateCache.getOrPut(key) {
+      exchangeRateRepository
+        ?.getRate(money.currency, targetCurrency)
+        ?.rate
+        ?.takeIf { it > BigDecimal.ZERO }
+    }
+    return rate?.let { Money.of(money.amount.multiply(it), targetCurrency) }
+  }
+
   private fun formatRateDisplay(
     fromCurrency: Currency,
     toCurrency: Currency,
@@ -960,44 +862,6 @@ class ExpenseViewModel(
     val normalizedScale = rate.stripTrailingZeros().scale().coerceIn(minScale, maxScale)
     val formattedNumber = rate.setScale(normalizedScale, RoundingMode.HALF_EVEN).toPlainString()
     return "1 ${fromCurrency.code} = ${toCurrency.symbol}$formattedNumber ${toCurrency.code}"
-  }
-
-  private fun sanitizeRateInput(raw: String): String? {
-    if (raw.isEmpty()) return ""
-    val cleaned = raw.trim().replace(',', '.')
-    if (cleaned.length > 18) return null
-    val builder = StringBuilder()
-    var hasDot = false
-    var decimalDigits = 0
-    for (ch in cleaned) {
-      when {
-        ch.isDigit() -> {
-          if (hasDot) {
-            if (decimalDigits >= 12) return null
-            decimalDigits++
-          }
-          builder.append(ch)
-        }
-        ch == '.' && !hasDot -> {
-          hasDot = true
-          if (builder.isEmpty()) builder.append('0')
-          builder.append('.')
-        }
-        else -> return null
-      }
-    }
-    return builder.toString()
-  }
-
-  private fun formatPrefillCustomRate(rate: BigDecimal): String {
-    val stripped = rate.stripTrailingZeros()
-    val candidate = if (stripped.scale() > 12) {
-      stripped.setScale(12, RoundingMode.HALF_EVEN).stripTrailingZeros()
-    } else {
-      stripped
-    }
-    val plain = candidate.toPlainString()
-    return if (plain.length <= 18) plain else plain.take(18).trimEnd('.')
   }
 
   companion object {

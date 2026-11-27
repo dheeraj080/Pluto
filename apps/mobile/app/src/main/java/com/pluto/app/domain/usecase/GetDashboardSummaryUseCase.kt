@@ -19,8 +19,10 @@ import java.util.Locale
  *
  * Adheres strictly to the Financial Rules:
  * 1. Accumulates historical expenses using their recorded `homeAmount` snapshots.
- * 2. Does NOT recalculate historical transactions using current live market exchange rates.
- * 3. Keeps original currency totals grouped separately without cross-currency addition.
+ * 2. Does NOT recalculate historical transactions from their original currency using live rates.
+ * 3. Translates snapshots recorded in a former home currency into the active home currency only
+ *    when a current market rate is supplied by the caller; otherwise the expense is excluded and
+ *    reported via [DashboardSummary.unconvertibleHomeCurrencies].
  * 4. Precision-safe arithmetic using BigDecimal with half-even rounding.
  */
 class GetDashboardSummaryUseCase {
@@ -36,6 +38,7 @@ class GetDashboardSummaryUseCase {
     walletTransactions: List<com.pluto.app.domain.model.WalletTransaction> = emptyList(),
     destinationExchangeRate: BigDecimal? = null,
     depositToHomeRates: Map<Currency, BigDecimal> = emptyMap(),
+    homeCurrencyRates: Map<Currency, BigDecimal> = emptyMap(),
     categoryBudgets: Map<String, BigDecimal> = emptyMap(),
     recentLimit: Int = 10,
     userPersona: com.pluto.app.domain.model.UserPersona = com.pluto.app.domain.model.UserPersona.INTERNATIONAL_STUDENT,
@@ -60,11 +63,36 @@ class GetDashboardSummaryUseCase {
     val periodExpenses = allExpenses.filter { it.timestamp in startTime..endTime }
 
     val effectiveDestRate = destinationExchangeRate ?: if (destinationCurrency == currentHomeCurrency) BigDecimal.ONE else null
+    val unconvertibleHomeCurrenciesSet = linkedSetOf<Currency>()
 
-    // 2. Sum total spending in home currency using persisted homeAmount snapshots
-    val totalHomeBigDecimal = periodExpenses.fold(BigDecimal.ZERO) { acc, expense ->
-      acc.add(expense.homeAmount.amount)
+    /**
+     * Converts a recorded home snapshot into the active home currency. Expenses recorded while a
+     * different home currency was active are never recomputed from their original amount; only the
+     * immutable home snapshot is translated at the current market rate supplied by the caller.
+     */
+    fun homeAmountInCurrentCurrency(expense: Expense, trackUnconvertible: Boolean = false): BigDecimal? {
+      if (expense.homeCurrency == currentHomeCurrency) return expense.homeAmount.amount
+      val rate = homeCurrencyRates[expense.homeCurrency]
+      if (rate != null && rate > BigDecimal.ZERO) {
+        return expense.homeAmount.amount
+          .multiply(rate)
+          .setScale(currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+      }
+      if (trackUnconvertible) {
+        unconvertibleHomeCurrenciesSet.add(expense.homeCurrency)
+      }
+      return null
     }
+
+    fun sumHome(expenses: List<Expense>, trackUnconvertible: Boolean = false): BigDecimal =
+      expenses.fold(BigDecimal.ZERO) { acc, expense ->
+        val amount = homeAmountInCurrentCurrency(expense, trackUnconvertible)
+        if (amount != null) acc.add(amount) else acc
+      }
+
+    // 2. Sum total spending in home currency using persisted homeAmount snapshots.
+    // Only the selected period contributes to the user-facing rate-unavailable warning.
+    val totalHomeBigDecimal = sumHome(periodExpenses, trackUnconvertible = true)
     val totalHomeMoney = Money.of(totalHomeBigDecimal, currentHomeCurrency)
     val totalDestSpending = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO) {
       val destAmount = totalHomeBigDecimal.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
@@ -73,9 +101,7 @@ class GetDashboardSummaryUseCase {
 
     // 3. Today's total spending in home currency & destination currency
     val todayExpenses = allExpenses.filter { it.timestamp in todayStart..todayEnd }
-    val todayHomeBigDecimal = todayExpenses.fold(BigDecimal.ZERO) { acc, expense ->
-      acc.add(expense.homeAmount.amount)
-    }
+    val todayHomeBigDecimal = sumHome(todayExpenses)
     val todayHomeMoney = Money.of(todayHomeBigDecimal, currentHomeCurrency)
     val todayDestSpending = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO) {
       val destAmount = todayHomeBigDecimal.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
@@ -84,9 +110,7 @@ class GetDashboardSummaryUseCase {
 
     // 4. Month's total spending in home currency & destination currency
     val monthExpenses = allExpenses.filter { it.timestamp in monthStart..monthEnd }
-    val monthHomeBigDecimal = monthExpenses.fold(BigDecimal.ZERO) { acc, expense ->
-      acc.add(expense.homeAmount.amount)
-    }
+    val monthHomeBigDecimal = sumHome(monthExpenses)
     val monthHomeMoney = Money.of(monthHomeBigDecimal, currentHomeCurrency)
     val monthDestSpending = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO) {
       val destAmount = monthHomeBigDecimal.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
@@ -232,9 +256,7 @@ class GetDashboardSummaryUseCase {
       periodExpenses
         .groupBy { it.category }
         .map { (category, expenses) ->
-          val categorySum = expenses.fold(BigDecimal.ZERO) { acc, exp ->
-            acc.add(exp.homeAmount.amount)
-          }
+          val categorySum = sumHome(expenses)
           val percentage = if (totalHomeBigDecimal.compareTo(BigDecimal.ZERO) > 0) {
             categorySum.multiply(BigDecimal(100))
               .divide(totalHomeBigDecimal, 1, RoundingMode.HALF_EVEN)
@@ -289,9 +311,7 @@ class GetDashboardSummaryUseCase {
           val originalSum = expenses.fold(BigDecimal.ZERO) { acc, exp ->
             acc.add(exp.originalAmount.amount)
           }
-          val homeEquivSum = expenses.fold(BigDecimal.ZERO) { acc, exp ->
-            acc.add(exp.homeAmount.amount)
-          }
+          val homeEquivSum = sumHome(expenses)
 
           CurrencySpendingSummary(
             currency = currency,
@@ -303,35 +323,16 @@ class GetDashboardSummaryUseCase {
         .sortedByDescending { it.totalHomeEquivalent.amount }
     }
 
-    // 10. Unified Activity Feed (Dual-Currency: 1. Primary: Current Country, 2. Secondary: Home Country)
+    // 10. Unified Activity Feed (1. Spent currency, 2. Immutable home snapshot)
     val expenseItems = allExpenses.map { exp ->
-      val destMoney: Money = when {
-        exp.originalCurrency == destinationCurrency -> exp.originalAmount
-        effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO -> {
-          val converted = exp.homeAmount.amount.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
-          Money.of(converted, destinationCurrency)
-        }
-        exp.originalCurrency == currentHomeCurrency && destinationCurrency == currentHomeCurrency -> exp.homeAmount
-        else -> exp.originalAmount
-      }
-
-      val primaryStr = "-${destMoney.format()}"
-      val secondaryStr = if (destMoney.currency != currentHomeCurrency) {
-        "≈ -${exp.homeAmount.format()}"
-      } else {
-        "-${exp.homeAmount.format()}"
-      }
-
-      val subtitleText = if (exp.originalCurrency != destinationCurrency && exp.originalCurrency != currentHomeCurrency) {
-        "${exp.category.name} · Paid ${exp.originalAmount.format()}"
-      } else {
-        exp.category.name
-      }
+      val homeLabel = if (exp.homeCurrency == currentHomeCurrency) "HOME · " else "RECORDED HOME · "
+      val primaryStr = "SPENT · ${exp.originalAmount.formatWithCode()}"
+      val secondaryStr = "$homeLabel${exp.homeAmount.formatWithCode()}"
 
       com.pluto.app.domain.model.UnifiedTransactionItem(
         id = exp.id,
         title = if (exp.merchant.isNotBlank()) exp.merchant else exp.category.name,
-        subtitle = subtitleText,
+        subtitle = exp.category.name,
         type = com.pluto.app.domain.model.UnifiedTransactionType.EXPENSE,
         primaryAmountFormatted = primaryStr,
         secondaryAmountFormatted = secondaryStr,
@@ -356,11 +357,11 @@ class GetDashboardSummaryUseCase {
             else -> tx.amount
           }
 
-          val primaryStr = "+${destMoney.format()}"
+          val primaryStr = "+${destMoney.format()} (${destMoney.currency.code})"
           val secondaryStr = when {
             homeMoney == null -> "Rate to ${currentHomeCurrency.code} unavailable"
-            destMoney.currency != currentHomeCurrency -> "≈ +${homeMoney.format()}"
-            else -> "+${homeMoney.format()}"
+            destMoney.currency != currentHomeCurrency -> "HOME · ≈ +${homeMoney.format()} (${currentHomeCurrency.code})"
+            else -> "HOME · +${homeMoney.format()} (${currentHomeCurrency.code})"
           }
 
           com.pluto.app.domain.model.UnifiedTransactionItem(
@@ -376,8 +377,8 @@ class GetDashboardSummaryUseCase {
         }
         com.pluto.app.domain.model.WalletTransactionType.TRANSFER_OUT -> {
           val targetDesc = tx.targetAmount?.let { "to ${it.currency.code}" } ?: "Transfer"
-          val primaryStr = tx.amount.format()
-          val secondaryStr = tx.targetAmount?.let { "→ ${it.format()}" }
+          val primaryStr = "${tx.amount.format()} (${tx.amount.currency.code})"
+          val secondaryStr = tx.targetAmount?.let { "→ ${it.format()} (${it.currency.code})" }
 
           com.pluto.app.domain.model.UnifiedTransactionItem(
             id = tx.id,
@@ -421,9 +422,7 @@ class GetDashboardSummaryUseCase {
       val dayEnd = dayStart + 86400000L - 1L
 
       val dayExpenses = allExpenses.filter { it.timestamp in dayStart..dayEnd }
-      val dayHomeAmount = dayExpenses.fold(BigDecimal.ZERO) { acc, exp ->
-        acc.add(exp.homeAmount.amount)
-      }
+      val dayHomeAmount = sumHome(dayExpenses)
       val dayHomeMoney = Money.of(dayHomeAmount, currentHomeCurrency)
       val dayDestMoney = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO) {
         val destAmount = dayHomeAmount.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
@@ -482,7 +481,7 @@ class GetDashboardSummaryUseCase {
 
     // Term expenses within term bounds
     val termExpenses = allExpenses.filter { it.timestamp in termSettings.termStartDate..termSettings.termEndDate }
-    val termSpentHomeBd = termExpenses.fold(BigDecimal.ZERO) { acc, exp -> acc.add(exp.homeAmount.amount) }
+    val termSpentHomeBd = sumHome(termExpenses)
     val termSpentHome = Money.of(termSpentHomeBd, currentHomeCurrency)
     val termSpentDest = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO) {
       val converted = termSpentHomeBd.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
@@ -605,7 +604,8 @@ class GetDashboardSummaryUseCase {
       userPersona = userPersona,
       termRunwaySummary = termRunwaySummary,
       unvaluedIncomeCurrencies = unvaluedPeriodCurrenciesSet.sortedBy { it.code },
-      unvaluedTodayIncomeCurrencies = unvaluedTodayCurrenciesSet.sortedBy { it.code }
+      unvaluedTodayIncomeCurrencies = unvaluedTodayCurrenciesSet.sortedBy { it.code },
+      unconvertibleHomeCurrencies = unconvertibleHomeCurrenciesSet.sortedBy { it.code }
     )
   }
 }

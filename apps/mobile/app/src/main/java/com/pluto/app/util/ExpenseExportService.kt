@@ -41,7 +41,7 @@ object ExpenseExportService {
     sb.append("# Pluto Travel Expense Report\n")
     sb.append("# Period: ").append(escapeCsv(periodTitle)).append("\n")
     sb.append("# Generated: ").append(csvDateFormat.format(Date())).append("\n")
-    sb.append("# Home Reference Currency: ").append(homeCurrency.code).append("\n\n")
+    sb.append("# Home Equivalent: immutable snapshot recorded per transaction (current home: ${homeCurrency.code})\n\n")
 
     // Column Headers
     sb.append("Transaction ID,Date,Category,Merchant/Payee,Original Amount,Original Currency,Home Equivalent,Home Currency,Exchange Rate,Exchange Rate Date,Receipt Attached,Note\n")
@@ -135,7 +135,7 @@ object ExpenseExportService {
     val generatedDate = pdfHeaderDateFormat.format(Date())
     paint.color = Color.rgb(100, 116, 139)
     paint.textSize = 9f
-    canvas.drawText("Generated on $generatedDate | Home Currency: ${homeCurrency.code} (${homeCurrency.symbol})", margin, yPos + 10f, paint)
+    canvas.drawText("Generated on $generatedDate | Current Home: ${homeCurrency.code} | Home snapshots vary by transaction", margin, yPos + 10f, paint)
     yPos += 22f
 
     // Divider line
@@ -219,8 +219,8 @@ object ExpenseExportService {
       canvas.drawText("Date", margin + 6f, curY + 14f, headerLabelPaint)
       canvas.drawText("Category", margin + 70f, curY + 14f, headerLabelPaint)
       canvas.drawText("Merchant / Payee", margin + 170f, curY + 14f, headerLabelPaint)
-      canvas.drawText("Original", margin + 320f, curY + 14f, headerLabelPaint)
-      canvas.drawText("Home Equiv (${homeCurrency.code})", pageWidth - margin - 110f, curY + 14f, headerLabelPaint)
+      canvas.drawText("Original (ISO)", margin + 320f, curY + 14f, headerLabelPaint)
+      canvas.drawText("Home (ISO)", pageWidth - margin - 110f, curY + 14f, headerLabelPaint)
     }
 
     drawTableHeader(yPos)
@@ -255,8 +255,8 @@ object ExpenseExportService {
       val rowY = yPos
       val dateStr = pdfTableDateFormat.format(Date(exp.timestamp))
       val merchantStr = exp.merchant.ifBlank { exp.note.ifBlank { "—" } }.take(22)
-      val origAmountStr = exp.originalAmount.format()
-      val homeAmountStr = exp.homeAmount.format()
+      val origAmountStr = exp.originalAmount.formatWithCode()
+      val homeAmountStr = exp.homeAmount.formatWithCode()
 
       textPaint.color = Color.rgb(30, 41, 59)
       canvas.drawText(dateStr, margin + 6f, rowY + 11f, textPaint)

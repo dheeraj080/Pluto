@@ -1,6 +1,5 @@
 package com.pluto.app.ui.expenses
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,31 +13,31 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarToday
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.SwapHoriz
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDialog
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,7 +48,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pluto.app.domain.model.Currency
@@ -111,6 +109,25 @@ internal fun localMillisToUtcPickerDate(localMillis: Long): Long {
   }.timeInMillis
 }
 
+internal fun mergeSelectedTimeWithLocalDate(
+  selectedHour: Int,
+  selectedMinute: Int,
+  existingLocalMillis: Long,
+  nowMillis: Long = System.currentTimeMillis()
+): Long {
+  val existingLocalCal = Calendar.getInstance().apply { timeInMillis = existingLocalMillis }
+  val merged = Calendar.getInstance().apply {
+    set(Calendar.YEAR, existingLocalCal.get(Calendar.YEAR))
+    set(Calendar.MONTH, existingLocalCal.get(Calendar.MONTH))
+    set(Calendar.DAY_OF_MONTH, existingLocalCal.get(Calendar.DAY_OF_MONTH))
+    set(Calendar.HOUR_OF_DAY, selectedHour)
+    set(Calendar.MINUTE, selectedMinute)
+    set(Calendar.SECOND, 0)
+    set(Calendar.MILLISECOND, 0)
+  }
+  return minOf(merged.timeInMillis, nowMillis)
+}
+
 internal fun formatRateNumber(rate: BigDecimal, targetCurrency: Currency): String {
   val minScale = targetCurrency.decimalPlaces.coerceAtLeast(2)
   val maxScale = if (rate < BigDecimal("0.01")) 8 else 6
@@ -124,14 +141,13 @@ internal fun rateSourceLabel(
   isPriorDay: Boolean = false,
   isExplicitLiveForPastDate: Boolean = false
 ): String {
-  if (isPreservedOriginal) return "Original Snapshot"
+  if (isPreservedOriginal) return "Recorded Rate"
   return when {
-    source == "expense_custom_rate" -> "Custom Rate"
-    source.startsWith("manual") -> "Manual Override"
-    isPriorDay && isExplicitLiveForPastDate && source == "open_er_api" -> "Live API (Past Date)"
+    source.startsWith("manual") || source == "expense_custom_rate" -> "Recorded Rate"
+    isPriorDay && isExplicitLiveForPastDate && source == "open_er_api" -> "Live Rate (Past Date)"
     isPriorDay && !isExplicitLiveForPastDate && source == "open_er_api" -> "Historical Rate"
     isPriorDay && !isExplicitLiveForPastDate && source == "open_er_api_inverse" -> "Historical Inverse"
-    source == "open_er_api" -> "Live API"
+    source == "open_er_api" -> "Live Rate"
     source.endsWith("_stale") -> "Stale Cache"
     source.startsWith("derived_inverse") -> "Inverse Cached"
     source == "identity" -> "Same Currency"
@@ -147,10 +163,16 @@ fun ExpenseDateRow(
   modifier: Modifier = Modifier
 ) {
   var showDatePicker by remember { mutableStateOf(false) }
+  var showTimePicker by remember { mutableStateOf(false) }
 
   val dateLabel = remember(transactionDateMillis) {
-    val formatter = SimpleDateFormat("EEE, d MMM yyyy", Locale.getDefault())
-    formatter.format(Date(transactionDateMillis))
+    SimpleDateFormat("EEE, d MMM yyyy", Locale.getDefault()).format(Date(transactionDateMillis))
+  }
+  val timeLabel = remember(transactionDateMillis) {
+    SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(transactionDateMillis))
+  }
+  val initialCalendar = remember(transactionDateMillis) {
+    Calendar.getInstance().apply { timeInMillis = transactionDateMillis }
   }
 
   if (showDatePicker) {
@@ -204,56 +226,148 @@ fun ExpenseDateRow(
     }
   }
 
-  Surface(
-    modifier = modifier
-      .fillMaxWidth()
-      .minimumInteractiveComponentSize()
-      .clip(PlutoShapes.large)
-      .clickable { showDatePicker = true }
-      .testTag("expense_date_selector"),
-    shape = PlutoShapes.large,
-    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-  ) {
-    Row(
+  if (showTimePicker) {
+    val timePickerState = rememberTimePickerState(
+      initialHour = initialCalendar.get(Calendar.HOUR_OF_DAY),
+      initialMinute = initialCalendar.get(Calendar.MINUTE),
+      is24Hour = true
+    )
+    TimePickerDialog(
+      onDismissRequest = { showTimePicker = false },
+      confirmButton = {
+        PlutoButton(
+          text = "Done",
+          onClick = {
+            onDateChanged(
+              mergeSelectedTimeWithLocalDate(
+                selectedHour = timePickerState.hour,
+                selectedMinute = timePickerState.minute,
+                existingLocalMillis = transactionDateMillis
+              )
+            )
+            showTimePicker = false
+          },
+          variant = PlutoButtonVariant.GHOST,
+          testTag = "expense_time_picker_confirm"
+        )
+      },
+      dismissButton = {
+        PlutoButton(
+          text = "Cancel",
+          onClick = { showTimePicker = false },
+          variant = PlutoButtonVariant.GHOST
+        )
+      }
+    ) {
+      TimePicker(state = timePickerState)
+    }
+  }
+
+  Column(modifier = modifier.fillMaxWidth()) {
+    Surface(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 14.dp, vertical = 12.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.SpaceBetween
+        .minimumInteractiveComponentSize()
+        .clip(PlutoShapes.large)
+        .clickable { showDatePicker = true }
+        .testTag("expense_date_selector"),
+      shape = PlutoShapes.large,
+      color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
       Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.weight(1f)
+        horizontalArrangement = Arrangement.SpaceBetween
       ) {
-        Icon(
-          imageVector = Icons.Rounded.CalendarToday,
-          contentDescription = "Transaction date",
-          tint = MaterialTheme.colorScheme.primary,
-          modifier = Modifier.size(18.dp)
-        )
-        Column {
-          Text(
-            text = "Transaction Date",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
+          modifier = Modifier.weight(1f)
+        ) {
+          Icon(
+            imageVector = Icons.Rounded.CalendarToday,
+            contentDescription = "Transaction date",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp)
           )
-          Text(
-            text = dateLabel,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
-          )
+          Column {
+            Text(
+              text = "Transaction Date",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+              text = dateLabel,
+              style = MaterialTheme.typography.bodyMedium,
+              fontWeight = FontWeight.SemiBold,
+              color = MaterialTheme.colorScheme.onSurface
+            )
+          }
         }
+        Text(
+          text = "Change",
+          style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.primary
+        )
       }
+    }
 
-      Text(
-        text = "Change",
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.primary
-      )
+    Spacer(modifier = Modifier.size(8.dp))
+
+    Surface(
+      modifier = Modifier
+        .fillMaxWidth()
+        .minimumInteractiveComponentSize()
+        .clip(PlutoShapes.large)
+        .clickable { showTimePicker = true }
+        .testTag("expense_time_selector"),
+      shape = PlutoShapes.large,
+      color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+    ) {
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
+          modifier = Modifier.weight(1f)
+        ) {
+          Icon(
+            imageVector = Icons.Rounded.Timer,
+            contentDescription = "Transaction time",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp)
+          )
+          Column {
+            Text(
+              text = "Transaction Time",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+              text = timeLabel,
+              style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
+              fontWeight = FontWeight.SemiBold,
+              color = MaterialTheme.colorScheme.onSurface
+            )
+          }
+        }
+        Text(
+          text = "Change",
+          style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.primary
+        )
+      }
     }
   }
 }
@@ -264,8 +378,6 @@ fun ExpenseRateControlSection(
   formState: ExpenseEntryFormState,
   onOpenHomeCurrencyPicker: () -> Unit,
   onSwapCurrencies: () -> Unit,
-  onToggleCustomRate: (Boolean) -> Unit,
-  onCustomRateInputChanged: (String) -> Unit,
   onRefreshLiveRate: () -> Unit,
   onRefreshRateForDate: () -> Unit,
   onRestoreOriginalRate: () -> Unit,
@@ -278,13 +390,11 @@ fun ExpenseRateControlSection(
     formState.preservedOriginalRate.fromCurrency == formState.localCurrency &&
     formState.preservedOriginalRate.toCurrency == formState.homeCurrency
   val isPreservingSnapshot = pairMatchesPreserved &&
-    formState.rateUpdatePolicy == RateUpdatePolicy.PRESERVE_EXISTING &&
-    !formState.isCustomRateActive
+    formState.rateUpdatePolicy == RateUpdatePolicy.PRESERVE_EXISTING
 
   val isPriorDay = formState.isPriorDayTransaction
   val isExplicitLiveForPastDate = isPriorDay &&
     formState.rateUpdatePolicy == RateUpdatePolicy.REFRESH_LIVE &&
-    !formState.isCustomRateActive &&
     !isPreservingSnapshot
 
   if (!isForeign) {
@@ -361,14 +471,14 @@ fun ExpenseRateControlSection(
       .fillMaxWidth()
       .testTag("expense_rate_control_card"),
     shape = PlutoShapes.large,
-    color = if (preview.isRateUnavailable && !formState.isCustomRateActive) {
+    color = if (preview.isRateUnavailable) {
       MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
     } else {
       MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
     },
     border = BorderStroke(
       1.dp,
-      if (preview.isRateUnavailable && !formState.isCustomRateActive) {
+      if (preview.isRateUnavailable) {
         MaterialTheme.colorScheme.error.copy(alpha = 0.45f)
       } else {
         MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
@@ -408,7 +518,7 @@ fun ExpenseRateControlSection(
             }
           } else {
             val amountText = preview.convertedMoney?.format()?.let { "≈ $it" }
-              ?: if (preview.isRateUnavailable && !formState.isCustomRateActive) {
+              ?: if (preview.isRateUnavailable) {
                 "Rate required"
               } else {
                 "Enter amount to convert"
@@ -417,7 +527,7 @@ fun ExpenseRateControlSection(
               text = amountText,
               style = MaterialTheme.typography.titleLarge.merge(PlutoNumericStyle),
               fontWeight = FontWeight.Bold,
-              color = if (preview.isRateUnavailable && !formState.isCustomRateActive) {
+              color = if (preview.isRateUnavailable) {
                 MaterialTheme.colorScheme.error
               } else {
                 MaterialTheme.colorScheme.onSurface
@@ -480,20 +590,25 @@ fun ExpenseRateControlSection(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Text(
-          text = preview.rateFormatted ?: "1 ${formState.localCurrency.code} = — ${formState.homeCurrency.code}",
-          style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
-          fontWeight = FontWeight.Medium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier
-            .weight(1f)
-            .testTag("expense_rate_display_text")
-        )
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Exchange Rate",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+          Text(
+            text = preview.rateFormatted ?: "1 ${formState.localCurrency.code} = — ${formState.homeCurrency.code}",
+            style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("expense_rate_display_text")
+          )
+        }
 
         val badgeSource = preview.exchangeRate?.source
-        if (badgeSource != null || formState.isCustomRateActive) {
+        if (badgeSource != null) {
           val label = rateSourceLabel(
-            source = badgeSource ?: "expense_custom_rate",
+            source = badgeSource,
             isPreservedOriginal = isPreservingSnapshot,
             isPriorDay = isPriorDay,
             isExplicitLiveForPastDate = isExplicitLiveForPastDate
@@ -551,36 +666,14 @@ fun ExpenseRateControlSection(
         )
       }
 
-      // 3. Rate Controls (Custom Rate, Refresh Live, Date Lookup, Keep Original)
+      // 3. Rate Controls (Refresh Live, Date Lookup, Keep Original)
       FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
       ) {
         FilterChip(
-          selected = formState.isCustomRateActive,
-          onClick = { onToggleCustomRate(!formState.isCustomRateActive) },
-          leadingIcon = {
-            Icon(
-              imageVector = Icons.Rounded.Edit,
-              contentDescription = null,
-              modifier = Modifier.size(16.dp)
-            )
-          },
-          label = { Text("Custom Rate", style = MaterialTheme.typography.labelSmall) },
-          shape = PlutoShapes.medium,
-          colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-          ),
-          modifier = Modifier
-            .heightIn(min = 48.dp)
-            .minimumInteractiveComponentSize()
-            .testTag("expense_custom_rate_button")
-        )
-
-        FilterChip(
-          selected = formState.rateUpdatePolicy == RateUpdatePolicy.REFRESH_LIVE && !formState.isCustomRateActive,
+          selected = formState.rateUpdatePolicy == RateUpdatePolicy.REFRESH_LIVE,
           onClick = onRefreshLiveRate,
           enabled = !formState.isRefreshingRate,
           leadingIcon = {
@@ -650,50 +743,8 @@ fun ExpenseRateControlSection(
         }
       }
 
-      // 4. Inline Custom Rate Input
-      AnimatedVisibility(visible = formState.isCustomRateActive) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-          ) {
-            OutlinedTextField(
-              value = formState.customRateInput,
-              onValueChange = onCustomRateInputChanged,
-              modifier = Modifier
-                .weight(1f)
-                .testTag("expense_custom_rate_input"),
-              label = { Text("1 ${formState.localCurrency.code} = ? ${formState.homeCurrency.code}") },
-              placeholder = { Text("e.g. 1.0850") },
-              singleLine = true,
-              isError = formState.customRateError != null,
-              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-              textStyle = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
-              shape = PlutoShapes.medium
-            )
-            PlutoButton(
-              text = "Reset",
-              onClick = { onToggleCustomRate(false) },
-              variant = PlutoButtonVariant.GHOST,
-              testTag = "expense_reset_rate_button"
-            )
-          }
-          Text(
-            text = formState.customRateError
-              ?: "Applies only to this expense without changing saved market or manual rates.",
-            style = MaterialTheme.typography.labelSmall,
-            color = if (formState.customRateError != null) {
-              MaterialTheme.colorScheme.error
-            } else {
-              MaterialTheme.colorScheme.onSurfaceVariant
-            }
-          )
-        }
-      }
-
-      // 5. Rate Unavailable Fallback Actions
-      if (preview.isRateUnavailable && !formState.isCustomRateActive && !preview.isLoading) {
+      // 4. Rate Unavailable Fallback Actions
+      if (preview.isRateUnavailable && !preview.isLoading) {
         val isHistoricalMiss = isPriorDay && formState.rateUpdatePolicy != RateUpdatePolicy.REFRESH_LIVE
         Column(
           modifier = Modifier.fillMaxWidth(),
@@ -712,9 +763,9 @@ fun ExpenseRateControlSection(
             )
             Text(
               text = if (isHistoricalMiss) {
-                "No historical rate available for this date. Enter a custom rate or explicitly choose today's live rate."
+                "No historical rate available for this date. Choose another date or explicitly use today's live rate."
               } else {
-                "Rate unavailable offline. Retry or enter a custom rate."
+                "Rate unavailable offline. Retry or use today's live rate."
               },
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.error,
@@ -729,12 +780,6 @@ fun ExpenseRateControlSection(
             horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.sm),
             verticalArrangement = Arrangement.spacedBy(PlutoSpacing.sm)
           ) {
-            PlutoButton(
-              text = "Custom Rate",
-              onClick = { onToggleCustomRate(true) },
-              variant = PlutoButtonVariant.OUTLINED,
-              testTag = "expense_unavailable_custom_rate_button"
-            )
             PlutoButton(
               text = if (isHistoricalMiss) "Use Live Rate" else "Retry",
               onClick = onRefreshLiveRate,

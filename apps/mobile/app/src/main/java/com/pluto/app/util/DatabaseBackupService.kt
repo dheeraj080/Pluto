@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.room.withTransaction
 import com.pluto.app.data.local.AppDatabase
 import com.pluto.app.data.local.exchange.ExchangeRateEntity
-import com.pluto.app.data.local.exchange.ManualExchangeRateEntity
 import com.pluto.app.data.local.expense.ExpenseEntity
 import com.pluto.app.data.local.wallet.CurrencyWalletEntity
 import com.pluto.app.data.local.wallet.WalletTransactionEntity
@@ -38,8 +37,7 @@ data class BackupSummary(
   val walletCount: Int,
   val transactionCount: Int,
   val homeCurrency: String,
-  val destinationCurrency: String,
-  val manualRateCount: Int = 0
+  val destinationCurrency: String
 )
 
 data class RestoreResult(
@@ -47,8 +45,7 @@ data class RestoreResult(
   val message: String,
   val expensesRestored: Int = 0,
   val walletsRestored: Int = 0,
-  val transactionsRestored: Int = 0,
-  val manualRatesRestored: Int = 0
+  val transactionsRestored: Int = 0
 )
 
 /**
@@ -57,7 +54,7 @@ data class RestoreResult(
  */
 object DatabaseBackupService {
 
-  private const val BACKUP_SCHEMA_VERSION = 2
+  private const val BACKUP_SCHEMA_VERSION = 3
   private const val BACKUP_APP_NAME = "Pluto"
 
   suspend fun generateBackupJson(
@@ -199,24 +196,6 @@ object DatabaseBackupService {
     }
     root.put("exchangeRates", ratesArray)
 
-    // 6. Separate Manual Exchange Rate Overrides
-    val manualRates = database.manualExchangeRateDao().getAllManualRates()
-    val manualRatesArray = JSONArray()
-    manualRates.forEach { m ->
-      val obj = JSONObject().apply {
-        put("fromCurrency", m.fromCurrency)
-        put("toCurrency", m.toCurrency)
-        put("rate", m.rate)
-        put("effectiveDate", m.effectiveDate)
-        put("effectiveFrom", m.effectiveFrom)
-        put("expiresAt", m.expiresAt ?: JSONObject.NULL)
-        put("source", m.source)
-        put("updatedAt", m.updatedAt)
-      }
-      manualRatesArray.put(obj)
-    }
-    root.put("manualExchangeRates", manualRatesArray)
-
     return root.toString(2)
   }
 
@@ -226,7 +205,6 @@ object DatabaseBackupService {
     val expenseCount = root.optJSONArray("expenses")?.length() ?: 0
     val walletCount = root.optJSONArray("wallets")?.length() ?: 0
     val transactionCount = root.optJSONArray("walletTransactions")?.length() ?: 0
-    val manualRateCount = root.optJSONArray("manualExchangeRates")?.length() ?: 0
 
     val settingsObj = root.optJSONObject("settings")
     val homeCurrency = settingsObj?.optString("homeCurrency", "USD") ?: "USD"
@@ -238,8 +216,7 @@ object DatabaseBackupService {
       walletCount = walletCount,
       transactionCount = transactionCount,
       homeCurrency = homeCurrency,
-      destinationCurrency = destinationCurrency,
-      manualRateCount = manualRateCount
+      destinationCurrency = destinationCurrency
     )
   }
 
@@ -336,9 +313,12 @@ object DatabaseBackupService {
           isBiometricLockEnabled = settingsObj.optBoolean("isBiometricLockEnabled", false),
           autoLockTimeoutMinutes = settingsObj.optInt("autoLockTimeoutMinutes", 1),
           isPrivacyModeEnabled = settingsObj.optBoolean("isPrivacyModeEnabled", false),
-          homeTimeZoneId = if (settingsObj.has("homeTimeZoneId") && !settingsObj.isNull("homeTimeZoneId")) {
-            settingsObj.optString("homeTimeZoneId").trim().takeIf { it.isNotEmpty() }
-          } else null
+          homeTimeZoneId = com.pluto.app.domain.model.DualZoneClockEngine.normalizeHomeTimeZoneId(
+            if (settingsObj.has("homeTimeZoneId") && !settingsObj.isNull("homeTimeZoneId")) {
+              settingsObj.optString("homeTimeZoneId")
+            } else null,
+            homeCurr
+          )
         )
       } else null
 
@@ -428,73 +408,9 @@ object DatabaseBackupService {
       }
 
       val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-      val restoredManualByKey = linkedMapOf<Triple<String, String, Long>, ManualExchangeRateEntity>()
-      val manualPeriodsByPair = linkedMapOf<Pair<String, String>, MutableList<ManualExchangeRateEntity>>()
-
-      val manualRatesArray = root.optJSONArray("manualExchangeRates")
-      if (manualRatesArray != null) {
-        for (i in 0 until manualRatesArray.length()) {
-          val obj = manualRatesArray.getJSONObject(i)
-          val fromCode = Currency.requireByCode(obj.getString("fromCurrency")).code
-          val toCode = Currency.requireByCode(obj.getString("toCurrency")).code
-          require(fromCode != toCode) {
-            "Manual exchange rate currencies must differ, got '$fromCode'"
-          }
-          val rawRate = obj.getString("rate").trim()
-          val parsedRate = rawRate.toBigDecimalOrNull()
-            ?: throw IllegalArgumentException("Malformed manual exchange rate '$rawRate'")
-          require(parsedRate.compareTo(BigDecimal.ZERO) > 0) {
-            "Manual exchange rate must be positive, got '$rawRate'"
-          }
-          val effectiveFrom = if (obj.has("effectiveFrom") && !obj.isNull("effectiveFrom")) {
-            obj.getLong("effectiveFrom")
-          } else {
-            obj.optLong("updatedAt", System.currentTimeMillis())
-          }
-          val expiresAt = if (!obj.has("expiresAt") || obj.isNull("expiresAt")) {
-            null
-          } else {
-            obj.getLong("expiresAt").also { exp ->
-              require(exp > effectiveFrom) {
-                "Manual exchange rate expiresAt ($exp, exclusive) must be strictly after effectiveFrom ($effectiveFrom)"
-              }
-            }
-          }
-          val effectiveDate = obj.optString("effectiveDate", "").trim().takeIf { it.isNotEmpty() }
-            ?: synchronized(dateFormat) { dateFormat.format(Date(effectiveFrom)) }
-          val source = obj.optString("source", "manual_override").trim().ifEmpty { "manual_override" }
-          val updatedAt = obj.optLong("updatedAt", effectiveFrom)
-
-          val entity = ManualExchangeRateEntity(
-            fromCurrency = fromCode,
-            toCurrency = toCode,
-            rate = parsedRate.toPlainString(),
-            effectiveDate = effectiveDate,
-            effectiveFrom = effectiveFrom,
-            expiresAt = expiresAt,
-            source = source,
-            updatedAt = updatedAt
-          )
-
-          val key = Triple(fromCode, toCode, effectiveFrom)
-          require(!restoredManualByKey.containsKey(key)) {
-            "Duplicate manual exchange rate period for $fromCode->$toCode starting at $effectiveFrom"
-          }
-          val existingForPair = manualPeriodsByPair.getOrPut(fromCode to toCode) { mutableListOf() }
-          existingForPair.firstOrNull { it.overlapsWith(effectiveFrom, expiresAt) }?.let { conflict ->
-            throw IllegalArgumentException(
-              "Overlapping manual exchange rate windows for $fromCode->$toCode: [$effectiveFrom, ${expiresAt ?: "∞"}) overlaps [${conflict.effectiveFrom}, ${conflict.expiresAt ?: "∞"})"
-            )
-          }
-
-          existingForPair.add(entity)
-          restoredManualByKey[key] = entity
-        }
-      }
 
       val ratesArray = root.optJSONArray("exchangeRates")
       val restoredRates = mutableListOf<ExchangeRateEntity>()
-      val legacyManualRawByPair = linkedMapOf<Pair<String, String>, MutableList<ExchangeRateEntity>>()
       if (ratesArray != null) {
         for (i in 0 until ratesArray.length()) {
           val obj = ratesArray.getJSONObject(i)
@@ -511,105 +427,32 @@ object DatabaseBackupService {
             ?: synchronized(dateFormat) { dateFormat.format(Date(fetchedAt)) }
           val source = obj.optString("source", "backup").trim().ifEmpty { "backup" }
 
-          // Route legacy pre-v2 manual overrides stored in exchangeRates into manual_exchange_rates
-          if (source.startsWith("manual") && fromCode != toCode) {
-            legacyManualRawByPair.getOrPut(fromCode to toCode) { mutableListOf() }.add(
-              ExchangeRateEntity(
-                fromCurrency = fromCode,
-                toCurrency = toCode,
-                rate = parsedRate.toPlainString(),
-                effectiveDate = effectiveDate,
-                fetchedAt = fetchedAt,
-                source = source
-              )
+          // Legacy manual-rate rows are intentionally skipped; custom overrides were removed.
+          if (source.startsWith("manual")) continue
+
+          restoredRates.add(
+            ExchangeRateEntity(
+              fromCurrency = fromCode,
+              toCurrency = toCode,
+              rate = parsedRate.toPlainString(),
+              effectiveDate = effectiveDate,
+              fetchedAt = fetchedAt,
+              source = source
             )
-          } else {
-            restoredRates.add(
-              ExchangeRateEntity(
-                fromCurrency = fromCode,
-                toCurrency = toCode,
-                rate = parsedRate.toPlainString(),
-                effectiveDate = effectiveDate,
-                fetchedAt = fetchedAt,
-                source = source
-              )
-            )
-          }
+          )
         }
       }
-
-      // Chain consecutive legacy v1 manual rates per currency pair into non-overlapping [effectiveFrom, expiresAt) windows
-      legacyManualRawByPair.forEach { (pair, rawEntries) ->
-        val distinctFetchedCount = rawEntries.map { it.fetchedAt }.distinct().size
-        val hasDuplicateFetchedAt = distinctFetchedCount < rawEntries.size
-        val resolvedEntries = rawEntries.map { raw ->
-          val effectiveFrom = if (hasDuplicateFetchedAt) {
-            synchronized(dateFormat) {
-              try {
-                dateFormat.parse(raw.effectiveDate)?.time ?: raw.fetchedAt
-              } catch (_: Exception) {
-                raw.fetchedAt
-              }
-            }
-          } else {
-            raw.fetchedAt
-          }
-          raw to effectiveFrom
-        }.sortedBy { it.second }
-
-        resolvedEntries.forEachIndexed { idx, (raw, effectiveFrom) ->
-          val chainedExpiresAt = resolvedEntries.getOrNull(idx + 1)?.second?.takeIf { it > effectiveFrom }
-          val key = Triple(pair.first, pair.second, effectiveFrom)
-          val existingForPair = manualPeriodsByPair.getOrPut(pair) { mutableListOf() }
-          val conflicts = existingForPair.any { it.overlapsWith(effectiveFrom, chainedExpiresAt) }
-          if (!restoredManualByKey.containsKey(key) && !conflicts) {
-            val entity = ManualExchangeRateEntity(
-              fromCurrency = pair.first,
-              toCurrency = pair.second,
-              rate = raw.rate,
-              effectiveDate = raw.effectiveDate,
-              effectiveFrom = effectiveFrom,
-              expiresAt = chainedExpiresAt,
-              source = raw.source,
-              updatedAt = raw.fetchedAt
-            )
-            existingForPair.add(entity)
-            restoredManualByKey[key] = entity
-          }
-        }
-      }
-
-      val restoredManualRates = restoredManualByKey.values.toList()
 
       if (parsedSettings != null) {
         userSettingsRepository.updateSettings(parsedSettings)
       }
 
-      val hasManualSection = root.has("manualExchangeRates")
       database.withTransaction {
         if (mode == RestoreMode.REPLACE) {
           database.expenseDao().clearAll()
           database.walletTransactionDao().clearAll()
           database.currencyWalletDao().clearAll()
-          if (hasManualSection) {
-            database.manualExchangeRateDao().clearAll()
-          }
-        } else if (restoredManualRates.isNotEmpty()) {
-          val existingDbManual = database.manualExchangeRateDao().getAllManualRates()
-          restoredManualRates.forEach { candidate ->
-            existingDbManual
-              .filter {
-                it.fromCurrency == candidate.fromCurrency &&
-                  it.toCurrency == candidate.toCurrency &&
-                  it.effectiveFrom != candidate.effectiveFrom
-              }
-              .firstOrNull { it.overlapsWith(candidate.effectiveFrom, candidate.expiresAt) }
-              ?.let { conflict ->
-                throw IllegalArgumentException(
-                  "Restored manual rate [${candidate.effectiveFrom}, ${candidate.expiresAt ?: "∞"}) for ${candidate.fromCurrency}->${candidate.toCurrency} overlaps existing period [${conflict.effectiveFrom}, ${conflict.expiresAt ?: "∞"})"
-                )
-              }
-          }
+          database.exchangeRateDao().clearAll()
         }
 
         if (restoredWallets.isNotEmpty()) {
@@ -624,18 +467,14 @@ object DatabaseBackupService {
         if (restoredRates.isNotEmpty()) {
           database.exchangeRateDao().insertRates(restoredRates)
         }
-        if (restoredManualRates.isNotEmpty()) {
-          database.manualExchangeRateDao().insertManualRates(restoredManualRates)
-        }
       }
 
       RestoreResult(
         success = true,
-        message = "Successfully restored ${restoredExpenses.size} expenses, ${restoredWallets.size} wallets, ${restoredTransactions.size} transactions, and ${restoredManualRates.size} manual rates.",
+        message = "Successfully restored ${restoredExpenses.size} expenses, ${restoredWallets.size} wallets, and ${restoredTransactions.size} transactions.",
         expensesRestored = restoredExpenses.size,
         walletsRestored = restoredWallets.size,
-        transactionsRestored = restoredTransactions.size,
-        manualRatesRestored = restoredManualRates.size
+        transactionsRestored = restoredTransactions.size
       )
     } catch (e: Exception) {
       RestoreResult(false, "Restore failed: ${e.message ?: "Invalid or corrupted backup"}")

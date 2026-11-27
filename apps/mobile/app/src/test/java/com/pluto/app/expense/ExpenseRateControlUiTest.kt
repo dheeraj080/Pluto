@@ -8,7 +8,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextInput
 import com.pluto.app.domain.model.Category
 import com.pluto.app.domain.model.Currency
 import com.pluto.app.domain.model.ExchangeRate
@@ -66,9 +65,6 @@ class ExpenseRateControlUiTest {
 
       override suspend fun saveRate(exchangeRate: ExchangeRate) {}
       override fun observeAllRates() = flowOf(listOf(liveRate))
-      override suspend fun setManualOverride(from: Currency, to: Currency, rate: BigDecimal) {}
-      override suspend fun clearManualOverride(from: Currency, to: Currency) {}
-      override suspend fun getManualOverrides() = emptyList<ExchangeRate>()
     }
   }
 
@@ -125,23 +121,15 @@ class ExpenseRateControlUiTest {
     composeTestRule.onNodeWithTag("expense_use_live_rate_button")
       .performScrollTo()
       .assertIsDisplayed()
-    composeTestRule.onNodeWithTag("expense_unavailable_custom_rate_button")
-      .performScrollTo()
-      .assertIsDisplayed()
 
     composeTestRule.onNodeWithTag("expense_entry_save_button")
       .performScrollTo()
       .assertIsNotEnabled()
 
-    // Explicit choice: enter custom rate
-    composeTestRule.onNodeWithTag("expense_unavailable_custom_rate_button")
+    // Explicit choice: use today's market rate for the backdated expense
+    composeTestRule.onNodeWithTag("expense_use_live_rate_button")
       .performScrollTo()
       .performClick()
-    composeTestRule.waitForIdle()
-
-    composeTestRule.onNodeWithTag("expense_custom_rate_input")
-      .performScrollTo()
-      .performTextInput("96.50")
     composeTestRule.waitForIdle()
 
     composeTestRule.onNodeWithTag("expense_entry_save_button")
@@ -151,8 +139,8 @@ class ExpenseRateControlUiTest {
     composeTestRule.waitForIdle()
 
     assertNotNull(saved)
-    assertEquals("96.50", saved!!.exchangeRate.rate.toPlainString())
-    assertEquals("expense_custom_rate", saved!!.exchangeRate.source)
+    assertEquals("110.00", saved!!.exchangeRate.rate.toPlainString())
+    assertEquals("open_er_api", saved!!.exchangeRate.source)
   }
 
   @Test
@@ -207,7 +195,7 @@ class ExpenseRateControlUiTest {
       .performClick()
     composeTestRule.waitForIdle()
 
-    composeTestRule.onNodeWithText("Original Snapshot")
+    composeTestRule.onNodeWithText("Recorded Rate")
       .performScrollTo()
       .assertIsDisplayed()
     assertEquals(Currency.EUR, vm.formState.value.localCurrency)

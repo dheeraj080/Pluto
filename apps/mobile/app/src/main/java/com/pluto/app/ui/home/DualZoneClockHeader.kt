@@ -63,10 +63,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.pluto.app.R
 import com.pluto.app.domain.model.DualClockSnapshot
 import com.pluto.app.domain.model.DualZoneClockEngine
@@ -89,14 +94,17 @@ import java.util.TimeZone
 @Composable
 fun rememberDualClockTickMillis(): Long {
   val context = LocalContext.current
+  val lifecycleOwner = LocalLifecycleOwner.current
   var tickMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
-  LaunchedEffect(Unit) {
-    while (true) {
-      val now = System.currentTimeMillis()
-      tickMillis = now
-      val millisUntilNextMinute = 60_000L - (now % 60_000L)
-      delay(millisUntilNextMinute.coerceAtLeast(1_000L))
+  LaunchedEffect(lifecycleOwner) {
+    lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+      while (true) {
+        val now = System.currentTimeMillis()
+        tickMillis = now
+        val millisUntilNextMinute = 60_000L - (now % 60_000L)
+        delay(millisUntilNextMinute.coerceAtLeast(1_000L))
+      }
     }
   }
 
@@ -141,48 +149,159 @@ fun DualZoneClockInlineRow(
   nowMillis: Long = rememberDualClockTickMillis(),
   localTimeZone: TimeZone = TimeZone.getDefault()
 ) {
+  val snapshot = rememberDualClockSnapshot(userSettings, nowMillis, localTimeZone)
+  DualZoneClockSurface(
+    snapshot = snapshot,
+    onClick = onClick,
+    modifier = modifier.fillMaxWidth(),
+    shape = PlutoShapes.medium,
+    containerColor = containerColor,
+    contentColor = contentColor,
+    secondaryContentColor = secondaryContentColor,
+    dayIconTint = dayIconTint,
+    nightIconTint = nightIconTint,
+    badgeColor = contentColor.copy(alpha = 0.16f),
+    badgeTextColor = contentColor,
+    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+    labelStyle = MaterialTheme.typography.labelSmall,
+    timeStyle = MaterialTheme.typography.labelLarge,
+    iconSpacing = 6.dp,
+    badgePadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp),
+    pressScale = PlutoMotion.PressScale
+  )
+}
+
+/**
+ * Standalone Dual-Zone Clock chip (retained for tests and standalone previews).
+ */
+@Composable
+fun DualZoneClockHeaderChip(
+  userSettings: UserSettings,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+  nowMillis: Long = rememberDualClockTickMillis(),
+  localTimeZone: TimeZone = TimeZone.getDefault()
+) {
+  val snapshot = rememberDualClockSnapshot(userSettings, nowMillis, localTimeZone)
+  Box(
+    modifier = modifier
+      .fillMaxWidth()
+      .padding(horizontal = PlutoSpacing.xl, vertical = PlutoSpacing.xs),
+    contentAlignment = Alignment.Center
+  ) {
+    DualZoneClockSurface(
+      snapshot = snapshot,
+      onClick = onClick,
+      modifier = Modifier
+        .widthIn(max = 840.dp)
+        .fillMaxWidth(),
+      shape = PlutoShapes.large,
+      containerColor = MaterialTheme.colorScheme.surface,
+      contentColor = MaterialTheme.colorScheme.onSurface,
+      secondaryContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+      dayIconTint = MaterialTheme.colorScheme.tertiary,
+      nightIconTint = MaterialTheme.colorScheme.primary,
+      badgeColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+      badgeTextColor = MaterialTheme.colorScheme.primary,
+      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+      badgeBorder = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+      contentPadding = PaddingValues(horizontal = PlutoSpacing.md, vertical = PlutoSpacing.sm),
+      labelStyle = MaterialTheme.typography.labelSmall,
+      timeStyle = MaterialTheme.typography.titleSmall,
+      iconSpacing = PlutoSpacing.sm,
+      badgePadding = PaddingValues(horizontal = PlutoSpacing.sm, vertical = PlutoSpacing.xs),
+      pressScale = PlutoMotion.CardPressScale
+    )
+  }
+}
+
+@Composable
+private fun rememberDualClockSnapshot(
+  userSettings: UserSettings,
+  nowMillis: Long,
+  localTimeZone: TimeZone
+): DualClockSnapshot {
   val context = LocalContext.current
   val is24Hour = remember(context) { DateFormat.is24HourFormat(context) }
   val locale = Locale.getDefault()
-
   val homeZoneId = DualZoneClockEngine.resolveHomeZoneId(userSettings)
   val homeTimeZone = remember(homeZoneId) { TimeZone.getTimeZone(homeZoneId) }
-  val snapshot = remember(nowMillis, localTimeZone.id, homeTimeZone.id, userSettings.homeTimeZoneId, is24Hour, locale) {
+  val isHomeZoneCustomized = remember(userSettings.homeCurrency, userSettings.homeTimeZoneId) {
+    DualZoneClockEngine.normalizeHomeTimeZoneId(
+      userSettings.homeTimeZoneId,
+      userSettings.homeCurrency
+    ) != null
+  }
+  return remember(nowMillis, localTimeZone.id, homeTimeZone.id, isHomeZoneCustomized, is24Hour, locale) {
     DualZoneClockEngine.computeSnapshot(
       nowMillis = nowMillis,
       localTimeZone = localTimeZone,
       homeTimeZone = homeTimeZone,
-      isHomeZoneCustomized = !userSettings.homeTimeZoneId.isNullOrBlank(),
+      isHomeZoneCustomized = isHomeZoneCustomized,
       is24Hour = is24Hour,
       locale = locale
     )
   }
+}
 
+/**
+ * Shared rendering for both the inline Home hero row and the standalone legacy chip.
+ * A single implementation keeps the LOCAL/HOME prefixes, test tags, and semantics aligned.
+ */
+@Composable
+private fun DualZoneClockSurface(
+  snapshot: DualClockSnapshot,
+  onClick: () -> Unit,
+  modifier: Modifier,
+  shape: androidx.compose.ui.graphics.Shape,
+  containerColor: androidx.compose.ui.graphics.Color,
+  contentColor: androidx.compose.ui.graphics.Color,
+  secondaryContentColor: androidx.compose.ui.graphics.Color,
+  dayIconTint: androidx.compose.ui.graphics.Color,
+  nightIconTint: androidx.compose.ui.graphics.Color,
+  badgeColor: androidx.compose.ui.graphics.Color,
+  badgeTextColor: androidx.compose.ui.graphics.Color,
+  contentPadding: PaddingValues,
+  labelStyle: TextStyle,
+  timeStyle: TextStyle,
+  iconSpacing: Dp,
+  badgePadding: PaddingValues,
+  pressScale: Float,
+  border: BorderStroke? = null,
+  badgeBorder: BorderStroke? = null
+) {
   val interactionSource = remember { MutableInteractionSource() }
-  val accessibilityLabel = buildString {
-    append("Local time in ${snapshot.localLabel} is ${snapshot.localTimeFormatted}, ")
-    append(if (snapshot.localIsDaytime) "daytime. " else "nighttime. ")
-    append("Home time in ${snapshot.homeLabel} is ${snapshot.homeTimeFormatted}, ")
-    append(if (snapshot.homeIsDaytime) "daytime. " else "nighttime. ")
-    append("Offset ${snapshot.offsetBadgeText}")
-    if (snapshot.dayRolloverLabel != null) {
-      append(", ${snapshot.dayRolloverLabel}")
-    }
-    append(". Tap to change home time zone.")
-  }
+  val daytimeLabel = stringResource(R.string.dual_clock_daytime)
+  val nighttimeLabel = stringResource(R.string.dual_clock_nighttime)
+  val rolloverSuffix = snapshot.dayRolloverLabel?.let {
+    stringResource(R.string.dual_clock_day_rollover_accessibility, it)
+  }.orEmpty()
+  val accessibilityLabel = stringResource(
+    R.string.dual_clock_accessibility_label,
+    snapshot.localLabel,
+    snapshot.localTimeFormatted,
+    if (snapshot.localIsDaytime) daytimeLabel else nighttimeLabel,
+    snapshot.homeLabel,
+    snapshot.homeTimeFormatted,
+    if (snapshot.homeIsDaytime) daytimeLabel else nighttimeLabel,
+    snapshot.offsetBadgeText,
+    rolloverSuffix
+  )
+  val localPrefix = stringResource(R.string.dual_clock_local_prefix)
+  val homePrefix = stringResource(R.string.dual_clock_home_prefix)
 
   Surface(
-    shape = PlutoShapes.medium,
+    shape = shape,
     color = containerColor,
+    border = border,
     modifier = modifier
-      .fillMaxWidth()
       .minimumInteractiveComponentSize()
       .plutoPressableScale(
         enabled = true,
-        pressedScale = PlutoMotion.PressScale,
+        pressedScale = pressScale,
         interactionSource = interactionSource
       )
-      .clip(PlutoShapes.medium)
+      .clip(shape)
       .clickable(
         interactionSource = interactionSource,
         indication = androidx.compose.material3.ripple(),
@@ -197,11 +316,10 @@ fun DualZoneClockInlineRow(
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 12.dp, vertical = 8.dp),
+        .padding(contentPadding),
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.SpaceBetween
     ) {
-      // Local zone
       Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.weight(1f)
@@ -212,11 +330,11 @@ fun DualZoneClockInlineRow(
           nightTint = nightIconTint,
           testTag = "dual_clock_local_day_night_icon"
         )
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(iconSpacing))
         Column {
           Text(
-            text = snapshot.localLabel,
-            style = MaterialTheme.typography.labelSmall,
+            text = stringResource(R.string.dual_clock_zone_label, localPrefix, snapshot.localLabel),
+            style = labelStyle,
             color = secondaryContentColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -224,7 +342,7 @@ fun DualZoneClockInlineRow(
           )
           Text(
             text = snapshot.localTimeFormatted,
-            style = MaterialTheme.typography.labelLarge.merge(PlutoNumericStyle),
+            style = timeStyle.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = contentColor,
             maxLines = 1,
@@ -234,29 +352,27 @@ fun DualZoneClockInlineRow(
         }
       }
 
-      val badgeLabel = if (snapshot.dayRolloverLabel != null) {
-        "${snapshot.offsetBadgeText} · ${snapshot.dayRolloverLabel}"
-      } else {
-        snapshot.offsetBadgeText
-      }
+      val badgeLabel = snapshot.dayRolloverLabel?.let {
+        stringResource(R.string.dual_clock_badge_with_rollover, snapshot.offsetBadgeText, it)
+      } ?: snapshot.offsetBadgeText
       Surface(
         shape = PlutoShapes.small,
-        color = contentColor.copy(alpha = 0.16f)
+        color = badgeColor,
+        border = badgeBorder
       ) {
         Text(
           text = badgeLabel,
           style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
           fontWeight = FontWeight.Bold,
-          color = contentColor,
+          color = badgeTextColor,
           maxLines = 1,
           softWrap = false,
           modifier = Modifier
-            .padding(horizontal = 8.dp, vertical = 3.dp)
+            .padding(badgePadding)
             .testTag("dual_clock_offset_badge")
         )
       }
 
-      // Home zone
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.End,
@@ -268,8 +384,8 @@ fun DualZoneClockInlineRow(
         ) {
           Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-              text = snapshot.homeLabel,
-              style = MaterialTheme.typography.labelSmall,
+              text = stringResource(R.string.dual_clock_zone_label, homePrefix, snapshot.homeLabel),
+              style = labelStyle,
               color = secondaryContentColor,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
@@ -287,7 +403,7 @@ fun DualZoneClockInlineRow(
           }
           Text(
             text = snapshot.homeTimeFormatted,
-            style = MaterialTheme.typography.labelLarge.merge(PlutoNumericStyle),
+            style = timeStyle.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = contentColor,
             maxLines = 1,
@@ -295,201 +411,13 @@ fun DualZoneClockInlineRow(
             modifier = Modifier.testTag("dual_clock_home_time")
           )
         }
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(iconSpacing))
         DayNightIndicatorIcon(
           isDaytime = snapshot.homeIsDaytime,
           dayTint = dayIconTint,
           nightTint = nightIconTint,
           testTag = "dual_clock_home_day_night_icon"
         )
-      }
-    }
-  }
-}
-
-/**
- * Standalone Dual-Zone Clock chip (retained for tests and standalone previews).
- */
-@Composable
-fun DualZoneClockHeaderChip(
-  userSettings: UserSettings,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier,
-  nowMillis: Long = rememberDualClockTickMillis(),
-  localTimeZone: TimeZone = TimeZone.getDefault()
-) {
-  val context = LocalContext.current
-  val is24Hour = remember(context) { DateFormat.is24HourFormat(context) }
-  val locale = Locale.getDefault()
-
-  val homeZoneId = DualZoneClockEngine.resolveHomeZoneId(userSettings)
-  val homeTimeZone = remember(homeZoneId) { TimeZone.getTimeZone(homeZoneId) }
-  val snapshot = remember(nowMillis, localTimeZone.id, homeTimeZone.id, userSettings.homeTimeZoneId, is24Hour, locale) {
-    DualZoneClockEngine.computeSnapshot(
-      nowMillis = nowMillis,
-      localTimeZone = localTimeZone,
-      homeTimeZone = homeTimeZone,
-      isHomeZoneCustomized = !userSettings.homeTimeZoneId.isNullOrBlank(),
-      is24Hour = is24Hour,
-      locale = locale
-    )
-  }
-
-  val interactionSource = remember { MutableInteractionSource() }
-  val accessibilityLabel = buildString {
-    append("Local time in ${snapshot.localLabel} is ${snapshot.localTimeFormatted}, ")
-    append(if (snapshot.localIsDaytime) "daytime. " else "nighttime. ")
-    append("Home time in ${snapshot.homeLabel} is ${snapshot.homeTimeFormatted}, ")
-    append(if (snapshot.homeIsDaytime) "daytime. " else "nighttime. ")
-    append("Offset ${snapshot.offsetBadgeText}")
-    if (snapshot.dayRolloverLabel != null) {
-      append(", ${snapshot.dayRolloverLabel}")
-    }
-    append(". Tap to change home time zone.")
-  }
-
-  Box(
-    modifier = modifier
-      .fillMaxWidth()
-      .padding(horizontal = PlutoSpacing.xl, vertical = PlutoSpacing.xs),
-    contentAlignment = Alignment.Center
-  ) {
-    Surface(
-      shape = PlutoShapes.large,
-      color = MaterialTheme.colorScheme.surface,
-      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-      modifier = Modifier
-        .widthIn(max = 840.dp)
-        .fillMaxWidth()
-        .minimumInteractiveComponentSize()
-        .plutoPressableScale(
-          enabled = true,
-          pressedScale = PlutoMotion.CardPressScale,
-          interactionSource = interactionSource
-        )
-        .clip(PlutoShapes.large)
-        .clickable(
-          interactionSource = interactionSource,
-          indication = androidx.compose.material3.ripple(),
-          role = Role.Button,
-          onClick = onClick
-        )
-        .semantics(mergeDescendants = true) {
-          contentDescription = accessibilityLabel
-        }
-        .testTag("home_dual_zone_clock_chip")
-    ) {
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(horizontal = PlutoSpacing.md, vertical = PlutoSpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-      ) {
-        // Left: Device Local Clock
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          modifier = Modifier.weight(1f)
-        ) {
-          DayNightIndicatorIcon(
-            isDaytime = snapshot.localIsDaytime,
-            testTag = "dual_clock_local_day_night_icon"
-          )
-          Spacer(modifier = Modifier.width(PlutoSpacing.sm))
-          Column {
-            Text(
-              text = "${stringResource(R.string.dual_clock_local_prefix)} · ${snapshot.localLabel}",
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-              modifier = Modifier.testTag("dual_clock_local_label")
-            )
-            Text(
-              text = snapshot.localTimeFormatted,
-              style = MaterialTheme.typography.titleSmall.merge(PlutoNumericStyle),
-              fontWeight = FontWeight.Bold,
-              color = MaterialTheme.colorScheme.onSurface,
-              maxLines = 1,
-              softWrap = false,
-              modifier = Modifier.testTag("dual_clock_local_time")
-            )
-          }
-        }
-
-        Spacer(modifier = Modifier.width(PlutoSpacing.sm))
-
-        // Center: Offset + Day Rollover Pill
-        val badgeLabel = if (snapshot.dayRolloverLabel != null) {
-          "${snapshot.offsetBadgeText} · ${snapshot.dayRolloverLabel}"
-        } else {
-          snapshot.offsetBadgeText
-        }
-        Surface(
-          shape = PlutoShapes.small,
-          color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
-          border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
-        ) {
-          Text(
-            text = badgeLabel,
-            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1,
-            softWrap = false,
-            modifier = Modifier
-              .padding(horizontal = PlutoSpacing.sm, vertical = PlutoSpacing.xs)
-              .testTag("dual_clock_offset_badge")
-          )
-        }
-
-        Spacer(modifier = Modifier.width(PlutoSpacing.sm))
-
-        // Right: Selected Home Clock
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.End,
-          modifier = Modifier.weight(1f)
-        ) {
-          Column(
-            horizontalAlignment = Alignment.End,
-            modifier = Modifier.weight(1f, fill = false)
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Text(
-                text = "${stringResource(R.string.dual_clock_home_prefix)} · ${snapshot.homeLabel}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                  .weight(1f, fill = false)
-                  .testTag("dual_clock_home_label")
-              )
-              Spacer(modifier = Modifier.width(2.dp))
-              Icon(
-                imageVector = Icons.Rounded.KeyboardArrowDown,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(14.dp)
-              )
-            }
-            Text(
-              text = snapshot.homeTimeFormatted,
-              style = MaterialTheme.typography.titleSmall.merge(PlutoNumericStyle),
-              fontWeight = FontWeight.Bold,
-              color = MaterialTheme.colorScheme.onSurface,
-              maxLines = 1,
-              softWrap = false,
-              modifier = Modifier.testTag("dual_clock_home_time")
-            )
-          }
-          Spacer(modifier = Modifier.width(PlutoSpacing.sm))
-          DayNightIndicatorIcon(
-            isDaytime = snapshot.homeIsDaytime,
-            testTag = "dual_clock_home_day_night_icon"
-          )
-        }
       }
     }
   }
@@ -505,7 +433,9 @@ private fun DayNightIndicatorIcon(
 ) {
   Icon(
     imageVector = if (isDaytime) Icons.Rounded.WbSunny else Icons.Rounded.NightsStay,
-    contentDescription = if (isDaytime) "Daytime" else "Nighttime",
+    contentDescription = stringResource(
+      if (isDaytime) R.string.dual_clock_daytime else R.string.dual_clock_nighttime
+    ),
     tint = if (isDaytime) dayTint else nightTint,
     modifier = modifier
       .size(16.dp)
@@ -530,9 +460,24 @@ fun HomeTimeZonePickerSheet(
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
   var searchQuery by remember { mutableStateOf("") }
+  val normalizedHomeZoneId = DualZoneClockEngine.normalizeHomeTimeZoneId(
+    userSettings.homeTimeZoneId,
+    userSettings.homeCurrency
+  )
   val currentResolvedZoneId = DualZoneClockEngine.resolveHomeZoneId(userSettings)
-  val defaultCurrencyZoneId = DualZoneClockEngine.defaultZoneIdForCurrency(userSettings.homeCurrency)
-  val defaultCityLabel = DualZoneClockEngine.friendlyCityName(defaultCurrencyZoneId)
+  val hasCurrencyDefault = DualZoneClockEngine.hasCurrencyDefaultForCurrency(userSettings.homeCurrency)
+  val defaultCityLabel = DualZoneClockEngine.friendlyCityName(
+    DualZoneClockEngine.defaultZoneIdForCurrency(userSettings.homeCurrency)
+  )
+
+  // Tapping the already-resolved zone (including the currency default) is a no-op.
+  val selectZone: (String) -> Unit = { zoneId ->
+    val normalized = DualZoneClockEngine.normalizeHomeTimeZoneId(zoneId, userSettings.homeCurrency)
+    if (normalized != normalizedHomeZoneId) {
+      onSelectTimeZone(normalized)
+      onDismiss()
+    }
+  }
 
   val suggestedZones = remember(userSettings.homeCurrency) {
     DualZoneClockEngine.suggestedZonesForCurrency(userSettings.homeCurrency)
@@ -582,7 +527,7 @@ fun HomeTimeZonePickerSheet(
           )
         }
 
-        if (!userSettings.homeTimeZoneId.isNullOrBlank()) {
+        if (normalizedHomeZoneId != null) {
           TextButton(
             onClick = {
               onSelectTimeZone(null)
@@ -630,7 +575,7 @@ fun HomeTimeZonePickerSheet(
             ) {
               Icon(
                 imageVector = Icons.Rounded.Close,
-                contentDescription = "Clear search"
+                contentDescription = stringResource(R.string.dual_clock_clear_search)
               )
             }
           }
@@ -639,42 +584,48 @@ fun HomeTimeZonePickerSheet(
         shape = PlutoShapes.medium
       )
 
-      if (searchQuery.isBlank() && suggestedZones.isNotEmpty()) {
-        Spacer(modifier = Modifier.height(PlutoSpacing.md))
-        Text(
-          text = stringResource(R.string.dual_clock_suggested_label, userSettings.homeCurrency.code),
-          style = MaterialTheme.typography.labelMedium,
-          fontWeight = FontWeight.SemiBold,
-          color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(PlutoSpacing.xs))
-        LazyRow(
-          horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.sm),
-          contentPadding = PaddingValues(vertical = PlutoSpacing.xs)
-        ) {
-          items(suggestedZones, key = { it.zoneId }) { option ->
-            val selected = option.zoneId == currentResolvedZoneId
-            FilterChip(
-              selected = selected,
-              onClick = {
-                onSelectTimeZone(option.zoneId)
-                onDismiss()
-              },
-              label = {
-                Text(
-                  text = option.city,
-                  style = MaterialTheme.typography.labelMedium,
-                  fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-                )
-              },
-              colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                selectedLabelColor = MaterialTheme.colorScheme.primary
-              ),
-              modifier = Modifier
-                .minimumInteractiveComponentSize()
-                .testTag("timezone_suggested_chip_${option.zoneId}")
-            )
+      if (searchQuery.isBlank()) {
+        if (!hasCurrencyDefault) {
+          Text(
+            text = stringResource(R.string.dual_clock_no_currency_default, userSettings.homeCurrency.code),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("timezone_no_default_hint")
+          )
+        } else if (suggestedZones.isNotEmpty()) {
+          Spacer(modifier = Modifier.height(PlutoSpacing.md))
+          Text(
+            text = stringResource(R.string.dual_clock_suggested_label, userSettings.homeCurrency.code),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary
+          )
+          Spacer(modifier = Modifier.height(PlutoSpacing.xs))
+          LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.sm),
+            contentPadding = PaddingValues(vertical = PlutoSpacing.xs)
+          ) {
+            items(suggestedZones, key = { it.zoneId }) { option ->
+              val selected = option.zoneId == currentResolvedZoneId
+              FilterChip(
+                selected = selected,
+                onClick = { selectZone(option.zoneId) },
+                label = {
+                  Text(
+                    text = option.city,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                  )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                  selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                  selectedLabelColor = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier
+                  .minimumInteractiveComponentSize()
+                  .testTag("timezone_suggested_chip_${option.zoneId}")
+              )
+            }
           }
         }
       }
@@ -690,10 +641,7 @@ fun HomeTimeZonePickerSheet(
         items(filteredItems, key = { it.zoneId }) { item ->
           TimeZonePickerRow(
             item = item,
-            onClick = {
-              onSelectTimeZone(item.zoneId)
-              onDismiss()
-            }
+            onClick = { selectZone(item.zoneId) }
           )
           HorizontalDivider(
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
@@ -763,7 +711,7 @@ private fun TimeZonePickerRow(
       Spacer(modifier = Modifier.width(PlutoSpacing.sm))
       Icon(
         imageVector = Icons.Rounded.CheckCircle,
-        contentDescription = "Selected",
+        contentDescription = stringResource(R.string.dual_clock_selected),
         tint = MaterialTheme.colorScheme.primary,
         modifier = Modifier.size(18.dp)
       )

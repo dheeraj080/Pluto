@@ -42,7 +42,6 @@ import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 import java.math.BigDecimal
-import java.math.RoundingMode
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -66,7 +65,9 @@ internal fun groupExpensesByDay(
   expenses: List<Expense>,
   destCurrency: Currency,
   homeCurrency: Currency,
-  exchangeRate: BigDecimal?
+  exchangeRate: BigDecimal?,
+  homeAmountById: Map<String, Money> = emptyMap(),
+  destinationAmountById: Map<String, Money> = emptyMap()
 ): List<DayExpenseGroup> {
   if (expenses.isEmpty()) return emptyList()
 
@@ -96,26 +97,32 @@ internal fun groupExpensesByDay(
         else -> fullDateFormat.format(Date(firstExp.timestamp))
       }
 
-      var sumHome = BigDecimal.ZERO
-      var sumDest = BigDecimal.ZERO
+      var totalHome = Money.zero(homeCurrency)
+      var totalDest = Money.zero(destCurrency)
 
       dayExpenses.forEach { exp ->
-        sumHome += exp.homeAmount.amount
-        val destAmt = when {
-          exp.originalCurrency == destCurrency -> exp.originalAmount.amount
-          exchangeRate != null && exchangeRate > BigDecimal.ZERO ->
-            exp.homeAmount.amount.multiply(exchangeRate).setScale(destCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
-          destCurrency == homeCurrency -> exp.homeAmount.amount
-          else -> exp.originalAmount.amount
+        val homeForTotals = homeAmountById[exp.id] ?: exp.homeAmount.takeIf { it.currency == homeCurrency }
+        if (homeForTotals != null) {
+          totalHome += homeForTotals
         }
-        sumDest += destAmt
+
+        val destForTotals = destinationAmountById[exp.id] ?: when {
+          exchangeRate != null && exchangeRate > BigDecimal.ZERO && homeForTotals != null ->
+            Money.of(homeForTotals.amount.multiply(exchangeRate), destCurrency)
+          destCurrency == homeCurrency -> homeForTotals
+          exp.originalCurrency == destCurrency -> exp.originalAmount
+          else -> null
+        }
+        if (destForTotals != null) {
+          totalDest += destForTotals
+        }
       }
 
       DayExpenseGroup(
         dateKey = dateKey,
         dayTitle = dayTitle,
-        totalDest = Money.of(sumDest, destCurrency),
-        totalHome = Money.of(sumHome, homeCurrency),
+        totalDest = totalDest,
+        totalHome = totalHome,
         expenses = dayExpenses
       )
     }
@@ -152,7 +159,7 @@ internal fun DayGroupHeader(
 
       Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-          text = totalDest.format(),
+          text = "LOCAL · ${totalDest.formatWithCode()}",
           style = MaterialTheme.typography.labelMedium.merge(PlutoNumericStyle),
           fontWeight = FontWeight.Bold,
           color = MaterialTheme.colorScheme.onSurface
@@ -160,7 +167,7 @@ internal fun DayGroupHeader(
         if (totalDest.currency != totalHome.currency) {
           Spacer(modifier = Modifier.width(4.dp))
           Text(
-            text = "≈ ${totalHome.format()}",
+            text = "HOME · ${totalHome.formatWithCode()}",
             style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Medium
@@ -187,18 +194,9 @@ fun TransactionRowItem(
 ) {
   val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
 
-  val primaryAmountStr = when {
-    expense.originalCurrency == destinationCurrency -> expense.originalAmount.format()
-    destinationExchangeRate != null && destinationExchangeRate > BigDecimal.ZERO -> {
-      val converted = expense.homeAmount.amount.multiply(destinationExchangeRate)
-        .setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
-      Money.of(converted, destinationCurrency).format()
-    }
-    destinationCurrency == homeCurrency -> expense.homeAmount.format()
-    else -> expense.originalAmount.format()
-  }
-
-  val secondaryAmountStr = "≈ ${expense.homeAmount.format()}"
+  val primaryAmountStr = "SPENT · ${expense.originalAmount.formatWithCode()}"
+  val homeLabel = if (expense.homeCurrency == homeCurrency) "HOME · " else "RECORDED HOME · "
+  val secondaryAmountStr = "$homeLabel${expense.homeAmount.formatWithCode()}"
 
   Row(
     modifier = modifier
@@ -277,13 +275,6 @@ fun TransactionRowItem(
             )
           }
         }
-        if (expense.originalCurrency != destinationCurrency && expense.originalCurrency != homeCurrency) {
-          Text(
-            text = "· Paid ${expense.originalAmount.format()}",
-            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-            color = MaterialTheme.colorScheme.primary
-          )
-        }
       }
     }
 
@@ -327,8 +318,10 @@ internal fun FilteredSpendingSummaryCard(
   state: ExpenseListUiState.Success,
   modifier: Modifier = Modifier
 ) {
-  val primaryTotal = state.totalDestSpending?.format() ?: state.totalHomeSpending.format()
-  val secondaryTotal = state.totalHomeSpending.format()
+  val hasDestinationTotal = state.totalDestSpending != null
+  val primaryMoney = state.totalDestSpending ?: state.totalHomeSpending
+  val primaryTotal = "${if (hasDestinationTotal) "LOCAL · " else "HOME · "}${primaryMoney.formatWithCode()}"
+  val secondaryTotal = if (hasDestinationTotal) "HOME · ${state.totalHomeSpending.formatWithCode()}" else null
 
   PlutoCard(
     modifier = modifier.fillMaxWidth(),
@@ -361,12 +354,21 @@ internal fun FilteredSpendingSummaryCard(
           fontWeight = FontWeight.ExtraBold,
           color = MaterialTheme.colorScheme.onSurface
         )
-        Text(
-          text = "≈ $secondaryTotal in ${state.homeCurrency.code}",
-          style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
-          color = MaterialTheme.colorScheme.primary,
-          fontWeight = FontWeight.Medium
-        )
+        if (secondaryTotal != null) {
+          Text(
+            text = secondaryTotal,
+            style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium
+          )
+        }
+        if (state.hasUnconvertedAmounts) {
+          Text(
+            text = "Some older currencies could not be converted with current rates; totals may be incomplete.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.error
+          )
+        }
       }
 
       Surface(

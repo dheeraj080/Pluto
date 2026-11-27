@@ -15,19 +15,19 @@ Pluto serves three primary cross-border audiences managing money across countrie
 Pluto is a multi-currency expense tracker, live/offline currency converter, and budget runway manager that lets users spend confidently in a destination currency while always understanding the real impact in their home currency.
 
 ## Positioning
-Unlike single-currency expense apps or generic travel splitters, Pluto is built around **dual-currency truth** (local spent currency primary, home currency always anchored beside it), **horizon-aware runway pacing** (academic semester, monthly payday, or trip cycle), and **offline-first durability** backed by Room + optional Google Sign-In Cloud Firestore sync.
+Unlike single-currency expense apps or generic travel splitters, Pluto is built around **dual-currency truth** (the actually-spent currency plus the immutable home snapshot on every transaction, with local/destination primary and home secondary on aggregate totals), **horizon-aware runway pacing** (academic semester, monthly payday, or trip cycle), and **offline-first durability** backed by Room + optional Google Sign-In Cloud Firestore sync.
 
 ## Operating Context
 - **Mobile & Tablet Android, Android-only** (no iOS or web target; Firebase Android app registered as `com.pluto.app`; `minSdk 24`, `compileSdk 36`, Jetpack Compose + Material 3 `NavigationSuiteScaffold` adapting between bottom `NavigationBar` on phones and `NavigationRail` on expanded screens).
-- **On-the-go cross-border usage**: Checked in bright daylight at cafes/transit, on flights with intermittent connectivity (cached/offline FX rates, optional custom override rates), and across time zones (Home header Dual-Zone Clock comparing live device local time with the user's selected Home time zone, UTC hour/minute offset, day rollover, and day/night icons).
+- **On-the-go cross-border usage**: Checked in bright daylight at cafes/transit, on flights with intermittent connectivity (cached/offline FX rates), and across time zones (Home header Dual-Zone Clock comparing live device-local time with the Home zone derived from the home currency by default; a custom city is stored only when it differs from that default and is cleared when the home currency changes. Time-zone settings sync is local-wins/manual: sign-in reconciles once and there is no realtime settings observer).
 - **Theme support**: System, Light, and Dark modes as first-class experiences.
 
 ## Capabilities and Constraints
 - **Core modules**:
-  - Home Dashboard with swipeable hero cards (Unified Balance, Safe-to-Spend daily cap, Semester/Trip Runway), Dual-Zone Clock chip + searchable Home Time Zone picker sheet, quick actions, and unified transaction stream.
+  - Home Dashboard with swipeable hero cards (Unified Balance, Safe-to-Spend daily cap, Semester/Trip Runway), Dual-Zone Clock chip + searchable Home Time Zone picker sheet (currency-aware cities; unmapped currencies show "no default" and require a city choice), quick actions, and unified transaction stream.
   - Multi-Currency Wallets (create, edit, deposit, withdraw, inter-wallet FX transfer, portfolio valuation).
   - Expenses & Recurring Expenses (local/home currency dual entry, category/date and custom-range filters, audit timestamps, category budgets, edit/delete bottom sheets).
-  - Currency Converter with an arithmetic expression evaluator and live/cached/effective-dated manual FX rates.
+  - Currency Converter with an arithmetic expression evaluator and live/cached market FX rates. Historical comparisons use strict date-matched rates.
   - Budgets & Insights (category progress, safe-to-spend threshold alerts, breakdown charts).
   - Security, Privacy & Portability (Biometric lock with configurable timeout, Privacy Mode `FLAG_SECURE`, JSON backup/restore, optional Google Sign-In via Jetpack Credential Manager + Cloud Firestore real-time sync or Offline Local Vault mode).
 - **Technical constraints**:

@@ -92,7 +92,7 @@ class DashboardViewModel(
       } else {
         val isStaleSource = resolved.source.endsWith("_stale")
         val ageMillis = (System.currentTimeMillis() - resolved.timestamp).coerceAtLeast(0L)
-        val isAged = !resolved.source.startsWith("manual") && ageMillis >= 24L * 3_600_000L
+        val isAged = ageMillis >= 24L * 3_600_000L
         DashboardFxStatus(
           homeCurrency = home,
           destinationCurrency = dest,
@@ -135,6 +135,18 @@ class DashboardViewModel(
         }
         .toMap()
 
+      val expenseHomeCurrencies = expenses
+        .map { it.homeCurrency }
+        .distinct()
+        .filter { it != settings.homeCurrency }
+      val homeCurrencyRates = expenseHomeCurrencies
+        .mapNotNull { homeCurrency ->
+          getConversionRate(homeCurrency, settings.homeCurrency)?.let { resolvedRate ->
+            homeCurrency to resolvedRate
+          }
+        }
+        .toMap()
+
       val summary = getDashboardSummaryUseCase(
         allExpenses = expenses,
         period = period,
@@ -146,6 +158,7 @@ class DashboardViewModel(
         walletTransactions = walletTx,
         destinationExchangeRate = rate,
         depositToHomeRates = depositToHomeRates,
+        homeCurrencyRates = homeCurrencyRates,
         categoryBudgets = settings.categoryMonthlyBudgets,
         userPersona = settings.persona,
         academicTermSettings = settings.academicTermSettings,

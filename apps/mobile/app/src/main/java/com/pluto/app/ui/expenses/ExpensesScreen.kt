@@ -304,12 +304,21 @@ fun ExpensesScreen(
                 )
               }
             } else {
-              val groupedByDay = remember(state.filteredExpenses, state.destinationCurrency, state.destinationExchangeRate) {
+              val groupedByDay = remember(
+                state.filteredExpenses,
+                state.destinationCurrency,
+                state.homeCurrency,
+                state.destinationExchangeRate,
+                state.homeAmountById,
+                state.destinationAmountById
+              ) {
                 groupExpensesByDay(
                   expenses = state.filteredExpenses,
                   destCurrency = state.destinationCurrency,
                   homeCurrency = state.homeCurrency,
-                  exchangeRate = state.destinationExchangeRate
+                  exchangeRate = state.destinationExchangeRate,
+                  homeAmountById = state.homeAmountById,
+                  destinationAmountById = state.destinationAmountById
                 )
               }
 

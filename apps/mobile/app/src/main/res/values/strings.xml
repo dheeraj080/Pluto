@@ -8,9 +8,18 @@
     <string name="settings_sign_in_to_merge">Sign in with Google</string>
     <string name="dual_clock_local_prefix">LOCAL</string>
     <string name="dual_clock_home_prefix">HOME</string>
+    <string name="dual_clock_zone_label">%1$s \u00b7 %2$s</string>
+    <string name="dual_clock_badge_with_rollover">%1$s \u00b7 %2$s</string>
+    <string name="dual_clock_daytime">Daytime</string>
+    <string name="dual_clock_nighttime">Nighttime</string>
+    <string name="dual_clock_selected">Selected</string>
+    <string name="dual_clock_clear_search">Clear search</string>
+    <string name="dual_clock_accessibility_label">Local time in %1$s is %2$s, %3$s. Home time in %4$s is %5$s, %6$s. Offset %7$s%8$s. Tap to change home time zone.</string>
+    <string name="dual_clock_day_rollover_accessibility">, %1$s</string>
     <string name="dual_clock_picker_title">Home Time Zone</string>
     <string name="dual_clock_picker_subtitle">Live comparison with your device\u2019s local clock</string>
     <string name="dual_clock_search_hint">Search city, country, or UTC offset</string>
     <string name="dual_clock_suggested_label">Suggested for %1$s</string>
     <string name="dual_clock_reset_default">Use %1$s default</string>
+    <string name="dual_clock_no_currency_default">No default for %1$s \u2014 choose a city</string>
 </resources>

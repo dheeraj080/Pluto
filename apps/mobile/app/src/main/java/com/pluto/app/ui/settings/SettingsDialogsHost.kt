@@ -5,17 +5,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.pluto.app.data.local.AppDatabase
-import com.pluto.app.domain.model.ExchangeRate
-import com.pluto.app.domain.model.UserSettings
-import com.pluto.app.domain.repository.ExchangeRateRepository
 import com.pluto.app.domain.repository.UserSettingsRepository
-import com.pluto.app.ui.currency.CustomRateOverridesDialog
 import com.pluto.app.util.BackupSummary
 import com.pluto.app.util.DatabaseBackupService
 import com.pluto.app.util.ExpenseExportService
@@ -27,29 +22,18 @@ import java.io.File
 
 @Composable
 fun SettingsDialogsHost(
-  userSettings: UserSettings,
-  showCustomRatesDialog: Boolean,
-  onDismissCustomRates: () -> Unit,
   showBackupRestoreDialog: Boolean,
   onDismissBackupRestore: () -> Unit,
   database: AppDatabase?,
-  exchangeRateRepository: ExchangeRateRepository?,
   userSettingsRepository: UserSettingsRepository?,
   snackbarHostState: SnackbarHostState,
   coroutineScope: CoroutineScope,
   context: Context
 ) {
-  var activeOverrides by remember { mutableStateOf<List<ExchangeRate>>(emptyList()) }
   var pendingRestoreSummary by remember { mutableStateOf<BackupSummary?>(null) }
   var pendingRestoreJson by remember { mutableStateOf<String?>(null) }
   var isBackupProcessing by remember { mutableStateOf(false) }
   var backupStatusMessage by remember { mutableStateOf<String?>(null) }
-
-  LaunchedEffect(showCustomRatesDialog) {
-    if (showCustomRatesDialog && exchangeRateRepository != null) {
-      activeOverrides = exchangeRateRepository.getManualOverrides()
-    }
-  }
 
   val createBackupLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.CreateDocument("application/json")
@@ -57,14 +41,14 @@ fun SettingsDialogsHost(
     if (uri != null && database != null && userSettingsRepository != null) {
       coroutineScope.launch {
         isBackupProcessing = true
-        backupStatusMessage = "Exporting encrypted database archive..."
+        backupStatusMessage = "Exporting plain JSON backup (not encrypted; contains sensitive data)..."
         val success = withContext(Dispatchers.IO) {
           val json = DatabaseBackupService.generateBackupJson(database, userSettingsRepository)
           DatabaseBackupService.writeBackupToUri(context, uri, json)
         }
         isBackupProcessing = false
         if (success) {
-          backupStatusMessage = "Backup archive saved successfully!"
+          backupStatusMessage = "Backup saved. Plain JSON contains sensitive data — store it privately."
           snackbarHostState.showSnackbar("Backup archive saved to Google Drive / Files!")
         } else {
           backupStatusMessage = "Failed to save backup file."
@@ -100,29 +84,6 @@ fun SettingsDialogsHost(
         isBackupProcessing = false
       }
     }
-  }
-
-  if (showCustomRatesDialog && exchangeRateRepository != null) {
-    CustomRateOverridesDialog(
-      activeOverrides = activeOverrides,
-      defaultFromCurrency = userSettings.destinationCurrency,
-      defaultToCurrency = userSettings.homeCurrency,
-      onDismiss = onDismissCustomRates,
-      onSaveOverride = { from, to, rate ->
-        coroutineScope.launch {
-          exchangeRateRepository.setManualOverride(from, to, rate)
-          activeOverrides = exchangeRateRepository.getManualOverrides()
-          snackbarHostState.showSnackbar("Custom rate 1 ${from.code} = $rate ${to.code} active")
-        }
-      },
-      onClearOverride = { from, to ->
-        coroutineScope.launch {
-          exchangeRateRepository.clearManualOverride(from, to)
-          activeOverrides = exchangeRateRepository.getManualOverrides()
-          snackbarHostState.showSnackbar("Custom rate cleared. Market rates restored.")
-        }
-      }
-    )
   }
 
   if (showBackupRestoreDialog) {

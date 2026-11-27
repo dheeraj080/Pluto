@@ -610,9 +610,9 @@ fun SectionHeader(
 }
 
 /**
- * Standard Dual Currency Amount component adhering to the rule:
- * 1. Primary: Current Country (Destination Currency)
- * 2. Secondary: Home Country (Home Currency)
+ * Standard Dual Currency Amount component:
+ * 1. Primary: amount in the currency actually spent
+ * 2. Secondary: immutable home-currency snapshot recorded with the transaction
  */
 @Composable
 fun DualCurrencyAmountView(

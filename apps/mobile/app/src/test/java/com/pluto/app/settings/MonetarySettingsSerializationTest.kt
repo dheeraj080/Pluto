@@ -11,6 +11,7 @@ import com.pluto.app.domain.model.UserSettings
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -131,5 +132,43 @@ class MonetarySettingsSerializationTest {
     val parsed = CloudUserSettings.fromRawMap(id = "settings", data = explicitNullPayload).toDomain()
     assertNull(parsed.safeToSpendWarningThreshold)
     assertTrue(parsed.categoryMonthlyBudgets.isEmpty())
+  }
+
+  @Test
+  fun `cloud raw parsing normalizes home time zone against home currency`() {
+    fun parsedZone(currencyCode: String, zoneId: String): String? =
+      CloudUserSettings.fromRawMap(
+        id = "settings",
+        data = mapOf(
+          "homeCurrencyCode" to currencyCode,
+          "homeTimeZoneId" to zoneId
+        )
+      ).toDomain().homeTimeZoneId
+
+    assertNull(parsedZone("USD", "America/New_York"))
+    assertNull(parsedZone("USD", "Not/AZone"))
+    assertNull(parsedZone("USD", "  "))
+    assertEquals("Asia/Kolkata", parsedZone("USD", " Asia/Kolkata "))
+    assertNull(parsedZone("INR", "Asia/Kolkata"))
+  }
+
+  @Test
+  fun `cloud maps omit invalid or default home time zone and keep custom cities`() {
+    val defaulted = UserSettings(
+      homeCurrency = Currency.USD,
+      homeTimeZoneId = "America/New_York"
+    )
+    assertFalse(CloudUserSettings.toCreateMap("user-123", defaulted).containsKey("homeTimeZoneId"))
+    assertEquals(
+      FieldValue.delete(),
+      CloudUserSettings.toUpdateMap(defaulted)["homeTimeZoneId"]
+    )
+
+    val custom = UserSettings(
+      homeCurrency = Currency.USD,
+      homeTimeZoneId = "Asia/Kolkata"
+    )
+    assertEquals("Asia/Kolkata", CloudUserSettings.toCreateMap("user-123", custom)["homeTimeZoneId"])
+    assertEquals("Asia/Kolkata", CloudUserSettings.toUpdateMap(custom)["homeTimeZoneId"])
   }
 }

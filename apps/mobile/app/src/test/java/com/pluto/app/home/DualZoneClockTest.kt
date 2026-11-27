@@ -1,10 +1,13 @@
 package com.pluto.app.home
 
 import android.content.Context
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -110,11 +113,92 @@ class DualZoneClockTest {
   }
 
   @Test
-  fun `shared preferences repository persists and clears homeTimeZoneId`() = runBlocking {
+  fun `normalizeHomeTimeZoneId rejects blank invalid and default zones`() {
+    assertNull(DualZoneClockEngine.normalizeHomeTimeZoneId(null, Currency.USD))
+    assertNull(DualZoneClockEngine.normalizeHomeTimeZoneId("  ", Currency.USD))
+    assertNull(DualZoneClockEngine.normalizeHomeTimeZoneId("Not/AZone", Currency.USD))
+    assertNull(DualZoneClockEngine.normalizeHomeTimeZoneId(" America/New_York ", Currency.USD))
+    assertEquals("Asia/Kolkata", DualZoneClockEngine.normalizeHomeTimeZoneId(" Asia/Kolkata ", Currency.USD))
+    assertNull(DualZoneClockEngine.normalizeHomeTimeZoneId("Asia/Kolkata", Currency.INR))
+  }
+
+  @Test
+  fun `gulf currencies map to curated default cities`() {
+    val mappings = mapOf(
+      Currency.KWD to "Asia/Kuwait",
+      Currency.BHD to "Asia/Bahrain",
+      Currency.OMR to "Asia/Muscat",
+      Currency.JOD to "Asia/Amman",
+      Currency.TND to "Africa/Tunis"
+    )
+    mappings.forEach { (currency, zoneId) ->
+      assertEquals(zoneId, DualZoneClockEngine.defaultZoneIdForCurrency(currency))
+      assertTrue(
+        DualZoneClockEngine.CURATED_ZONES.any {
+          it.zoneId == zoneId && currency.code in it.currencyCodes
+        }
+      )
+      assertTrue(
+        DualZoneClockEngine.suggestedZonesForCurrency(currency).any { it.zoneId == zoneId }
+      )
+    }
+  }
+
+  @Test
+  fun `unmapped currencies have no default and no US suggestions`() {
+    val sek = Currency("SEK", "Swedish Krona", "kr")
+    assertFalse(DualZoneClockEngine.hasCurrencyDefaultForCurrency(sek))
+    assertTrue(DualZoneClockEngine.suggestedZonesForCurrency(sek).isEmpty())
+  }
+
+  @Test
+  fun `searchTimeZones keeps a non-curated resolved zone visible checked and unique`() {
+    val customZoneId = "America/Indiana/Indianapolis"
+    val results = DualZoneClockEngine.searchTimeZones(
+      query = "",
+      selectedZoneId = customZoneId,
+      nowMillis = 1_700_000_000_000L,
+      is24Hour = true,
+      locale = Locale.US
+    )
+
+    assertEquals(customZoneId, results.first().zoneId)
+    assertTrue(results.first().isSelected)
+    assertEquals(1, results.count { it.zoneId == customZoneId })
+    assertEquals(results.distinctBy { it.zoneId }.size, results.size)
+  }
+
+  @Test
+  fun `shared preferences repository normalizes homeTimeZoneId on every write`() = runBlocking {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val repo = SharedPreferencesUserSettingsRepository(context)
-    repo.updateHomeTimeZone("Europe/London")
+    repo.updateHomeCurrency(Currency.USD)
+
+    repo.updateHomeTimeZone(" Europe/London ")
     assertEquals("Europe/London", repo.getSettings().homeTimeZoneId)
+
+    repo.updateHomeTimeZone("Not/AZone")
+    assertNull(repo.getSettings().homeTimeZoneId)
+    repo.updateHomeTimeZone("   ")
+    assertNull(repo.getSettings().homeTimeZoneId)
+    repo.updateHomeTimeZone("America/New_York")
+    assertNull(repo.getSettings().homeTimeZoneId)
+
+    repo.updateHomeTimeZone("Asia/Tokyo")
+    assertEquals("Asia/Tokyo", repo.getSettings().homeTimeZoneId)
+    repo.updateSettings(repo.getSettings().copy(homeTimeZoneId = "Europe/London"))
+    assertEquals("Europe/London", repo.getSettings().homeTimeZoneId)
+    repo.updateSettings(
+      repo.getSettings().copy(
+        homeCurrency = Currency.GBP,
+        homeTimeZoneId = "Europe/London"
+      )
+    )
+    assertNull(repo.getSettings().homeTimeZoneId)
+
+    repo.updateHomeTimeZone("Asia/Tokyo")
+    repo.updateHomeCurrency(Currency.INR)
+    assertNull(repo.getSettings().homeTimeZoneId)
 
     repo.updateHomeTimeZone(null)
     assertNull(repo.getSettings().homeTimeZoneId)
@@ -135,7 +219,7 @@ class DualZoneClockTest {
           userSettings = UserSettings(
             homeCurrency = Currency.INR,
             destinationCurrency = Currency.USD,
-            homeTimeZoneId = "Asia/Kolkata"
+            homeTimeZoneId = null
           ),
           onClick = { tapped = true },
           nowMillis = fixedCal.timeInMillis,
@@ -153,7 +237,10 @@ class DualZoneClockTest {
     composeTestRule.onNodeWithTag("dual_clock_offset_badge", useUnmergedTree = true)
       .assertTextContains("+13.5h")
     composeTestRule.onNodeWithTag("dual_clock_home_label", useUnmergedTree = true)
+      .assertTextContains("HOME", substring = true)
       .assertTextContains("Mumbai", substring = true)
+    composeTestRule.onNodeWithTag("dual_clock_local_label", useUnmergedTree = true)
+      .assertTextContains("LOCAL", substring = true)
     composeTestRule.onNodeWithTag("dual_clock_local_day_night_icon", useUnmergedTree = true).assertExists()
     composeTestRule.onNodeWithTag("dual_clock_home_day_night_icon", useUnmergedTree = true).assertExists()
   }
@@ -215,5 +302,68 @@ class DualZoneClockTest {
 
     assertNull(selectedZone)
     assertTrue(dismissed)
+  }
+
+  @Test
+  fun `picker hides reset in auto mode and treats the current default as a no-op`() {
+    var callbacks = 0
+    composeTestRule.setContent {
+      PlutoTheme {
+        HomeTimeZonePickerSheet(
+          userSettings = UserSettings(
+            homeCurrency = Currency.USD,
+            homeTimeZoneId = null
+          ),
+          onSelectTimeZone = { callbacks++ },
+          onDismiss = { callbacks++ },
+          nowMillis = 1_700_000_000_000L
+        )
+      }
+    }
+
+    composeTestRule.onAllNodesWithTag("timezone_reset_default_button").assertCountEquals(0)
+    composeTestRule.onNodeWithTag("timezone_suggested_chip_America/New_York").performClick()
+    composeTestRule.onNodeWithTag("timezone_option_America/New_York").performClick()
+    assertEquals(0, callbacks)
+    composeTestRule.onAllNodesWithTag("timezone_option_America/New_York").assertCountEquals(1)
+  }
+
+  @Test
+  fun `picker reopens with a non-curated selected zone visible and checked`() {
+    val customZoneId = "America/Indiana/Indianapolis"
+    composeTestRule.setContent {
+      PlutoTheme {
+        HomeTimeZonePickerSheet(
+          userSettings = UserSettings(
+            homeCurrency = Currency.USD,
+            homeTimeZoneId = customZoneId
+          ),
+          onSelectTimeZone = {},
+          onDismiss = {},
+          nowMillis = 1_700_000_000_000L
+        )
+      }
+    }
+
+    composeTestRule.onNodeWithTag("timezone_option_$customZoneId").assertIsDisplayed()
+    composeTestRule.onNodeWithContentDescription("Selected").assertExists()
+  }
+
+  @Test
+  fun `picker shows no-default hint instead of US suggestions for an unmapped currency`() {
+    val sek = Currency("SEK", "Swedish Krona", "kr")
+    composeTestRule.setContent {
+      PlutoTheme {
+        HomeTimeZonePickerSheet(
+          userSettings = UserSettings(homeCurrency = sek),
+          onSelectTimeZone = {},
+          onDismiss = {},
+          nowMillis = 1_700_000_000_000L
+        )
+      }
+    }
+
+    composeTestRule.onNodeWithTag("timezone_no_default_hint").assertIsDisplayed()
+    composeTestRule.onAllNodesWithTag("timezone_suggested_chip_America/New_York").assertCountEquals(0)
   }
 }

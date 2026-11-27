@@ -19,8 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.credentials.CredentialManager
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.pluto.app.data.local.AppDatabase
 import com.pluto.app.data.local.RoomTransactionRunner
 import com.pluto.app.data.remote.cloud.CloudSyncCoordinator
@@ -107,7 +110,6 @@ class MainActivity : FragmentActivity() {
   private val exchangeRateRepository by lazy {
     OfflineFirstExchangeRateRepository(
       dao = database.exchangeRateDao(),
-      manualDao = database.manualExchangeRateDao(),
       apiService = ExchangeRateApiClient.apiService
     )
   }
@@ -314,7 +316,7 @@ class MainActivity : FragmentActivity() {
     lifecycleScope.launch {
       val settings = userSettingsRepository.getSettings()
       BiometricSecurityManager.onAppForegrounded(
-        isBiometricEnabled = settings.isBiometricLockEnabled,
+        isBiometricEnabled = settings.isBiometricLockEnabled && BiometricSecurityManager.canAuthenticate(this@MainActivity),
         timeoutMinutes = settings.autoLockTimeoutMinutes
       )
     }
@@ -353,6 +355,15 @@ class MainActivity : FragmentActivity() {
     }
 
     setContent {
+      val context = LocalContext.current
+      val lifecycleOwner = LocalLifecycleOwner.current
+      var canUseBiometricLock by remember { mutableStateOf(BiometricSecurityManager.canAuthenticate(context)) }
+      LaunchedEffect(lifecycleOwner, context) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+          // Device credential enrollment can change while the app is backgrounded.
+          canUseBiometricLock = BiometricSecurityManager.canAuthenticate(context)
+        }
+      }
       val userSettings by mainViewModel.userSettings.collectAsStateWithLifecycle()
       val isAppLocked by BiometricSecurityManager.isAppLocked.collectAsStateWithLifecycle()
       var lockErrorMessage by remember { mutableStateOf<String?>(null) }
@@ -360,7 +371,7 @@ class MainActivity : FragmentActivity() {
       PlutoTheme(themeMode = userSettings.themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {
           PlutoErrorBoundary {
-            if (isAppLocked && userSettings.isBiometricLockEnabled) {
+            if (isAppLocked && userSettings.isBiometricLockEnabled && canUseBiometricLock) {
               BiometricLockScreen(
                 errorMessage = lockErrorMessage,
                 onUnlockClick = {
@@ -460,7 +471,6 @@ fun PlutoApp(
           expenseViewModel = expenseViewModel,
           isDevMode = isDevMode,
           database = database,
-          exchangeRateRepository = exchangeRateRepository,
           userSettingsRepository = userSettingsRepository,
           cloudSyncState = cloudSyncState,
           signedInEmail = signedInUser?.email,

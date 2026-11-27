@@ -18,7 +18,9 @@ import java.math.BigDecimal
  *
  * Guarantees against duplicate occurrences even under concurrent ViewModel + WorkManager runs:
  * - Process-wide [processingMutex] serializes overlapping invocations.
- * - Exchange rates are pre-resolved outside the DB transaction lock.
+ * - Exchange rates are pre-resolved for each due date outside the DB transaction lock; a due
+ *   occurrence uses its own historical rate and falls back to the parent's recorded snapshot,
+ *   never to today's market rate.
  * - Each parent is re-read and advanced inside [TransactionRunner.runInTransaction].
  * - Each scheduled occurrence uses deterministic ID `"rec_<parentId>_<dueTimestamp>"` and is
  *   inserted only if absent from the repository.
@@ -34,18 +36,33 @@ class ProcessRecurringExpensesUseCase(
       val recurringParents = expenseRepository.getRecurringExpenses()
       if (recurringParents.isEmpty()) return@withLock emptyList()
 
-      // Pre-resolve FX rates outside DB transaction to avoid holding SQLite write locks over network calls
-      val resolvedRates = mutableMapOf<Pair<Currency, Currency>, ExchangeRate>()
-      recurringParents
-        .map { it.originalCurrency to it.homeCurrency }
-        .distinct()
-        .forEach { (from, to) ->
-          val probe = Money.of(BigDecimal.ONE, from)
-          val conversion = convertCurrencyUseCase(probe, to)
-          if (conversion is ConversionResult.Success) {
-            resolvedRates[from to to] = conversion.exchangeRate
+      // Pre-resolve one rate per due date outside the DB transaction lock. A due occurrence
+      // must use the rate for its own date; if none is available, the parent's recorded snapshot
+      // is used instead. Today's market rate is never applied to an earlier occurrence.
+      val resolvedRates = mutableMapOf<Triple<Currency, Currency, Long>, ExchangeRate>()
+      recurringParents.forEach { parent ->
+        val frequency = parent.recurrenceFrequency ?: RecurrenceFrequency.MONTHLY
+        var lastLogged = parent.lastRecurrenceLoggedMillis ?: parent.timestamp
+        var dueTimestamp = frequency.getNextTimestamp(lastLogged)
+        var iterations = 0
+        while (dueTimestamp <= nowMillis && iterations < 12) {
+          iterations++
+          val key = Triple(parent.originalCurrency, parent.homeCurrency, dueTimestamp)
+          if (!resolvedRates.containsKey(key)) {
+            val probe = Money.of(BigDecimal.ONE, parent.originalCurrency)
+            val conversion = convertCurrencyUseCase(
+              amount = probe,
+              targetCurrency = parent.homeCurrency,
+              atTimestamp = dueTimestamp
+            )
+            if (conversion is ConversionResult.Success) {
+              resolvedRates[key] = conversion.exchangeRate
+            }
           }
+          lastLogged = dueTimestamp
+          dueTimestamp = frequency.getNextTimestamp(lastLogged)
         }
+      }
 
       val newlyLogged = mutableListOf<Expense>()
 
@@ -66,7 +83,9 @@ class ProcessRecurringExpensesUseCase(
             val deterministicId = occurrenceId(parent.id, nextDue)
             val existingOccurrence = expenseRepository.getExpenseById(deterministicId)
             if (existingOccurrence == null) {
-              val rate = resolvedRates[parent.originalCurrency to parent.homeCurrency] ?: parent.exchangeRate
+              val rate = resolvedRates[
+                Triple(parent.originalCurrency, parent.homeCurrency, nextDue)
+              ] ?: parent.exchangeRate
               val homeMoney = rate.convert(parent.originalAmount)
 
               val autoInstance = Expense(

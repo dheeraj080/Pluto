@@ -99,7 +99,7 @@ data class TermRunwaySummary(
 
 /**
  * Category spending breakdown item for the dashboard.
- * Supports dual-currency presentation (Primary: Destination / Current country, Secondary: Home country).
+ * Supports dual-currency presentation (Primary: local/destination total, Secondary: home snapshot total).
  */
 data class CategorySpendingSummary(
   val category: Category,
@@ -133,8 +133,8 @@ enum class UnifiedTransactionType {
 /**
  * Unified timeline activity entry for the recent ledger feed.
  * Adheres to rule:
- * 1. primaryAmountFormatted: Current Country (Destination Currency)
- * 2. secondaryAmountFormatted: Home Country (Home Currency)
+ * 1. primaryAmountFormatted: currency actually spent/received (expenses, transfers, or deposits)
+ * 2. secondaryAmountFormatted: immutable home-currency snapshot or converted home equivalent
  */
 data class UnifiedTransactionItem(
   val id: String,
@@ -150,7 +150,7 @@ data class UnifiedTransactionItem(
 
 /**
  * Daily spend entry for the 30-day spending trend visualization.
- * Supports dual-currency presentation (Primary: Destination / Current country, Secondary: Home country).
+ * Supports dual-currency presentation (Primary: local/destination total, Secondary: home snapshot total).
  */
 data class DailySpendPoint(
   val timestamp: Long,
@@ -163,8 +163,8 @@ data class DailySpendPoint(
 
 /**
  * Aggregated domain model for the Dashboard supporting Dual-Currency:
- * 1. Primary: Current Country (Destination Currency)
- * 2. Secondary: Home Country (Home Currency)
+ * 1. Primary: Amount spent in the currency actually paid
+ * 2. Secondary: Immutable home-currency snapshot recorded with the transaction
  */
 data class DashboardSummary(
   val period: DashboardPeriod,
@@ -214,7 +214,9 @@ data class DashboardSummary(
   val userPersona: UserPersona = UserPersona.INTERNATIONAL_STUDENT,
   val termRunwaySummary: TermRunwaySummary? = null,
   val unvaluedIncomeCurrencies: List<Currency> = emptyList(),
-  val unvaluedTodayIncomeCurrencies: List<Currency> = emptyList()
+  val unvaluedTodayIncomeCurrencies: List<Currency> = emptyList(),
+  /** Former home currencies excluded from selected-period totals because no current market rate was supplied. */
+  val unconvertibleHomeCurrencies: List<Currency> = emptyList()
 ) {
   val isDailyBudgetExceeded: Boolean
     get() = safeToSpendTodayHome.amount < BigDecimal.ZERO || (dailyCapProgress != null && dailyCapProgress >= 1f)

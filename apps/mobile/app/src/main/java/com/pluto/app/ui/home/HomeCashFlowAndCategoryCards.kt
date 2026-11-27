@@ -42,7 +42,7 @@ import java.math.BigDecimal
 
 /**
  * Cash Flow Summary Bar (+Income | -Expenses | =Net)
- * Dual-Currency: Primary current country, Secondary home country.
+ * Dual-Currency: Primary local/destination total, Secondary home snapshot total.
  */
 @Composable
 fun CashFlowSummaryBar(
@@ -69,19 +69,25 @@ fun CashFlowSummaryBar(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
-          val incomePrimary = "+${summary.totalIncomeDest?.format() ?: summary.totalIncomeHome.format()}"
-          val incomeSecondary = "+${summary.totalIncomeHome.format()}"
+          val hasIncomeDest = summary.totalIncomeDest != null
+          val incomePrimary = if (hasIncomeDest) {
+            "+LOCAL · ${summary.totalIncomeDest!!.formatWithCode()}"
+          } else {
+            "+HOME · ${summary.totalIncomeHome.formatWithCode()}"
+          }
           Text(
             text = incomePrimary,
             style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.secondary
           )
-          Text(
-            text = incomeSecondary,
-            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
+          if (hasIncomeDest) {
+            Text(
+              text = "+HOME · ${summary.totalIncomeHome.formatWithCode()}",
+              style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
         }
 
         Column(modifier = Modifier.weight(1f)) {
@@ -90,19 +96,25 @@ fun CashFlowSummaryBar(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
-          val expensePrimary = "-${summary.totalDestSpending?.format() ?: summary.totalHomeSpending.format()}"
-          val expenseSecondary = "-${summary.totalHomeSpending.format()}"
+          val expensePrimary = "-${if (summary.totalDestSpending != null) "LOCAL · " else "HOME · "}${
+            (summary.totalDestSpending ?: summary.totalHomeSpending).formatWithCode()
+          }"
+          val expenseSecondary = if (summary.totalDestSpending != null) {
+            "-HOME · ${summary.totalHomeSpending.formatWithCode()}"
+          } else null
           Text(
             text = expensePrimary,
             style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.error
           )
-          Text(
-            text = expenseSecondary,
-            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
+          expenseSecondary?.let { secondary ->
+            Text(
+              text = secondary,
+              style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
         }
 
         Column(
@@ -115,19 +127,25 @@ fun CashFlowSummaryBar(
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
           val isNetPositive = summary.netCashFlowHome.amount >= BigDecimal.ZERO
-          val netPrimary = (if (isNetPositive) "+" else "") + (summary.netCashFlowDest?.format() ?: summary.netCashFlowHome.format())
-          val netSecondary = (if (isNetPositive) "+" else "") + summary.netCashFlowHome.format()
+          val signPrefix = if (isNetPositive) "+" else ""
+          val netPrimary = signPrefix + (if (summary.netCashFlowDest != null) "LOCAL · " else "HOME · ") +
+            (summary.netCashFlowDest ?: summary.netCashFlowHome).formatWithCode()
+          val netSecondary = if (summary.netCashFlowDest != null) {
+            "$signPrefixHOME · ${summary.netCashFlowHome.formatWithCode()}"
+          } else null
           Text(
             text = netPrimary,
             style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = if (isNetPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
           )
-          Text(
-            text = netSecondary,
-            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
+          netSecondary?.let { secondary ->
+            Text(
+              text = secondary,
+              style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
         }
       }
 
@@ -270,11 +288,16 @@ private fun CategoryBudgetRow(item: CategorySpendingSummary) {
       }
 
       Column(horizontalAlignment = Alignment.End) {
-        val destAmount = item.totalDestAmount?.format() ?: item.totalHomeAmount.format()
+        val hasDestAmount = item.totalDestAmount != null
+        val amountLabel = if (hasDestAmount) {
+          "LOCAL · ${item.totalDestAmount!!.formatWithCode()}"
+        } else {
+          "HOME · ${item.totalHomeAmount.formatWithCode()}"
+        }
         if (hasBudget) {
-          val budgetDest = item.budgetDest?.format() ?: item.budgetHome?.format() ?: ""
+          val budgetLabel = item.budgetDest?.formatWithCode() ?: item.budgetHome?.formatWithCode() ?: "—"
           Text(
-            text = "$destAmount / $budgetDest",
+            text = "$amountLabel / $budgetLabel",
             style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = if (item.isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
@@ -286,15 +309,17 @@ private fun CategoryBudgetRow(item: CategorySpendingSummary) {
           )
         } else {
           Text(
-            text = destAmount,
+            text = amountLabel,
             style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold
           )
-          Text(
-            text = "≈ ${item.totalHomeAmount.format()}",
-            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
+          if (hasDestAmount) {
+            Text(
+              text = "HOME · ${item.totalHomeAmount.formatWithCode()}",
+              style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
         }
       }
     }

@@ -38,7 +38,6 @@ class RecurringExpenseWorker(
       )
       val exchangeRepo = OfflineFirstExchangeRateRepository(
         dao = database.exchangeRateDao(),
-        manualDao = database.manualExchangeRateDao(),
         apiService = ExchangeRateApiClient.apiService
       )
       val useCase = ProcessRecurringExpensesUseCase(

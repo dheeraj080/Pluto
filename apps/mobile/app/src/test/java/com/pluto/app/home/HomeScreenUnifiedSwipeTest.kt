@@ -3,6 +3,7 @@ package com.pluto.app.home
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -137,11 +138,17 @@ class HomeScreenUnifiedSwipeTest {
     composeTestRule.onNodeWithTag("main_wallet_hero_card").assertIsDisplayed()
     composeTestRule.onNodeWithTag("hero_travel_balance_amount", useUnmergedTree = true).assertExists()
 
+    composeTestRule.onAllNodesWithTag("home_dual_zone_clock_chip").assertCountEquals(1)
     composeTestRule.onNodeWithTag("home_dual_zone_clock_chip")
       .assertIsDisplayed()
       .assertHeightIsAtLeast(48.dp)
       .performClick()
     assertEquals(1, clockClicks)
+
+    composeTestRule.onNodeWithTag("dual_clock_local_label", useUnmergedTree = true)
+      .assertTextContains("LOCAL", substring = true)
+    composeTestRule.onNodeWithTag("dual_clock_home_label", useUnmergedTree = true)
+      .assertTextContains("HOME", substring = true)
 
     composeTestRule.onNodeWithTag("stacked_card_adjust_budget_button")
       .assertIsDisplayed()

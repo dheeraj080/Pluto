@@ -218,8 +218,12 @@ private fun TrendCardHeader(
 
     // Right: Dual-Currency 30-Day Total
     Column(horizontalAlignment = Alignment.End) {
-      val primaryTotal = summary.thirtyDayTotalDest?.format() ?: summary.thirtyDayTotalHome.format()
-      val secondaryTotal = summary.thirtyDayTotalHome.format()
+      val hasDestTotal = summary.thirtyDayTotalDest != null
+      val primaryTotal = if (hasDestTotal) {
+        "LOCAL · ${summary.thirtyDayTotalDest!!.formatWithCode()}"
+      } else {
+        "HOME · ${summary.thirtyDayTotalHome.formatWithCode()}"
+      }
 
       Text(
         text = primaryTotal,
@@ -227,9 +231,9 @@ private fun TrendCardHeader(
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary
       )
-      if (summary.thirtyDayTotalDest != null && summary.thirtyDayTotalDest.currency != summary.homeCurrency) {
+      if (hasDestTotal) {
         Text(
-          text = "≈ $secondaryTotal",
+          text = "HOME · ${summary.thirtyDayTotalHome.formatWithCode()}",
           style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -248,17 +252,25 @@ private fun TrendTelemetryBar(
     horizontalArrangement = Arrangement.spacedBy(8.dp)
   ) {
     // 1. Daily Average Pill
-    val avgDest = summary.thirtyDayDailyAvgDest?.format() ?: summary.thirtyDayDailyAvgHome.format()
+    val hasAvgDest = summary.thirtyDayDailyAvgDest != null
+    val avgDest = if (hasAvgDest) {
+      "LOCAL · ${summary.thirtyDayDailyAvgDest!!.formatWithCode()}"
+    } else {
+      "HOME · ${summary.thirtyDayDailyAvgHome.formatWithCode()}"
+    }
     TelemetryMetricPill(
       label = "Daily Avg",
       value = avgDest,
-      subValue = if (summary.thirtyDayDailyAvgDest != null) "≈ ${summary.thirtyDayDailyAvgHome.format()}" else null,
+      subValue = if (hasAvgDest) "HOME · ${summary.thirtyDayDailyAvgHome.formatWithCode()}" else null,
       modifier = Modifier.weight(1f)
     )
 
     // 2. Peak Day Pill
     val peak = summary.thirtyDayPeakDay
-    val peakVal = peak?.let { it.amountDest?.format() ?: it.amountHome.format() } ?: "None"
+    val peakVal = peak?.let {
+      val hasDest = it.amountDest != null
+      "${if (hasDest) "LOCAL · " else "HOME · "}${(it.amountDest ?: it.amountHome).formatWithCode()}"
+    } ?: "None"
     val peakSub = peak?.dayLabel
     TelemetryMetricPill(
       label = "Peak Day",
@@ -578,17 +590,22 @@ private fun ScrubberTooltipPill(
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-          val primaryText = point.amountDest?.format() ?: point.amountHome.format()
+          val hasPointDest = point.amountDest != null
+          val primaryText = if (hasPointDest) {
+            "LOCAL · ${point.amountDest!!.formatWithCode()}"
+          } else {
+            "HOME · ${point.amountHome.formatWithCode()}"
+          }
           Text(
             text = primaryText,
             style = MaterialTheme.typography.titleSmall.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
           )
-          if (point.amountDest != null && point.amountDest.currency != point.amountHome.currency) {
+          if (hasPointDest) {
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-              text = "≈ ${point.amountHome.format()}",
+              text = "HOME · ${point.amountHome.formatWithCode()}",
               style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )

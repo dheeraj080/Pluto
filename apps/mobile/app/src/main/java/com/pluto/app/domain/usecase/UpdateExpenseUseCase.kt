@@ -3,7 +3,6 @@ package com.pluto.app.domain.usecase
 import com.pluto.app.domain.model.Category
 import com.pluto.app.domain.model.ConversionResult
 import com.pluto.app.domain.model.Currency
-import com.pluto.app.domain.model.ExchangeRate
 import com.pluto.app.domain.model.Expense
 import com.pluto.app.domain.model.Money
 import com.pluto.app.domain.repository.ExpenseRepository
@@ -21,11 +20,6 @@ enum class RateUpdatePolicy {
    * resolves a valid rate for the new currency pair at the transaction timestamp.
    */
   PRESERVE_EXISTING,
-
-  /**
-   * Applies an explicit custom exchange rate supplied by the user for this transaction.
-   */
-  USE_CUSTOM_RATE,
 
   /**
    * Explicitly refreshes the exchange rate using historical/effective-dated lookup for the
@@ -53,9 +47,9 @@ sealed interface UpdateExpenseResult {
  * - Same-pair amount/date edit with default [RateUpdatePolicy.PRESERVE_EXISTING]: keeps the
  *   original [Expense.exchangeRate] (rate, timestamp, source) intact and recalculates `homeAmount`
  *   with that preserved rate.
- * - Explicit rate change ([RateUpdatePolicy.USE_CUSTOM_RATE], [RateUpdatePolicy.REFRESH_FOR_DATE],
- *   [RateUpdatePolicy.REFRESH_LIVE]) or currency-pair change: resolves and persists the new
- *   conversion snapshot, failing safely without mutating the expense if no rate is available.
+ * - Explicit rate refresh ([RateUpdatePolicy.REFRESH_FOR_DATE], [RateUpdatePolicy.REFRESH_LIVE])
+ *   or currency-pair change: resolves and persists the new conversion snapshot, failing safely
+ *   without mutating the expense if no rate is available.
  */
 class UpdateExpenseUseCase(
   private val expenseRepository: ExpenseRepository,
@@ -75,15 +69,11 @@ class UpdateExpenseUseCase(
     newHomeCurrency: Currency = existingExpense.homeCurrency,
     newIsRecurring: Boolean = existingExpense.isRecurring,
     newRecurrenceFrequency: com.pluto.app.domain.model.RecurrenceFrequency? = existingExpense.recurrenceFrequency,
-    rateUpdatePolicy: RateUpdatePolicy = RateUpdatePolicy.PRESERVE_EXISTING,
-    customExchangeRate: BigDecimal? = null
+    rateUpdatePolicy: RateUpdatePolicy = RateUpdatePolicy.PRESERVE_EXISTING
   ): UpdateExpenseResult {
     // 1. Validation
     if (newAmount <= BigDecimal.ZERO) {
       return UpdateExpenseResult.InvalidInput("Amount must be greater than zero")
-    }
-    if (customExchangeRate != null && customExchangeRate <= BigDecimal.ZERO) {
-      return UpdateExpenseResult.InvalidInput("Exchange rate must be greater than zero")
     }
 
     val now = System.currentTimeMillis()
@@ -91,13 +81,7 @@ class UpdateExpenseUseCase(
       return UpdateExpenseResult.InvalidInput("Transaction date cannot be in the future")
     }
 
-    val effectivePolicy = if (customExchangeRate != null) {
-      RateUpdatePolicy.USE_CUSTOM_RATE
-    } else if (rateUpdatePolicy == RateUpdatePolicy.USE_CUSTOM_RATE) {
-      return UpdateExpenseResult.InvalidInput("Custom exchange rate must be provided")
-    } else {
-      rateUpdatePolicy
-    }
+    val effectivePolicy = rateUpdatePolicy
 
     val currenciesChanged =
       existingExpense.originalCurrency != newCurrency ||
@@ -168,49 +152,7 @@ class UpdateExpenseUseCase(
       }
     }
 
-    // Case C: Explicit custom exchange rate for this transaction
-    if (effectivePolicy == RateUpdatePolicy.USE_CUSTOM_RATE && customExchangeRate != null) {
-      val resolvedRate = if (newCurrency == newHomeCurrency) {
-        ExchangeRate.identity(newHomeCurrency)
-      } else {
-        ExchangeRate(
-          fromCurrency = newCurrency,
-          toCurrency = newHomeCurrency,
-          rate = customExchangeRate,
-          timestamp = now,
-          source = "expense_custom_rate"
-        )
-      }
-      val convertedHome = if (newCurrency == newHomeCurrency) {
-        newOriginalMoney
-      } else {
-        resolvedRate.convert(newOriginalMoney)
-      }
-
-      val updatedExpense = existingExpense.copy(
-        originalAmount = newOriginalMoney,
-        homeAmount = convertedHome,
-        exchangeRate = resolvedRate,
-        category = newCategory,
-        timestamp = newTimestamp,
-        merchant = newMerchant.trim(),
-        note = newNote.trim(),
-        receiptUri = newReceiptUri,
-        isRecurring = newIsRecurring,
-        recurrenceFrequency = updatedRecurrenceFreq,
-        createdAt = existingExpense.createdAt,
-        updatedAt = now
-      )
-
-      return try {
-        expenseRepository.saveExpense(updatedExpense)
-        UpdateExpenseResult.Success(updatedExpense)
-      } catch (e: Exception) {
-        UpdateExpenseResult.Failure(e.message ?: "Failed to update expense with custom rate")
-      }
-    }
-
-    // Case D: Currency pair changed OR explicit rate refresh requested
+    // Case C: Currency pair changed OR explicit rate refresh requested
     val forceRefresh = effectivePolicy == RateUpdatePolicy.REFRESH_LIVE
     val conversion = convertCurrencyUseCase(
       amount = newOriginalMoney,

@@ -101,6 +101,10 @@ data class Money(
     return "${currency.symbol}${formatter.format(amount)}"
   }
 
+  /** Symbol amount plus ISO code, so identical symbols (e.g. $) remain unambiguous in UI text. */
+  fun formatWithCode(locale: Locale = Locale.getDefault()): String =
+    "${format(locale)} (${currency.code})"
+
   companion object {
     fun zero(currency: Currency): Money =
       Money(BigDecimal.ZERO.setScale(currency.decimalPlaces, RoundingMode.HALF_EVEN), currency)

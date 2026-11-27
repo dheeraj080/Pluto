@@ -304,9 +304,9 @@ class DatabaseMigrationTest {
   }
 
   @Test
-  fun `Version 7 to Version 8 migration preserves all historical manual periods per pair and API cache entries`() {
+  fun `Version 7 to Version 9 migration removes manual overrides and preserves API cache entries`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
-    val dbName = "migration_7_8_test_db"
+    val dbName = "migration_7_9_test_db"
     context.deleteDatabase(dbName)
 
     val factory = FrameworkSQLiteOpenHelperFactory()
@@ -351,62 +351,16 @@ class DatabaseMigrationTest {
     db.execSQL("INSERT INTO `exchange_rates` VALUES ('EUR', 'USD', '1.051265460785', '2026-11-25', $t3, 'manual_override_inverse')")
 
     AppDatabase.MIGRATION_7_8.migrate(db)
+    AppDatabase.MIGRATION_8_9.migrate(db)
 
-    // Verify all 3 USD->EUR periods survived and were chained into non-overlapping [effectiveFrom, expiresAt) windows
-    val usdEurCursor = db.query(
-      "SELECT rate, effectiveDate, effectiveFrom, expiresAt, source FROM manual_exchange_rates WHERE fromCurrency = 'USD' AND toCurrency = 'EUR' ORDER BY effectiveFrom ASC"
+    // The dedicated override table is gone in v9.
+    val tableCursor = db.query(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'manual_exchange_rates'"
     )
-    assertTrue(usdEurCursor.moveToNext())
-    assertEquals("0.9300", usdEurCursor.getString(0))
-    assertEquals("2026-11-22", usdEurCursor.getString(1))
-    assertEquals(t1, usdEurCursor.getLong(2))
-    assertEquals(t2, usdEurCursor.getLong(3))
-    assertEquals("manual_override", usdEurCursor.getString(4))
+    assertTrue(!tableCursor.moveToFirst())
+    tableCursor.close()
 
-    assertTrue(usdEurCursor.moveToNext())
-    assertEquals("0.9400", usdEurCursor.getString(0))
-    assertEquals("2026-11-23", usdEurCursor.getString(1))
-    assertEquals(t2, usdEurCursor.getLong(2))
-    assertEquals(t3, usdEurCursor.getLong(3))
-    assertEquals("manual_override", usdEurCursor.getString(4))
-
-    assertTrue(usdEurCursor.moveToNext())
-    assertEquals("0.951234567891", usdEurCursor.getString(0))
-    assertEquals("2026-11-25", usdEurCursor.getString(1))
-    assertEquals(t3, usdEurCursor.getLong(2))
-    assertTrue(usdEurCursor.isNull(3))
-    assertEquals("manual_override", usdEurCursor.getString(4))
-    assertTrue(!usdEurCursor.moveToNext())
-    usdEurCursor.close()
-
-    // Verify historical lookup query honors [effectiveFrom, expiresAt) and exclusive expiresAt
-    fun queryRateAt(ts: Long): String {
-      val c = db.query(
-        "SELECT rate FROM manual_exchange_rates WHERE fromCurrency = 'USD' AND toCurrency = 'EUR' AND effectiveFrom <= ? AND (expiresAt IS NULL OR ? < expiresAt) ORDER BY effectiveFrom DESC LIMIT 1",
-        arrayOf(ts, ts)
-      )
-      assertTrue(c.moveToFirst())
-      val r = c.getString(0)
-      c.close()
-      return r
-    }
-    assertEquals("0.9300", queryRateAt(t1 + 1000L))
-    assertEquals("0.9400", queryRateAt(t2))
-    assertEquals("0.9400", queryRateAt(t3 - 1L))
-    assertEquals("0.951234567891", queryRateAt(t3))
-
-    // Verify inverse row also survived
-    val eurUsdCursor = db.query(
-      "SELECT rate, effectiveFrom, expiresAt, source FROM manual_exchange_rates WHERE fromCurrency = 'EUR' AND toCurrency = 'USD'"
-    )
-    assertTrue(eurUsdCursor.moveToNext())
-    assertEquals("1.051265460785", eurUsdCursor.getString(0))
-    assertEquals(t3, eurUsdCursor.getLong(1))
-    assertTrue(eurUsdCursor.isNull(2))
-    assertEquals("manual_override_inverse", eurUsdCursor.getString(3))
-    eurUsdCursor.close()
-
-    // Verify API cache rows in exchange_rates are preserved and manual rows removed from exchange_rates
+    // Verify API cache rows in exchange_rates are preserved and all legacy manual rows are removed.
     val apiCursor = db.query(
       "SELECT fromCurrency, toCurrency, rate, source FROM exchange_rates ORDER BY toCurrency ASC"
     )

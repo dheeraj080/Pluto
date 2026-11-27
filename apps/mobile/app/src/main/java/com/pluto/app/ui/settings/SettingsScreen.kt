@@ -44,7 +44,6 @@ import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,6 +56,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,6 +73,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.pluto.app.R
 import com.pluto.app.data.remote.cloud.CloudSyncState
 import com.pluto.app.data.remote.cloud.GoogleSignInButton
@@ -91,6 +94,7 @@ import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 import com.pluto.app.ui.theme.plutoHeading
 import com.pluto.app.ui.theme.plutoPressableScale
+import com.pluto.app.util.BiometricSecurityManager
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -111,7 +115,6 @@ fun SettingsScreen(
   onUpdateBiometricLock: (Boolean, Int) -> Unit = { _, _ -> },
   onUpdatePrivacyMode: (Boolean) -> Unit = {},
   onUpdateWarningThreshold: (BigDecimal?, Boolean) -> Unit = { _, _ -> },
-  onOpenCustomRates: () -> Unit = {},
   onOpenBackupRestore: () -> Unit = {},
   onResetOnboardingClick: () -> Unit,
   onSeedDummyDataClick: () -> Unit = {},
@@ -128,6 +131,14 @@ fun SettingsScreen(
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
+  val lifecycleOwner = LocalLifecycleOwner.current
+  var canUseBiometricLock by remember { mutableStateOf(BiometricSecurityManager.canAuthenticate(context)) }
+  LaunchedEffect(lifecycleOwner, context) {
+    lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+      // Refresh when returning from Android Settings after enrolling/removing a screen lock.
+      canUseBiometricLock = BiometricSecurityManager.canAuthenticate(context)
+    }
+  }
   val homeCurrency = userSettings.homeCurrency
   val destinationCurrency = userSettings.destinationCurrency
   var showCapsDialog by remember { mutableStateOf(false) }
@@ -469,19 +480,6 @@ fun SettingsScreen(
               )
             }
           )
-
-          HorizontalDivider(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            modifier = Modifier.padding(horizontal = 16.dp)
-          )
-
-          SettingsRowItem(
-            icon = Icons.Rounded.Tune,
-            title = "Custom Rate Overrides",
-            subtitle = "Set custom street, kiosk, or cash exchange rates",
-            onClick = onOpenCustomRates,
-            testTag = "settings_row_custom_rates"
-          )
         }
       }
 
@@ -645,17 +643,33 @@ fun SettingsScreen(
           SettingsSwitchRowItem(
             icon = Icons.Rounded.Fingerprint,
             title = "Biometric App Lock",
-            subtitle = if (userSettings.isBiometricLockEnabled) {
-              "Enabled • Require biometric or PIN to unlock"
-            } else {
-              "Disabled • Instant access without lock"
+            subtitle = when {
+              !canUseBiometricLock && userSettings.isBiometricLockEnabled ->
+                "Device security unavailable • turn off to continue"
+              !canUseBiometricLock ->
+                "Unavailable • add a PIN, pattern, or biometric in Android Settings"
+              userSettings.isBiometricLockEnabled ->
+                "Enabled • Require biometric or PIN to unlock"
+              else -> "Disabled • Instant access without lock"
             },
             checked = userSettings.isBiometricLockEnabled,
+            enabled = canUseBiometricLock || userSettings.isBiometricLockEnabled,
             onCheckedChange = { checked ->
-              onUpdateBiometricLock(checked, userSettings.autoLockTimeoutMinutes)
+              if (!checked || canUseBiometricLock) {
+                onUpdateBiometricLock(checked, userSettings.autoLockTimeoutMinutes)
+              }
             },
             testTag = "settings_switch_biometric"
           )
+
+          if (!canUseBiometricLock) {
+            Text(
+              text = "App Lock needs a screen lock enrolled on this device (PIN, pattern, or biometrics).",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+          }
 
           if (userSettings.isBiometricLockEnabled) {
             HorizontalDivider(
@@ -754,7 +768,7 @@ fun SettingsScreen(
           SettingsRowItem(
             icon = Icons.Rounded.CloudUpload,
             title = "Backup & Restore",
-            subtitle = "Save encrypted archive to Google Drive or restore from file",
+            subtitle = "Plain JSON archive (not encrypted) • contains sensitive data",
             onClick = onOpenBackupRestore,
             testTag = "settings_row_backup_restore",
             trailingContent = {
@@ -846,11 +860,10 @@ fun SettingsScreen(
         shape = PlutoShapes.large
       ) {
         Column {
-          SettingsRowItem(
+          SettingsInfoRowItem(
             icon = Icons.Rounded.Info,
             title = "Pluto",
             subtitle = "Version 1.0 • Offline-First Travel Companion",
-            onClick = {},
             testTag = "settings_row_about"
           )
         }
@@ -947,6 +960,55 @@ private fun SettingsRowItem(
         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
         contentDescription = null,
         tint = MaterialTheme.colorScheme.onSurfaceVariant
+      )
+    }
+  }
+}
+
+@Composable
+private fun SettingsInfoRowItem(
+  icon: ImageVector,
+  title: String,
+  subtitle: String,
+  testTag: String,
+  modifier: Modifier = Modifier
+) {
+  Row(
+    modifier = modifier
+      .fillMaxWidth()
+      .testTag(testTag)
+      .padding(14.dp),
+    verticalAlignment = Alignment.CenterVertically
+  ) {
+    Surface(
+      shape = PlutoShapes.small,
+      color = MaterialTheme.colorScheme.surfaceVariant,
+      modifier = Modifier.size(40.dp)
+    ) {
+      Box(contentAlignment = Alignment.Center) {
+        Icon(
+          imageVector = icon,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.size(22.dp)
+        )
+      }
+    }
+
+    Spacer(modifier = Modifier.width(16.dp))
+
+    Column {
+      Text(
+        text = title,
+        style = MaterialTheme.typography.bodyLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface
+      )
+      Spacer(modifier = Modifier.height(2.dp))
+      Text(
+        text = subtitle,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
       )
     }
   }
@@ -1058,6 +1120,7 @@ private fun SettingsSwitchRowItem(
   checked: Boolean,
   onCheckedChange: (Boolean) -> Unit,
   testTag: String,
+  enabled: Boolean = true,
   modifier: Modifier = Modifier
 ) {
   Row(
@@ -1101,6 +1164,7 @@ private fun SettingsSwitchRowItem(
     Switch(
       checked = checked,
       onCheckedChange = onCheckedChange,
+      enabled = enabled,
       modifier = Modifier.testTag(testTag)
     )
   }

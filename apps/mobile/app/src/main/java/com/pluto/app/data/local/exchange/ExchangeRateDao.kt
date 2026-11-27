@@ -50,9 +50,6 @@ interface ExchangeRateDao {
   @Query("SELECT * FROM exchange_rates ORDER BY effectiveDate DESC")
   suspend fun getAllRates(): List<ExchangeRateEntity>
 
-  @Query("DELETE FROM exchange_rates WHERE fromCurrency = :from AND toCurrency = :to AND source LIKE 'manual%'")
-  suspend fun deleteManualOverride(from: String, to: String)
-
   @Query("DELETE FROM exchange_rates")
   suspend fun clearAll()
 }

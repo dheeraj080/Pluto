@@ -118,7 +118,7 @@ The interface operates primarily in **Operate** mode: instant scanability of ava
 - **Nordic Cobalt & Soft Ice Gray**: Cool ice-gray canvas separation (`#F4F6FA`) lets crisp `#FFFFFF` instrument cards read cleanly without drop shadows; dark mode switches to Nordic Midnight (`#0B101B`) and `#131A29`.
 - **Unified Runway Hero & Action Dock (Home)**: A single Unified Runway Hero Card stacks the total multi-currency balance band above a 2-column split of **Safe-to-Spend Today** and **Cycle Runway** (concentric `PlutoShapes.small` inner tiles), followed by a 4-tile Tactile Action Dock (`Expense`, `Income`, `Wallets`, `Convert`), Spending Velocity Trend, and Collapsible Category & Ledger sections.
 - **Single-Scroll Story (Insights)**: An editorial financial narrative flowing top-to-bottom: Period Selector -> **Spend Pulse Bento** (Total Spent Cobalt card + Daily Burn Rate & Avg Expense 2-up row) -> Velocity Over Time curve -> Interactive Category Donut & Ranked Breakdown -> Cross-Border Currency Exposure with proportional share bars -> Highest Expenses & Export Statement Dock.
-- **Dual-Currency & Tabular Discipline**: Every amount renders in `RobotoMonoFontFamily` with `fontFeatureSettings = "tnum"` (`PlutoNumericStyle`), anchoring destination currency primary and home currency secondary.
+- **Dual-Currency & Tabular Discipline**: Every amount renders in `RobotoMonoFontFamily` with `fontFeatureSettings = "tnum"` (`PlutoNumericStyle`). Transaction rows show the currency actually spent first and the immutable home snapshot second; aggregate totals show local/destination primary and home secondary.
 - **Native Material 3 Ergonomics**: `enableEdgeToEdge()`, adaptive `NavigationSuiteScaffold`, `48.dp` minimum touch targets, TalkBack `plutoHeading()` landmarks, and reduced-motion-safe Compose transitions.
 
 ## Colors
@@ -202,7 +202,7 @@ Defined centrally in `PlutoShapes` (`ui/theme/Shape.kt`):
 
 ### Chips, Badges & Dual-Zone Clock (`CurrencyBadge`, `DualZoneClockHeaderChip`)
 - **CurrencyBadge**: `PlutoShapes.small` (`6.dp`), `primaryContainer` fill, `0.5.dp` `primary.copy(alpha = 0.25f)` border, flag + uppercase bold ISO code.
-- **DualZoneClockHeaderChip**: `PlutoShapes.large` (`14.dp`), `surface`, `1.dp` `outline` border, `minimumInteractiveComponentSize()`, `LOCAL · City` + `PlutoNumericStyle` time on left, offset + day-rollover pill centered, `HOME · City` + sun/moon icon (`ArcticAmber` / `BrandCobalt`) on right.
+- **DualZoneClockHeaderChip / inline hero row**: one shared implementation (`PlutoShapes.large` for the standalone chip, `PlutoShapes.medium` inline) renders `LOCAL · City` + `PlutoNumericStyle` time on the left, offset + day-rollover pill centered, and `HOME · City` + sun/moon icon (`ArcticAmber` / `BrandCobalt`) on the right. The Home zone follows the home currency by default; a custom city is a manual choice that is never stored when equal to that default and is cleared when the home currency changes.
 
 ### Headers, Sheets & Inputs (`PlutoTopBar`, `SectionHeader`, `HomeTimeZonePickerSheet`)
 - **SectionHeader**: `Modifier.plutoHeading()` on title for TalkBack navigation; optional `48.dp x 48.dp` minimum action target with ripple and press scale.
@@ -213,7 +213,7 @@ Defined centrally in `PlutoShapes` (`ui/theme/Shape.kt`):
 - **Do** use `MaterialTheme.colorScheme`, `PlutoShapes`, `PlutoSpacing`, `PlutoMotion`, and `PlutoNumericStyle` from `ui/theme/`.
 - **Do** enforce `minimumInteractiveComponentSize()` (`>= 48.dp`), `testTag(...)` (`snake_case`), `contentDescription`, and `plutoHeading()` on all new interactive Composables.
 - **Do** gate every movement/scale animation behind `rememberPrefersReducedMotion()` and use `PlutoMotion.NoBounceSpring` (`DampingRatioNoBouncy`).
-- **Do** place user-facing strings in `app/src/main/res/values/strings.xml` and format dual-currency rows with destination primary and home secondary.
+- **Do** place user-facing strings in `app/src/main/res/values/strings.xml`, show the actually-spent currency and immutable home snapshot on transaction rows, and keep local/destination primary with home secondary on aggregate totals.
 - **Don't** emit web CSS, HTML, Tailwind, `oklch()`, or iOS/Cupertino widgets (`CupertinoSwitch`, bottom-only tablet bars) in Android UI code.
 - **Don't** hardcode hex colors or raw `.dp` magic spacing numbers when a `PlutoSpacing` or `MaterialTheme.colorScheme` token exists.
 - **Don't** omit `tnum` (`PlutoNumericStyle`) on amounts, rates, deltas, or live time readouts.

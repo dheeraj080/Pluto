@@ -3,6 +3,7 @@ package com.pluto.app.ui.components
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -75,9 +76,10 @@ fun PlutoErrorBoundary(
 
   DisposableEffect(Unit) {
     val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
-    Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+    Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
+      // Handle in-app so the recovery screen can render instead of killing the process.
+      Log.e("PlutoCrash", "Uncaught exception handled in-app", throwable)
       GlobalCrashReporter.uncaughtError.value = throwable
-      defaultHandler?.uncaughtException(thread, throwable)
     }
     onDispose {
       Thread.setDefaultUncaughtExceptionHandler(defaultHandler)
@@ -214,12 +216,12 @@ fun ErrorRecoveryScreen(
           )
 
           PlutoButton(
-            text = "Restart App",
+            text = "Continue",
             onClick = onReset,
             variant = PlutoButtonVariant.PRIMARY,
             leadingIcon = Icons.Rounded.Refresh,
             modifier = Modifier.weight(1f),
-            testTag = "error_restart_button"
+            testTag = "error_continue_button"
           )
         }
       }

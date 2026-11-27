@@ -21,7 +21,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -55,9 +58,15 @@ fun BackupRestoreDialog(
   onConfirmRestore: (RestoreMode) -> Unit = {}
 ) {
   val dateFormat = remember { SimpleDateFormat("MMM d, yyyy 'at' HH:mm", Locale.US) }
+  var showReplaceConfirmation by remember { mutableStateOf(false) }
+
+  val dismissDialog = {
+    showReplaceConfirmation = false
+    onDismiss()
+  }
 
   AlertDialog(
-    onDismissRequest = onDismiss,
+    onDismissRequest = dismissDialog,
     title = {
       Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
@@ -110,7 +119,7 @@ fun BackupRestoreDialog(
               Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Wallets:", style = MaterialTheme.typography.bodyMedium)
                 Text(
-                  text = "${pendingRestoreSummary.walletCount} accounts",
+                  text = "${pendingRestoreSummary.walletCount} wallets",
                   style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
                   fontWeight = FontWeight.Bold
                 )
@@ -148,13 +157,15 @@ fun BackupRestoreDialog(
               text = "Merge Data",
               onClick = { onConfirmRestore(RestoreMode.MERGE) },
               variant = PlutoButtonVariant.OUTLINED,
+              enabled = !isProcessing,
               testTag = "restore_merge_button",
               modifier = Modifier.weight(1f)
             )
             PlutoButton(
               text = "Replace All",
-              onClick = { onConfirmRestore(RestoreMode.REPLACE) },
-              variant = PlutoButtonVariant.PRIMARY,
+              onClick = { showReplaceConfirmation = true },
+              variant = PlutoButtonVariant.DESTRUCTIVE,
+              enabled = !isProcessing,
               testTag = "restore_replace_button",
               modifier = Modifier.weight(1f)
             )
@@ -162,7 +173,7 @@ fun BackupRestoreDialog(
         } else {
           // Standard Backup & Export actions
           Text(
-            text = "Pluto stores your financial records securely on this device. You can create a portable JSON archive to back up to Google Drive, SD Card, or another phone anytime.",
+            text = "Pluto stores your financial records on this device. Backups are plain, unencrypted JSON files containing sensitive data — save them somewhere private and take care when sharing them.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
@@ -190,6 +201,7 @@ fun BackupRestoreDialog(
             text = "Save Backup (Google Drive / Files)",
             onClick = onCreateBackupClick,
             variant = PlutoButtonVariant.PRIMARY,
+            enabled = !isProcessing,
             leadingIcon = Icons.Rounded.FileUpload,
             testTag = "create_backup_file_button",
             modifier = Modifier.fillMaxWidth()
@@ -202,6 +214,7 @@ fun BackupRestoreDialog(
             text = "Share Backup Archive",
             onClick = onShareBackupClick,
             variant = PlutoButtonVariant.OUTLINED,
+            enabled = !isProcessing,
             leadingIcon = Icons.Rounded.Share,
             testTag = "share_backup_button",
             modifier = Modifier.fillMaxWidth()
@@ -214,6 +227,7 @@ fun BackupRestoreDialog(
             text = "Restore from Backup File",
             onClick = onRestoreBackupClick,
             variant = PlutoButtonVariant.OUTLINED,
+            enabled = !isProcessing,
             leadingIcon = Icons.Rounded.FileDownload,
             testTag = "open_restore_file_button",
             modifier = Modifier.fillMaxWidth()
@@ -237,10 +251,61 @@ fun BackupRestoreDialog(
     confirmButton = {
       PlutoButton(
         text = "Done",
-        onClick = onDismiss,
+        onClick = dismissDialog,
         variant = PlutoButtonVariant.GHOST,
+        enabled = !isProcessing,
         testTag = "close_backup_dialog_button"
       )
     }
   )
+
+  if (showReplaceConfirmation && pendingRestoreSummary != null) {
+    AlertDialog(
+      onDismissRequest = { showReplaceConfirmation = false },
+      title = {
+        Text(
+          text = "Delete everything and replace?",
+          style = MaterialTheme.typography.titleLarge,
+          fontWeight = FontWeight.Bold
+        )
+      },
+      text = {
+        Column(modifier = Modifier.fillMaxWidth()) {
+          Text(
+            text = "Replace All permanently deletes every expense, wallet, and ledger transaction currently stored on this device, then replaces them with the contents of this backup. Your current settings and exchange rates are overwritten too.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+          Spacer(modifier = Modifier.height(10.dp))
+          Text(
+            text = "This cannot be undone.",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.error
+          )
+        }
+      },
+      confirmButton = {
+        PlutoButton(
+          text = "Delete & Replace",
+          onClick = {
+            showReplaceConfirmation = false
+            onConfirmRestore(RestoreMode.REPLACE)
+          },
+          variant = PlutoButtonVariant.DESTRUCTIVE,
+          enabled = !isProcessing,
+          testTag = "restore_replace_confirm_button"
+        )
+      },
+      dismissButton = {
+        PlutoButton(
+          text = "Cancel",
+          onClick = { showReplaceConfirmation = false },
+          variant = PlutoButtonVariant.GHOST,
+          enabled = !isProcessing,
+          testTag = "restore_replace_cancel_button"
+        )
+      }
+    )
+  }
 }

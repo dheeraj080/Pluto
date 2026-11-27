@@ -5,6 +5,7 @@ import com.pluto.app.data.local.AppDatabase
 import com.pluto.app.data.local.expense.ExpenseEntityMapper
 import com.pluto.app.data.local.wallet.CurrencyWalletEntityMapper
 import com.pluto.app.data.local.wallet.WalletTransactionEntityMapper
+import com.pluto.app.domain.model.DualZoneClockEngine
 import com.pluto.app.domain.repository.UserSettingsRepository
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
@@ -87,7 +88,14 @@ class CloudSyncCoordinator(
       // 1. Settings reconciliation
       val localSettings = localSettingsRepo.getSettings()
       val cloudSettingsResult = cloudRepo.getSettings()
-      val cloudSettings = cloudSettingsResult.getOrNull()
+      val cloudSettings = cloudSettingsResult.getOrNull()?.let { incoming ->
+        incoming.copy(
+          homeTimeZoneId = DualZoneClockEngine.normalizeHomeTimeZoneId(
+            incoming.homeTimeZoneId,
+            incoming.homeCurrency
+          )
+        )
+      }
       if (cloudSettings != null && !localSettings.isOnboardingCompleted && cloudSettings.isOnboardingCompleted) {
         CloudMirrorGate.isApplyingRemoteUpdate = true
         try {

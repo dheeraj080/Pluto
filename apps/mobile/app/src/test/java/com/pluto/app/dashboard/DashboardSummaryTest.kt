@@ -366,10 +366,12 @@ class DashboardSummaryTest {
     assertEquals("10.00", cat.totalHomeAmount.amount.toPlainString())
     assertEquals("1500", cat.totalDestAmount?.amount?.toPlainString())
 
-    // Unified item has primary in JPY and secondary in USD
+    // Unified item shows the actually-spent currency and the immutable home snapshot with ISO codes.
     val item = summary.unifiedRecentTransactions.first()
-    assertTrue(item.primaryAmountFormatted.contains("¥") || item.primaryAmountFormatted.contains("1500") || item.primaryAmountFormatted.contains("1,500"))
-    assertTrue(item.secondaryAmountFormatted?.contains("$") == true || item.secondaryAmountFormatted?.contains("10.00") == true)
+    assertTrue(item.primaryAmountFormatted.startsWith("SPENT ·"))
+    assertTrue(item.primaryAmountFormatted.contains("JPY"))
+    assertTrue(item.secondaryAmountFormatted?.startsWith("HOME ·") == true)
+    assertTrue(item.secondaryAmountFormatted?.contains("(USD)") == true)
   }
 
   @Test
@@ -825,6 +827,86 @@ class DashboardSummaryTest {
     val gbpItem = summary.unifiedRecentTransactions.first { it.id == "dep-gbp" }
     assertTrue(gbpItem.primaryAmountFormatted.contains("200.00"))
     assertEquals("Rate to USD unavailable", gbpItem.secondaryAmountFormatted)
+  }
+
+  @Test
+  fun `former home snapshot is translated into current home currency using supplied forward rate`() {
+    val now = System.currentTimeMillis()
+    val expense = Expense(
+      id = "exp-former-home",
+      originalAmount = Money.of("10000", Currency.JPY),
+      homeAmount = Money.of("100.00", eur),
+      exchangeRate = ExchangeRate.of(Currency.JPY, eur, 0.01),
+      category = Category.FOOD,
+      timestamp = now
+    )
+
+    val summary = getDashboardSummaryUseCase(
+      allExpenses = listOf(expense),
+      period = DashboardPeriod.THIS_MONTH,
+      currentHomeCurrency = usd,
+      homeCurrencyRates = mapOf(eur to BigDecimal("1.10"))
+    )
+
+    assertEquals("110.00", summary.totalHomeSpending.amount.toPlainString())
+    assertEquals(usd, summary.totalHomeSpending.currency)
+    assertTrue(summary.unconvertibleHomeCurrencies.isEmpty())
+
+    val item = summary.unifiedRecentTransactions.first { it.id == expense.id }
+    assertTrue(item.primaryAmountFormatted.contains("JPY"))
+    assertTrue(item.secondaryAmountFormatted?.contains("EUR") == true)
+  }
+
+  @Test
+  fun `former home snapshot without rate is excluded from totals but remains visible on the transaction row`() {
+    val now = System.currentTimeMillis()
+    val expense = Expense(
+      id = "exp-unconvertible-home",
+      originalAmount = Money.of("10000", Currency.JPY),
+      homeAmount = Money.of("100.00", eur),
+      exchangeRate = ExchangeRate.of(Currency.JPY, eur, 0.01),
+      category = Category.FOOD,
+      timestamp = now
+    )
+
+    val summary = getDashboardSummaryUseCase(
+      allExpenses = listOf(expense),
+      period = DashboardPeriod.THIS_MONTH,
+      currentHomeCurrency = usd
+    )
+
+    assertEquals("0.00", summary.totalHomeSpending.amount.toPlainString())
+    assertEquals(usd, summary.totalHomeSpending.currency)
+    assertEquals(listOf(eur), summary.unconvertibleHomeCurrencies)
+
+    val item = summary.unifiedRecentTransactions.first { it.id == expense.id }
+    assertTrue(item.primaryAmountFormatted.startsWith("SPENT ·"))
+    assertTrue(item.primaryAmountFormatted.contains("JPY"))
+    assertTrue(item.secondaryAmountFormatted?.startsWith("RECORDED HOME ·") == true)
+    assertTrue(item.secondaryAmountFormatted?.contains("EUR") == true)
+    assertEquals("100.00", expense.homeAmount.amount.toPlainString())
+  }
+
+  @Test
+  fun `rate-unavailable warning only reports currencies from the selected period`() {
+    val calendar = Calendar.getInstance().apply { add(Calendar.MONTH, -2) }
+    val oldExpense = Expense(
+      id = "exp-old-former-home",
+      originalAmount = Money.of("10000", Currency.JPY),
+      homeAmount = Money.of("100.00", eur),
+      exchangeRate = ExchangeRate.of(Currency.JPY, eur, 0.01),
+      category = Category.FOOD,
+      timestamp = calendar.timeInMillis
+    )
+
+    val summary = getDashboardSummaryUseCase(
+      allExpenses = listOf(oldExpense),
+      period = DashboardPeriod.TODAY,
+      currentHomeCurrency = usd
+    )
+
+    assertEquals("0.00", summary.totalHomeSpending.amount.toPlainString())
+    assertTrue(summary.unconvertibleHomeCurrencies.isEmpty())
   }
 }
 

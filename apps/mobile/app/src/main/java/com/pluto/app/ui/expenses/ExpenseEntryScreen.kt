@@ -305,12 +305,19 @@ fun ExpenseEntryScreen(
       formState = formState,
       onOpenHomeCurrencyPicker = onOpenHomeCurrencyPicker,
       onSwapCurrencies = viewModel::onSwapCurrencies,
-      onToggleCustomRate = viewModel::onToggleCustomRate,
-      onCustomRateInputChanged = viewModel::onCustomRateInputChanged,
       onRefreshLiveRate = viewModel::refreshLiveExchangeRate,
       onRefreshRateForDate = viewModel::onRefreshRateForTransactionDate,
       onRestoreOriginalRate = viewModel::onRestoreOriginalRate
     )
+
+    formState.currencyChangeNotice?.let { notice ->
+      Text(
+        text = notice,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.tertiary,
+        modifier = Modifier.testTag("expense_currency_change_notice")
+      )
+    }
 
     // 4. Category Selector Chips (FlowRow wraps cleanly on narrow screens)
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -600,15 +607,13 @@ fun ExpenseEntryScreen(
     }
 
     val canSave = formState.isValidAmount &&
-      formState.isValidCustomRate &&
       !formState.requiresExplicitRateChoice &&
       !formState.isSubmitting
 
     if (!canSave && !formState.isSubmitting && formState.errorMessage == null) {
       val disabledReason = when {
         !formState.isValidAmount -> "Enter a positive amount to enable saving."
-        !formState.isValidCustomRate -> "Enter a valid custom exchange rate greater than 0."
-        formState.requiresExplicitRateChoice -> "Choose a custom rate or live rate above to continue."
+        formState.requiresExplicitRateChoice -> "Choose another date or use today's live rate above to continue."
         else -> null
       }
       disabledReason?.let { reason ->

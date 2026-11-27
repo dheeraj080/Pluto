@@ -151,11 +151,13 @@ fun ExpenseDetailSheetContent(
 
   val dateFormat = remember { SimpleDateFormat("EEEE, d MMMM yyyy · HH:mm", Locale.getDefault()) }
   val rateTimestampFormat = remember { SimpleDateFormat("d MMM yyyy · HH:mm", Locale.getDefault()) }
-  val homeCurrency = userSettings?.homeCurrency ?: expense.homeCurrency
+  val homeCurrency = expense.homeCurrency
+  val activeHomeCurrency = userSettings?.homeCurrency ?: homeCurrency
+  val homeLabel = if (homeCurrency == activeHomeCurrency) "HOME · " else "RECORDED HOME · "
   val displayTitle = expense.merchant.ifBlank { expense.category.name }
 
-  val primaryAmountStr = expense.originalAmount.format()
-  val secondaryAmountStr = expense.homeAmount.format()
+  val primaryAmountStr = expense.originalAmount.formatWithCode()
+  val secondaryAmountStr = expense.homeAmount.formatWithCode()
 
   // Delete Confirmation Dialog
   if (showDeleteDialog) {
@@ -396,15 +398,13 @@ fun ExpenseDetailSheetContent(
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface
           )
-          if (expense.originalCurrency != expense.homeCurrency) {
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-              text = "≈ $secondaryAmountStr in ${homeCurrency.code}",
-              style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
-              fontWeight = FontWeight.SemiBold,
-              color = MaterialTheme.colorScheme.primary
-            )
-          }
+          Spacer(modifier = Modifier.height(2.dp))
+          Text(
+            text = "$homeLabel$secondaryAmountStr",
+            style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary
+          )
         }
 
         CurrencyBadge(currency = expense.originalCurrency)
@@ -433,20 +433,20 @@ fun ExpenseDetailSheetContent(
           DetailRow(label = "Note", value = expense.note)
         }
 
+        DetailRow(
+          label = "Spent Amount",
+          value = "${expense.originalAmount.format()} (${expense.originalCurrency.code})",
+          isNumeric = true
+        )
+        DetailRow(
+          label = "Home Amount",
+          value = "${expense.homeAmount.format()} (${homeCurrency.code})",
+          isNumeric = true
+        )
         if (expense.originalCurrency != expense.homeCurrency) {
-          DetailRow(
-            label = "Original Amount",
-            value = "${expense.originalAmount.format()} (${expense.originalCurrency.code})",
-            isNumeric = true
-          )
-          DetailRow(
-            label = "Home Equivalent",
-            value = "${expense.homeAmount.format()} (${homeCurrency.code})",
-            isNumeric = true
-          )
           val formattedRate = formatRateNumber(expense.exchangeRate.rate, expense.homeCurrency)
           DetailRow(
-            label = "Historical Rate",
+            label = "Exchange Rate",
             value = "1 ${expense.originalCurrency.code} = ${expense.homeCurrency.symbol}$formattedRate ${expense.homeCurrency.code}",
             isNumeric = true
           )

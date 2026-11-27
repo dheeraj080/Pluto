@@ -232,19 +232,25 @@ private fun BudgetsContent(
   val hasTripBudget = (summary.monthlySpendingCap != null && summary.monthlySpendingCap > BigDecimal.ZERO)
   val hasDailyCap = (summary.dailySpendingCap != null && summary.dailySpendingCap > BigDecimal.ZERO)
 
-  val totalSpentPrimary = summary.totalDestSpending?.format() ?: summary.totalHomeSpending.format()
-  val totalSpentSecondary = if (summary.totalDestSpending != null) summary.totalHomeSpending.format() else null
+  val primarySpentMoney = summary.totalDestSpending ?: summary.totalHomeSpending
+  val totalSpentPrimary = "${if (summary.totalDestSpending != null) "LOCAL · " else "HOME · "}${primarySpentMoney.formatWithCode()}"
+  val totalSpentSecondary = if (summary.totalDestSpending != null) {
+    "HOME · ${summary.totalHomeSpending.formatWithCode()}"
+  } else null
 
   val safeToSpendPrimary = if (summary.safeToSpendTodayDest != null) {
-    if (summary.safeToSpendTodayDest.amount < BigDecimal.ZERO) {
-      "-${destCurrency.symbol}${summary.safeToSpendTodayDest.amount.abs().toPlainString()}"
+    val money = summary.safeToSpendTodayDest!!
+    if (money.amount < BigDecimal.ZERO) {
+      "-${Money.of(money.amount.abs(), destCurrency).formatWithCode()}"
     } else {
-      summary.safeToSpendTodayDest.format()
+      "LOCAL · ${money.formatWithCode()}"
     }
   } else {
-    summary.safeToSpendTodayHome.format()
+    "HOME · ${summary.safeToSpendTodayHome.formatWithCode()}"
   }
-  val safeToSpendSecondary = if (summary.safeToSpendTodayDest != null) summary.safeToSpendTodayHome.format() else null
+  val safeToSpendSecondary = if (summary.safeToSpendTodayDest != null) {
+    "HOME · ${summary.safeToSpendTodayHome.formatWithCode()}"
+  } else null
 
   Box(
     modifier = modifier.fillMaxSize(),
@@ -261,6 +267,20 @@ private fun BudgetsContent(
         .fillMaxSize(),
       contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 96.dp)
     ) {
+      if (summary.unconvertibleHomeCurrencies.isNotEmpty()) {
+        item(key = "unconvertible_home_currencies_warning") {
+          Text(
+            text = "Some totals exclude ${summary.unconvertibleHomeCurrencies.joinToString(", ") { it.code }} home snapshots (rate unavailable).",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(bottom = 8.dp)
+              .testTag("budgets_unconvertible_home_currencies_warning")
+          )
+        }
+      }
+
       item(key = "overall_budget_card") {
     // 1. Overall Trip / Monthly Budget Card
     PlutoCard(
@@ -358,7 +378,7 @@ private fun BudgetsContent(
               )
               val capMoney = Money.of(summary.monthlySpendingCap ?: BigDecimal.ZERO, homeCurrency)
               Text(
-                text = capMoney.format(),
+                text = capMoney.formatWithCode(),
                 style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
                 fontWeight = FontWeight.SemiBold
               )
@@ -541,7 +561,7 @@ private fun BudgetsContent(
             if (hasDailyCap) {
               val dailyCapMoney = Money.of(summary.dailySpendingCap ?: BigDecimal.ZERO, homeCurrency)
               Text(
-                text = dailyCapMoney.format(),
+                text = dailyCapMoney.formatWithCode(),
                 style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
                 fontWeight = FontWeight.SemiBold
               )
@@ -738,9 +758,16 @@ private fun CategoryBudgetRow(
           }
         }
 
+        val hasDestAmount = item.totalDestAmount != null
         DualCurrencyAmountView(
-          primaryAmount = item.totalHomeAmount.format(),
-          secondaryAmount = item.budgetHome?.let { "of ${it.format()}" },
+          primaryAmount = if (hasDestAmount) {
+            "LOCAL · ${item.totalDestAmount!!.formatWithCode()}"
+          } else {
+            "HOME · ${item.totalHomeAmount.formatWithCode()}"
+          },
+          secondaryAmount = item.budgetHome?.let {
+            "HOME · ${item.totalHomeAmount.formatWithCode()} / ${it.formatWithCode()}"
+          },
           primaryStyle = MaterialTheme.typography.titleMedium,
           primaryColor = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
           secondaryStyle = MaterialTheme.typography.bodySmall,
@@ -781,7 +808,7 @@ private fun CategoryBudgetRow(
           val remaining = (budget.amount - item.totalHomeAmount.amount).coerceAtLeast(BigDecimal.ZERO)
           val remainingMoney = Money(remaining, homeCurrency)
           Text(
-            text = if (isOver) "0 remaining" else "${remainingMoney.format()} left",
+            text = if (isOver) "0 remaining" else "${remainingMoney.formatWithCode()} left",
             style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )

@@ -249,11 +249,19 @@ internal fun InsightsContent(
   val context = LocalContext.current
   val coroutineScope = rememberCoroutineScope()
 
-  val totalSpentPrimary = summary.totalDestSpending?.format() ?: summary.totalHomeSpending.format()
-  val totalSpentSecondary = if (summary.totalDestSpending != null) summary.totalHomeSpending.format() else null
+  val totalSpentPrimary = "${if (summary.totalDestSpending != null) "LOCAL · " else "HOME · "}${
+    (summary.totalDestSpending ?: summary.totalHomeSpending).format()
+  } (${if (summary.totalDestSpending != null) userSettings.destinationCurrency.code else userSettings.homeCurrency.code})"
+  val totalSpentSecondary = if (summary.totalDestSpending != null) {
+    "HOME · ${summary.totalHomeSpending.format()} (${userSettings.homeCurrency.code})"
+  } else null
 
-  val dailyBurnPrimary = summary.thirtyDayDailyAvgDest?.format() ?: summary.thirtyDayDailyAvgHome.format()
-  val dailyBurnSecondary = if (summary.thirtyDayDailyAvgDest != null) summary.thirtyDayDailyAvgHome.format() else null
+  val dailyBurnPrimary = "${if (summary.thirtyDayDailyAvgDest != null) "LOCAL · " else "HOME · "}${
+    (summary.thirtyDayDailyAvgDest ?: summary.thirtyDayDailyAvgHome).format()
+  } (${if (summary.thirtyDayDailyAvgDest != null) userSettings.destinationCurrency.code else userSettings.homeCurrency.code})"
+  val dailyBurnSecondary = if (summary.thirtyDayDailyAvgDest != null) {
+    "HOME · ${summary.thirtyDayDailyAvgHome.format()} (${userSettings.homeCurrency.code})"
+  } else null
 
   // Period-filtered expenses for accurate statement export
   val periodExpenses = remember(allExpenses, selectedPeriod) {
@@ -284,7 +292,7 @@ internal fun InsightsContent(
                 categorySummaries = summary.categoryBreakdowns,
                 homeCurrency = userSettings.homeCurrency,
                 periodTitle = selectedPeriod.label,
-                totalHomeSpentStr = summary.totalHomeSpending.format()
+                totalHomeSpentStr = summary.totalHomeSpending.formatWithCode()
               )
             }
             ExpenseExportService.shareFile(
@@ -324,11 +332,16 @@ internal fun InsightsContent(
             val reportText = buildString {
               appendLine("Pluto Financial Report")
               appendLine("Period: ${selectedPeriod.label}")
-              appendLine("Total Spent: $totalSpentPrimary ${if (totalSpentSecondary != null) "($totalSpentSecondary)" else ""}")
-              appendLine("Daily Burn Rate: $dailyBurnPrimary")
+              append("Total Spent: $totalSpentPrimary")
+              totalSpentSecondary?.let { append(" ($it)") }
+              appendLine()
+              append("Daily Burn Rate: $dailyBurnPrimary")
+              dailyBurnSecondary?.let { append(" ($it)") }
+              appendLine()
               appendLine("Categories Breakdown:")
               summary.categoryBreakdowns.forEach { cat ->
-                appendLine("- ${cat.category.name}: ${cat.totalHomeAmount.format()} (${cat.percentageOfTotal}%)")
+                val destText = cat.totalDestAmount?.formatWithCode()
+                appendLine("- ${cat.category.name}: ${destText?.let { "$it / " }.orEmpty()}${cat.totalHomeAmount.formatWithCode()} (${cat.percentageOfTotal}%)")
               }
               appendLine("\nGenerated via Pluto Cross-Currency Tracker")
             }
@@ -465,6 +478,18 @@ internal fun InsightsContent(
 
     Spacer(modifier = Modifier.height(14.dp))
 
+    if (summary.unconvertibleHomeCurrencies.isNotEmpty()) {
+      Text(
+        text = "Some totals exclude ${summary.unconvertibleHomeCurrencies.joinToString(", ") { it.code }} home snapshots (rate unavailable).",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.error,
+        modifier = Modifier
+          .fillMaxWidth()
+          .testTag("insights_unconvertible_home_currencies_warning")
+      )
+      Spacer(modifier = Modifier.height(8.dp))
+    }
+
     // 2. Chapter 1: Spend Pulse Bento (Full-width Total Spend Banner + 2-tile Velocity Split)
     val txCount = periodExpenses.size
     val avgPerExpenseHome = remember(periodExpenses, summary.totalHomeSpending, userSettings.homeCurrency) {
@@ -474,9 +499,9 @@ internal fun InsightsContent(
           2,
           java.math.RoundingMode.HALF_UP
         )
-        Money.of(avg, userSettings.homeCurrency).format()
+        Money.of(avg, userSettings.homeCurrency).formatWithCode()
       } else {
-        Money.zero(userSettings.homeCurrency).format()
+        Money.zero(userSettings.homeCurrency).formatWithCode()
       }
     }
 
@@ -542,7 +567,7 @@ internal fun InsightsContent(
         if (totalSpentSecondary != null) {
           Spacer(modifier = Modifier.height(2.dp))
           Text(
-            text = "≈ $totalSpentSecondary in ${userSettings.homeCurrency.code}",
+            text = totalSpentSecondary,
             style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
@@ -560,7 +585,7 @@ internal fun InsightsContent(
       PlutoMetricTile(
         label = "Daily Burn Rate",
         primaryValue = dailyBurnPrimary,
-        secondaryValue = dailyBurnSecondary?.let { "≈ $it" },
+        secondaryValue = dailyBurnSecondary,
         leadingIcon = Icons.Rounded.Speed,
         iconTint = MaterialTheme.colorScheme.secondary,
         shape = PlutoShapes.large,
@@ -643,7 +668,7 @@ internal fun InsightsContent(
       Spacer(modifier = Modifier.height(20.dp))
     }
 
-    // 6. Top Spending Highlights
+    // 6. Top Spending Highlights (ranked by the recorded home snapshot shown on each row)
     val topExpenses = remember(periodExpenses) {
       periodExpenses
         .sortedByDescending { it.homeAmount.amount }
@@ -666,7 +691,7 @@ internal fun InsightsContent(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-              text = "Highest Expenses (${selectedPeriod.label})",
+              text = "Highest Recorded Expenses (${selectedPeriod.label})",
               style = MaterialTheme.typography.titleMedium,
               fontWeight = FontWeight.Bold,
               modifier = Modifier.plutoHeading()
@@ -679,6 +704,7 @@ internal fun InsightsContent(
 
           topExpenses.forEach { exp ->
             val title = if (exp.note.isNotBlank()) exp.note else if (exp.merchant.isNotBlank()) exp.merchant else exp.category.name
+            val homeLabel = if (exp.homeCurrency == userSettings.homeCurrency) "HOME · " else "RECORDED HOME · "
             Row(
               modifier = Modifier
                 .fillMaxWidth()
@@ -719,10 +745,8 @@ internal fun InsightsContent(
               }
 
               DualCurrencyAmountView(
-                primaryAmount = exp.originalAmount.format(),
-                secondaryAmount = if (exp.originalAmount.currency != exp.homeAmount.currency) {
-                  "≈ ${exp.homeAmount.format()}"
-                } else null,
+                primaryAmount = "SPENT · ${exp.originalAmount.formatWithCode()}",
+                secondaryAmount = "$homeLabel${exp.homeAmount.formatWithCode()}",
                 primaryStyle = MaterialTheme.typography.titleSmall,
                 secondaryStyle = MaterialTheme.typography.bodySmall,
                 secondaryFontWeight = FontWeight.Normal,
@@ -843,6 +867,7 @@ internal fun InsightsContent(
             text = "Copy Text",
             onClick = { exportAndShare(ExportFormat.CLIPBOARD) },
             variant = PlutoButtonVariant.OUTLINED,
+            enabled = !isExporting && periodExpenses.isNotEmpty(),
             leadingIcon = Icons.Rounded.ContentCopy,
             modifier = Modifier.weight(1f),
             testTag = "btn_copy_summary"
@@ -891,8 +916,8 @@ private fun CurrencyDistributionRow(
       }
 
       DualCurrencyAmountView(
-        primaryAmount = curSummary.totalOriginalAmount.format(),
-        secondaryAmount = "≈ ${curSummary.totalHomeEquivalent.format()}",
+        primaryAmount = curSummary.totalOriginalAmount.formatWithCode(),
+        secondaryAmount = "HOME · ${curSummary.totalHomeEquivalent.formatWithCode()}",
         primaryStyle = MaterialTheme.typography.titleSmall,
         secondaryStyle = MaterialTheme.typography.bodySmall,
         secondaryFontWeight = FontWeight.Normal,

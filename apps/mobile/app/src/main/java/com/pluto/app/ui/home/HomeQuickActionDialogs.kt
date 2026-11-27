@@ -115,14 +115,14 @@ fun QuickIncomeDialog(
       Spacer(modifier = Modifier.height(16.dp))
 
       if (wallets.isEmpty()) {
-        Text("No accounts found. Please create a wallet in Accounts first.")
+        Text("No wallets found. Please create a wallet in Wallets first.")
       } else {
         ExposedDropdownMenuBox(
           expanded = expanded,
           onExpandedChange = { expanded = it }
         ) {
           OutlinedTextField(
-            value = selectedWallet?.let { "${it.currency.flagEmoji} ${it.currency.name} (${it.currency.code})" } ?: "Select Account",
+            value = selectedWallet?.let { "${it.currency.flagEmoji} ${it.currency.name} (${it.currency.code})" } ?: "Select Wallet",
             onValueChange = {},
             readOnly = true,
             label = { Text("Target Wallet (Default: Local)") },
@@ -248,7 +248,7 @@ fun QuickIncomeDialog(
 }
 
 /**
- * Quick Transfer Between Accounts Bottom Sheet
+ * Quick Transfer Between Wallets Bottom Sheet
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -315,7 +315,7 @@ fun QuickTransferDialog(
             fontWeight = FontWeight.Bold
           )
           Text(
-            text = "Move funds between your multi-currency travel accounts",
+            text = "Move funds between your multi-currency travel wallets",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
@@ -328,7 +328,7 @@ fun QuickTransferDialog(
       Spacer(modifier = Modifier.height(16.dp))
 
       if (wallets.size < 2) {
-        Text("At least 2 accounts are required to make transfers. Create another wallet in Wallets first.")
+        Text("At least 2 wallets are required to make transfers. Create another wallet in Wallets first.")
         Spacer(modifier = Modifier.height(16.dp))
         PlutoButton(
           text = "Got it",

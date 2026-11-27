@@ -64,7 +64,6 @@ import com.pluto.app.domain.model.HomeModuleConfig
 import com.pluto.app.domain.model.ThemeMode
 import com.pluto.app.domain.model.UserPersona
 import com.pluto.app.domain.model.UserSettings
-import com.pluto.app.domain.repository.ExchangeRateRepository
 import com.pluto.app.domain.repository.UserSettingsRepository
 import com.pluto.app.ui.components.EmptyState
 import com.pluto.app.ui.components.PlutoTopBar
@@ -126,7 +125,6 @@ fun MainAppShell(
   onResetOnboarding: () -> Unit,
   onSeedDummyData: () -> Unit = {},
   database: AppDatabase? = null,
-  exchangeRateRepository: ExchangeRateRepository? = null,
   userSettingsRepository: UserSettingsRepository? = null,
   cloudSyncState: CloudSyncState = CloudSyncState.Idle,
   signedInEmail: String? = null,
@@ -152,7 +150,6 @@ fun MainAppShell(
   var isAddingOrEditingExpense by rememberSaveable { mutableStateOf(false) }
   var selectedExpenseDetail by remember { mutableStateOf<Expense?>(null) }
   var isAddingOrEditingWallet by rememberSaveable { mutableStateOf(false) }
-  var showCustomRatesDialog by rememberSaveable { mutableStateOf(false) }
   var showBackupRestoreDialog by rememberSaveable { mutableStateOf(false) }
 
   val snackbarHostState = remember { SnackbarHostState() }
@@ -161,13 +158,9 @@ fun MainAppShell(
   val walletsLoadState by walletViewModel.walletsLoadState.collectAsStateWithLifecycle()
 
   SettingsDialogsHost(
-    userSettings = userSettings,
-    showCustomRatesDialog = showCustomRatesDialog,
-    onDismissCustomRates = { showCustomRatesDialog = false },
     showBackupRestoreDialog = showBackupRestoreDialog,
     onDismissBackupRestore = { showBackupRestoreDialog = false },
     database = database,
-    exchangeRateRepository = exchangeRateRepository,
     userSettingsRepository = userSettingsRepository,
     snackbarHostState = snackbarHostState,
     coroutineScope = coroutineScope,
@@ -457,7 +450,6 @@ fun MainAppShell(
               onUpdateBiometricLock = onUpdateBiometricLock,
               onUpdatePrivacyMode = onUpdatePrivacyMode,
               onUpdateWarningThreshold = onUpdateWarningThreshold,
-              onOpenCustomRates = { showCustomRatesDialog = true },
               onOpenBackupRestore = { showBackupRestoreDialog = true },
               cloudSyncState = cloudSyncState,
               signedInEmail = signedInEmail,

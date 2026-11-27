@@ -6,6 +6,7 @@ import com.pluto.app.domain.model.AcademicTermSettings
 import com.pluto.app.domain.model.BudgetCycleType
 import com.pluto.app.domain.model.Category
 import com.pluto.app.domain.model.Currency
+import com.pluto.app.domain.model.DualZoneClockEngine
 import com.pluto.app.domain.model.HomeLayoutPresets
 import com.pluto.app.domain.model.HomeModuleConfig
 import com.pluto.app.domain.model.HomeModuleId
@@ -52,6 +53,7 @@ class SharedPreferencesUserSettingsRepository(
   override suspend fun updateHomeCurrency(homeCurrency: Currency) {
     prefs.edit()
       .putString(KEY_HOME_CURRENCY, homeCurrency.code)
+      .remove(KEY_HOME_TIME_ZONE)
       .apply()
     _settingsFlow.tryEmit(loadSettingsFromPrefs())
   }
@@ -162,7 +164,10 @@ class SharedPreferencesUserSettingsRepository(
 
   override suspend fun updateHomeTimeZone(timeZoneId: String?) {
     val editor = prefs.edit()
-    val normalized = timeZoneId?.trim()?.takeIf { it.isNotEmpty() }
+    val normalized = DualZoneClockEngine.normalizeHomeTimeZoneId(
+      timeZoneId,
+      loadSettingsFromPrefs().homeCurrency
+    )
     if (normalized != null) {
       editor.putString(KEY_HOME_TIME_ZONE, normalized)
     } else {
@@ -228,7 +233,10 @@ class SharedPreferencesUserSettingsRepository(
       editor.remove(KEY_WARNING_THRESHOLD)
     }
 
-    val normalizedZone = settings.homeTimeZoneId?.trim()?.takeIf { it.isNotEmpty() }
+    val normalizedZone = DualZoneClockEngine.normalizeHomeTimeZoneId(
+      settings.homeTimeZoneId,
+      settings.homeCurrency
+    )
     if (normalizedZone != null) {
       editor.putString(KEY_HOME_TIME_ZONE, normalizedZone)
     } else {
@@ -239,7 +247,9 @@ class SharedPreferencesUserSettingsRepository(
     editor.putString(KEY_HOME_MODULES, serializeHomeModules(normalizedModules))
 
     editor.apply()
-    _settingsFlow.tryEmit(settings.copy(homeModules = normalizedModules))
+    _settingsFlow.tryEmit(
+      settings.copy(homeTimeZoneId = normalizedZone, homeModules = normalizedModules)
+    )
   }
 
   private fun loadSettingsFromPrefs(): UserSettings {
@@ -332,7 +342,10 @@ class SharedPreferencesUserSettingsRepository(
     val biometricLockEnabled = prefs.getBoolean(KEY_BIOMETRIC_LOCK_ENABLED, false)
     val autoLockTimeoutMinutes = prefs.getInt(KEY_AUTO_LOCK_TIMEOUT_MINUTES, 1)
     val privacyModeEnabled = prefs.getBoolean(KEY_PRIVACY_MODE_ENABLED, false)
-    val homeTimeZoneId = prefs.getString(KEY_HOME_TIME_ZONE, null)?.trim()?.takeIf { it.isNotEmpty() }
+    val homeTimeZoneId = DualZoneClockEngine.normalizeHomeTimeZoneId(
+      prefs.getString(KEY_HOME_TIME_ZONE, null),
+      homeCurrency
+    )
     val homeModules = parseHomeModules(prefs.getString(KEY_HOME_MODULES, null), persona)
 
     return UserSettings(

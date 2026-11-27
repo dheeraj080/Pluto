@@ -212,6 +212,18 @@ internal fun HomeDashboardContent(
         }
       }
 
+      if (summary.unconvertibleHomeCurrencies.isNotEmpty()) {
+        Text(
+          text = "Some totals exclude ${summary.unconvertibleHomeCurrencies.joinToString(", ") { it.code }} home snapshots (rate unavailable).",
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.error,
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp)
+            .testTag("dashboard_unconvertible_home_currencies_warning")
+        )
+      }
+
       // 4. Customize Home Trigger
       Box(
         modifier = Modifier.fillMaxWidth(),
@@ -337,12 +349,21 @@ fun ManageExpensesSection(
                 )
               }
 
-              Text(
-                text = item.primaryAmountFormatted,
-                style = MaterialTheme.typography.bodyLarge.merge(PlutoNumericStyle),
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-              )
+              Column(horizontalAlignment = Alignment.End) {
+                Text(
+                  text = item.primaryAmountFormatted,
+                  style = MaterialTheme.typography.bodyLarge.merge(PlutoNumericStyle),
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onSurface
+                )
+                item.secondaryAmountFormatted?.let { secondary ->
+                  Text(
+                    text = secondary,
+                    style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+                    color = MaterialTheme.colorScheme.primary
+                  )
+                }
+              }
             }
 
             if (index < expenseItems.lastIndex) {

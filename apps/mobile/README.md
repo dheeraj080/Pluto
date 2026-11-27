@@ -124,14 +124,15 @@ CI secrets used by `android.yml`:
   support category/date filters and custom date ranges; the home dashboard is
   split into independently customizable cards.
 - `domain/` — models (`BigDecimal`-backed `Money`), repository interfaces and
-  use cases. Expenses carry `createdAt`/`updatedAt` audit timestamps, and manual
-  FX overrides are effective-dated windows.
-- `data/local/` — Room database `global_expense.db` (schema v8, migrations 1→8)
-  with a separate `manual_exchange_rates` table, plus SharedPreferences
-  settings/session state. The app is usable offline.
+  use cases. Expenses carry `createdAt`/`updatedAt` audit timestamps and an
+  immutable FX snapshot recorded when the transaction was saved.
+- `data/local/` — Room database `global_expense.db` (schema v9, migrations 1→9)
+  with a market-rate cache, plus SharedPreferences settings/session state. The
+  app is usable offline.
 - `data/remote/exchange/` — Retrofit client for `https://open.er-api.com/`,
-  with an LRU → Room → network cache in `OfflineFirstExchangeRateRepository`
-  and manually entered rates resolved separately from API cache entries.
+  with an LRU → Room → network cache in `OfflineFirstExchangeRateRepository`.
+  Historical dates use strict date-matched API cache entries and never fall
+  back to today's rate.
 - `data/remote/cloud/` — optional Google Sign-In and Firestore sync decorators;
   signed-out users stay in "Local Vault" mode and merge when they sign in.
   Firestore documents store money as exact decimal strings with server

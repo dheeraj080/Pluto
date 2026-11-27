@@ -4,6 +4,7 @@ import com.pluto.app.domain.model.AcademicTermSettings
 import com.pluto.app.domain.model.BudgetCycleType
 import com.pluto.app.domain.model.Currency
 import com.pluto.app.domain.model.CurrencyWallet
+import com.pluto.app.domain.model.DualZoneClockEngine
 import com.pluto.app.domain.model.Expense
 import com.pluto.app.domain.model.HomeModuleConfig
 import com.pluto.app.domain.model.ThemeMode
@@ -241,10 +242,16 @@ class SyncingUserSettingsRepository(
   }
 
   override suspend fun updateSettings(settings: UserSettings) {
-    local.updateSettings(settings)
+    val normalized = settings.copy(
+      homeTimeZoneId = DualZoneClockEngine.normalizeHomeTimeZoneId(
+        settings.homeTimeZoneId,
+        settings.homeCurrency
+      )
+    )
+    local.updateSettings(normalized)
     if (!CloudMirrorGate.isApplyingRemoteUpdate && auth.currentUser != null) {
       scope.launch {
-        cloud.saveSettings(settings)
+        cloud.saveSettings(normalized)
       }
     }
   }

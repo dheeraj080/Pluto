@@ -9,7 +9,7 @@ import java.util.UUID
  * - [originalAmount]: What the user actually spent in [originalCurrency]. This must NEVER be overwritten.
  * - [homeAmount]: Equivalent amount in the user's reference [homeCurrency] at the time of recording or recalculation.
  * - [exchangeRate]: The conversion rate applied (`originalAmount * exchangeRate = homeAmount`).
- * - [exchangeRateSource]: Details of how the rate was obtained ("manual", "offline_cache", "api", etc.).
+ * - [exchangeRateSource]: Details of how the rate was obtained ("open_er_api", "offline_cache", etc.). Recorded snapshots are immutable even if the feature that produced them is retired.
  * - [exchangeRateTimestamp]: The timestamp of the rate used, preserving historical accuracy.
  */
 data class Expense(

@@ -34,26 +34,8 @@ class ConvertCurrencyUseCase(
     val currentNow = nowProvider()
 
     if (!forceRefresh) {
-      val effectiveTimestamp = atTimestamp ?: currentNow
-
-      // 1. Always check effective-dated manual override at the exact lookup timestamp using
-      // half-open [effectiveFrom, expiresAt) bounds, short-circuiting before any API lookup.
-      val manualOverride = exchangeRateRepository.getManualOverride(
-        from = amount.currency,
-        to = targetCurrency,
-        atTimestamp = effectiveTimestamp
-      )
-      if (manualOverride != null) {
-        val converted = manualOverride.convert(amount)
-        return ConversionResult.Success(
-          convertedMoney = converted,
-          exchangeRate = manualOverride,
-          isCached = true
-        )
-      }
-
-      // 2. For prior calendar days, strictly require date-matched historical rates;
-      // never silently fall back to latest/live API rates or current-time manual overrides.
+      // 1. For prior calendar days, strictly require date-matched historical rates;
+      // never silently fall back to latest/live API rates.
       if (atTimestamp != null && isPriorCalendarDay(atTimestamp, currentNow)) {
         val directHistorical = exchangeRateRepository.getHistoricalRate(
           from = amount.currency,
@@ -91,8 +73,7 @@ class ConvertCurrencyUseCase(
         )
       }
 
-      // 3. Same calendar day (or current-time lookup) with no applicable manual override at
-      // effectiveTimestamp: resolve market/API rate without consulting current-time manual overrides.
+      // 2. Same calendar day (or current-time lookup): resolve market/API rate.
       val directMarket = exchangeRateRepository.getMarketRate(
         from = amount.currency,
         to = targetCurrency,
@@ -129,7 +110,7 @@ class ConvertCurrencyUseCase(
       )
     }
 
-    // 4. Explicit live refresh (forceRefresh == true)
+    // 3. Explicit live refresh (forceRefresh == true)
     val directRate = exchangeRateRepository.getRate(
       from = amount.currency,
       to = targetCurrency,
