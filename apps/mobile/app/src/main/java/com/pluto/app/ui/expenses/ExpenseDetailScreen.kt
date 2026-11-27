@@ -153,7 +153,7 @@ fun ExpenseDetailSheetContent(
   val rateTimestampFormat = remember { SimpleDateFormat("d MMM yyyy · HH:mm", Locale.getDefault()) }
   val homeCurrency = expense.homeCurrency
   val activeHomeCurrency = userSettings?.homeCurrency ?: homeCurrency
-  val homeLabel = if (homeCurrency == activeHomeCurrency) "HOME · " else "RECORDED HOME · "
+  val homeLabel = if (homeCurrency == activeHomeCurrency) "REFERENCE · " else "RECORDED REFERENCE · "
   val displayTitle = expense.merchant.ifBlank { expense.category.name }
 
   val primaryAmountStr = expense.originalAmount.formatWithCode()
@@ -439,7 +439,7 @@ fun ExpenseDetailSheetContent(
           isNumeric = true
         )
         DetailRow(
-          label = "Home Amount",
+          label = "Reference Amount",
           value = "${expense.homeAmount.format()} (${homeCurrency.code})",
           isNumeric = true
         )

@@ -214,7 +214,7 @@ fun OnboardingScreen(
           when (step) {
             1 -> WelcomeStep(onGetStarted = { viewModel.nextStep() })
             2 -> CurrencySelectionStep(
-              stepTitle = "What's your home currency?",
+              stepTitle = "What's your reference currency?",
               stepSubtitle = "We'll use this reference currency to calculate your overall spending, monthly budgets, and accounting totals.",
               selectedCurrency = uiState.homeCurrency,
               searchQuery = uiState.searchQuery,
@@ -229,7 +229,7 @@ fun OnboardingScreen(
               continueButtonTestTag = "onboarding_continue_button"
             )
             3 -> CurrencySelectionStep(
-              stepTitle = "Where are you spending or traveling?",
+              stepTitle = "Which currency do you spend in?",
               stepSubtitle = "Select your local spending currency. Expenses will be logged in this currency and converted live to ${uiState.homeCurrency.code}.",
               selectedCurrency = uiState.destinationCurrency,
               searchQuery = uiState.searchQuery,
@@ -238,7 +238,7 @@ fun OnboardingScreen(
               onSearchChange = viewModel::onSearchQueryChanged,
               onCurrencySelected = viewModel::onDestinationCurrencySelected,
               onContinue = { viewModel.nextStep() },
-              continueButtonText = "Set ${uiState.destinationCurrency.code} (${uiState.destinationCurrency.symbol}) as Destination",
+              continueButtonText = "Use ${uiState.destinationCurrency.code} (${uiState.destinationCurrency.symbol}) as primary currency",
               searchTestTag = "onboarding_destination_currency_search",
               listTestTag = "onboarding_destination_currency_list",
               continueButtonTestTag = "onboarding_destination_continue_button"
@@ -284,7 +284,7 @@ private fun WelcomeStep(
     ) {
       Image(
         painter = painterResource(id = R.drawable.img_onboarding_hero),
-        contentDescription = "Pluto travel finance companion hero illustration",
+        contentDescription = "Pluto multi-currency finance illustration",
         contentScale = ContentScale.Crop,
         modifier = Modifier
           .fillMaxWidth()
@@ -330,7 +330,7 @@ private fun WelcomeStep(
         Column(modifier = Modifier.padding(16.dp)) {
           FeatureHighlightRow(
             icon = Icons.Rounded.Public,
-            text = "Dual-currency tracking: home and destination"
+            text = "Dual-currency tracking: reference and primary currencies"
           )
           Spacer(modifier = Modifier.height(12.dp))
           FeatureHighlightRow(
@@ -410,7 +410,7 @@ private fun CurrencySelectionStep(
 
     Spacer(modifier = Modifier.height(16.dp))
 
-    // Quick pick chips for popular travel currencies
+    // Quick pick chips for popular spending currencies
     LazyRow(
       horizontalArrangement = Arrangement.spacedBy(8.dp),
       contentPadding = PaddingValues(bottom = 8.dp)
@@ -570,7 +570,7 @@ private fun ReadyStep(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
           ) {
-            // Home Currency Row
+            // Reference Currency Row
             Row(
               modifier = Modifier.fillMaxWidth(),
               verticalAlignment = Alignment.CenterVertically
@@ -592,7 +592,7 @@ private fun ReadyStep(
               Spacer(modifier = Modifier.width(10.dp))
               Column(modifier = Modifier.weight(1f)) {
                 Text(
-                  text = "Home Reference Currency",
+                  text = "Reference Currency",
                   style = MaterialTheme.typography.labelSmall,
                   color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -674,7 +674,7 @@ private fun ReadyStep(
               Spacer(modifier = Modifier.width(10.dp))
               Column(modifier = Modifier.weight(1f)) {
                 Text(
-                  text = "Destination / Local Currency",
+                  text = "Primary Spending Currency",
                   style = MaterialTheme.typography.labelSmall,
                   color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

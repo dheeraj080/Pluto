@@ -89,7 +89,7 @@ fun SignInScreen(
 
         Image(
           painter = painterResource(id = R.drawable.img_onboarding_hero),
-          contentDescription = "Pluto multi-currency travel finance illustration",
+          contentDescription = "Pluto multi-currency finance illustration",
           contentScale = ContentScale.Crop,
           modifier = Modifier
             .fillMaxWidth()
@@ -141,7 +141,7 @@ fun SignInScreen(
             AuthFeatureRow(
               icon = Icons.Rounded.CurrencyExchange,
               title = "Dual-Currency Precision",
-              subtitle = "Track local spending and home currency equivalents side-by-side."
+              subtitle = "Track primary spending and reference currency equivalents side-by-side."
             )
             AuthFeatureRow(
               icon = Icons.Rounded.Lock,

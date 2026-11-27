@@ -319,7 +319,7 @@ class ExpenseViewModel(
       val willUseLocalSnapshot = current.isEditing && pairMatchesOriginal
       current.copy(
         homeCurrency = currency,
-        currencyChangeNotice = "Home currency changed to ${currency.code}; existing amounts stay unchanged until saved.",
+        currencyChangeNotice = "Reference currency changed to ${currency.code}; existing amounts stay unchanged until saved.",
         rateUpdatePolicy = if (willUseLocalSnapshot) {
           RateUpdatePolicy.PRESERVE_EXISTING
         } else {

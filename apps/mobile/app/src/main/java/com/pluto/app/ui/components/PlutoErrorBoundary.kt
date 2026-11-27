@@ -159,7 +159,7 @@ fun ErrorRecoveryScreen(
         Spacer(modifier = Modifier.height(PlutoSpacing.sm))
 
         Text(
-          text = "Don't worry — your offline transactions, travel wallets, and budgets remain safe in local storage.",
+          text = "Don't worry — your offline transactions, currency wallets, and budgets remain safe in local storage.",
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           textAlign = TextAlign.Center,

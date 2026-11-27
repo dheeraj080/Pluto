@@ -240,7 +240,7 @@ fun HomeScreen(
                 role = Role.Button
               ) { onChangeDestinationClick() }
               .semantics(mergeDescendants = true) {
-                contentDescription = "Change visiting or home currency. Currently ${userSettings.destinationCurrency.code} and ${userSettings.homeCurrency.code}"
+                contentDescription = "Change primary or reference currency. Currently ${userSettings.destinationCurrency.code} and ${userSettings.homeCurrency.code}"
               }
               .testTag("home_currency_switch_chip")
           ) {

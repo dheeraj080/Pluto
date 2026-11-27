@@ -88,7 +88,7 @@ fun ExpenseEntryScreen(
   val visitingCurrency = userSettings.destinationCurrency
   val homeCurrency = userSettings.homeCurrency
 
-  // Ensure default currency is set to visiting local currency if uninitialized or default USD
+  // Ensure default currency is set to the primary spending currency if uninitialized or default USD
   LaunchedEffect(isEditing, visitingCurrency) {
     if (!isEditing && formState.amount.isBlank() && formState.localCurrency != visitingCurrency) {
       viewModel.onLocalCurrencyChanged(visitingCurrency)
@@ -130,7 +130,7 @@ fun ExpenseEntryScreen(
           color = MaterialTheme.colorScheme.onSurface
         )
         Text(
-          text = "Default currency: ${visitingCurrency.name} (${visitingCurrency.code})",
+          text = "Default spending currency: ${visitingCurrency.name} (${visitingCurrency.code})",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -249,7 +249,7 @@ fun ExpenseEntryScreen(
         onClick = { viewModel.onLocalCurrencyChanged(visitingCurrency) },
         label = {
           Text(
-            "${visitingCurrency.flagEmoji} ${visitingCurrency.code} (Visiting)",
+            "${visitingCurrency.flagEmoji} ${visitingCurrency.code} (Primary)",
             style = MaterialTheme.typography.labelSmall
           )
         },
@@ -269,7 +269,7 @@ fun ExpenseEntryScreen(
         onClick = { viewModel.onLocalCurrencyChanged(homeCurrency) },
         label = {
           Text(
-            "${homeCurrency.flagEmoji} ${homeCurrency.code} (Home)",
+            "${homeCurrency.flagEmoji} ${homeCurrency.code} (Reference)",
             style = MaterialTheme.typography.labelSmall
           )
         },

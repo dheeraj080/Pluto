@@ -412,7 +412,7 @@ fun ExpenseRateControlSection(
               .testTag("expense_home_currency_selector")
           ) {
             Text(
-              text = "Home: ${formState.homeCurrency.code}",
+              text = "Reference: ${formState.homeCurrency.code}",
               style = MaterialTheme.typography.labelMedium,
               fontWeight = FontWeight.SemiBold,
               color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -472,7 +472,7 @@ fun ExpenseRateControlSection(
         .padding(12.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-      // 1. Converted Home Total + Currency Swap / Home Picker
+      // 1. Converted reference total + currency swap / reference picker
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -532,7 +532,7 @@ fun ExpenseRateControlSection(
           ) {
             Icon(
               imageVector = Icons.Rounded.SwapHoriz,
-              contentDescription = "Swap local and home currencies",
+              contentDescription = "Swap primary spending and reference currencies",
               tint = MaterialTheme.colorScheme.primary
             )
           }

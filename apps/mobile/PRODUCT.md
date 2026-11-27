@@ -7,26 +7,26 @@ android
 
 ## Users
 Pluto serves three primary cross-border audiences managing money across countries and currencies:
-- **International Students**: Managing multi-month semester allowances, tuition commitments, housing/books, and daily discretionary safe-to-spend limits abroad.
+- **International Students**: Managing multi-month semester allowances, tuition commitments, housing/books, and daily discretionary safe-to-spend limits across currencies.
 - **Expats & Remote Workers**: Tracking monthly paydays, recurring local living costs, remittances, and multi-currency balances.
-- **Tourists & Travelers**: Monitoring trip budgets, day-by-day local spending, live FX conversion, and home-city vs. destination time awareness.
+- **Short-Term Spenders**: Monitoring fixed-period budgets, day-by-day primary-currency spending, live FX conversion, and reference-zone time awareness.
 
 ## Product Purpose
-Pluto is a multi-currency expense tracker, live/offline currency converter, and budget runway manager that lets users spend confidently in a destination currency while always understanding the real impact in their home currency.
+Pluto is a multi-currency expense tracker, live/offline currency converter, and budget runway manager that lets users spend confidently in a primary spending currency while always understanding the real impact in their reference currency.
 
 ## Positioning
-Unlike single-currency expense apps or generic travel splitters, Pluto is built around **dual-currency truth** (the actually-spent currency plus the immutable home snapshot on every transaction, with local/destination primary and home secondary on aggregate totals), **horizon-aware runway pacing** (academic semester, monthly payday, or trip cycle), and **offline-first durability** backed by Room + optional Google Sign-In Cloud Firestore sync.
+Unlike single-currency expense apps or generic splitters, Pluto is built around **dual-currency truth** (the actually-spent currency plus the immutable reference snapshot on every transaction, with primary and reference currencies shown together on aggregate totals), **horizon-aware runway pacing** (academic semester, monthly payday, or fixed period), and **offline-first durability** backed by Room + optional Google Sign-In Cloud Firestore sync.
 
 ## Operating Context
 - **Mobile & Tablet Android, Android-only** (no iOS or web target; Firebase Android app registered as `com.pluto.app`; `minSdk 24`, `compileSdk 36`, Jetpack Compose + Material 3 `NavigationSuiteScaffold` adapting between bottom `NavigationBar` on phones and `NavigationRail` on expanded screens).
-- **On-the-go cross-border usage**: Checked in bright daylight at cafes/transit, on flights with intermittent connectivity (cached/offline FX rates), and across time zones (Home header Dual-Zone Clock comparing live device-local time with the Home zone derived from the home currency by default; a custom city is stored only when it differs from that default and is cleared when the home currency changes. Time-zone settings sync is local-wins/manual: sign-in reconciles once and there is no realtime settings observer).
+- **On-the-go multi-currency usage**: Checked in bright daylight at cafes/transit, with intermittent connectivity (cached/offline FX rates), and across time zones (Dual-Zone Clock comparing live device-local time with the reference zone derived from the reference currency by default; a custom city is stored only when it differs from that default and is cleared when the reference currency changes. Time-zone settings sync is local-wins/manual: sign-in reconciles once and there is no realtime settings observer).
 - **Theme support**: System, Light, and Dark modes as first-class experiences.
 
 ## Capabilities and Constraints
 - **Core modules**:
-  - Home Dashboard with swipeable hero cards (Unified Balance, Safe-to-Spend daily cap, Semester/Trip Runway), Dual-Zone Clock chip + searchable Home Time Zone picker sheet (currency-aware cities; unmapped currencies show "no default" and require a city choice), quick actions, and unified transaction stream.
+  - Home Dashboard with stacked wallet hero cards (Unified Balance, Safe-to-Spend daily cap, Semester/Fixed-Period Runway), Dual-Zone Clock chip + searchable Reference Time Zone picker sheet (currency-aware cities; unmapped currencies show "no default" and require a city choice), quick actions, and unified transaction stream.
   - Multi-Currency Wallets (create, edit, deposit, withdraw, inter-wallet FX transfer, portfolio valuation).
-  - Expenses & Recurring Expenses (local/home currency dual entry, category/date and custom-range filters, audit timestamps, category budgets, edit/delete bottom sheets).
+  - Expenses & Recurring Expenses (primary/reference currency dual entry, category/date and custom-range filters, audit timestamps, category budgets, edit/delete bottom sheets).
   - Currency Converter with an arithmetic expression evaluator and live/cached market FX rates. Historical comparisons use strict date-matched rates.
   - Budgets & Insights (category progress, safe-to-spend threshold alerts, breakdown charts).
   - Security, Privacy & Portability (Biometric lock with configurable timeout, Privacy Mode `FLAG_SECURE`, JSON backup/restore, optional Google Sign-In via Jetpack Credential Manager + Cloud Firestore real-time sync or Offline Local Vault mode).
@@ -47,7 +47,7 @@ Unlike single-currency expense apps or generic travel splitters, Pluto is built 
 - Robolectric + Compose UI test suite in `app/src/test/`, Firebase Auth/Firestore emulator tests, Firestore rules tests (`firestore.test.js`), and `.github/workflows/android.yml` CI running unit tests, emulator tests, and a debug build on every push touching `apps/mobile`.
 
 ## Product Principles
-1. **Dual-Currency Clarity First**: Always show destination/local transaction context alongside its home-currency anchor so users never guess what a purchase costs.
+1. **Dual-Currency Clarity First**: Always show primary transaction context alongside its reference-currency anchor so users never guess what a purchase costs.
 2. **Tabular Financial Precision**: Every currency amount, FX rate, percentage, and live clock readout aligns cleanly in `tnum` monospace without layout jitter.
 3. **Offline-First Resilience**: Local Room persistence and cached FX rates remain 100% functional without network access; cloud sync merges cleanly when signed in.
 4. **Horizon-Paced Control**: Surface safe-to-spend runway and cap warnings early without noisy alarmism.

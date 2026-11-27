@@ -370,7 +370,7 @@ class DashboardSummaryTest {
     val item = summary.unifiedRecentTransactions.first()
     assertTrue(item.primaryAmountFormatted.startsWith("SPENT ·"))
     assertTrue(item.primaryAmountFormatted.contains("JPY"))
-    assertTrue(item.secondaryAmountFormatted?.startsWith("HOME ·") == true)
+    assertTrue(item.secondaryAmountFormatted?.startsWith("REFERENCE ·") == true)
     assertTrue(item.secondaryAmountFormatted?.contains("(USD)") == true)
   }
 
@@ -882,7 +882,7 @@ class DashboardSummaryTest {
     val item = summary.unifiedRecentTransactions.first { it.id == expense.id }
     assertTrue(item.primaryAmountFormatted.startsWith("SPENT ·"))
     assertTrue(item.primaryAmountFormatted.contains("JPY"))
-    assertTrue(item.secondaryAmountFormatted?.startsWith("RECORDED HOME ·") == true)
+    assertTrue(item.secondaryAmountFormatted?.startsWith("RECORDED REFERENCE ·") == true)
     assertTrue(item.secondaryAmountFormatted?.contains("EUR") == true)
     assertEquals("100.00", expense.homeAmount.amount.toPlainString())
   }

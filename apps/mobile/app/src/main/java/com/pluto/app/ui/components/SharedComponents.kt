@@ -650,7 +650,7 @@ fun DualCurrencyAmountView(
 }
 
 /**
- * High-density Fintech Metric Tile (e.g. for Home and Insights overview cards)
+ * High-density metric tile for dashboard and insights overview cards.
  */
 @Composable
 fun PlutoMetricTile(

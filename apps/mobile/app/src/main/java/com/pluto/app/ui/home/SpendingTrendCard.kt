@@ -58,7 +58,7 @@ import kotlin.math.roundToInt
  *
  * Implements Recharts-style interactive data visualization in Jetpack Compose:
  * - Smooth Monotone Cubic Bézier Curve with Gradient Area Fill
- * - Dual-Currency presentation (Primary: Destination/Trip country, Secondary: Home country)
+ * - Dual-currency presentation (primary currency, secondary reference currency)
  * - Interactive Touch Scrubber with real-time inspection tooltip
  * - Daily Average benchmark dashed guideline
  * - 30-Day telemetry insights (Total, Daily Average, Peak Day, Trend %)
@@ -220,9 +220,9 @@ private fun TrendCardHeader(
     Column(horizontalAlignment = Alignment.End) {
       val hasDestTotal = summary.thirtyDayTotalDest != null
       val primaryTotal = if (hasDestTotal) {
-        "LOCAL · ${summary.thirtyDayTotalDest!!.formatWithCode()}"
+        "PRIMARY · ${summary.thirtyDayTotalDest!!.formatWithCode()}"
       } else {
-        "HOME · ${summary.thirtyDayTotalHome.formatWithCode()}"
+        "REFERENCE · ${summary.thirtyDayTotalHome.formatWithCode()}"
       }
 
       Text(
@@ -233,7 +233,7 @@ private fun TrendCardHeader(
       )
       if (hasDestTotal) {
         Text(
-          text = "HOME · ${summary.thirtyDayTotalHome.formatWithCode()}",
+          text = "REFERENCE · ${summary.thirtyDayTotalHome.formatWithCode()}",
           style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -254,14 +254,14 @@ private fun TrendTelemetryBar(
     // 1. Daily Average Pill
     val hasAvgDest = summary.thirtyDayDailyAvgDest != null
     val avgDest = if (hasAvgDest) {
-      "LOCAL · ${summary.thirtyDayDailyAvgDest!!.formatWithCode()}"
+      "PRIMARY · ${summary.thirtyDayDailyAvgDest!!.formatWithCode()}"
     } else {
-      "HOME · ${summary.thirtyDayDailyAvgHome.formatWithCode()}"
+      "REFERENCE · ${summary.thirtyDayDailyAvgHome.formatWithCode()}"
     }
     TelemetryMetricPill(
       label = "Daily Avg",
       value = avgDest,
-      subValue = if (hasAvgDest) "HOME · ${summary.thirtyDayDailyAvgHome.formatWithCode()}" else null,
+      subValue = if (hasAvgDest) "REFERENCE · ${summary.thirtyDayDailyAvgHome.formatWithCode()}" else null,
       modifier = Modifier.weight(1f)
     )
 
@@ -269,7 +269,7 @@ private fun TrendTelemetryBar(
     val peak = summary.thirtyDayPeakDay
     val peakVal = peak?.let {
       val hasDest = it.amountDest != null
-      "${if (hasDest) "LOCAL · " else "HOME · "}${(it.amountDest ?: it.amountHome).formatWithCode()}"
+      "${if (hasDest) "PRIMARY · " else "REFERENCE · "}${(it.amountDest ?: it.amountHome).formatWithCode()}"
     } ?: "None"
     val peakSub = peak?.dayLabel
     TelemetryMetricPill(
@@ -565,7 +565,7 @@ private fun TrendLineCanvas(
 }
 
 /**
- * Floating Tooltip Pill showing date, primary (visiting currency), and secondary (home currency) values.
+ * Floating Tooltip Pill showing date, primary, and secondary reference values.
  */
 @Composable
 private fun ScrubberTooltipPill(
@@ -592,9 +592,9 @@ private fun ScrubberTooltipPill(
         Row(verticalAlignment = Alignment.CenterVertically) {
           val hasPointDest = point.amountDest != null
           val primaryText = if (hasPointDest) {
-            "LOCAL · ${point.amountDest!!.formatWithCode()}"
+            "PRIMARY · ${point.amountDest!!.formatWithCode()}"
           } else {
-            "HOME · ${point.amountHome.formatWithCode()}"
+            "REFERENCE · ${point.amountHome.formatWithCode()}"
           }
           Text(
             text = primaryText,
@@ -605,7 +605,7 @@ private fun ScrubberTooltipPill(
           if (hasPointDest) {
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-              text = "HOME · ${point.amountHome.formatWithCode()}",
+              text = "REFERENCE · ${point.amountHome.formatWithCode()}",
               style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )

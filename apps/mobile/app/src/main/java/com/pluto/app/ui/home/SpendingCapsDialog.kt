@@ -251,7 +251,7 @@ fun SpendingCapsDialog(
           if (homeCurrency.code != destCurrency.code) {
             DropdownMenuItem(
               text = {
-                Text(text = "${homeCurrency.flagEmoji} ${homeCurrency.code} - Home Currency")
+                Text(text = "${homeCurrency.flagEmoji} ${homeCurrency.code} - Reference Currency")
               },
               onClick = {
                 selectedBudgetCurrency = homeCurrency

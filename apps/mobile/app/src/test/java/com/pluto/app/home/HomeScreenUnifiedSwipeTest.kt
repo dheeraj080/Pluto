@@ -146,9 +146,9 @@ class HomeScreenUnifiedSwipeTest {
     assertEquals(1, clockClicks)
 
     composeTestRule.onNodeWithTag("dual_clock_local_label", useUnmergedTree = true)
-      .assertTextContains("LOCAL", substring = true)
+      .assertTextContains("DEVICE", substring = true)
     composeTestRule.onNodeWithTag("dual_clock_home_label", useUnmergedTree = true)
-      .assertTextContains("HOME", substring = true)
+      .assertTextContains("REFERENCE", substring = true)
 
     composeTestRule.onNodeWithTag("stacked_card_adjust_budget_button")
       .assertIsDisplayed()

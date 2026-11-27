@@ -133,7 +133,7 @@ fun BackupRestoreDialog(
                 )
               }
               Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Home Currency:", style = MaterialTheme.typography.bodyMedium)
+                Text("Reference Currency:", style = MaterialTheme.typography.bodyMedium)
                 Text(pendingRestoreSummary.homeCurrency, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
               }
             }

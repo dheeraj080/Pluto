@@ -34,7 +34,7 @@ import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 
 /**
- * Quick dialog allowing users to switch active profile between International Student, Expat, and Tourist.
+ * Quick dialog allowing users to switch active profile between International Student, Expat, and Short-cycle modes.
  */
 @Composable
 fun PersonaSwitcherDialog(
@@ -93,8 +93,8 @@ fun PersonaSwitcherDialog(
         PersonaOptionRow(
           persona = UserPersona.TOURIST,
           icon = Icons.Rounded.FlightTakeoff,
-          title = "Tourist & Traveler",
-          subtitle = "Trip budget, day-by-day vacation spending & live FX",
+          title = "Short-cycle",
+          subtitle = "Short-cycle budget, daily spending & live FX",
           isSelected = currentPersona == UserPersona.TOURIST,
           testTag = "switch_to_tourist",
           onClick = {

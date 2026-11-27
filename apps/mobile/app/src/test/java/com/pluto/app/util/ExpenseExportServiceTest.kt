@@ -59,6 +59,6 @@ class ExpenseExportServiceTest {
     )
 
     assertTrue(csv.contains("Transaction ID,Date,Category"))
-    assertTrue(csv.contains("# Home Equivalent: immutable snapshot recorded per transaction (current home: USD)"))
+    assertTrue(csv.contains("# Reference Equivalent: immutable snapshot recorded per transaction (current reference: USD)"))
   }
 }

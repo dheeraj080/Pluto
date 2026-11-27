@@ -20,7 +20,7 @@ sealed interface CreateExpenseResult {
 /**
  * Encapsulates expense creation business rules:
  * - Validates input amount (must be positive) and transaction date (no future dates).
- * - Reads user's current reference home currency unless overridden via [targetHomeCurrency].
+ * - Reads the user's current reference currency unless overridden via [targetHomeCurrency].
  * - Resolves exchange rate (identity, historical lookup for backdated transactions, or live/cached market rate).
  * - Immutably captures the original amount, converted amount, and exchange rate snapshot.
  * - Persists through [ExpenseRepository].

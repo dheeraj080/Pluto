@@ -271,7 +271,7 @@ object DatabaseBackupService {
         val tripObj = settingsObj.optJSONObject("tripSettings")
         val tripSettings = if (tripObj != null) {
           TripSettings(
-            tripName = tripObj.optString("tripName", "Current Trip"),
+            tripName = tripObj.optString("tripName", "Current Period"),
             tripStartDate = tripObj.optLong("tripStartDate", System.currentTimeMillis()),
             tripEndDate = tripObj.optLong("tripEndDate", System.currentTimeMillis() + 14L * 86400000L),
             totalTripBudgetHome = tripObj.optBigDecimal("totalTripBudgetHome")?.max(BigDecimal.ZERO) ?: BigDecimal("1500.00")

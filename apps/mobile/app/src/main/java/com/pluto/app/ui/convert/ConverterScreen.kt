@@ -135,7 +135,7 @@ fun ConverterScreen(
       )
       Spacer(modifier = Modifier.height(4.dp))
       Text(
-        text = "Real-time rates with offline caching for travelers and students abroad.",
+        text = "Real-time rates with offline caching for multi-currency budgets and spending.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
       )

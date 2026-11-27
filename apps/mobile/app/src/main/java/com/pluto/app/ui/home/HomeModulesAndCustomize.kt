@@ -113,13 +113,12 @@ import java.util.Locale
 
 /**
  * Stacked Dual Wallet Hero:
- * - Back card: Warm Harvest Gold / Sand Home Reserve account.
- * - Front card: Deep Forest Green (or Deep Emerald in dark mode) Active Travel Wallet
+ * - Back card: Warm Harvest Gold / Sand reference wallet account.
+ * - Front card: Deep Forest Green (or Deep Emerald in dark mode) primary wallet
  *   with an inline Dual-Zone Clock row in the header.
  */
 @Composable
 fun StackedCardsHero(
-  summary: DashboardSummary,
   portfolioValuation: PortfolioValuationSummary?,
   userSettings: UserSettings,
   wallets: List<CurrencyWallet> = emptyList(),
@@ -131,14 +130,14 @@ fun StackedCardsHero(
   val homeCurrency = userSettings.homeCurrency
   val destinationCurrency = userSettings.destinationCurrency
 
-  val travelWallet = wallets.find { it.currency.code.equals(destinationCurrency.code, ignoreCase = true) }
+  val primaryWallet = wallets.find { it.currency.code.equals(destinationCurrency.code, ignoreCase = true) }
     ?: wallets.firstOrNull { !it.currency.code.equals(homeCurrency.code, ignoreCase = true) }
     ?: wallets.firstOrNull()
 
   val homeWallet = wallets.find { it.currency.code.equals(homeCurrency.code, ignoreCase = true) }
     ?: wallets.getOrNull(1)
 
-  val travelWalletBalance = travelWallet?.balance?.format()
+  val primaryWalletBalance = primaryWallet?.balance?.format()
     ?: "${destinationCurrency.symbol}0.00"
 
   val homeWalletBalance = homeWallet?.balance?.format()
@@ -149,7 +148,7 @@ fun StackedCardsHero(
       .fillMaxWidth()
       .testTag("stacked_cards_hero")
   ) {
-    // Back / Layered Card: Home Reserve Account (Warm Harvest Gold)
+    // Back / Layered Card: Reference wallet account (Warm Harvest Gold)
     val reserveInteraction = remember { MutableInteractionSource() }
     Surface(
       shape = PlutoShapes.extraLarge,
@@ -188,7 +187,7 @@ fun StackedCardsHero(
           )
           Spacer(modifier = Modifier.width(6.dp))
           Text(
-            text = "HOME RESERVE · ${homeCurrency.code}",
+            text = "REFERENCE WALLET · ${homeCurrency.code}",
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onTertiaryContainer
@@ -204,7 +203,7 @@ fun StackedCardsHero(
       }
     }
 
-    // Front Card: Active Travel Wallet (Forest Green in light, Deep Emerald in dark)
+    // Front Card: Primary wallet (Forest Green in light, Deep Emerald in dark)
     val heroColors = PlutoThemeDefaults.extendedColors
     Surface(
       shape = PlutoShapes.extraLarge,
@@ -257,7 +256,7 @@ fun StackedCardsHero(
             }
             Spacer(modifier = Modifier.width(PlutoSpacing.sm))
             Text(
-              text = "ACTIVE TRAVEL WALLET",
+              text = "PRIMARY WALLET",
               style = MaterialTheme.typography.labelSmall,
               fontWeight = FontWeight.Bold,
               letterSpacing = 0.8.sp,
@@ -270,7 +269,7 @@ fun StackedCardsHero(
             color = heroColors.onHeroContainer.copy(alpha = 0.16f)
           ) {
             Text(
-              text = travelWallet?.currency?.code ?: destinationCurrency.code,
+              text = primaryWallet?.currency?.code ?: destinationCurrency.code,
               style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
               fontWeight = FontWeight.Bold,
               color = heroColors.onHeroContainer,
@@ -279,16 +278,16 @@ fun StackedCardsHero(
           }
         }
 
-        // Prominent Travel Balance + Portfolio Equivalent
+        // Prominent available balance + portfolio equivalent
         Column {
           Text(
-            text = "Available Travel Funds",
+            text = "Available balance",
             style = MaterialTheme.typography.labelSmall,
             color = heroColors.onHeroContainer.copy(alpha = 0.80f)
           )
           Spacer(modifier = Modifier.height(PlutoSpacing.xxs))
           Text(
-            text = travelWalletBalance,
+            text = primaryWalletBalance,
             style = MaterialTheme.typography.displaySmall.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = heroColors.onHeroContainer,
@@ -299,8 +298,8 @@ fun StackedCardsHero(
           Spacer(modifier = Modifier.height(PlutoSpacing.xxs))
           Text(
             text = portfolioValuation?.let { valuation ->
-              "Total Portfolio: ${valuation.totalValuedHomeAmount.format()} in ${homeCurrency.code}"
-            } ?: "Trip Currency: ${destinationCurrency.name}",
+              "Total across wallets: ${valuation.totalValuedHomeAmount.format()} in ${homeCurrency.code}"
+            } ?: "Primary currency: ${destinationCurrency.name}",
             style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
             color = heroColors.onHeroContainer.copy(alpha = 0.85f),
             maxLines = 2,
@@ -391,9 +390,9 @@ fun StackedCardsHero(
             )
             Text(
               text = if (wallets.isNotEmpty()) {
-                "${wallets.size} Active ${if (wallets.size == 1) "Wallet" else "Wallets"}"
+                "${wallets.size} ${if (wallets.size == 1) "wallet" else "wallets"}"
               } else {
-                "1 Primary Wallet"
+                "1 primary wallet"
               },
               style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
               fontWeight = FontWeight.SemiBold,
@@ -453,6 +452,32 @@ fun StackedCardsHero(
       }
     }
   }
+}
+
+/**
+ * Compatibility overload for callers that still pass a dashboard summary.
+ * The hero renders only wallet and FX data, so the summary is intentionally ignored.
+ */
+@Composable
+fun StackedCardsHero(
+  @Suppress("UNUSED_PARAMETER") summary: DashboardSummary,
+  portfolioValuation: PortfolioValuationSummary?,
+  userSettings: UserSettings,
+  wallets: List<CurrencyWallet> = emptyList(),
+  fxStatus: DashboardFxStatus? = null,
+  onNavigateToWallets: () -> Unit = {},
+  onClockClick: () -> Unit = {},
+  modifier: Modifier = Modifier
+) {
+  StackedCardsHero(
+    portfolioValuation = portfolioValuation,
+    userSettings = userSettings,
+    wallets = wallets,
+    fxStatus = fxStatus,
+    onNavigateToWallets = onNavigateToWallets,
+    onClockClick = onClockClick,
+    modifier = modifier
+  )
 }
 
 /**
@@ -603,37 +628,28 @@ fun PortfolioOverviewModuleCard(
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          modifier = Modifier.weight(1f)
-        ) {
-          Icon(
-            imageVector = Icons.Rounded.Wallet,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(18.dp)
-          )
-          Spacer(modifier = Modifier.width(8.dp))
-          Text(
-            text = "WALLET PORTFOLIO BREAKDOWN",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-          )
-        }
-        Spacer(modifier = Modifier.width(PlutoSpacing.sm))
+        Icon(
+          imageVector = Icons.Rounded.Wallet,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
-          text = "${wallets.size} accounts",
-          style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-          color = MaterialTheme.colorScheme.onSurfaceVariant
+          text = "Portfolio breakdown",
+          style = MaterialTheme.typography.labelSmall,
+          fontWeight = FontWeight.Bold,
+          color = MaterialTheme.colorScheme.primary,
+          maxLines = 2,
+          overflow = TextOverflow.Ellipsis
         )
       }
 
+      // The hero already shows the primary and reference wallet balances, so this
+      // module only shows composition and valuation details.
+      val heroFxChipVisible = userSettings.homeCurrency != userSettings.destinationCurrency && fxStatus != null
       if (portfolioValuation != null && portfolioValuation.walletValuations.isNotEmpty()) {
         portfolioValuation.walletValuations.take(3).forEach { valuation ->
           Row(
@@ -648,22 +664,16 @@ fun PortfolioOverviewModuleCard(
               color = MaterialTheme.colorScheme.onSurface
             )
             Column(horizontalAlignment = Alignment.End) {
-              Text(
-                text = valuation.wallet.balance.format(),
-                style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-              )
               if (valuation is WalletValuation.Valued) {
                 Text(
                   text = "≈ ${valuation.homeValue.format()} · ${valuation.compositionPercentage.toPlainString()}%",
-                  style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+                  style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
                   color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
               } else if (valuation is WalletValuation.Unavailable) {
                 Text(
                   text = "Rate unavailable",
-                  style = MaterialTheme.typography.labelSmall,
+                  style = MaterialTheme.typography.bodySmall,
                   color = MaterialTheme.colorScheme.tertiary
                 )
               }
@@ -676,7 +686,7 @@ fun PortfolioOverviewModuleCard(
         val hasUnavailableValuation = fxStatus?.isUnavailable == true ||
           portfolioValuation.walletValuations.any { it is WalletValuation.Unavailable }
 
-        if (hasUnavailableValuation || hasStaleValuation) {
+        if (!heroFxChipVisible && (hasUnavailableValuation || hasStaleValuation)) {
           Text(
             text = if (hasUnavailableValuation) {
               "Some wallet conversions are awaiting a live FX rate."
@@ -757,19 +767,35 @@ fun DailySafeToSpendModuleCard(
     if (isRemainingNegative) {
       "-${Money.of(summary.safeToSpendTodayDest.amount.abs(), destCurrency).formatWithCode()}"
     } else {
-      "LOCAL · ${summary.safeToSpendTodayDest.formatWithCode()}"
+      "PRIMARY · ${summary.safeToSpendTodayDest.formatWithCode()}"
     }
   } else if (hasBudgetBase) {
-    "HOME · ${summary.safeToSpendTodayHome.formatWithCode()}"
+    "REFERENCE · ${summary.safeToSpendTodayHome.formatWithCode()}"
   } else {
     val todayAmount = summary.todayDestSpending ?: summary.todayHomeSpending
-    "${if (summary.todayDestSpending != null) "LOCAL · " else "HOME · "}${todayAmount.formatWithCode()}"
+    "${if (summary.todayDestSpending != null) "PRIMARY · " else "REFERENCE · "}${todayAmount.formatWithCode()}"
   }
   val secondaryAmountFormatted = if (hasBudgetBase) {
-    "HOME · ${summary.safeToSpendTodayHome.formatWithCode()}"
+    "REFERENCE · ${summary.safeToSpendTodayHome.formatWithCode()}"
   } else {
-    "HOME · ${summary.todayHomeSpending.formatWithCode()}"
+    "REFERENCE · ${summary.todayHomeSpending.formatWithCode()}"
   }
+  // Avoid showing the same amount twice; without a budget base the value is simply today's spend.
+  val amountLabel = if (hasBudgetBase) "DAILY SAFE-TO-SPEND" else "Spent today"
+  val primaryAmountValue = if (summary.safeToSpendTodayDest != null) {
+    summary.safeToSpendTodayDest.amount.abs()
+  } else if (hasBudgetBase) {
+    summary.safeToSpendTodayHome.amount
+  } else {
+    (summary.todayDestSpending ?: summary.todayHomeSpending).amount
+  }
+  val secondaryAmountValue = if (hasBudgetBase) {
+    summary.safeToSpendTodayHome.amount
+  } else {
+    summary.todayHomeSpending.amount
+  }
+  val showSecondaryAmount = secondaryAmountFormatted != primaryAmountFormatted &&
+    secondaryAmountValue.compareTo(primaryAmountValue) != 0
 
   val prefersReducedMotion = rememberPrefersReducedMotion()
   val animatedProgress by animateFloatAsState(
@@ -898,7 +924,7 @@ fun DailySafeToSpendModuleCard(
 
       Column {
         Text(
-          text = "DAILY SAFE-TO-SPEND",
+          text = amountLabel,
           style = MaterialTheme.typography.labelSmall,
           fontWeight = FontWeight.Bold,
           color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -911,13 +937,15 @@ fun DailySafeToSpendModuleCard(
           color = if (isExceeded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
           modifier = Modifier.testTag("gauge_primary_amount")
         )
-        Text(
-          text = secondaryAmountFormatted,
-          style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
-          fontWeight = FontWeight.SemiBold,
-          color = MaterialTheme.colorScheme.primary,
-          modifier = Modifier.testTag("gauge_secondary_amount")
-        )
+        if (showSecondaryAmount) {
+          Text(
+            text = secondaryAmountFormatted,
+            style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.testTag("gauge_secondary_amount")
+          )
+        }
       }
 
       LinearProgressIndicator(
@@ -945,14 +973,16 @@ fun DailySafeToSpendModuleCard(
           style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        val todayAmount = summary.todayDestSpending ?: summary.todayHomeSpending
-        val spentDestText = "${if (summary.todayDestSpending != null) "LOCAL · " else "HOME · "}${todayAmount.formatWithCode()}"
-        Text(
-          text = "Spent today: $spentDestText",
-          style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-          fontWeight = FontWeight.SemiBold,
-          color = if (isExceeded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-        )
+        if (hasBudgetBase) {
+          val todayAmount = summary.todayDestSpending ?: summary.todayHomeSpending
+          val spentDestText = "${if (summary.todayDestSpending != null) "PRIMARY · " else "REFERENCE · "}${todayAmount.formatWithCode()}"
+          Text(
+            text = "Spent today: $spentDestText",
+            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+            fontWeight = FontWeight.SemiBold,
+            color = if (isExceeded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+          )
+        }
       }
 
       if (summary.unvaluedTodayIncomeCurrencies.isNotEmpty()) {
@@ -1141,7 +1171,7 @@ fun CycleRunwayModuleCard(
           val primaryDaily = runwaySummary.dailyRunwaySafeToSpendDest ?: runwaySummary.dailyRunwaySafeToSpendHome
           val hasDestDaily = runwaySummary.dailyRunwaySafeToSpendDest != null
           Text(
-            text = "${if (hasDestDaily) "LOCAL · " else "HOME · "}${primaryDaily.formatWithCode()} / day",
+            text = "Cycle pace/day: ${if (hasDestDaily) "PRIMARY · " else "REFERENCE · "}${primaryDaily.formatWithCode()}",
             style = MaterialTheme.typography.headlineSmall.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
@@ -1149,7 +1179,7 @@ fun CycleRunwayModuleCard(
           )
           if (hasDestDaily) {
             Text(
-              text = "HOME · ${runwaySummary.dailyRunwaySafeToSpendHome.formatWithCode()} / day",
+              text = "Cycle pace/day: REFERENCE · ${runwaySummary.dailyRunwaySafeToSpendHome.formatWithCode()}",
               style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1272,7 +1302,7 @@ fun CategoryBudgetsModuleCard(
 
 /**
  * Customize Home Modal Bottom Sheet:
- * - Persona Preset Chips (Student, Expat, Traveler) + Custom badge + Reset to Preset.
+ * - Persona Preset Chips (Student, Expat, Short-cycle) + Custom badge + Reset to Preset.
  * - Toggle visibility & reorder (Move Up / Move Down) for all 7 Home modules.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -1392,7 +1422,7 @@ fun HomeCustomizeSheet(
           listOf(
             UserPersona.INTERNATIONAL_STUDENT to "Student",
             UserPersona.EXPAT to "Expat",
-            UserPersona.TOURIST to "Traveler"
+            UserPersona.TOURIST to "Short-cycle"
           ).forEach { (persona, shortLabel) ->
             val selected = currentPersona == persona
             FilterChip(
@@ -1586,7 +1616,7 @@ private fun moduleMetadata(id: HomeModuleId): HomeModuleMeta = when (id) {
   )
   HomeModuleId.RECENT_EXPENSES -> HomeModuleMeta(
     title = "Recent Activity",
-    subtitle = "Latest travel expenses at a glance",
+    subtitle = "Latest expenses at a glance",
     icon = Icons.AutoMirrored.Rounded.ReceiptLong
   )
 }

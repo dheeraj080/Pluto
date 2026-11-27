@@ -18,7 +18,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Service providing CSV and PDF report generation and sharing for Pluto travel expenses.
+ * Service providing CSV and PDF report generation and sharing for Pluto multi-currency expenses.
  * Allows users to export itemized monthly statements for accountants, tax filing, or personal records.
  */
 object ExpenseExportService {
@@ -38,13 +38,13 @@ object ExpenseExportService {
     val sb = StringBuilder()
 
     // Header comment/metadata
-    sb.append("# Pluto Travel Expense Report\n")
+    sb.append("# Pluto Multi-Currency Expense Report\n")
     sb.append("# Period: ").append(escapeCsv(periodTitle)).append("\n")
     sb.append("# Generated: ").append(csvDateFormat.format(Date())).append("\n")
-    sb.append("# Home Equivalent: immutable snapshot recorded per transaction (current home: ${homeCurrency.code})\n\n")
+    sb.append("# Reference Equivalent: immutable snapshot recorded per transaction (current reference: ${homeCurrency.code})\n\n")
 
     // Column Headers
-    sb.append("Transaction ID,Date,Category,Merchant/Payee,Original Amount,Original Currency,Home Equivalent,Home Currency,Exchange Rate,Exchange Rate Date,Receipt Attached,Note\n")
+    sb.append("Transaction ID,Date,Category,Merchant/Payee,Original Amount,Original Currency,Reference Equivalent,Reference Currency,Exchange Rate,Exchange Rate Date,Receipt Attached,Note\n")
 
     expenses.sortedByDescending { it.timestamp }.forEach { exp ->
       val receiptStatus = if (!exp.receiptUri.isNullOrBlank()) "YES" else "NO"
@@ -127,7 +127,7 @@ object ExpenseExportService {
     var yPos = margin
 
     // 1. Header & Title
-    canvas.drawText("Pluto Travel Expense Report", margin, yPos + 18f, titlePaint)
+    canvas.drawText("Pluto Multi-Currency Expense Report", margin, yPos + 18f, titlePaint)
     yPos += 24f
     canvas.drawText("ACCOUNTING STATEMENT • ${periodTitle.uppercase(Locale.US)}", margin, yPos + 10f, subtitlePaint)
     yPos += 18f
@@ -135,7 +135,7 @@ object ExpenseExportService {
     val generatedDate = pdfHeaderDateFormat.format(Date())
     paint.color = Color.rgb(100, 116, 139)
     paint.textSize = 9f
-    canvas.drawText("Generated on $generatedDate | Current Home: ${homeCurrency.code} | Home snapshots vary by transaction", margin, yPos + 10f, paint)
+    canvas.drawText("Generated on $generatedDate | Current reference: ${homeCurrency.code} | Reference snapshots vary by transaction", margin, yPos + 10f, paint)
     yPos += 22f
 
     // Divider line
@@ -220,7 +220,7 @@ object ExpenseExportService {
       canvas.drawText("Category", margin + 70f, curY + 14f, headerLabelPaint)
       canvas.drawText("Merchant / Payee", margin + 170f, curY + 14f, headerLabelPaint)
       canvas.drawText("Original (ISO)", margin + 320f, curY + 14f, headerLabelPaint)
-      canvas.drawText("Home (ISO)", pageWidth - margin - 110f, curY + 14f, headerLabelPaint)
+      canvas.drawText("Reference (ISO)", pageWidth - margin - 110f, curY + 14f, headerLabelPaint)
     }
 
     drawTableHeader(yPos)
@@ -246,7 +246,7 @@ object ExpenseExportService {
         yPos = margin
 
         // Draw continued header
-        canvas.drawText("Pluto Travel Expense Report (Continued)", margin, yPos + 14f, subtitlePaint)
+        canvas.drawText("Pluto Multi-Currency Expense Report (Continued)", margin, yPos + 14f, subtitlePaint)
         yPos += 20f
         drawTableHeader(yPos)
         yPos += 24f

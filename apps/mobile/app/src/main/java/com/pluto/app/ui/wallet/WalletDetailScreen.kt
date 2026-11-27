@@ -390,7 +390,7 @@ private fun WalletHeroCard(
           )
           Spacer(modifier = Modifier.height(PlutoSpacing.xxs))
           Text(
-            text = "≈ ${valuation.homeValue.format()} in home currency (${valuation.homeValue.currency.code}) · ${valuation.compositionPercentage.toPlainString()}% of portfolio",
+            text = "≈ ${valuation.homeValue.format()} in reference currency (${valuation.homeValue.currency.code}) · ${valuation.compositionPercentage.toPlainString()}% of portfolio",
             style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium
@@ -792,13 +792,13 @@ private fun TransferDialog(
           color = MaterialTheme.colorScheme.primary
         )
 
-        // Destination wallet selector
+        // Target wallet selector
         ExposedDropdownMenuBox(
           expanded = expandedDropdown,
           onExpandedChange = { expandedDropdown = !expandedDropdown }
         ) {
           OutlinedTextField(
-            value = targetWallet?.let { "${it.currency.name} (${it.currency.code})" } ?: "Select destination",
+            value = targetWallet?.let { "${it.currency.name} (${it.currency.code})" } ?: "Select target wallet",
             onValueChange = {},
             readOnly = true,
             label = { Text("Transfer to") },
@@ -877,7 +877,7 @@ private fun TransferDialog(
             null
           }
           if (selectedDestWalletId.isBlank()) {
-            errorMessage = "Please select a destination wallet"
+            errorMessage = "Please select a target wallet"
           } else if (bd == null || bd <= BigDecimal.ZERO) {
             errorMessage = "Please enter an amount strictly greater than zero"
           } else if (bd > sourceWallet.balance.amount) {

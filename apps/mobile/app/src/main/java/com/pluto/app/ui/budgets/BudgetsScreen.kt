@@ -124,7 +124,7 @@ fun BudgetsScreen(
         title = {
           Column {
             Text(
-              text = "Travel Budgeting",
+              text = "Multi-Currency Budgeting",
               style = MaterialTheme.typography.labelMedium,
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -233,9 +233,9 @@ private fun BudgetsContent(
   val hasDailyCap = (summary.dailySpendingCap != null && summary.dailySpendingCap > BigDecimal.ZERO)
 
   val primarySpentMoney = summary.totalDestSpending ?: summary.totalHomeSpending
-  val totalSpentPrimary = "${if (summary.totalDestSpending != null) "LOCAL · " else "HOME · "}${primarySpentMoney.formatWithCode()}"
+  val totalSpentPrimary = "${if (summary.totalDestSpending != null) "PRIMARY · " else "REFERENCE · "}${primarySpentMoney.formatWithCode()}"
   val totalSpentSecondary = if (summary.totalDestSpending != null) {
-    "HOME · ${summary.totalHomeSpending.formatWithCode()}"
+    "REFERENCE · ${summary.totalHomeSpending.formatWithCode()}"
   } else null
 
   val safeToSpendPrimary = if (summary.safeToSpendTodayDest != null) {
@@ -243,13 +243,13 @@ private fun BudgetsContent(
     if (money.amount < BigDecimal.ZERO) {
       "-${Money.of(money.amount.abs(), destCurrency).formatWithCode()}"
     } else {
-      "LOCAL · ${money.formatWithCode()}"
+      "PRIMARY · ${money.formatWithCode()}"
     }
   } else {
-    "HOME · ${summary.safeToSpendTodayHome.formatWithCode()}"
+    "REFERENCE · ${summary.safeToSpendTodayHome.formatWithCode()}"
   }
   val safeToSpendSecondary = if (summary.safeToSpendTodayDest != null) {
-    "HOME · ${summary.safeToSpendTodayHome.formatWithCode()}"
+    "REFERENCE · ${summary.safeToSpendTodayHome.formatWithCode()}"
   } else null
 
   Box(
@@ -270,7 +270,7 @@ private fun BudgetsContent(
       if (summary.unconvertibleHomeCurrencies.isNotEmpty()) {
         item(key = "unconvertible_home_currencies_warning") {
           Text(
-            text = "Some totals exclude ${summary.unconvertibleHomeCurrencies.joinToString(", ") { it.code }} home snapshots (rate unavailable).",
+            text = "Some totals exclude ${summary.unconvertibleHomeCurrencies.joinToString(", ") { it.code }} reference snapshots (rate unavailable).",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier
@@ -282,7 +282,7 @@ private fun BudgetsContent(
       }
 
       item(key = "overall_budget_card") {
-    // 1. Overall Trip / Monthly Budget Card
+    // 1. Overall Budget Card
     PlutoCard(
       modifier = Modifier.fillMaxWidth(),
       shape = PlutoShapes.extraLarge,
@@ -312,7 +312,7 @@ private fun BudgetsContent(
             Spacer(modifier = Modifier.width(12.dp))
             Column {
               Text(
-                text = "Overall Trip Budget",
+                text = "Overall Budget",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
               )
@@ -458,7 +458,7 @@ private fun BudgetsContent(
               )
               Spacer(modifier = Modifier.height(PlutoSpacing.sm))
               PlutoButton(
-                text = "Set Trip Budget",
+                text = "Set Budget",
                 onClick = onOpenCapsDialog,
                 leadingIcon = Icons.Rounded.Add,
                 testTag = "btn_set_trip_budget"
@@ -642,7 +642,7 @@ private fun BudgetsContent(
             fontWeight = FontWeight.SemiBold
           )
           Text(
-            text = "Set individual limits for Food, Transport, Accommodation, Entertainment, and more to stay within your trip budget.",
+            text = "Set individual limits for Food, Transport, Accommodation, Entertainment, and more to stay within your period budget.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(vertical = 4.dp),
@@ -683,14 +683,14 @@ private fun BudgetsContent(
         Spacer(modifier = Modifier.width(12.dp))
         Column {
           Text(
-            text = "Travel Smart Tip",
+            text = "Budgeting Tip",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onTertiaryContainer
           )
           Spacer(modifier = Modifier.height(2.dp))
           Text(
-            text = "All category and trip budgets are automatically converted to your home currency (${homeCurrency.code}) for consistent ledger accuracy, while accepting inputs in local currency (${destCurrency.code}).",
+            text = "All category and period budgets are automatically converted to your reference currency (${homeCurrency.code}) for consistent ledger accuracy, while accepting inputs in primary currency (${destCurrency.code}).",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onTertiaryContainer,
             lineHeight = 18.sp
@@ -761,12 +761,12 @@ private fun CategoryBudgetRow(
         val hasDestAmount = item.totalDestAmount != null
         DualCurrencyAmountView(
           primaryAmount = if (hasDestAmount) {
-            "LOCAL · ${item.totalDestAmount!!.formatWithCode()}"
+            "PRIMARY · ${item.totalDestAmount!!.formatWithCode()}"
           } else {
-            "HOME · ${item.totalHomeAmount.formatWithCode()}"
+            "REFERENCE · ${item.totalHomeAmount.formatWithCode()}"
           },
           secondaryAmount = item.budgetHome?.let {
-            "HOME · ${item.totalHomeAmount.formatWithCode()} / ${it.formatWithCode()}"
+            "REFERENCE · ${item.totalHomeAmount.formatWithCode()} / ${it.formatWithCode()}"
           },
           primaryStyle = MaterialTheme.typography.titleMedium,
           primaryColor = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,

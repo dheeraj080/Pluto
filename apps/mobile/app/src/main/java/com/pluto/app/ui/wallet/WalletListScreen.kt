@@ -283,7 +283,7 @@ fun PortfolioHeroCard(
       Spacer(modifier = Modifier.height(4.dp))
 
       Text(
-        text = "≈ $secondaryAmount in home currency (${summary.homeCurrency.code})",
+        text = "≈ $secondaryAmount in reference currency (${summary.homeCurrency.code})",
         style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
         fontWeight = FontWeight.Medium,
         color = MaterialTheme.colorScheme.primary,

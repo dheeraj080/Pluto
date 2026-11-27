@@ -24,8 +24,8 @@ import java.util.Locale
  * Safe-to-Spend drops below the user-defined safety threshold.
  *
  * Adheres strictly to dual-currency presentation:
- * - Primary: Active Trip Currency (Destination)
- * - Secondary: Home Currency Equivalent
+ * - Primary: Active primary currency
+ * - Secondary: Reference currency equivalent
  */
 class SafeToSpendNotificationHelper(
   private val context: Context
@@ -128,9 +128,9 @@ class SafeToSpendNotificationHelper(
     }
 
     val contentText = if (isExceeded) {
-      "Remaining daily safe-to-spend is -$tripRemaining ($homeRemaining in Home). Slow down spending today!"
+      "Daily safe-to-spend exceeded by $tripRemaining ($homeRemaining in reference currency)."
     } else {
-      "Remaining: $tripRemaining (≈ $homeRemaining). Dropped below your $thresholdDesc safety minimum."
+      "Remaining: $tripRemaining (≈ $homeRemaining). Below your safety threshold of $thresholdDesc."
     }
 
     val intent = Intent(context, MainActivity::class.java).apply {

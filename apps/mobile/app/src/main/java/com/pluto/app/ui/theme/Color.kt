@@ -11,8 +11,8 @@ val BotanicalSecondary = Color(0xFF15805A)        // Botanical Mint positive/sav
 val BotanicalSecondaryContainer = Color(0xFFDCFCE7)
 val BotanicalSecondaryOnContainer = Color(0xFF064E3B)
 
-val HarvestGold = Color(0xFFC88A1E)               // Warm Harvest Gold for Reserve & caution
-val HarvestGoldContainer = Color(0xFFFEF3C7)      // Layered Home Reserve card surface
+val HarvestGold = Color(0xFFC88A1E)               // Warm gold for reference balance and caution
+val HarvestGoldContainer = Color(0xFFFEF3C7)      // Layered reference-wallet card surface
 val HarvestGoldOnContainer = Color(0xFF4A3005)
 
 val TerracottaError = Color(0xFFC8372D)           // Terracotta Crimson outflow / alert

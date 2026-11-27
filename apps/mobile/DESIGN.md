@@ -1,6 +1,6 @@
 ---
 name: Pluto
-description: Nordic Fintech multi-currency expense tracker, converter, and runway manager for international students, expats, and travelers.
+description: Nordic Fintech multi-currency expense tracker, converter, and runway manager for people managing money across currencies.
 colors:
   brand-cobalt: "#1D4ED8"
   brand-cobalt-light: "#60A5FA"
@@ -110,15 +110,15 @@ components:
 
 **Creative North Star: "Nordic Precision Financial Instrument"**
 
-Pluto is designed as a calm, architectural multi-currency instrument for people living, studying, and traveling across currencies. Light mode pairs a Soft Ice Gray canvas (`#F4F6FA`) with pure white bordered cards (`#FFFFFF`), while dark mode anchors on deep Nordic Midnight (`#0B101B`) with slate-navy surfaces (`#131A29`), tabular monospace figures, and disciplined **Nordic Cobalt** accents (`#1D4ED8` light / `#60A5FA` dark).
+Pluto is designed as a calm, architectural multi-currency instrument for people living, studying, and managing money across currencies. Light mode pairs a Soft Ice Gray canvas (`#F4F6FA`) with pure white bordered cards (`#FFFFFF`), while dark mode anchors on deep Nordic Midnight (`#0B101B`) with slate-navy surfaces (`#131A29`), tabular monospace figures, and disciplined **Nordic Cobalt** accents (`#1D4ED8` light / `#60A5FA` dark).
 
 The interface operates primarily in **Operate** mode: instant scanability of available balance alongside daily Safe-to-Spend and cycle runway, zero-jitter `tnum` typography, crisp `1.dp` structural borders (`0.dp` shadow elevation), and effortless thumb reach.
 
 **Key Characteristics:**
 - **Nordic Cobalt & Soft Ice Gray**: Cool ice-gray canvas separation (`#F4F6FA`) lets crisp `#FFFFFF` instrument cards read cleanly without drop shadows; dark mode switches to Nordic Midnight (`#0B101B`) and `#131A29`.
-- **Unified Runway Hero & Action Dock (Home)**: A single Unified Runway Hero Card stacks the total multi-currency balance band above a 2-column split of **Safe-to-Spend Today** and **Cycle Runway** (concentric `PlutoShapes.small` inner tiles), followed by a 4-tile Tactile Action Dock (`Expense`, `Income`, `Wallets`, `Convert`), Spending Velocity Trend, and Collapsible Category & Ledger sections.
+- **Stacked Wallet Hero & Action Dock (Home)**: A stacked pair of wallet hero cards shows the primary-currency balance above the reserve card, with **Safe-to-Spend Today** and **Cycle Runway** metrics alongside, followed by a 4-tile Tactile Action Dock (`Expense`, `Income`, `Wallets`, `Convert`), Spending Velocity Trend, and Collapsible Category & Ledger sections.
 - **Single-Scroll Story (Insights)**: An editorial financial narrative flowing top-to-bottom: Period Selector -> **Spend Pulse Bento** (Total Spent Cobalt card + Daily Burn Rate & Avg Expense 2-up row) -> Velocity Over Time curve -> Interactive Category Donut & Ranked Breakdown -> Cross-Border Currency Exposure with proportional share bars -> Highest Expenses & Export Statement Dock.
-- **Dual-Currency & Tabular Discipline**: Every amount renders in `RobotoMonoFontFamily` with `fontFeatureSettings = "tnum"` (`PlutoNumericStyle`). Transaction rows show the currency actually spent first and the immutable home snapshot second; aggregate totals show local/destination primary and home secondary.
+- **Dual-Currency & Tabular Discipline**: Every amount renders in `RobotoMonoFontFamily` with `fontFeatureSettings = "tnum"` (`PlutoNumericStyle`). Transaction rows show the currency actually spent first and the immutable reference snapshot second; aggregate totals show primary and reference currencies together.
 - **Native Material 3 Ergonomics**: `enableEdgeToEdge()`, adaptive `NavigationSuiteScaffold`, `48.dp` minimum touch targets, TalkBack `plutoHeading()` landmarks, and reduced-motion-safe Compose transitions.
 
 ## Colors
@@ -155,7 +155,7 @@ Pluto restricts chromatic intensity to purposeful brand highlights and semantic 
 - **Headline** (`headlineLarge` 28.sp / 34.sp Bold; `headlineMedium` 24.sp / 30.sp SemiBold; `headlineSmall` 20.sp / 26.sp SemiBold): Screen headers, onboarding steps, and major section KPIs.
 - **Title** (`titleLarge` 18.sp / 24.sp SemiBold; `titleMedium` 15.sp / 22.sp SemiBold; `titleSmall` 13.sp / 18.sp Medium): Card titles, section headers (`Modifier.plutoHeading()`), top bar titles, and clock readouts.
 - **Body** (`bodyLarge` 15.sp / 22.sp; `bodyMedium` 13.sp / 18.sp; `bodySmall` 11.sp / 15.sp): Transaction descriptions, hints, empty-state guidance, and secondary currency conversions.
-- **Label** (`labelLarge` 13.sp / 18.sp SemiBold; `labelMedium` 11.sp / 16.sp Medium; `labelSmall` 10.sp / 14.sp Medium): Button labels, navigation labels, category pills, and `LOCAL` / `HOME` clock prefixes.
+- **Label** (`labelLarge` 13.sp / 18.sp SemiBold; `labelMedium` 11.sp / 16.sp Medium; `labelSmall` 10.sp / 14.sp Medium): Button labels, navigation labels, category pills, and `PRIMARY` / `REFERENCE` clock prefixes.
 
 ### Named Rules
 - **The Tabular Numeric Rule.** Every currency amount, rate, percentage, and live time value MUST merge `PlutoNumericStyle` (`RobotoMonoFontFamily` + `"tnum"`) with `maxLines = 1` and explicit overflow handling (`TextOverflow.Ellipsis` or `softWrap = false` where appropriate).
@@ -179,10 +179,10 @@ Pluto uses a **flat, hairline-bordered tonal elevation model** rather than heavy
 
 Defined centrally in `PlutoShapes` (`ui/theme/Shape.kt`):
 - `extraSmall` (`4.dp`): Compact status/delta badges.
-- `small` (`6.dp`): `CurrencyBadge`, Dual-Zone Clock offset pills, compact chips, concentric split tiles inside the Unified Runway Hero Card.
+- `small` (`6.dp`): `CurrencyBadge`, Dual-Zone Clock offset pills, compact chips, and balance tiles inside the Stacked Wallet Hero cards.
 - `medium` (`10.dp`): `PlutoButton`, `PlutoMetricTile`, `CurrencyRow`, `OutlinedTextField`, Tactile Action Dock tiles.
 - `large` (`14.dp`): Standard `PlutoCard` containers, `DualZoneClockHeaderChip`, story cards.
-- `extraLarge` (`20.dp`): `UnifiedRunwayHeroCard` shell, category chart card, empty-state artwork frames, modal sheets.
+- `extraLarge` (`20.dp`): Stacked Wallet Hero card shells, category chart card, empty-state artwork frames, modal sheets.
 
 **The Concentric Radius Rule.** Whenever a padded parent container nests rounded child tiles with an even inset (`<= 24.dp`), keep `outerRadius = innerRadius + padding` (for example, `20.dp` `extraLarge` hero shell with `14.dp` padding enclosing `6.dp` `small` inner split tiles).
 
@@ -194,15 +194,15 @@ Defined centrally in `PlutoShapes` (`ui/theme/Shape.kt`):
 - **Home Action Dock**: 4 tactile tiles (`Expense`, `Income`, `Wallets`, `Convert`) with `1.dp` border (`0.dp` shadow), rounded icon badge, and >= `48.dp` touch target.
 - **Motion & Feedback**: `plutoPressableScale` (`0.96f` scale over `150.ms` `FastOutSlowInEasing`), Material ripple, `20.dp` `CircularProgressIndicator` when `isLoading = true`, disabled buttons never scale.
 
-### Cards (`PlutoCard`, `PlutoMetricTile`, `UnifiedRunwayHeroCard`)
-- **Shape**: `PlutoShapes.large` (`14.dp`) for content cards, `PlutoShapes.extraLarge` (`20.dp`) for `UnifiedRunwayHeroCard`.
+### Cards (`PlutoCard`, `PlutoMetricTile`, `WalletHeroCard`)
+- **Shape**: `PlutoShapes.large` (`14.dp`) for content cards, `PlutoShapes.extraLarge` (`20.dp`) for `WalletHeroCard`.
 - **Surface & Border**: `MaterialTheme.colorScheme.surface` with `1.dp` `outline` border, `0.dp` elevation.
-- **Unified Runway Hero Card**: Top multi-currency balance band (`unified_hero_balance_card`) paired cleanly above two concentric split tiles (`unified_hero_safe_to_spend_card` and `unified_hero_runway_card`).
+- **Stacked Wallet Hero Cards**: Primary wallet balance (`main_wallet_hero_card`) paired with the reserve wallet card (`home_reserve_hero_card`) inside `stacked_cards_hero`, with Safe-to-Spend and runway metrics rendered alongside.
 - **Interaction**: Clickable cards apply `PlutoMotion.CardPressScale` (`0.985f`) gated behind `rememberPrefersReducedMotion()`.
 
 ### Chips, Badges & Dual-Zone Clock (`CurrencyBadge`, `DualZoneClockHeaderChip`)
 - **CurrencyBadge**: `PlutoShapes.small` (`6.dp`), `primaryContainer` fill, `0.5.dp` `primary.copy(alpha = 0.25f)` border, flag + uppercase bold ISO code.
-- **DualZoneClockHeaderChip / inline hero row**: one shared implementation (`PlutoShapes.large` for the standalone chip, `PlutoShapes.medium` inline) renders `LOCAL · City` + `PlutoNumericStyle` time on the left, offset + day-rollover pill centered, and `HOME · City` + sun/moon icon (`ArcticAmber` / `BrandCobalt`) on the right. The Home zone follows the home currency by default; a custom city is a manual choice that is never stored when equal to that default and is cleared when the home currency changes.
+- **DualZoneClockHeaderChip / inline hero row**: one shared implementation (`PlutoShapes.large` for the standalone chip, `PlutoShapes.medium` inline) renders `PRIMARY · City` + `PlutoNumericStyle` time on the left, offset + day-rollover pill centered, and `REFERENCE · City` + sun/moon icon (`ArcticAmber` / `BrandCobalt`) on the right. The reference zone follows the reference currency by default; a custom city is a manual choice that is never stored when equal to that default and is cleared when the reference currency changes.
 
 ### Headers, Sheets & Inputs (`PlutoTopBar`, `SectionHeader`, `HomeTimeZonePickerSheet`)
 - **SectionHeader**: `Modifier.plutoHeading()` on title for TalkBack navigation; optional `48.dp x 48.dp` minimum action target with ripple and press scale.
@@ -213,7 +213,7 @@ Defined centrally in `PlutoShapes` (`ui/theme/Shape.kt`):
 - **Do** use `MaterialTheme.colorScheme`, `PlutoShapes`, `PlutoSpacing`, `PlutoMotion`, and `PlutoNumericStyle` from `ui/theme/`.
 - **Do** enforce `minimumInteractiveComponentSize()` (`>= 48.dp`), `testTag(...)` (`snake_case`), `contentDescription`, and `plutoHeading()` on all new interactive Composables.
 - **Do** gate every movement/scale animation behind `rememberPrefersReducedMotion()` and use `PlutoMotion.NoBounceSpring` (`DampingRatioNoBouncy`).
-- **Do** place user-facing strings in `app/src/main/res/values/strings.xml`, show the actually-spent currency and immutable home snapshot on transaction rows, and keep local/destination primary with home secondary on aggregate totals.
+- **Do** place user-facing strings in `app/src/main/res/values/strings.xml`, show the actually-spent currency and immutable reference snapshot on transaction rows, and keep primary and reference currencies together on aggregate totals.
 - **Don't** emit web CSS, HTML, Tailwind, `oklch()`, or iOS/Cupertino widgets (`CupertinoSwitch`, bottom-only tablet bars) in Android UI code.
 - **Don't** hardcode hex colors or raw `.dp` magic spacing numbers when a `PlutoSpacing` or `MaterialTheme.colorScheme` token exists.
 - **Don't** omit `tnum` (`PlutoNumericStyle`) on amounts, rates, deltas, or live time readouts.

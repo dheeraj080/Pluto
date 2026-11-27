@@ -116,8 +116,8 @@ class UiCraftAuditTest {
       }
     }
 
-    composeTestRule.onNodeWithText("Travel Tools").performScrollTo().assert(isHeadingMatcher)
-    composeTestRule.onNodeWithText("Currency & Destination").performScrollTo().assert(isHeadingMatcher)
+    composeTestRule.onNodeWithText("Currency Tools").performScrollTo().assert(isHeadingMatcher)
+    composeTestRule.onNodeWithText("Currency Preferences").performScrollTo().assert(isHeadingMatcher)
     composeTestRule.onNodeWithTag("settings_sync_now_button").performScrollTo().assertHeightIsAtLeast(48.dp)
     composeTestRule.onNodeWithTag("settings_sign_out_button").performScrollTo().assertHeightIsAtLeast(48.dp)
     composeTestRule.onNodeWithTag("settings_row_currency_converter").performScrollTo().assertHeightIsAtLeast(48.dp)

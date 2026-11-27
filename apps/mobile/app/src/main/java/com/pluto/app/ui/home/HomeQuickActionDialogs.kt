@@ -102,7 +102,7 @@ fun QuickIncomeDialog(
             fontWeight = FontWeight.Bold
           )
           Text(
-            text = "Credit funds into your travel wallet",
+            text = "Credit funds into your primary wallet",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
@@ -125,7 +125,7 @@ fun QuickIncomeDialog(
             value = selectedWallet?.let { "${it.currency.flagEmoji} ${it.currency.name} (${it.currency.code})" } ?: "Select Wallet",
             onValueChange = {},
             readOnly = true,
-            label = { Text("Target Wallet (Default: Local)") },
+            label = { Text("Target Wallet (Default: Primary)") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             shape = PlutoShapes.medium,
             modifier = Modifier
@@ -149,7 +149,7 @@ fun QuickIncomeDialog(
                         shape = PlutoShapes.extraSmall
                       ) {
                         Text(
-                          "Local Default",
+                          "Primary Default",
                           modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                           style = MaterialTheme.typography.labelSmall,
                           color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -315,7 +315,7 @@ fun QuickTransferDialog(
             fontWeight = FontWeight.Bold
           )
           Text(
-            text = "Move funds between your multi-currency travel wallets",
+            text = "Move funds between your multi-currency wallets",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
@@ -374,7 +374,7 @@ fun QuickTransferDialog(
             value = dstWallet?.let { "To: ${it.currency.flagEmoji} ${it.currency.code} (${it.currency.name})" } ?: "Select To",
             onValueChange = {},
             readOnly = true,
-            label = { Text("Destination Wallet") },
+            label = { Text("Target Wallet") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dstExpanded) },
             shape = PlutoShapes.medium,
             modifier = Modifier
@@ -395,7 +395,7 @@ fun QuickTransferDialog(
                         shape = PlutoShapes.extraSmall
                       ) {
                         Text(
-                          "Local Default",
+                          "Primary Default",
                           modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                           style = MaterialTheme.typography.labelSmall,
                           color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -441,7 +441,7 @@ fun QuickTransferDialog(
           value = noteText,
           onValueChange = { noteText = it },
           label = { Text("Transfer Note (Optional)") },
-          placeholder = { Text("e.g. Travel card funding, Local FX conversion") },
+          placeholder = { Text("e.g. Wallet funding, FX conversion") },
           singleLine = true,
           shape = PlutoShapes.medium,
           modifier = Modifier.fillMaxWidth()

@@ -441,7 +441,7 @@ fun MainAppShell(
               onSeedDummyDataClick = {
                 onSeedDummyData()
                 coroutineScope.launch {
-                  snackbarHostState.showSnackbar("Sample 30-day travel data loaded")
+                  snackbarHostState.showSnackbar("Sample 30-day data loaded")
                 }
               },
               onNavigateToConverter = { navController.navigate(ConverterRoute) },
@@ -525,12 +525,12 @@ fun MainAppShell(
           composable<CurrencyPickerRoute> { backStackEntry ->
             val target = backStackEntry.toRoute<CurrencyPickerRoute>().target
             val (pickerTitle, initialCurrency) = when (target) {
-              CurrencyPickerTarget.HOME -> "Select Home Currency" to userSettings.homeCurrency
-              CurrencyPickerTarget.DESTINATION -> "Select Visiting Destination" to userSettings.destinationCurrency
+              CurrencyPickerTarget.HOME -> "Select Reference Currency" to userSettings.homeCurrency
+              CurrencyPickerTarget.DESTINATION -> "Select Primary Spending Currency" to userSettings.destinationCurrency
               CurrencyPickerTarget.CONVERTER_SOURCE -> "Convert From" to converterViewModel.sourceCurrency.value
               CurrencyPickerTarget.CONVERTER_TARGET -> "Convert To" to converterViewModel.targetCurrency.value
-              CurrencyPickerTarget.EXPENSE_LOCAL -> "Select Local (Spent) Currency" to expenseViewModel.formState.value.localCurrency
-              CurrencyPickerTarget.EXPENSE_HOME -> "Select Home (Target) Currency" to expenseViewModel.formState.value.homeCurrency
+              CurrencyPickerTarget.EXPENSE_LOCAL -> "Select Primary (Spent) Currency" to expenseViewModel.formState.value.localCurrency
+              CurrencyPickerTarget.EXPENSE_HOME -> "Select Reference (Target) Currency" to expenseViewModel.formState.value.homeCurrency
               CurrencyPickerTarget.WALLET -> "Select Wallet Currency" to walletViewModel.formState.value.currency
             }
             CurrencySelectionScreen(
@@ -540,11 +540,11 @@ fun MainAppShell(
                 when (target) {
                   CurrencyPickerTarget.HOME -> {
                     onUpdateHomeCurrency(newCurrency)
-                    coroutineScope.launch { snackbarHostState.showSnackbar("Home currency updated to ${newCurrency.code}") }
+                    coroutineScope.launch { snackbarHostState.showSnackbar("Reference currency updated to ${newCurrency.code}") }
                   }
                   CurrencyPickerTarget.DESTINATION -> {
                     onUpdateDestinationCurrency(newCurrency)
-                    coroutineScope.launch { snackbarHostState.showSnackbar("Visiting destination set to ${newCurrency.name}") }
+                    coroutineScope.launch { snackbarHostState.showSnackbar("Primary spending currency set to ${newCurrency.name}") }
                   }
                   CurrencyPickerTarget.CONVERTER_SOURCE -> converterViewModel.setSourceCurrency(newCurrency)
                   CurrencyPickerTarget.CONVERTER_TARGET -> converterViewModel.setTargetCurrency(newCurrency)

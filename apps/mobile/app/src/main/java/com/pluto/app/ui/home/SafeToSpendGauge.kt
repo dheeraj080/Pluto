@@ -61,8 +61,8 @@ import java.math.RoundingMode
  * and manage threshold warning push notifications.
  *
  * Displays values in both:
- * 1. Primary: Trip Currency (Current country)
- * 2. Secondary: Home Currency
+ * 1. Primary: primary currency
+ * 2. Secondary: reference currency
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -166,16 +166,16 @@ fun SafeToSpendThresholdDialog(
               fontWeight = FontWeight.Bold,
               color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            val homePreview = "${homeCurrency.symbol}${thresholdInput.ifBlank { "0" }} ${homeCurrency.code} (Home)"
-            val tripPreview = convertedTripAmountText?.let { "≈ $it (Trip Currency)" } ?: "≈ in ${destCurrency.code}"
+            val homePreview = "${homeCurrency.symbol}${thresholdInput.ifBlank { "0" }} ${homeCurrency.code} (reference)"
+            val tripPreview = convertedTripAmountText?.let { "≈ $it (primary currency)" } ?: "≈ in ${destCurrency.code}"
             Text(
-              text = "1. Trip: $tripPreview",
+              text = "1. Primary: $tripPreview",
               style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
               fontWeight = FontWeight.SemiBold,
               color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Text(
-              text = "2. Home: $homePreview",
+              text = "2. Reference: $homePreview",
               style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
               color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
             )

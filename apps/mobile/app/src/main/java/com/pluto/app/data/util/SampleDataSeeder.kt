@@ -16,9 +16,9 @@ import java.util.UUID
  * Utility to seed comprehensive, realistic dummy data into the application.
  *
  * Populates:
- * 1. User preferences (Home currency: USD, Destination currency: JPY, daily cap: $60, monthly cap: $1,800,
+ * 1. User preferences (Reference currency: USD, Primary currency: JPY, daily cap: $60, monthly cap: $1,800,
  *    and category-specific budgets for Food, Transport, Accommodation, Groceries, Shopping, Entertainment).
- * 2. Multi-currency Wallets (USD Main Bank, JPY Travel Cash & Card, EUR Savings).
+ * 2. Multi-currency Wallets (USD Main Bank, JPY Spending Cash & Card, EUR Savings).
  * 3. Recent Wallet Transactions (Deposits, Currency Transfers).
  * 4. Realistic 30-day Expenses across categories denominated in both JPY and USD with real exchange rates.
  */
@@ -31,7 +31,7 @@ object SampleDataSeeder {
     val now = System.currentTimeMillis()
     val dayMillis = 86_400_000L
 
-    // 1. Configure realistic User Settings tailored for International Student with fallback support for Expats & Tourists
+    // 1. Configure realistic User Settings tailored for International Student with fallback support for Expats & Short-Term Spenders
     val sampleSettings = UserSettings(
       homeCurrency = Currency.USD,
       destinationCurrency = Currency.JPY,
@@ -110,7 +110,7 @@ object SampleDataSeeder {
       amount = "3000.00",
       currencyCode = "USD",
       timestamp = now - (32 * dayMillis),
-      note = "Monthly Travel Stipend",
+      note = "Monthly Spending Stipend",
       createdAt = now - (32 * dayMillis)
     )
     val tx2 = WalletTransactionEntity(
@@ -120,7 +120,7 @@ object SampleDataSeeder {
       amount = "550.00",
       currencyCode = "USD",
       timestamp = now - (15 * dayMillis),
-      note = "Exchanged to Travel JPY Cash",
+      note = "Exchanged to JPY Spending Cash",
       targetWalletId = jpyWalletId,
       targetAmount = "82500",
       targetCurrencyCode = "JPY",
@@ -192,7 +192,7 @@ object SampleDataSeeder {
 
     // 2-5 days ago
     expenses.add(createExpense(2, "Starbucks Reserve Ginza", Category.FOOD, 1300, "Cold brew tasting flight"))
-    expenses.add(createExpense(3, "JR Yamanote Line", Category.TRANSPORT, 640, "Travel to Ueno and Asakusa"))
+    expenses.add(createExpense(3, "JR Yamanote Line", Category.TRANSPORT, 640, "Transit to Ueno and Asakusa"))
     expenses.add(createExpense(3, "Tokyo Skytree", Category.ENTERTAINMENT, 3100, "Observation deck sunset pass"))
     expenses.add(createExpense(4, "Lawson Shinjuku", Category.GROCERIES, 980, "Water, matcha latte, and pastries"))
     expenses.add(createExpense(5, "Gyukatsu Motomura", Category.FOOD, 2600, "Crispy beef cutlet set"))
@@ -206,12 +206,12 @@ object SampleDataSeeder {
 
     // 14-20 days ago
     expenses.add(createExpense(14, "Shinjuku Granbell Hotel", Category.ACCOMMODATION, 36000, "Weekly lodging stay"))
-    expenses.add(createExpense(15, "Matsumoto Kiyoshi", Category.HEALTH, 2200, "Eye drops & travel vitamins"))
+    expenses.add(createExpense(15, "Matsumoto Kiyoshi", Category.HEALTH, 2200, "Eye drops & daily vitamins"))
     expenses.add(createExpense(18, "Shinkansen to Kyoto", Category.TRAVEL, 14200, "Bullet train round-trip ticket"))
     expenses.add(createExpense(19, "Fushimi Inari Teahouse", Category.FOOD, 1600, "Matcha soft serve & dango"))
 
     // 21-30 days ago
-    expenses.add(createExpense(22, "Sim Card Japan 30-Day", Category.BILLS, 4500, "Unlimited travel eSIM data"))
+    expenses.add(createExpense(22, "Sim Card Japan 30-Day", Category.BILLS, 4500, "Unlimited eSIM data"))
     expenses.add(createExpense(25, "Ghibli Museum Mitaka", Category.ENTERTAINMENT, 1000, "Pre-booked admission ticket"))
     expenses.add(createExpense(27, "Yodobashi Camera", Category.SHOPPING, 5200, "Camera memory card & lens wipe"))
     expenses.add(createExpense(29, "Airport Limousine Bus", Category.TRANSPORT, 3200, "Narita Airport to Shinjuku"))

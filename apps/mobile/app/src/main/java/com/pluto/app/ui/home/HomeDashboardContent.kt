@@ -104,7 +104,6 @@ internal fun HomeDashboardContent(
     ) {
       // 1. Stacked Dual Wallet Hero Cards with inline Dual-Zone Clock (primary focal point)
       StackedCardsHero(
-        summary = summary,
         portfolioValuation = portfolioValuation,
         userSettings = userSettings,
         wallets = wallets,
@@ -136,13 +135,13 @@ internal fun HomeDashboardContent(
             verticalArrangement = Arrangement.spacedBy(PlutoSpacing.sm)
           ) {
             Text(
-              text = "Start tracking your trip",
+              text = "Start tracking your finances",
               style = MaterialTheme.typography.titleSmall,
               fontWeight = FontWeight.Bold,
               color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-              text = "Log your first expense in ${userSettings.destinationCurrency.code} or fund a travel wallet above to unlock daily pace and cash flow tracking.",
+              text = "Log your first expense in ${userSettings.destinationCurrency.code} or fund a primary wallet above to unlock daily pace and cash flow tracking.",
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -214,7 +213,7 @@ internal fun HomeDashboardContent(
 
       if (summary.unconvertibleHomeCurrencies.isNotEmpty()) {
         Text(
-          text = "Some totals exclude ${summary.unconvertibleHomeCurrencies.joinToString(", ") { it.code }} home snapshots (rate unavailable).",
+          text = "Some totals exclude ${summary.unconvertibleHomeCurrencies.joinToString(", ") { it.code }} reference snapshots (rate unavailable).",
           style = MaterialTheme.typography.labelSmall,
           color = MaterialTheme.colorScheme.error,
           modifier = Modifier

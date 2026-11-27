@@ -158,7 +158,7 @@ class OnboardingViewModel(
       )
 
       val tripSettings = com.pluto.app.domain.model.TripSettings(
-        tripName = "Current Trip",
+        tripName = "Current Period",
         tripStartDate = System.currentTimeMillis(),
         tripEndDate = System.currentTimeMillis() + (14L * 86400000L),
         totalTripBudgetHome = state.tripBudgetHome

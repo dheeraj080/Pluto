@@ -11,7 +11,7 @@ enum class DashboardPeriod(val label: String) {
   THIS_WEEK("This Week"),
   THIS_MONTH("This Month"),
   ACADEMIC_TERM("Semester"),
-  CURRENT_TRIP("Trip");
+  CURRENT_TRIP("Cycle");
 
   fun getBounds(customStart: Long? = null, customEnd: Long? = null): Pair<Long, Long> {
     val now = Calendar.getInstance()
@@ -99,7 +99,7 @@ data class TermRunwaySummary(
 
 /**
  * Category spending breakdown item for the dashboard.
- * Supports dual-currency presentation (Primary: local/destination total, Secondary: home snapshot total).
+ * Supports dual-currency presentation (primary spending total, reference snapshot total).
  */
 data class CategorySpendingSummary(
   val category: Category,
@@ -115,7 +115,7 @@ data class CategorySpendingSummary(
 
 /**
  * Currency spending breakdown item for the dashboard.
- * Preserves separation of original currency and home currency equivalent.
+ * Preserves separation of original currency and reference currency equivalent.
  */
 data class CurrencySpendingSummary(
   val currency: Currency,
@@ -150,7 +150,7 @@ data class UnifiedTransactionItem(
 
 /**
  * Daily spend entry for the 30-day spending trend visualization.
- * Supports dual-currency presentation (Primary: local/destination total, Secondary: home snapshot total).
+ * Supports dual-currency presentation (primary spending total, reference snapshot total).
  */
 data class DailySpendPoint(
   val timestamp: Long,
@@ -192,7 +192,7 @@ data class DashboardSummary(
   val monthlySpendingCapDest: Money? = null,
   val dailyCapProgress: Float? = null,
   val monthlyCapProgress: Float? = null,
-  // Cashew & Ivy Wallet Safe-to-Spend & Cash Flow Metrics (Primary Dest, Secondary Home)
+  // Safe-to-spend and cash-flow metrics (primary amount, reference equivalent)
   val safeToSpendTodayHome: Money = Money.zero(homeCurrency),
   val safeToSpendTodayDest: Money? = null,
   val warningThresholdHome: Money? = null,

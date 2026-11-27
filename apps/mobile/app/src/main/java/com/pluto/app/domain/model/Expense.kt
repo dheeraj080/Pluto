@@ -41,7 +41,7 @@ data class Expense(
       "Original money currency (${originalAmount.currency.code}) must match exchange rate fromCurrency (${exchangeRate.fromCurrency.code})"
     }
     require(homeAmount.currency == exchangeRate.toCurrency) {
-      "Home money currency (${homeAmount.currency.code}) must match exchange rate toCurrency (${exchangeRate.toCurrency.code})"
+      "Reference money currency (${homeAmount.currency.code}) must match exchange rate toCurrency (${exchangeRate.toCurrency.code})"
     }
   }
 
@@ -72,7 +72,7 @@ data class Expense(
         "Exchange rate fromCurrency must match original currency"
       }
       require(exchangeRate.toCurrency == homeCurrency) {
-        "Exchange rate toCurrency must match home currency"
+        "Exchange rate toCurrency must match reference currency"
       }
       val convertedHomeAmount = exchangeRate.convert(originalAmount)
       return Expense(

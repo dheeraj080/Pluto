@@ -294,7 +294,7 @@ class SharedPreferencesUserSettingsRepository(
       tuitionAndFixedCommittedHome = termCommitted.max(BigDecimal.ZERO)
     )
 
-    val tripName = prefs.getString(KEY_TRIP_NAME, "Current Trip") ?: "Current Trip"
+    val tripName = prefs.getString(KEY_TRIP_NAME, "Current Period") ?: "Current Period"
     val tripStart = prefs.getLong(KEY_TRIP_START, System.currentTimeMillis())
     val tripEnd = prefs.getLong(KEY_TRIP_END, System.currentTimeMillis() + (14L * 86400000L))
     val tripBudget = readDecimalFromPrefs(KEY_TRIP_BUDGET, BigDecimal("1500.00")) ?: BigDecimal("1500.00")

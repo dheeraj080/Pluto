@@ -5,7 +5,7 @@ import com.pluto.app.domain.repository.ExpenseRepository
 
 /**
  * Restores a previously deleted [Expense] snapshot while preserving its original ID,
- * original currency amount, home currency converted amount, exchange rate snapshot,
+ * original currency amount, reference currency converted amount, exchange rate snapshot,
  * and original creation timestamp.
  */
 class RestoreExpenseUseCase(

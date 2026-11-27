@@ -74,8 +74,8 @@ private fun formatConvertedCap(amount: BigDecimal, currency: Currency): String {
  * Dialog enabling creation and configuration of multiple category-specific budgets
  * (e.g., Food, Transport, Accommodation, Entertainment, Groceries).
  *
- * Supports input in the user's chosen currency (defaulting to the Local/Destination currency)
- * and automatically converts and saves each budget cap in the base home currency.
+ * Supports input in the user's chosen currency (defaulting to the primary spending currency)
+ * and automatically converts and saves each budget cap in the reference currency.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -187,7 +187,7 @@ fun CategoryBudgetsDialog(
         }
       }
         Text(
-          text = "Set individual monthly spending limits for each category. Values set in other currencies are converted and tracked in your home currency (${homeCurrency.code}).",
+          text = "Set individual monthly spending limits for each category. Values set in other currencies are converted and tracked in your reference currency (${homeCurrency.code}).",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -228,7 +228,7 @@ fun CategoryBudgetsDialog(
 
             if (homeCurrency.code != destCurrency.code) {
               DropdownMenuItem(
-                text = { Text(text = "${homeCurrency.flagEmoji} ${homeCurrency.code} - Home Currency") },
+                text = { Text(text = "${homeCurrency.flagEmoji} ${homeCurrency.code} - Reference Currency") },
                 onClick = {
                   selectedBudgetCurrency = homeCurrency
                   currencyDropdownExpanded = false

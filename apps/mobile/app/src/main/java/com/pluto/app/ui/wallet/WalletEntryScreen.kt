@@ -88,7 +88,7 @@ fun WalletEntryScreen(
           color = MaterialTheme.colorScheme.onSurface
         )
         Text(
-          text = "Holdings & Travel Cash Account",
+          text = "Holdings & Currency Accounts",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -197,7 +197,7 @@ fun WalletEntryScreen(
       }
     }
 
-    // Quick Currency Switcher Chips (Default: Visiting Local Currency)
+    // Quick Currency Switcher Chips (Default: Primary Spending Currency)
     val visitingCurrency = userSettings?.destinationCurrency
     val homeCurrency = userSettings?.homeCurrency
 
@@ -219,7 +219,7 @@ fun WalletEntryScreen(
           onClick = { viewModel.onCurrencyChanged(visitingCurrency) },
           label = {
             Text(
-              "${visitingCurrency.flagEmoji} ${visitingCurrency.code} (Visiting)",
+              "${visitingCurrency.flagEmoji} ${visitingCurrency.code} (Primary)",
               style = MaterialTheme.typography.labelSmall
             )
           },
@@ -239,7 +239,7 @@ fun WalletEntryScreen(
           onClick = { viewModel.onCurrencyChanged(homeCurrency) },
           label = {
             Text(
-              "${homeCurrency.flagEmoji} ${homeCurrency.code} (Home)",
+              "${homeCurrency.flagEmoji} ${homeCurrency.code} (Reference)",
               style = MaterialTheme.typography.labelSmall
             )
           },

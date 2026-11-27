@@ -42,7 +42,7 @@ import java.math.BigDecimal
 
 /**
  * Cash Flow Summary Bar (+Income | -Expenses | =Net)
- * Dual-Currency: Primary local/destination total, Secondary home snapshot total.
+ * Dual-currency: primary total, secondary reference snapshot total.
  */
 @Composable
 fun CashFlowSummaryBar(
@@ -58,6 +58,14 @@ fun CashFlowSummaryBar(
         .fillMaxWidth()
         .padding(horizontal = 18.dp, vertical = PlutoSpacing.lg)
     ) {
+      Text(
+        text = "Cash flow · This month",
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary
+      )
+      Spacer(modifier = Modifier.height(8.dp))
+
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.sm),
@@ -71,9 +79,9 @@ fun CashFlowSummaryBar(
           )
           val hasIncomeDest = summary.totalIncomeDest != null
           val incomePrimary = if (hasIncomeDest) {
-            "+LOCAL · ${summary.totalIncomeDest!!.formatWithCode()}"
+            "+PRIMARY · ${summary.totalIncomeDest!!.formatWithCode()}"
           } else {
-            "+HOME · ${summary.totalIncomeHome.formatWithCode()}"
+            "+REFERENCE · ${summary.totalIncomeHome.formatWithCode()}"
           }
           Text(
             text = incomePrimary,
@@ -83,7 +91,7 @@ fun CashFlowSummaryBar(
           )
           if (hasIncomeDest) {
             Text(
-              text = "+HOME · ${summary.totalIncomeHome.formatWithCode()}",
+              text = "+REFERENCE · ${summary.totalIncomeHome.formatWithCode()}",
               style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -96,11 +104,11 @@ fun CashFlowSummaryBar(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
-          val expensePrimary = "-${if (summary.totalDestSpending != null) "LOCAL · " else "HOME · "}${
+          val expensePrimary = "-${if (summary.totalDestSpending != null) "PRIMARY · " else "REFERENCE · "}${
             (summary.totalDestSpending ?: summary.totalHomeSpending).formatWithCode()
           }"
           val expenseSecondary = if (summary.totalDestSpending != null) {
-            "-HOME · ${summary.totalHomeSpending.formatWithCode()}"
+            "-REFERENCE · ${summary.totalHomeSpending.formatWithCode()}"
           } else null
           Text(
             text = expensePrimary,
@@ -128,10 +136,10 @@ fun CashFlowSummaryBar(
           )
           val isNetPositive = summary.netCashFlowHome.amount >= BigDecimal.ZERO
           val signPrefix = if (isNetPositive) "+" else ""
-          val netPrimary = signPrefix + (if (summary.netCashFlowDest != null) "LOCAL · " else "HOME · ") +
+          val netPrimary = signPrefix + (if (summary.netCashFlowDest != null) "PRIMARY · " else "REFERENCE · ") +
             (summary.netCashFlowDest ?: summary.netCashFlowHome).formatWithCode()
           val netSecondary = if (summary.netCashFlowDest != null) {
-            "${signPrefix}HOME · ${summary.netCashFlowHome.formatWithCode()}"
+            "${signPrefix}REFERENCE · ${summary.netCashFlowHome.formatWithCode()}"
           } else null
           Text(
             text = netPrimary,
@@ -290,9 +298,9 @@ private fun CategoryBudgetRow(item: CategorySpendingSummary) {
       Column(horizontalAlignment = Alignment.End) {
         val hasDestAmount = item.totalDestAmount != null
         val amountLabel = if (hasDestAmount) {
-          "LOCAL · ${item.totalDestAmount!!.formatWithCode()}"
+          "PRIMARY · ${item.totalDestAmount!!.formatWithCode()}"
         } else {
-          "HOME · ${item.totalHomeAmount.formatWithCode()}"
+          "REFERENCE · ${item.totalHomeAmount.formatWithCode()}"
         }
         if (hasBudget) {
           val budgetLabel = item.budgetDest?.formatWithCode() ?: item.budgetHome?.formatWithCode() ?: "—"
@@ -315,7 +323,7 @@ private fun CategoryBudgetRow(item: CategorySpendingSummary) {
           )
           if (hasDestAmount) {
             Text(
-              text = "HOME · ${item.totalHomeAmount.formatWithCode()}",
+              text = "REFERENCE · ${item.totalHomeAmount.formatWithCode()}",
               style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )

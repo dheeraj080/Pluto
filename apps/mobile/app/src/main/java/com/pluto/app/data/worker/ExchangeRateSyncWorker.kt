@@ -19,10 +19,10 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Background WorkManager worker responsible for prefetching fresh foreign exchange rates
- * for active travel pairs and popular global currencies.
+ * for active currency pairs and popular global currencies.
  *
- * Runs with battery-not-low and network-connected constraints so that travelers always have
- * instantaneous, offline-ready rates cached in Room and memory when opening the app.
+ * Runs with battery-not-low and network-connected constraints so rates are cached in Room
+ * and memory for offline use when the app opens.
  */
 class ExchangeRateSyncWorker(
   appContext: Context,
@@ -43,10 +43,10 @@ class ExchangeRateSyncWorker(
       val homeCurrency = settings.homeCurrency
       val destinationCurrency = settings.destinationCurrency
 
-      // 1. Prefetch active travel pair
+      // 1. Prefetch the active currency pair
       repository.getRate(homeCurrency, destinationCurrency, allowOfflineCache = false)
 
-      // 2. Prefetch primary global travel currencies to ensure warm offline matrix
+      // 2. Prefetch common global currencies to keep the offline matrix warm
       val globalCurrencies = listOf(
         Currency.USD,
         Currency.EUR,

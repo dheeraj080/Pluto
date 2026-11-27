@@ -9,7 +9,7 @@ sealed interface WalletValuation {
   val wallet: CurrencyWallet
 
   /**
-   * Wallet successfully valued in the reference home currency and destination currency.
+   * Wallet successfully valued in the reference currency and primary currency.
    */
   data class Valued(
     override val wallet: CurrencyWallet,
@@ -32,7 +32,7 @@ sealed interface WalletValuation {
 
 /**
  * Portfolio valuation status across all wallets.
- * Supports dual-currency: Primary (Destination / Current Country), Secondary (Home Country).
+ * Supports dual-currency: a primary spending amount and a reference-currency equivalent.
  */
 data class PortfolioValuationSummary(
   val homeCurrency: Currency,

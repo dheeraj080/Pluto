@@ -132,7 +132,7 @@ fun InsightsScreen(
         title = {
           Column {
             Text(
-              text = "Travel Intelligence",
+              text = "Spending Intelligence",
               style = MaterialTheme.typography.labelMedium,
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -249,18 +249,18 @@ internal fun InsightsContent(
   val context = LocalContext.current
   val coroutineScope = rememberCoroutineScope()
 
-  val totalSpentPrimary = "${if (summary.totalDestSpending != null) "LOCAL · " else "HOME · "}${
+  val totalSpentPrimary = "${if (summary.totalDestSpending != null) "PRIMARY · " else "REFERENCE · "}${
     (summary.totalDestSpending ?: summary.totalHomeSpending).format()
   } (${if (summary.totalDestSpending != null) userSettings.destinationCurrency.code else userSettings.homeCurrency.code})"
   val totalSpentSecondary = if (summary.totalDestSpending != null) {
-    "HOME · ${summary.totalHomeSpending.format()} (${userSettings.homeCurrency.code})"
+    "REFERENCE · ${summary.totalHomeSpending.format()} (${userSettings.homeCurrency.code})"
   } else null
 
-  val dailyBurnPrimary = "${if (summary.thirtyDayDailyAvgDest != null) "LOCAL · " else "HOME · "}${
+  val dailyBurnPrimary = "${if (summary.thirtyDayDailyAvgDest != null) "PRIMARY · " else "REFERENCE · "}${
     (summary.thirtyDayDailyAvgDest ?: summary.thirtyDayDailyAvgHome).format()
   } (${if (summary.thirtyDayDailyAvgDest != null) userSettings.destinationCurrency.code else userSettings.homeCurrency.code})"
   val dailyBurnSecondary = if (summary.thirtyDayDailyAvgDest != null) {
-    "HOME · ${summary.thirtyDayDailyAvgHome.format()} (${userSettings.homeCurrency.code})"
+    "REFERENCE · ${summary.thirtyDayDailyAvgHome.format()} (${userSettings.homeCurrency.code})"
   } else null
 
   // Period-filtered expenses for accurate statement export
@@ -346,8 +346,8 @@ internal fun InsightsContent(
               appendLine("\nGenerated via Pluto Cross-Currency Tracker")
             }
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-            clipboard?.setPrimaryClip(ClipData.newPlainText("Travel Spending Report", reportText))
-            onShowSnackbar("Travel report copied to clipboard!")
+            clipboard?.setPrimaryClip(ClipData.newPlainText("Expense Report", reportText))
+            onShowSnackbar("Expense report copied to clipboard!")
           }
         }
       } catch (e: Exception) {
@@ -480,7 +480,7 @@ internal fun InsightsContent(
 
     if (summary.unconvertibleHomeCurrencies.isNotEmpty()) {
       Text(
-        text = "Some totals exclude ${summary.unconvertibleHomeCurrencies.joinToString(", ") { it.code }} home snapshots (rate unavailable).",
+        text = "Some totals exclude ${summary.unconvertibleHomeCurrencies.joinToString(", ") { it.code }} reference snapshots (rate unavailable).",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.error,
         modifier = Modifier
@@ -704,7 +704,7 @@ internal fun InsightsContent(
 
           topExpenses.forEach { exp ->
             val title = if (exp.note.isNotBlank()) exp.note else if (exp.merchant.isNotBlank()) exp.merchant else exp.category.name
-            val homeLabel = if (exp.homeCurrency == userSettings.homeCurrency) "HOME · " else "RECORDED HOME · "
+            val homeLabel = if (exp.homeCurrency == userSettings.homeCurrency) "REFERENCE · " else "RECORDED REFERENCE · "
             Row(
               modifier = Modifier
                 .fillMaxWidth()
@@ -917,7 +917,7 @@ private fun CurrencyDistributionRow(
 
       DualCurrencyAmountView(
         primaryAmount = curSummary.totalOriginalAmount.formatWithCode(),
-        secondaryAmount = "HOME · ${curSummary.totalHomeEquivalent.formatWithCode()}",
+        secondaryAmount = "REFERENCE · ${curSummary.totalHomeEquivalent.formatWithCode()}",
         primaryStyle = MaterialTheme.typography.titleSmall,
         secondaryStyle = MaterialTheme.typography.bodySmall,
         secondaryFontWeight = FontWeight.Normal,

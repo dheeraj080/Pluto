@@ -270,7 +270,7 @@ fun SettingsScreen(
               }
               Spacer(modifier = Modifier.height(2.dp))
               Text(
-                text = "Home: ${homeCurrency.code} • Local: ${destinationCurrency.code}",
+                text = "Reference: ${homeCurrency.code} • Primary: ${destinationCurrency.code}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
               )
@@ -396,8 +396,8 @@ fun SettingsScreen(
 
       Spacer(modifier = Modifier.height(20.dp))
 
-      // 2. Travel Tools Section (houses Currency Converter)
-      SettingsSectionHeader(title = "Travel Tools")
+      // 2. Currency Tools Section (houses Currency Converter)
+      SettingsSectionHeader(title = "Currency Tools")
 
       PlutoCard(
         modifier = Modifier.fillMaxWidth(),
@@ -435,7 +435,7 @@ fun SettingsScreen(
       Spacer(modifier = Modifier.height(24.dp))
 
       // 3. Preferences Section
-      SettingsSectionHeader(title = "Currency & Destination")
+      SettingsSectionHeader(title = "Currency Preferences")
 
       PlutoCard(
         modifier = Modifier.fillMaxWidth(),
@@ -444,8 +444,8 @@ fun SettingsScreen(
         Column {
           SettingsRowItem(
             icon = Icons.Rounded.Paid,
-            title = "Home Currency",
-            subtitle = "Reference currency for all reports & totals",
+            title = "Reference Currency",
+            subtitle = "Currency used for all reports & totals",
             onClick = onChangeHomeCurrencyClick,
             testTag = "settings_row_home_currency",
             trailingContent = {
@@ -466,8 +466,8 @@ fun SettingsScreen(
 
           SettingsRowItem(
             icon = Icons.Rounded.FlightTakeoff,
-            title = "Visiting Destination Currency",
-            subtitle = "Preselected currency when logging travel expenses",
+            title = "Primary Spending Currency",
+            subtitle = "Preselected currency when logging expenses",
             onClick = onChangeDestinationClick,
             testTag = "settings_row_destination_currency",
             trailingContent = {
@@ -829,7 +829,7 @@ fun SettingsScreen(
             SettingsRowItem(
               icon = Icons.Rounded.AutoFixHigh,
               title = "Load Sample Data",
-              subtitle = "Seed realistic 30-day expenses, travel wallets, and category budgets",
+              subtitle = "Seed realistic 30-day expenses, currency wallets, and category budgets",
               onClick = onSeedDummyDataClick,
               testTag = "settings_row_seed_dummy_data"
             )
@@ -863,7 +863,7 @@ fun SettingsScreen(
           SettingsInfoRowItem(
             icon = Icons.Rounded.Info,
             title = "Pluto",
-            subtitle = "Version 1.0 • Offline-First Travel Companion",
+            subtitle = "Version 0.0.2 • Offline-First Multi-Currency Finance App",
             testTag = "settings_row_about"
           )
         }

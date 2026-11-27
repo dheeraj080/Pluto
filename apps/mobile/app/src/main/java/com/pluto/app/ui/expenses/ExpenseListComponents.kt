@@ -159,7 +159,7 @@ internal fun DayGroupHeader(
 
       Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-          text = "LOCAL · ${totalDest.formatWithCode()}",
+          text = "PRIMARY · ${totalDest.formatWithCode()}",
           style = MaterialTheme.typography.labelMedium.merge(PlutoNumericStyle),
           fontWeight = FontWeight.Bold,
           color = MaterialTheme.colorScheme.onSurface
@@ -167,7 +167,7 @@ internal fun DayGroupHeader(
         if (totalDest.currency != totalHome.currency) {
           Spacer(modifier = Modifier.width(4.dp))
           Text(
-            text = "HOME · ${totalHome.formatWithCode()}",
+            text = "REFERENCE · ${totalHome.formatWithCode()}",
             style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Medium
@@ -195,7 +195,7 @@ fun TransactionRowItem(
   val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
 
   val primaryAmountStr = "SPENT · ${expense.originalAmount.formatWithCode()}"
-  val homeLabel = if (expense.homeCurrency == homeCurrency) "HOME · " else "RECORDED HOME · "
+  val homeLabel = if (expense.homeCurrency == homeCurrency) "REFERENCE · " else "RECORDED REFERENCE · "
   val secondaryAmountStr = "$homeLabel${expense.homeAmount.formatWithCode()}"
 
   Row(
@@ -320,8 +320,8 @@ internal fun FilteredSpendingSummaryCard(
 ) {
   val hasDestinationTotal = state.totalDestSpending != null
   val primaryMoney = state.totalDestSpending ?: state.totalHomeSpending
-  val primaryTotal = "${if (hasDestinationTotal) "LOCAL · " else "HOME · "}${primaryMoney.formatWithCode()}"
-  val secondaryTotal = if (hasDestinationTotal) "HOME · ${state.totalHomeSpending.formatWithCode()}" else null
+  val primaryTotal = "${if (hasDestinationTotal) "PRIMARY · " else "REFERENCE · "}${primaryMoney.formatWithCode()}"
+  val secondaryTotal = if (hasDestinationTotal) "REFERENCE · ${state.totalHomeSpending.formatWithCode()}" else null
 
   PlutoCard(
     modifier = modifier.fillMaxWidth(),

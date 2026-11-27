@@ -18,7 +18,7 @@ data class TimeZoneOption(
 )
 
 /**
- * Rendered item in the Home Time Zone picker with live preview time.
+ * Rendered item in the reference time-zone picker with a live preview time.
  */
 data class TimeZonePickerItem(
   val zoneId: String,
@@ -31,7 +31,7 @@ data class TimeZonePickerItem(
 )
 
 /**
- * Immutable snapshot of the Dual-Zone Clock for the Home header.
+ * Immutable snapshot of the dual-zone clock for the dashboard header.
  */
 data class DualClockSnapshot(
   val localLabel: String,

@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
  * Domain repository contract for expense management.
  *
  * Manages persisting, querying, and updating expenses while preserving
- * both original currency and home currency financial representations.
+ * both original currency and reference currency financial representations.
  */
 interface ExpenseRepository {
   /**
@@ -26,7 +26,7 @@ interface ExpenseRepository {
   fun observeExpensesByCategory(categoryId: String): Flow<List<Expense>>
 
   /**
-   * Observes expenses associated with a specific trip id.
+   * Observes expenses associated with a specific period id.
    */
   fun observeExpensesByTrip(tripId: String): Flow<List<Expense>>
 

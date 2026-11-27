@@ -17,9 +17,9 @@ enum class UserPersona(val displayName: String, val subtitle: String, val badge:
     badge = "Expat Mode"
   ),
   TOURIST(
-    displayName = "Tourist & Traveler",
-    subtitle = "Trip budget, day-by-day vacation spending & live FX",
-    badge = "Traveler Mode"
+    displayName = "Short-Term Spending",
+    subtitle = "Fixed-period budget, daily spending pace & live FX",
+    badge = "Short-Cycle Mode"
   )
 }
 
@@ -29,7 +29,7 @@ enum class UserPersona(val displayName: String, val subtitle: String, val badge:
 enum class HomeModuleId(val title: String, val description: String) {
   STACKED_WALLETS(
     title = "Wallet Summary",
-    description = "Active travel wallet & reserve overview"
+    description = "Active primary wallet & reserve overview"
   ),
   DAILY_SAFE_TO_SPEND(
     title = "Daily Safe-to-Spend",
@@ -37,7 +37,7 @@ enum class HomeModuleId(val title: String, val description: String) {
   ),
   CYCLE_RUNWAY(
     title = "Cycle Runway",
-    description = "Semester or trip pace & discretionary left"
+    description = "Semester or fixed-period pace & discretionary left"
   ),
   CASH_FLOW_SUMMARY(
     title = "Cash Flow Summary",
@@ -124,7 +124,7 @@ object HomeLayoutPresets {
 enum class BudgetCycleType(val displayName: String) {
   ACADEMIC_TERM("Academic Semester / Term"),
   MONTHLY("Monthly Calendar / Payday"),
-  TRIP("Trip / Vacation Duration")
+  TRIP("Fixed Period")
 }
 
 /**
@@ -139,10 +139,10 @@ data class AcademicTermSettings(
 )
 
 /**
- * Configuration for a vacation or travel trip.
+ * Configuration for a fixed spending period.
  */
 data class TripSettings(
-  val tripName: String = "Current Trip",
+  val tripName: String = "Current Period",
   val tripStartDate: Long = System.currentTimeMillis(),
   val tripEndDate: Long = System.currentTimeMillis() + (14L * 86400000L),
   val totalTripBudgetHome: BigDecimal = BigDecimal("1500.00")

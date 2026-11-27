@@ -20,52 +20,52 @@ interface UserSettingsRepository {
   suspend fun getSettings(): UserSettings
 
   /**
-   * Updates user reference home currency.
+   * Updates the user's reference currency.
    */
   suspend fun updateHomeCurrency(homeCurrency: Currency)
 
   /**
-   * Updates user active travel / destination currency.
+   * Updates the user's active primary spending currency.
    */
   suspend fun updateDestinationCurrency(destinationCurrency: Currency)
 
   /**
-   * Updates user daily and monthly spending caps in home currency.
+   * Updates daily and monthly spending caps in the reference currency.
    */
   suspend fun updateSpendingCaps(dailyCap: BigDecimal?, monthlyCap: BigDecimal?)
 
   /**
-   * Updates user safe-to-spend minimum warning threshold and notification alert preference.
+   * Updates the safe-to-spend warning threshold and notification preference.
    */
   suspend fun updateWarningThreshold(threshold: BigDecimal?, notificationsEnabled: Boolean = true)
 
   /**
-   * Updates category-specific monthly spending budgets in home currency.
+   * Updates category-specific monthly spending budgets in the reference currency.
    */
   suspend fun updateCategoryBudgets(categoryBudgets: Map<String, BigDecimal>)
 
   /**
-   * Updates user theme preference (System, Light, Dark).
+   * Updates the theme preference (System, Light, Dark).
    */
   suspend fun updateThemeMode(themeMode: com.pluto.app.domain.model.ThemeMode)
 
   /**
-   * Updates user persona (International Student, Expat, Tourist).
+   * Updates the spending profile preset.
    */
   suspend fun updatePersona(persona: com.pluto.app.domain.model.UserPersona)
 
   /**
-   * Updates budget cycle preference.
+   * Updates the budget-cycle preference.
    */
   suspend fun updateBudgetCycleType(budgetCycleType: com.pluto.app.domain.model.BudgetCycleType)
 
   /**
-   * Updates academic term settings and semester allowance.
+   * Updates term settings and the period allowance.
    */
   suspend fun updateAcademicTermSettings(academicTermSettings: com.pluto.app.domain.model.AcademicTermSettings)
 
   /**
-   * Updates trip settings and vacation budget.
+   * Updates fixed-period settings and budget.
    */
   suspend fun updateTripSettings(tripSettings: com.pluto.app.domain.model.TripSettings)
 

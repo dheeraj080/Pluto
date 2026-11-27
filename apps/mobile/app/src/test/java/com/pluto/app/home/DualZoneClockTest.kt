@@ -237,10 +237,10 @@ class DualZoneClockTest {
     composeTestRule.onNodeWithTag("dual_clock_offset_badge", useUnmergedTree = true)
       .assertTextContains("+13.5h")
     composeTestRule.onNodeWithTag("dual_clock_home_label", useUnmergedTree = true)
-      .assertTextContains("HOME", substring = true)
+      .assertTextContains("REFERENCE", substring = true)
       .assertTextContains("Mumbai", substring = true)
     composeTestRule.onNodeWithTag("dual_clock_local_label", useUnmergedTree = true)
-      .assertTextContains("LOCAL", substring = true)
+      .assertTextContains("DEVICE", substring = true)
     composeTestRule.onNodeWithTag("dual_clock_local_day_night_icon", useUnmergedTree = true).assertExists()
     composeTestRule.onNodeWithTag("dual_clock_home_day_night_icon", useUnmergedTree = true).assertExists()
   }

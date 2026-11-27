@@ -4,7 +4,7 @@ package com.pluto.app.domain.model
  * Represents an expense category.
  *
  * Designed to be extensible for custom categories while offering standard defaults
- * tailored to international students, travelers, and expats.
+ * for managing spending across currencies.
  */
 data class Category(
   val id: String,

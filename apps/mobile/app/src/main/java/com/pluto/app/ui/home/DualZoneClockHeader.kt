@@ -89,7 +89,7 @@ import java.util.TimeZone
 
 /**
  * Observes minute-boundary clock updates and system time-zone broadcasts so the
- * Home header Dual-Zone Clock stays accurate when crossing borders or midnight.
+ * Home header Dual-Zone Clock stays accurate across time-zone changes and midnight.
  */
 @Composable
 fun rememberDualClockTickMillis(): Long {
@@ -133,8 +133,8 @@ fun rememberDualClockTickMillis(): Long {
 }
 
 /**
- * Compact dual-zone clock row embedded inside the Stacked Travel Wallet hero card header.
- * Shows local time, offset pill, and home city time with day/night indicators.
+ * Compact dual-zone clock row embedded inside the stacked wallet hero card header.
+ * Shows device time, offset pill, and reference city time with day/night indicators.
  */
 @Composable
 fun DualZoneClockInlineRow(
@@ -246,7 +246,7 @@ private fun rememberDualClockSnapshot(
 
 /**
  * Shared rendering for both the inline Home hero row and the standalone legacy chip.
- * A single implementation keeps the LOCAL/HOME prefixes, test tags, and semantics aligned.
+ * A single implementation keeps the DEVICE/REFERENCE prefixes, test tags, and semantics aligned.
  */
 @Composable
 private fun DualZoneClockSurface(
@@ -444,7 +444,7 @@ private fun DayNightIndicatorIcon(
 }
 
 /**
- * Searchable bottom sheet allowing users to manually pick their Home Time Zone.
+ * Searchable bottom sheet allowing users to manually pick the reference time zone.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
