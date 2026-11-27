@@ -257,10 +257,11 @@ fun ExpenseDateRow(
           onClick = { showTimePicker = false },
           variant = PlutoButtonVariant.GHOST
         )
+      },
+      text = {
+        TimePicker(state = timePickerState)
       }
-    ) {
-      TimePicker(state = timePickerState)
-    }
+    )
   }
 
   Column(modifier = modifier.fillMaxWidth()) {
