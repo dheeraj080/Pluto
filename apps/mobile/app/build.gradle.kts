@@ -118,18 +118,22 @@ tasks.withType<Test> {
     }
 }
 
-tasks.register<Test>("testEmulator") {
-    description = "Runs the Firestore/Auth emulator-backed tests (emulators must already be running)."
-    group = "verification"
-    val unitTest = tasks.named<Test>("testDebugUnitTest").get()
-    testClassesDirs = unitTest.testClassesDirs
-    classpath = unitTest.classpath
-    // Gradle 9 removed the convention that gave custom Test tasks the default
-    // test source set's inputs, so inherit them explicitly and depend on the
-    // unit-test compilation tasks without running the hermetic tests themselves.
-    dependsOn(tasks.matching { it.name.startsWith("compile") && it.name.contains("UnitTest") })
-    filter {
-        emulatorTestClasses.forEach { includeTestsMatching(it) }
+// AGP 9 creates the variant unit-test tasks after the script has been
+// evaluated, so register the emulator task once those tasks are available.
+afterEvaluate {
+    tasks.register<Test>("testEmulator") {
+        description = "Runs the Firestore/Auth emulator-backed tests (emulators must already be running)."
+        group = "verification"
+        val unitTest = tasks.named<Test>("testDebugUnitTest").get()
+        testClassesDirs = unitTest.testClassesDirs
+        classpath = unitTest.classpath
+        // Gradle 9 removed the convention that gave custom Test tasks the
+        // default test source set's inputs, so inherit them explicitly and
+        // depend on unit-test compilation without running the hermetic tests.
+        dependsOn(tasks.matching { it.name.startsWith("compile") && it.name.contains("UnitTest") })
+        filter {
+            emulatorTestClasses.forEach { includeTestsMatching(it) }
+        }
     }
 }
 
