@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -363,7 +364,7 @@ private fun DonutChartCanvas(
         .matchParentSize()
         .pointerInput(slices) {
           detectTapGestures { offset ->
-            val radius = (size.minDimension - strokeWidthPx) / 2f
+            val radius = (minOf(size.width, size.height) - strokeWidthPx) / 2f
             val center = Offset(size.width / 2f, size.height / 2f)
             val dx = offset.x - center.x
             val dy = offset.y - center.y

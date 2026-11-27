@@ -131,7 +131,7 @@ fun CashFlowSummaryBar(
           val netPrimary = signPrefix + (if (summary.netCashFlowDest != null) "LOCAL · " else "HOME · ") +
             (summary.netCashFlowDest ?: summary.netCashFlowHome).formatWithCode()
           val netSecondary = if (summary.netCashFlowDest != null) {
-            "$signPrefixHOME · ${summary.netCashFlowHome.formatWithCode()}"
+            "${signPrefix}HOME · ${summary.netCashFlowHome.formatWithCode()}"
           } else null
           Text(
             text = netPrimary,
