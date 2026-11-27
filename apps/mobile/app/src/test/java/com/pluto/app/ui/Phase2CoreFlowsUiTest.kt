@@ -184,6 +184,7 @@ class Phase2CoreFlowsUiTest {
   }
 
   @Test
+  @Config(sdk = [36], qualifiers = "w800dp-h1280dp")
   fun `expenses tablet wide pane dismisses detail cleanly on Close`() {
     val repo = FakeExpenseRepository()
     val expense = Expense.create(
