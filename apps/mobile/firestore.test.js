@@ -57,14 +57,18 @@ function validSettings(uid) {
     termName: "Fall Semester",
     termStartDate: 1700000000000,
     termEndDate: 1708000000000,
-    totalAllowanceHome: 6000,
-    tuitionAndFixedCommittedHome: 1500,
+    totalAllowanceHome: "6000.00",
+    tuitionAndFixedCommittedHome: "1500.00",
     tripName: "Current Trip",
     tripStartDate: 1700000000000,
     tripEndDate: 1701000000000,
-    totalTripBudgetHome: 1500,
+    totalTripBudgetHome: "1500.00",
     firstDayOfWeek: 1,
     defaultCategoryId: "food",
+    dailySpendingCap: "49.99",
+    monthlySpendingCap: "1500.50",
+    safeToSpendWarningThreshold: "19.95",
+    categoryMonthlyBudgets: { food: "320.50" },
     warningNotificationsEnabled: true,
     themeMode: "SYSTEM",
     isOnboardingCompleted: true,
@@ -145,7 +149,11 @@ test("Settings update cannot mutate userId or createdAt and rejects invalid enum
   await assertSucceeds(ref.set(validSettings(ALICE_UID)));
   await assertSucceeds(ref.update({ homeTimeZoneId: "Asia/Kolkata", updatedAt: new Date() }));
   await assertSucceeds(ref.update({ homeTimeZoneId: null, updatedAt: new Date() }));
+  await assertSucceeds(ref.update({ dailySpendingCap: 75, monthlySpendingCap: 2000.5, updatedAt: new Date() }));
+  await assertSucceeds(ref.update({ dailySpendingCap: "45.25", updatedAt: new Date() }));
   await assertSucceeds(ref.update({ homeModules: ["CYCLE_RUNWAY:true", "DAILY_SAFE_TO_SPEND:true"], updatedAt: new Date() }));
+  await assertFails(ref.update({ dailySpendingCap: "-10.00", updatedAt: new Date() }));
+  await assertFails(ref.update({ monthlySpendingCap: "not-a-number", updatedAt: new Date() }));
   await assertFails(ref.update({ homeModules: "not-a-list", updatedAt: new Date() }));
   await assertFails(ref.update({ homeTimeZoneId: "", updatedAt: new Date() }));
   await assertFails(ref.update({ themeMode: "NEON_INVALID", updatedAt: new Date() }));

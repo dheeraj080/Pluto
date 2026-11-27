@@ -18,13 +18,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -54,17 +51,11 @@ import com.pluto.app.domain.model.Money
 import com.pluto.app.ui.theme.PlutoMotion
 import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
+import com.pluto.app.ui.theme.parseCategoryColor
 import com.pluto.app.ui.theme.plutoHeading
 import com.pluto.app.ui.theme.rememberPrefersReducedMotion
 import java.math.BigDecimal
-
-private fun parseCategoryColor(hex: String): Color {
-  return try {
-    Color(android.graphics.Color.parseColor(hex))
-  } catch (_: Exception) {
-    Color(0xFF15805A)
-  }
-}
 
 /**
  * Modern Compose-based Data Visualization for Category Spending Breakdown & High-Cost Area Identification.
@@ -92,13 +83,10 @@ fun CategoryBreakdownChart(
     highestCostCategory.percentageOfTotal >= BigDecimal("20.0") &&
     totalHomeSpending.amount > BigDecimal.ZERO
 
-  Card(
-    modifier = modifier
-      .fillMaxWidth()
-      .testTag("category_breakdown_chart_card"),
+  PlutoCard(
+    modifier = modifier.fillMaxWidth(),
     shape = PlutoShapes.extraLarge,
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    testTag = "category_breakdown_chart_card"
   ) {
     Column(
       modifier = Modifier
@@ -144,7 +132,7 @@ fun CategoryBreakdownChart(
 
         if (sortedSummaries.isNotEmpty()) {
           Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = PlutoShapes.medium,
             color = MaterialTheme.colorScheme.surfaceVariant
           ) {
             Text(
@@ -164,7 +152,7 @@ fun CategoryBreakdownChart(
           modifier = Modifier
             .fillMaxWidth()
             .height(140.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(14.dp)),
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), PlutoShapes.large),
           contentAlignment = Alignment.Center
         ) {
           Text(
@@ -273,12 +261,12 @@ fun CategoryBreakdownChart(
                   )
                   Spacer(modifier = Modifier.width(6.dp))
                   Surface(
-                    shape = RoundedCornerShape(6.dp),
+                    shape = PlutoShapes.small,
                     color = MaterialTheme.colorScheme.error
                   ) {
                     Text(
                       text = "${highCat.percentageOfTotal}%",
-                      style = MaterialTheme.typography.labelSmall,
+                      style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
                       fontWeight = FontWeight.Bold,
                       color = MaterialTheme.colorScheme.onError,
                       modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -433,7 +421,7 @@ private fun RankedCategoryBarRow(
           ) {
             Text(
               text = "#$rank",
-              style = MaterialTheme.typography.labelSmall,
+              style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
               fontWeight = FontWeight.Bold,
               color = if (rank == 1) categoryColor else MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)

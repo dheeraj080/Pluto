@@ -41,22 +41,22 @@ object SampleDataSeeder {
         termName = "Fall Semester",
         termStartDate = now - (14 * dayMillis),
         termEndDate = now + (90 * dayMillis),
-        totalAllowanceHome = 6500.0,
-        tuitionAndFixedCommittedHome = 1800.0
+        totalAllowanceHome = BigDecimal("6500.00"),
+        tuitionAndFixedCommittedHome = BigDecimal("1800.00")
       ),
       firstDayOfWeek = 1,
       defaultCategoryId = Category.CAMPUS_DINING.id,
-      dailySpendingCap = 60.0,
-      monthlySpendingCap = 1800.0,
-      safeToSpendWarningThreshold = 20.0,
+      dailySpendingCap = BigDecimal("60.00"),
+      monthlySpendingCap = BigDecimal("1800.00"),
+      safeToSpendWarningThreshold = BigDecimal("20.00"),
       warningNotificationsEnabled = true,
       categoryMonthlyBudgets = mapOf(
-        Category.FOOD.id to 500.0,
-        Category.CAMPUS_DINING.id to 350.0,
-        Category.BOOKS_SUPPLIES.id to 250.0,
-        Category.TRANSPORT.id to 150.0,
-        Category.DORM_RENT.id to 700.0,
-        Category.GROCERIES.id to 250.0
+        Category.FOOD.id to BigDecimal("500.00"),
+        Category.CAMPUS_DINING.id to BigDecimal("350.00"),
+        Category.BOOKS_SUPPLIES.id to BigDecimal("250.00"),
+        Category.TRANSPORT.id to BigDecimal("150.00"),
+        Category.DORM_RENT.id to BigDecimal("700.00"),
+        Category.GROCERIES.id to BigDecimal("250.00")
       ),
       isOnboardingCompleted = true
     )
@@ -174,7 +174,9 @@ object SampleDataSeeder {
         merchant = merchant,
         note = note,
         location = location,
-        tripId = "japan-2026"
+        tripId = "japan-2026",
+        createdAt = time,
+        updatedAt = time
       )
     }
 

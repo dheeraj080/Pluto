@@ -1,5 +1,7 @@
 package com.pluto.app.data.repository
 
+import androidx.room.withTransaction
+import com.pluto.app.data.local.AppDatabase
 import com.pluto.app.data.local.wallet.CurrencyWalletDao
 import com.pluto.app.data.local.wallet.CurrencyWalletEntityMapper
 import com.pluto.app.data.local.wallet.WalletTransactionDao
@@ -11,7 +13,8 @@ import kotlinx.coroutines.flow.map
 
 class RoomCurrencyWalletRepository(
   private val dao: CurrencyWalletDao,
-  private val transactionDao: WalletTransactionDao? = null
+  private val transactionDao: WalletTransactionDao? = null,
+  private val database: AppDatabase? = null
 ) : CurrencyWalletRepository {
 
   override fun observeAllWallets(): Flow<List<CurrencyWallet>> {
@@ -37,7 +40,14 @@ class RoomCurrencyWalletRepository(
   }
 
   override suspend fun deleteWallet(id: String) {
-    transactionDao?.deleteTransactionsForWallet(id)
-    dao.deleteWalletById(id)
+    val deleteBlock: suspend () -> Unit = {
+      transactionDao?.deleteTransactionsForWallet(id)
+      dao.deleteWalletById(id)
+    }
+    if (database != null) {
+      database.withTransaction { deleteBlock() }
+    } else {
+      deleteBlock()
+    }
   }
 }

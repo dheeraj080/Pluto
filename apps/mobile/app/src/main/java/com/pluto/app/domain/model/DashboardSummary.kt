@@ -186,9 +186,9 @@ data class DashboardSummary(
   val effectiveDailyBudgetDest: Money? = null,
   val monthHomeSpending: Money = Money.zero(homeCurrency),
   val monthDestSpending: Money? = null,
-  val dailySpendingCap: Double? = null,
+  val dailySpendingCap: BigDecimal? = null,
   val dailySpendingCapDest: Money? = null,
-  val monthlySpendingCap: Double? = null,
+  val monthlySpendingCap: BigDecimal? = null,
   val monthlySpendingCapDest: Money? = null,
   val dailyCapProgress: Float? = null,
   val monthlyCapProgress: Float? = null,
@@ -212,7 +212,9 @@ data class DashboardSummary(
   val thirtyDayPeakDay: DailySpendPoint? = null,
   val thirtyDayTrendPercentage: Double? = null,
   val userPersona: UserPersona = UserPersona.INTERNATIONAL_STUDENT,
-  val termRunwaySummary: TermRunwaySummary? = null
+  val termRunwaySummary: TermRunwaySummary? = null,
+  val unvaluedIncomeCurrencies: List<Currency> = emptyList(),
+  val unvaluedTodayIncomeCurrencies: List<Currency> = emptyList()
 ) {
   val isDailyBudgetExceeded: Boolean
     get() = safeToSpendTodayHome.amount < BigDecimal.ZERO || (dailyCapProgress != null && dailyCapProgress >= 1f)

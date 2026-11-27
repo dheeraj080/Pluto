@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
@@ -37,10 +36,8 @@ import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.TableChart
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -49,12 +46,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -82,6 +77,11 @@ import com.pluto.app.domain.model.Expense
 import com.pluto.app.domain.model.UserSettings
 import com.pluto.app.ui.components.CategoryBreakdownChart
 import com.pluto.app.ui.components.CurrencyBadge
+import com.pluto.app.ui.components.DualCurrencyAmountView
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.components.PlutoCard
+import com.pluto.app.ui.components.PlutoMetricTile
 import com.pluto.app.ui.expenses.ExpenseListUiState
 import com.pluto.app.ui.expenses.ExpenseViewModel
 import com.pluto.app.ui.home.DashboardUiState
@@ -90,6 +90,8 @@ import com.pluto.app.domain.model.Money
 import com.pluto.app.ui.home.SpendingTrendCard
 import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
+import com.pluto.app.ui.theme.parseCategoryColor
 import com.pluto.app.ui.theme.plutoHeading
 import com.pluto.app.util.ExpenseExportService
 import kotlinx.coroutines.Dispatchers
@@ -99,14 +101,6 @@ import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-private fun parseCategoryColor(hex: String): Color {
-  return try {
-    Color(android.graphics.Color.parseColor(hex))
-  } catch (_: Exception) {
-    Color(0xFF15805A)
-  }
-}
 
 enum class ExportFormat(val label: String, val extension: String, val mimeType: String) {
   PDF("PDF Statement (Formatted Document)", ".pdf", "application/pdf"),
@@ -218,6 +212,24 @@ fun InsightsScreen(
           onShowSnackbar = onShowSnackbar,
           modifier = Modifier.padding(innerPadding)
         )
+      }
+
+      is DashboardUiState.Error -> {
+        Box(
+          modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding),
+          contentAlignment = Alignment.Center
+        ) {
+          com.pluto.app.ui.components.EmptyState(
+            icon = androidx.compose.material.icons.Icons.Rounded.Warning,
+            title = "Couldn't load insights",
+            description = state.message,
+            actionText = "Retry",
+            onActionClick = dashboardViewModel::retry,
+            actionTestTag = "insights_retry_button"
+          )
+        }
       }
     }
   }
@@ -362,7 +374,7 @@ internal fun InsightsContent(
             Row(
               modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
+                .clip(PlutoShapes.small)
                 .clickable { selectedExportFormat = format }
                 .padding(vertical = 6.dp),
               verticalAlignment = Alignment.CenterVertically
@@ -371,7 +383,7 @@ internal fun InsightsContent(
                 selected = selectedExportFormat == format,
                 onClick = { selectedExportFormat = format }
               )
-              Spacer(modifier = Modifier.width(8.dp))
+              Spacer(modifier = Modifier.width(PlutoSpacing.sm))
               Column {
                 Text(
                   text = format.label,
@@ -384,20 +396,21 @@ internal fun InsightsContent(
         }
       },
       confirmButton = {
-        Button(
+        PlutoButton(
+          text = "Export & Share",
           onClick = {
             showExportDialog = false
             exportAndShare(selectedExportFormat)
           },
-          modifier = Modifier.testTag("dialog_confirm_export_button")
-        ) {
-          Text("Export & Share")
-        }
+          testTag = "dialog_confirm_export_button"
+        )
       },
       dismissButton = {
-        TextButton(onClick = { showExportDialog = false }) {
-          Text("Cancel")
-        }
+        PlutoButton(
+          text = "Cancel",
+          onClick = { showExportDialog = false },
+          variant = PlutoButtonVariant.GHOST
+        )
       }
     )
   }
@@ -467,13 +480,11 @@ internal fun InsightsContent(
       }
     }
 
-    Card(
-      modifier = Modifier
-        .fillMaxWidth()
-        .testTag("insights_total_spent_card"),
+    PlutoCard(
+      modifier = Modifier.fillMaxWidth(),
       shape = PlutoShapes.extraLarge,
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
-      elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+      containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+      testTag = "insights_total_spent_card"
     ) {
       Column(modifier = Modifier.padding(18.dp)) {
         Row(
@@ -546,84 +557,28 @@ internal fun InsightsContent(
       horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
       // Tile A: Daily Burn Rate
-      Card(
-        modifier = Modifier
-          .weight(1f)
-          .testTag("insights_burn_rate_card"),
+      PlutoMetricTile(
+        label = "Daily Burn Rate",
+        primaryValue = dailyBurnPrimary,
+        secondaryValue = dailyBurnSecondary?.let { "≈ $it" },
+        leadingIcon = Icons.Rounded.Speed,
+        iconTint = MaterialTheme.colorScheme.secondary,
         shape = PlutoShapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-      ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-              imageVector = Icons.Rounded.Speed,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.secondary,
-              modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-              text = "Daily Burn Rate",
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-          }
-          Spacer(modifier = Modifier.height(6.dp))
-          Text(
-            text = dailyBurnPrimary,
-            style = MaterialTheme.typography.titleLarge.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-          )
-          if (dailyBurnSecondary != null) {
-            Text(
-              text = "≈ $dailyBurnSecondary",
-              style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-          }
-        }
-      }
+        testTag = "insights_burn_rate_card",
+        modifier = Modifier.weight(1f)
+      )
 
       // Tile B: Avg Per Transaction
-      Card(
-        modifier = Modifier
-          .weight(1f)
-          .testTag("insights_avg_expense_card"),
+      PlutoMetricTile(
+        label = "Avg / Expense",
+        primaryValue = avgPerExpenseHome,
+        secondaryValue = "${summary.categoryBreakdowns.size} active categories",
+        leadingIcon = Icons.AutoMirrored.Rounded.TrendingUp,
+        iconTint = MaterialTheme.colorScheme.primary,
         shape = PlutoShapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-      ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-              imageVector = Icons.AutoMirrored.Rounded.TrendingUp,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-              text = "Avg / Expense",
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-          }
-          Spacer(modifier = Modifier.height(6.dp))
-          Text(
-            text = avgPerExpenseHome,
-            style = MaterialTheme.typography.titleLarge.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-          )
-          Text(
-            text = "${summary.categoryBreakdowns.size} active categories",
-            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-        }
-      }
+        testTag = "insights_avg_expense_card",
+        modifier = Modifier.weight(1f)
+      )
     }
 
     Spacer(modifier = Modifier.height(16.dp))
@@ -646,13 +601,10 @@ internal fun InsightsContent(
     if (summary.currencyBreakdowns.isNotEmpty()) {
       val maxCurrencyHome = summary.currencyBreakdowns.maxOfOrNull { it.totalHomeEquivalent.amount } ?: BigDecimal.ONE
       val totalHomeForShare = summary.totalHomeSpending.amount.takeIf { it > BigDecimal.ZERO } ?: BigDecimal.ONE
-      Card(
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("insights_currency_breakdown_card"),
+      PlutoCard(
+        modifier = Modifier.fillMaxWidth(),
         shape = PlutoShapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        testTag = "insights_currency_breakdown_card"
       ) {
         Column(modifier = Modifier.padding(18.dp)) {
           Row(verticalAlignment = Alignment.CenterVertically) {
@@ -699,13 +651,10 @@ internal fun InsightsContent(
     }
 
     if (topExpenses.isNotEmpty()) {
-      Card(
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("insights_top_expenses_card"),
+      PlutoCard(
+        modifier = Modifier.fillMaxWidth(),
         shape = PlutoShapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        testTag = "insights_top_expenses_card"
       ) {
         Column(modifier = Modifier.padding(18.dp)) {
           Row(verticalAlignment = Alignment.CenterVertically) {
@@ -769,20 +718,16 @@ internal fun InsightsContent(
                 }
               }
 
-              Column(horizontalAlignment = Alignment.End) {
-                Text(
-                  text = exp.originalAmount.format(),
-                  style = MaterialTheme.typography.titleSmall.merge(PlutoNumericStyle),
-                  fontWeight = FontWeight.Bold
-                )
-                if (exp.originalAmount.currency != exp.homeAmount.currency) {
-                  Text(
-                    text = "≈ ${exp.homeAmount.format()}",
-                    style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                  )
-                }
-              }
+              DualCurrencyAmountView(
+                primaryAmount = exp.originalAmount.format(),
+                secondaryAmount = if (exp.originalAmount.currency != exp.homeAmount.currency) {
+                  "≈ ${exp.homeAmount.format()}"
+                } else null,
+                primaryStyle = MaterialTheme.typography.titleSmall,
+                secondaryStyle = MaterialTheme.typography.bodySmall,
+                secondaryFontWeight = FontWeight.Normal,
+                horizontalAlignment = Alignment.End
+              )
             }
           }
         }
@@ -792,13 +737,10 @@ internal fun InsightsContent(
     }
 
     // 7. Monthly Expense Report & Accountant Export Card
-    Card(
-      modifier = Modifier
-        .fillMaxWidth()
-        .testTag("insights_export_summary_card"),
+    PlutoCard(
+      modifier = Modifier.fillMaxWidth(),
       shape = PlutoShapes.extraLarge,
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-      elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+      testTag = "insights_export_summary_card"
     ) {
       Column(modifier = Modifier.padding(20.dp)) {
         Row(
@@ -859,42 +801,25 @@ internal fun InsightsContent(
           horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
           // Export PDF Button
-          Button(
+          PlutoButton(
+            text = "PDF Statement",
             onClick = { exportAndShare(ExportFormat.PDF) },
             enabled = !isExporting && periodExpenses.isNotEmpty(),
-            shape = PlutoShapes.medium,
-            modifier = Modifier
-              .weight(1f)
-              .heightIn(min = 48.dp)
-              .testTag("btn_export_pdf")
-          ) {
-            Icon(
-              imageVector = Icons.Rounded.PictureAsPdf,
-              contentDescription = null,
-              modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("PDF Statement")
-          }
+            leadingIcon = Icons.Rounded.PictureAsPdf,
+            modifier = Modifier.weight(1f),
+            testTag = "btn_export_pdf"
+          )
 
           // Export CSV Button
-          OutlinedButton(
+          PlutoButton(
+            text = "CSV (Excel)",
             onClick = { exportAndShare(ExportFormat.CSV) },
+            variant = PlutoButtonVariant.OUTLINED,
             enabled = !isExporting && periodExpenses.isNotEmpty(),
-            shape = PlutoShapes.medium,
-            modifier = Modifier
-              .weight(1f)
-              .heightIn(min = 48.dp)
-              .testTag("btn_export_csv")
-          ) {
-            Icon(
-              imageVector = Icons.Rounded.TableChart,
-              contentDescription = null,
-              modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("CSV (Excel)")
-          }
+            leadingIcon = Icons.Rounded.TableChart,
+            modifier = Modifier.weight(1f),
+            testTag = "btn_export_csv"
+          )
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -904,32 +829,24 @@ internal fun InsightsContent(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-          OutlinedButton(
+          PlutoButton(
+            text = "Share Dialog",
             onClick = { showExportDialog = true },
+            variant = PlutoButtonVariant.OUTLINED,
             enabled = !isExporting && periodExpenses.isNotEmpty(),
-            shape = PlutoShapes.medium,
-            modifier = Modifier
-              .weight(1f)
-              .heightIn(min = 48.dp)
-              .testTag("btn_share_report")
-          ) {
-            Icon(imageVector = Icons.Rounded.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Share Dialog")
-          }
+            leadingIcon = Icons.Rounded.Share,
+            modifier = Modifier.weight(1f),
+            testTag = "btn_share_report"
+          )
 
-          OutlinedButton(
+          PlutoButton(
+            text = "Copy Text",
             onClick = { exportAndShare(ExportFormat.CLIPBOARD) },
-            shape = PlutoShapes.medium,
-            modifier = Modifier
-              .weight(1f)
-              .heightIn(min = 48.dp)
-              .testTag("btn_copy_summary")
-          ) {
-            Icon(imageVector = Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Copy Text")
-          }
+            variant = PlutoButtonVariant.OUTLINED,
+            leadingIcon = Icons.Rounded.ContentCopy,
+            modifier = Modifier.weight(1f),
+            testTag = "btn_copy_summary"
+          )
         }
       }
     }
@@ -973,18 +890,14 @@ private fun CurrencyDistributionRow(
         }
       }
 
-      Column(horizontalAlignment = Alignment.End) {
-        Text(
-          text = curSummary.totalOriginalAmount.format(),
-          style = MaterialTheme.typography.titleSmall.merge(PlutoNumericStyle),
-          fontWeight = FontWeight.Bold
-        )
-        Text(
-          text = "≈ ${curSummary.totalHomeEquivalent.format()}",
-          style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
-          color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-      }
+      DualCurrencyAmountView(
+        primaryAmount = curSummary.totalOriginalAmount.format(),
+        secondaryAmount = "≈ ${curSummary.totalHomeEquivalent.format()}",
+        primaryStyle = MaterialTheme.typography.titleSmall,
+        secondaryStyle = MaterialTheme.typography.bodySmall,
+        secondaryFontWeight = FontWeight.Normal,
+        horizontalAlignment = Alignment.End
+      )
     }
     Spacer(modifier = Modifier.height(6.dp))
     LinearProgressIndicator(

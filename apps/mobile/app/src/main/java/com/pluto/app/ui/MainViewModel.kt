@@ -9,6 +9,7 @@ import com.pluto.app.domain.model.HomeModuleConfig
 import com.pluto.app.domain.model.UserPersona
 import com.pluto.app.domain.model.UserSettings
 import com.pluto.app.domain.repository.UserSettingsRepository
+import java.math.BigDecimal
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -37,13 +38,13 @@ class MainViewModel(
     }
   }
 
-  fun updateSpendingCaps(dailyCap: Double?, monthlyCap: Double?) {
+  fun updateSpendingCaps(dailyCap: BigDecimal?, monthlyCap: BigDecimal?) {
     viewModelScope.launch {
       userSettingsRepository.updateSpendingCaps(dailyCap, monthlyCap)
     }
   }
 
-  fun updateWarningThreshold(threshold: Double?, notificationsEnabled: Boolean = true) {
+  fun updateWarningThreshold(threshold: BigDecimal?, notificationsEnabled: Boolean = true) {
     viewModelScope.launch {
       userSettingsRepository.updateWarningThreshold(threshold, notificationsEnabled)
     }

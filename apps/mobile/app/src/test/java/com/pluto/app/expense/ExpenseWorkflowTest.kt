@@ -13,6 +13,7 @@ import com.pluto.app.domain.usecase.CreateExpenseResult
 import com.pluto.app.domain.usecase.CreateExpenseUseCase
 import com.pluto.app.domain.usecase.DeleteExpenseUseCase
 import com.pluto.app.domain.usecase.ObserveExpensesUseCase
+import com.pluto.app.domain.usecase.RestoreExpenseUseCase
 import com.pluto.app.onboarding.FakeUserSettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -236,5 +237,53 @@ class ExpenseWorkflowTest {
     assertNotNull(existing)
     assertEquals("900.00", existing?.homeAmount?.amount?.toPlainString())
     assertEquals(Currency.INR, existing?.homeCurrency)
+  }
+
+  @Test
+  fun `delete expense returns snapshot and restore recovers original FX snapshot even after rate changes`() = runTest {
+    fakeExchangeRepo.setRate(
+      ExchangeRate(
+        fromCurrency = Currency.EUR,
+        toCurrency = Currency.INR,
+        rate = BigDecimal("92.50000000"),
+        source = "historical_checkout"
+      )
+    )
+
+    val created = (createExpenseUseCase(
+      amount = BigDecimal("12.00"),
+      currency = Currency.EUR,
+      category = Category.FOOD,
+      merchant = "Bistro",
+      note = "Lunch"
+    ) as CreateExpenseResult.Success).expense
+
+    // Exchange rate changes later
+    fakeExchangeRepo.setRate(
+      ExchangeRate(
+        fromCurrency = Currency.EUR,
+        toCurrency = Currency.INR,
+        rate = BigDecimal("110.00000000"),
+        source = "later_rate"
+      )
+    )
+
+    val deletedSnapshot = deleteExpenseUseCase(created.id)
+    assertNotNull(deletedSnapshot)
+    assertNull(fakeExpenseRepo.getExpenseById(created.id))
+
+    val restoreUseCase = RestoreExpenseUseCase(fakeExpenseRepo)
+    val restored = restoreUseCase(deletedSnapshot!!)
+
+    val stored = fakeExpenseRepo.getExpenseById(created.id)
+    assertNotNull(stored)
+    assertEquals(created.id, stored?.id)
+    assertEquals("12.00", stored?.originalAmount?.amount?.toPlainString())
+    assertEquals(Currency.EUR, stored?.originalCurrency)
+    assertEquals("1110.00", stored?.homeAmount?.amount?.toPlainString())
+    assertEquals("92.50000000", stored?.exchangeRate?.rate?.toPlainString())
+    assertEquals("historical_checkout", stored?.exchangeRate?.source)
+    assertEquals(created.createdAt, stored?.createdAt)
+    assertTrue(restored.updatedAt >= created.createdAt)
   }
 }

@@ -82,11 +82,7 @@ class FirestoreCloudSyncRepository(
       if (!snapshot.exists()) {
         Result.success(null)
       } else {
-        val cloud = snapshot.toObject(
-          CloudUserSettings::class.java,
-          DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-        )
-        Result.success(cloud?.toDomain())
+        Result.success(CloudUserSettings.fromSnapshot(snapshot)?.toDomain())
       }
     } catch (e: CancellationException) {
       throw e
@@ -102,11 +98,7 @@ class FirestoreCloudSyncRepository(
     emitAll(
       docRef.snapshots()
         .map { snapshot ->
-          if (!snapshot.exists()) null
-          else snapshot.toObject(
-            CloudUserSettings::class.java,
-            DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-          )?.toDomain()
+          CloudUserSettings.fromSnapshot(snapshot)?.toDomain()
         }
         .catch { error ->
           handleFlowError(error, OperationType.GET, docRef.path, uid)

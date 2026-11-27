@@ -37,7 +37,7 @@ class AppStartupNoForcedSignInTest {
       FirebaseApp.initializeApp(
         context,
         FirebaseOptions.Builder()
-          .setApplicationId("com.pluto.app")
+          .setApplicationId("com.pluto.app.nhpnee")
           .setProjectId("test-project")
           .setApiKey("fake-api-key")
           .build()

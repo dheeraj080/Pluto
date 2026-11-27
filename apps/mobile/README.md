@@ -48,7 +48,10 @@ Setup checklist:
    node scripts/apk-fingerprint.mjs apps/mobile/app/build/outputs/apk/debug/app-debug.apk
    ```
 5. Deploy `firestore.rules` to the project. The rules scope every
-   `users/{uid}/...` collection to the signed-in Firebase Auth user.
+   `users/{uid}/...` collection to the signed-in Firebase Auth user and require
+   decimal-string amounts plus `createdAt`/`updatedAt`. Documents written by the
+   previous app version use numbers and are **not** accepted; migrate or archive
+   them before rolling this version out to existing signed-in users.
 
 `.env` is local-only. `DEV_MODE` enables developer controls in Settings and
 `SEED_SAMPLE_DATA` populates a fresh install with sample expenses.
@@ -117,16 +120,24 @@ CI secrets used by `android.yml`:
 ## Architecture
 
 - `ui/` — Compose screens (home, expenses, wallets, converter, budgets,
-  insights, settings, onboarding, auth) and the shared theme tokens.
+  insights, settings, onboarding, auth) and the shared theme tokens. Expenses
+  support category/date filters and custom date ranges; the home dashboard is
+  split into independently customizable cards.
 - `domain/` — models (`BigDecimal`-backed `Money`), repository interfaces and
-  use cases.
-- `data/local/` — Room database `global_expense.db` (schema v6) plus
-  SharedPreferences settings/session state. The app is usable offline.
+  use cases. Expenses carry `createdAt`/`updatedAt` audit timestamps, and manual
+  FX overrides are effective-dated windows.
+- `data/local/` — Room database `global_expense.db` (schema v8, migrations 1→8)
+  with a separate `manual_exchange_rates` table, plus SharedPreferences
+  settings/session state. The app is usable offline.
 - `data/remote/exchange/` — Retrofit client for `https://open.er-api.com/`,
-  with an LRU → Room → network cache in `OfflineFirstExchangeRateRepository`.
+  with an LRU → Room → network cache in `OfflineFirstExchangeRateRepository`
+  and manually entered rates resolved separately from API cache entries.
 - `data/remote/cloud/` — optional Google Sign-In and Firestore sync decorators;
   signed-out users stay in "Local Vault" mode and merge when they sign in.
-- `data/worker/` — WorkManager prefetch of exchange rates.
+  Firestore documents store money as exact decimal strings with server
+  timestamps; `firestore.rules` rejects the older numeric schema.
+- `data/worker/` — WorkManager prefetch of exchange rates and processing of
+  recurring expenses.
 - Manual dependency wiring lives in `MainActivity.kt`; there is no DI framework.
 
 ## Deferred integration with `apps/server`

@@ -17,7 +17,8 @@ import androidx.room.PrimaryKey
     Index(value = ["timestamp"]),
     Index(value = ["categoryId"]),
     Index(value = ["tripId"]),
-    Index(value = ["isRecurring"])
+    Index(value = ["isRecurring"]),
+    Index(value = ["updatedAt"])
   ]
 )
 data class ExpenseEntity(
@@ -39,5 +40,7 @@ data class ExpenseEntity(
   val receiptUri: String? = null,
   val isRecurring: Boolean = false,
   val recurrenceFrequency: String? = null,
-  val lastRecurrenceLoggedMillis: Long? = null
+  val lastRecurrenceLoggedMillis: Long? = null,
+  val createdAt: Long = System.currentTimeMillis(),
+  val updatedAt: Long = createdAt
 )

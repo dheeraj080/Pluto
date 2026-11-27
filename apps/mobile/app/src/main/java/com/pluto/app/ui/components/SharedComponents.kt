@@ -15,11 +15,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
@@ -58,9 +59,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pluto.app.domain.model.Currency
 import com.pluto.app.ui.theme.PlutoMotion
+import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
-import com.pluto.app.ui.theme.RobotoMonoFontFamily
 import com.pluto.app.ui.theme.plutoHeading
 import com.pluto.app.ui.theme.plutoPressableScale
 
@@ -103,7 +104,7 @@ fun PlutoButton(
         interactionSource = interactionSource,
         modifier = modifier
           .then(pressModifier)
-          .height(48.dp)
+          .heightIn(min = 48.dp)
           .testTag(testTag),
         enabled = isInteractive,
         shape = shape,
@@ -123,7 +124,7 @@ fun PlutoButton(
         interactionSource = interactionSource,
         modifier = modifier
           .then(pressModifier)
-          .height(48.dp)
+          .heightIn(min = 48.dp)
           .testTag(testTag),
         enabled = isInteractive,
         shape = shape,
@@ -143,7 +144,7 @@ fun PlutoButton(
         interactionSource = interactionSource,
         modifier = modifier
           .then(pressModifier)
-          .height(48.dp)
+          .heightIn(min = 48.dp)
           .testTag(testTag),
         enabled = isInteractive,
         shape = shape,
@@ -178,7 +179,7 @@ fun PlutoButton(
         interactionSource = interactionSource,
         modifier = modifier
           .then(pressModifier)
-          .height(48.dp)
+          .heightIn(min = 48.dp)
           .testTag(testTag),
         enabled = isInteractive,
         shape = shape,
@@ -225,7 +226,9 @@ private fun ButtonContent(
         text = text,
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.SemiBold,
-        maxLines = 1
+        textAlign = TextAlign.Center,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
       )
       if (trailingIcon != null) {
         Spacer(modifier = Modifier.width(PlutoSpacing.sm))
@@ -285,6 +288,7 @@ fun PlutoCard(
       onClick = onClick,
       interactionSource = interactionSource,
       modifier = modifier
+        .minimumInteractiveComponentSize()
         .plutoPressableScale(
           enabled = true,
           pressedScale = PlutoMotion.CardPressScale,
@@ -526,7 +530,7 @@ fun EmptyState(
         onClick = onActionClick,
         testTag = actionTestTag,
         variant = PlutoButtonVariant.PRIMARY,
-        modifier = Modifier.width(220.dp)
+        modifier = Modifier.widthIn(min = 200.dp, max = 320.dp)
       )
     }
   }
@@ -541,7 +545,8 @@ fun SectionHeader(
   modifier: Modifier = Modifier,
   badgeText: String? = null,
   actionText: String? = null,
-  onActionClick: (() -> Unit)? = null
+  onActionClick: (() -> Unit)? = null,
+  actionTestTag: String? = null
 ) {
   Row(
     modifier = modifier
@@ -565,7 +570,7 @@ fun SectionHeader(
       ) {
         Text(
           text = badgeText,
-          style = MaterialTheme.typography.labelSmall,
+          style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
         )
@@ -589,6 +594,7 @@ fun SectionHeader(
             role = Role.Button,
             onClick = onActionClick
           )
+          .then(if (actionTestTag != null) Modifier.testTag(actionTestTag) else Modifier)
           .padding(horizontal = PlutoSpacing.sm),
         contentAlignment = Alignment.Center
       ) {
@@ -627,10 +633,7 @@ fun DualCurrencyAmountView(
   ) {
     Text(
       text = primaryAmount,
-      style = primaryStyle.copy(
-        fontFamily = RobotoMonoFontFamily,
-        fontFeatureSettings = "tnum"
-      ),
+      style = primaryStyle.merge(PlutoNumericStyle),
       fontWeight = primaryFontWeight,
       color = primaryColor
     )
@@ -638,10 +641,7 @@ fun DualCurrencyAmountView(
       Spacer(modifier = Modifier.height(PlutoSpacing.xxs))
       Text(
         text = secondaryAmount,
-        style = secondaryStyle.copy(
-          fontFamily = RobotoMonoFontFamily,
-          fontFeatureSettings = "tnum"
-        ),
+        style = secondaryStyle.merge(PlutoNumericStyle),
         fontWeight = secondaryFontWeight,
         color = secondaryColor
       )
@@ -660,13 +660,18 @@ fun PlutoMetricTile(
   secondaryValue: String? = null,
   deltaText: String? = null,
   isPositiveDelta: Boolean = true,
+  leadingIcon: ImageVector? = null,
+  iconTint: Color = MaterialTheme.colorScheme.primary,
+  shape: Shape = PlutoShapes.medium,
+  testTag: String = "pluto_metric_tile",
   onClick: (() -> Unit)? = null
 ) {
   PlutoCard(
     modifier = modifier,
     onClick = onClick,
     containerColor = MaterialTheme.colorScheme.surface,
-    shape = PlutoShapes.medium
+    shape = shape,
+    testTag = testTag
   ) {
     Column(
       modifier = Modifier
@@ -678,13 +683,29 @@ fun PlutoMetricTile(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Text(
-          text = label,
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          fontWeight = FontWeight.SemiBold,
-          letterSpacing = 0.5.sp
-        )
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier.weight(1f, fill = false)
+        ) {
+          if (leadingIcon != null) {
+            Icon(
+              imageVector = leadingIcon,
+              contentDescription = null,
+              tint = iconTint,
+              modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+          }
+          Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.5.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+          )
+        }
         if (deltaText != null) {
           val deltaTint = if (isPositiveDelta) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
           val deltaContainer = if (isPositiveDelta) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer
@@ -694,7 +715,7 @@ fun PlutoMetricTile(
           ) {
             Text(
               text = deltaText,
-              style = MaterialTheme.typography.labelSmall,
+              style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
               fontWeight = FontWeight.Bold,
               color = deltaTint,
               modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -707,10 +728,7 @@ fun PlutoMetricTile(
 
       Text(
         text = primaryValue,
-        style = MaterialTheme.typography.titleLarge.copy(
-          fontFamily = RobotoMonoFontFamily,
-          fontFeatureSettings = "tnum"
-        ),
+        style = MaterialTheme.typography.titleLarge.merge(PlutoNumericStyle),
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onSurface,
         maxLines = 1,
@@ -721,10 +739,7 @@ fun PlutoMetricTile(
         Spacer(modifier = Modifier.height(PlutoSpacing.xxs))
         Text(
           text = secondaryValue,
-          style = MaterialTheme.typography.bodySmall.copy(
-            fontFamily = RobotoMonoFontFamily,
-            fontFeatureSettings = "tnum"
-          ),
+          style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           maxLines = 1,
           overflow = TextOverflow.Ellipsis
@@ -744,6 +759,9 @@ fun PlutoTopBar(
   modifier: Modifier = Modifier,
   onNavigateBack: (() -> Unit)? = null,
   subtitle: String? = null,
+  titleStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleMedium,
+  backButtonTestTag: String = "top_bar_back_button",
+  backContentDescription: String = "Back",
   actions: @Composable () -> Unit = {}
 ) {
   TopAppBar(
@@ -751,10 +769,11 @@ fun PlutoTopBar(
       Column {
         Text(
           text = title,
-          style = MaterialTheme.typography.titleMedium,
+          style = titleStyle,
           fontWeight = FontWeight.Bold,
           maxLines = 1,
-          overflow = TextOverflow.Ellipsis
+          overflow = TextOverflow.Ellipsis,
+          modifier = Modifier.plutoHeading()
         )
         if (!subtitle.isNullOrBlank()) {
           Text(
@@ -771,11 +790,11 @@ fun PlutoTopBar(
           onClick = onNavigateBack,
           modifier = Modifier
             .minimumInteractiveComponentSize()
-            .testTag("top_bar_back_button")
+            .testTag(backButtonTestTag)
         ) {
           Icon(
             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-            contentDescription = "Back",
+            contentDescription = backContentDescription,
             tint = MaterialTheme.colorScheme.onSurface
           )
         }

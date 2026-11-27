@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.pluto.app.domain.model.Currency
 import com.pluto.app.domain.repository.UserSettingsRepository
+import java.math.BigDecimal
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,12 +19,12 @@ data class OnboardingUiState(
   val homeCurrency: Currency = Currency.USD,
   val destinationCurrency: Currency = Currency.EUR,
   val termName: String = "Universal Budget",
-  val semesterAllowanceHome: Double = 6000.0,
-  val tuitionAndFixedHome: Double = 1500.0,
+  val semesterAllowanceHome: BigDecimal = BigDecimal("6000.00"),
+  val tuitionAndFixedHome: BigDecimal = BigDecimal("1500.00"),
   val termDays: Int = 90,
-  val dailySpendingCap: Double? = 50.0,
-  val monthlySpendingCap: Double? = 2000.0,
-  val tripBudgetHome: Double = 1500.0,
+  val dailySpendingCap: BigDecimal? = BigDecimal("50.00"),
+  val monthlySpendingCap: BigDecimal? = BigDecimal("2000.00"),
+  val tripBudgetHome: BigDecimal = BigDecimal("1500.00"),
   val searchQuery: String = "",
   val availableCurrencies: List<Currency> = Currency.DEFAULT_CURRENCIES,
   val isCompleted: Boolean = false
@@ -59,11 +60,11 @@ class OnboardingViewModel(
     _uiState.update { it.copy(termName = name) }
   }
 
-  fun onSemesterAllowanceChanged(allowance: Double) {
+  fun onSemesterAllowanceChanged(allowance: BigDecimal) {
     _uiState.update { it.copy(semesterAllowanceHome = allowance) }
   }
 
-  fun onTuitionAndFixedChanged(committed: Double) {
+  fun onTuitionAndFixedChanged(committed: BigDecimal) {
     _uiState.update { it.copy(tuitionAndFixedHome = committed) }
   }
 
@@ -71,15 +72,15 @@ class OnboardingViewModel(
     _uiState.update { it.copy(termDays = days) }
   }
 
-  fun onDailyCapChanged(cap: Double?) {
+  fun onDailyCapChanged(cap: BigDecimal?) {
     _uiState.update { it.copy(dailySpendingCap = cap) }
   }
 
-  fun onMonthlyCapChanged(cap: Double?) {
+  fun onMonthlyCapChanged(cap: BigDecimal?) {
     _uiState.update { it.copy(monthlySpendingCap = cap) }
   }
 
-  fun onTripBudgetChanged(budget: Double) {
+  fun onTripBudgetChanged(budget: BigDecimal) {
     _uiState.update { it.copy(tripBudgetHome = budget) }
   }
 

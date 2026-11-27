@@ -18,6 +18,7 @@ import com.pluto.app.domain.repository.WalletTransactionRepository
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
+import java.math.BigDecimal
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -179,17 +180,17 @@ class SyncingUserSettingsRepository(
     mirrorCurrentSettings()
   }
 
-  override suspend fun updateSpendingCaps(dailyCap: Double?, monthlyCap: Double?) {
+  override suspend fun updateSpendingCaps(dailyCap: BigDecimal?, monthlyCap: BigDecimal?) {
     local.updateSpendingCaps(dailyCap, monthlyCap)
     mirrorCurrentSettings()
   }
 
-  override suspend fun updateWarningThreshold(threshold: Double?, notificationsEnabled: Boolean) {
+  override suspend fun updateWarningThreshold(threshold: BigDecimal?, notificationsEnabled: Boolean) {
     local.updateWarningThreshold(threshold, notificationsEnabled)
     mirrorCurrentSettings()
   }
 
-  override suspend fun updateCategoryBudgets(categoryBudgets: Map<String, Double>) {
+  override suspend fun updateCategoryBudgets(categoryBudgets: Map<String, BigDecimal>) {
     local.updateCategoryBudgets(categoryBudgets)
     mirrorCurrentSettings()
   }

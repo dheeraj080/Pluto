@@ -20,6 +20,7 @@ import com.pluto.app.domain.model.WalletTransaction
 import com.pluto.app.domain.model.WalletTransactionType
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.IgnoreExtraProperties
 import com.google.firebase.firestore.ServerTimestamp
@@ -36,19 +37,19 @@ data class CloudUserSettings(
   val termName: String = "Fall Semester",
   val termStartDate: Long = 0L,
   val termEndDate: Long = 0L,
-  val totalAllowanceHome: Double = 6000.0,
-  val tuitionAndFixedCommittedHome: Double = 1500.0,
+  val totalAllowanceHome: String = "6000.00",
+  val tuitionAndFixedCommittedHome: String = "1500.00",
   val tripName: String = "Current Trip",
   val tripStartDate: Long = 0L,
   val tripEndDate: Long = 0L,
-  val totalTripBudgetHome: Double = 1500.0,
+  val totalTripBudgetHome: String = "1500.00",
   val firstDayOfWeek: Int = 1,
   val defaultCategoryId: String = Category.FOOD.id,
-  val dailySpendingCap: Double? = null,
-  val monthlySpendingCap: Double? = null,
-  val safeToSpendWarningThreshold: Double? = 20.0,
+  val dailySpendingCap: String? = null,
+  val monthlySpendingCap: String? = null,
+  val safeToSpendWarningThreshold: String? = "20.00",
   val warningNotificationsEnabled: Boolean = true,
-  val categoryMonthlyBudgets: Map<String, Double> = emptyMap(),
+  val categoryMonthlyBudgets: Map<String, String> = emptyMap(),
   val themeMode: String = ThemeMode.SYSTEM.name,
   val isOnboardingCompleted: Boolean = false,
   val isBiometricLockEnabled: Boolean = false,
@@ -60,11 +61,19 @@ data class CloudUserSettings(
   @ServerTimestamp val updatedAt: Timestamp? = null
 ) {
   fun toDomain(): UserSettings {
-    val home = Currency.findByCode(homeCurrencyCode) ?: Currency.USD
-    val dest = Currency.findByCode(destinationCurrencyCode) ?: Currency.EUR
+    val home = Currency.requireByCode(homeCurrencyCode)
+    val dest = Currency.requireByCode(destinationCurrencyCode)
     val resolvedPersona = runCatching { UserPersona.valueOf(persona) }.getOrDefault(UserPersona.INTERNATIONAL_STUDENT)
     val resolvedCycle = runCatching { BudgetCycleType.valueOf(budgetCycleType) }.getOrDefault(BudgetCycleType.ACADEMIC_TERM)
     val resolvedTheme = runCatching { ThemeMode.valueOf(themeMode) }.getOrDefault(ThemeMode.SYSTEM)
+    val allowance = totalAllowanceHome.toBigDecimalOrNull()?.max(BigDecimal.ZERO) ?: BigDecimal("6000.00")
+    val tuition = tuitionAndFixedCommittedHome.toBigDecimalOrNull()?.max(BigDecimal.ZERO) ?: BigDecimal("1500.00")
+    val tripBudget = totalTripBudgetHome.toBigDecimalOrNull()?.max(BigDecimal.ZERO) ?: BigDecimal("1500.00")
+    val parsedBudgets = categoryMonthlyBudgets.entries
+      .mapNotNull { (k, v) ->
+        v.trim().toBigDecimalOrNull()?.takeIf { it > BigDecimal.ZERO }?.let { k to it }
+      }
+      .toMap()
     return UserSettings(
       homeCurrency = home,
       destinationCurrency = dest,
@@ -74,22 +83,22 @@ data class CloudUserSettings(
         termName = termName,
         termStartDate = termStartDate,
         termEndDate = termEndDate,
-        totalAllowanceHome = totalAllowanceHome,
-        tuitionAndFixedCommittedHome = tuitionAndFixedCommittedHome
+        totalAllowanceHome = allowance,
+        tuitionAndFixedCommittedHome = tuition
       ),
       tripSettings = TripSettings(
         tripName = tripName,
         tripStartDate = tripStartDate,
         tripEndDate = tripEndDate,
-        totalTripBudgetHome = totalTripBudgetHome
+        totalTripBudgetHome = tripBudget
       ),
       firstDayOfWeek = firstDayOfWeek,
       defaultCategoryId = defaultCategoryId,
-      dailySpendingCap = dailySpendingCap,
-      monthlySpendingCap = monthlySpendingCap,
-      safeToSpendWarningThreshold = safeToSpendWarningThreshold,
+      dailySpendingCap = dailySpendingCap?.trim()?.toBigDecimalOrNull()?.takeIf { it > BigDecimal.ZERO },
+      monthlySpendingCap = monthlySpendingCap?.trim()?.toBigDecimalOrNull()?.takeIf { it > BigDecimal.ZERO },
+      safeToSpendWarningThreshold = safeToSpendWarningThreshold?.trim()?.toBigDecimalOrNull()?.takeIf { it > BigDecimal.ZERO },
       warningNotificationsEnabled = warningNotificationsEnabled,
-      categoryMonthlyBudgets = categoryMonthlyBudgets,
+      categoryMonthlyBudgets = parsedBudgets,
       themeMode = resolvedTheme,
       isOnboardingCompleted = isOnboardingCompleted,
       isBiometricLockEnabled = isBiometricLockEnabled,
@@ -117,6 +126,86 @@ data class CloudUserSettings(
   }
 
   companion object {
+    fun fromSnapshot(snapshot: DocumentSnapshot): CloudUserSettings? {
+      if (!snapshot.exists()) return null
+      val data = snapshot.data ?: return null
+      return fromRawMap(
+        id = snapshot.id,
+        data = data,
+        createdAt = snapshot.getTimestamp("createdAt", DocumentSnapshot.ServerTimestampBehavior.ESTIMATE),
+        updatedAt = snapshot.getTimestamp("updatedAt", DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+      )
+    }
+
+    internal fun fromRawMap(
+      id: String = "",
+      data: Map<String, Any?>,
+      createdAt: Timestamp? = data["createdAt"] as? Timestamp,
+      updatedAt: Timestamp? = data["updatedAt"] as? Timestamp
+    ): CloudUserSettings {
+      val budgetsRaw = data["categoryMonthlyBudgets"] as? Map<*, *>
+      val parsedBudgets = budgetsRaw?.entries
+        ?.mapNotNull { (k, v) ->
+          val key = k as? String ?: return@mapNotNull null
+          val dec = readDecimalString(v)?.takeIf {
+            it.toBigDecimalOrNull()?.let { bd -> bd > BigDecimal.ZERO } == true
+          } ?: return@mapNotNull null
+          key to dec
+        }
+        ?.toMap()
+        ?: emptyMap()
+
+      val modulesRaw = data["homeModules"] as? List<*>
+      val parsedModules = modulesRaw?.mapNotNull { it as? String } ?: emptyList()
+
+      return CloudUserSettings(
+        id = id,
+        userId = (data["userId"] as? String) ?: "",
+        homeCurrencyCode = (data["homeCurrencyCode"] as? String) ?: Currency.USD.code,
+        destinationCurrencyCode = (data["destinationCurrencyCode"] as? String) ?: Currency.EUR.code,
+        persona = (data["persona"] as? String) ?: UserPersona.INTERNATIONAL_STUDENT.name,
+        budgetCycleType = (data["budgetCycleType"] as? String) ?: BudgetCycleType.ACADEMIC_TERM.name,
+        termName = (data["termName"] as? String) ?: "Fall Semester",
+        termStartDate = (data["termStartDate"] as? Number)?.toLong() ?: 0L,
+        termEndDate = (data["termEndDate"] as? Number)?.toLong() ?: 0L,
+        totalAllowanceHome = readDecimalString(data["totalAllowanceHome"]) ?: "6000.00",
+        tuitionAndFixedCommittedHome = readDecimalString(data["tuitionAndFixedCommittedHome"]) ?: "1500.00",
+        tripName = (data["tripName"] as? String) ?: "Current Trip",
+        tripStartDate = (data["tripStartDate"] as? Number)?.toLong() ?: 0L,
+        tripEndDate = (data["tripEndDate"] as? Number)?.toLong() ?: 0L,
+        totalTripBudgetHome = readDecimalString(data["totalTripBudgetHome"]) ?: "1500.00",
+        firstDayOfWeek = (data["firstDayOfWeek"] as? Number)?.toInt() ?: 1,
+        defaultCategoryId = (data["defaultCategoryId"] as? String) ?: Category.FOOD.id,
+        dailySpendingCap = readDecimalString(data["dailySpendingCap"]),
+        monthlySpendingCap = readDecimalString(data["monthlySpendingCap"]),
+        safeToSpendWarningThreshold = if (data.containsKey("safeToSpendWarningThreshold")) {
+          readDecimalString(data["safeToSpendWarningThreshold"])
+        } else {
+          "20.00"
+        },
+        warningNotificationsEnabled = (data["warningNotificationsEnabled"] as? Boolean) ?: true,
+        categoryMonthlyBudgets = parsedBudgets,
+        themeMode = (data["themeMode"] as? String) ?: ThemeMode.SYSTEM.name,
+        isOnboardingCompleted = (data["isOnboardingCompleted"] as? Boolean) ?: false,
+        isBiometricLockEnabled = (data["isBiometricLockEnabled"] as? Boolean) ?: false,
+        autoLockTimeoutMinutes = (data["autoLockTimeoutMinutes"] as? Number)?.toInt() ?: 1,
+        isPrivacyModeEnabled = (data["isPrivacyModeEnabled"] as? Boolean) ?: false,
+        homeTimeZoneId = data["homeTimeZoneId"] as? String,
+        homeModules = parsedModules,
+        createdAt = createdAt,
+        updatedAt = updatedAt
+      )
+    }
+
+    private fun readDecimalString(raw: Any?): String? {
+      return when (raw) {
+        is BigDecimal -> raw.toPlainString()
+        is String -> raw.trim().takeIf { it.isNotEmpty() }?.toBigDecimalOrNull()?.toPlainString()
+        is Number -> raw.toString().toBigDecimalOrNull()?.toPlainString()
+        else -> null
+      }
+    }
+
     fun toCreateMap(uid: String, s: UserSettings): Map<String, Any> {
       val map = toMutableFieldMap(s)
       map["userId"] = uid
@@ -130,11 +219,23 @@ data class CloudUserSettings(
       if (s.homeTimeZoneId.isNullOrBlank()) {
         map["homeTimeZoneId"] = FieldValue.delete()
       }
+      if (s.dailySpendingCap == null || s.dailySpendingCap <= BigDecimal.ZERO) {
+        map["dailySpendingCap"] = FieldValue.delete()
+      }
+      if (s.monthlySpendingCap == null || s.monthlySpendingCap <= BigDecimal.ZERO) {
+        map["monthlySpendingCap"] = FieldValue.delete()
+      }
+      if (s.safeToSpendWarningThreshold == null || s.safeToSpendWarningThreshold <= BigDecimal.ZERO) {
+        map["safeToSpendWarningThreshold"] = FieldValue.delete()
+      }
       map["updatedAt"] = FieldValue.serverTimestamp()
       return map
     }
 
     private fun toMutableFieldMap(s: UserSettings): MutableMap<String, Any> {
+      val sanitizedBudgets = s.categoryMonthlyBudgets.entries
+        .filter { it.value > BigDecimal.ZERO }
+        .associate { it.key.take(64) to it.value.toPlainString().take(40) }
       val map = mutableMapOf<String, Any>(
         "homeCurrencyCode" to s.homeCurrency.code,
         "destinationCurrencyCode" to s.destinationCurrency.code,
@@ -143,16 +244,16 @@ data class CloudUserSettings(
         "termName" to s.academicTermSettings.termName.take(100),
         "termStartDate" to s.academicTermSettings.termStartDate,
         "termEndDate" to s.academicTermSettings.termEndDate,
-        "totalAllowanceHome" to s.academicTermSettings.totalAllowanceHome.coerceAtLeast(0.0),
-        "tuitionAndFixedCommittedHome" to s.academicTermSettings.tuitionAndFixedCommittedHome.coerceAtLeast(0.0),
+        "totalAllowanceHome" to s.academicTermSettings.totalAllowanceHome.max(BigDecimal.ZERO).toPlainString().take(40),
+        "tuitionAndFixedCommittedHome" to s.academicTermSettings.tuitionAndFixedCommittedHome.max(BigDecimal.ZERO).toPlainString().take(40),
         "tripName" to s.tripSettings.tripName.take(100),
         "tripStartDate" to s.tripSettings.tripStartDate,
         "tripEndDate" to s.tripSettings.tripEndDate,
-        "totalTripBudgetHome" to s.tripSettings.totalTripBudgetHome.coerceAtLeast(0.0),
+        "totalTripBudgetHome" to s.tripSettings.totalTripBudgetHome.max(BigDecimal.ZERO).toPlainString().take(40),
         "firstDayOfWeek" to s.firstDayOfWeek.coerceIn(1, 7),
         "defaultCategoryId" to s.defaultCategoryId.take(64).ifBlank { Category.FOOD.id },
         "warningNotificationsEnabled" to s.warningNotificationsEnabled,
-        "categoryMonthlyBudgets" to s.categoryMonthlyBudgets,
+        "categoryMonthlyBudgets" to sanitizedBudgets,
         "themeMode" to s.themeMode.name,
         "isOnboardingCompleted" to s.isOnboardingCompleted,
         "isBiometricLockEnabled" to s.isBiometricLockEnabled,
@@ -161,9 +262,9 @@ data class CloudUserSettings(
         "homeModules" to HomeLayoutPresets.normalize(s.homeModules, s.persona)
           .map { "${it.id.name}:${it.isEnabled}" }
       )
-      s.dailySpendingCap?.let { map["dailySpendingCap"] = it.coerceAtLeast(0.0) }
-      s.monthlySpendingCap?.let { map["monthlySpendingCap"] = it.coerceAtLeast(0.0) }
-      s.safeToSpendWarningThreshold?.let { map["safeToSpendWarningThreshold"] = it.coerceAtLeast(0.0) }
+      s.dailySpendingCap?.takeIf { it > BigDecimal.ZERO }?.let { map["dailySpendingCap"] = it.toPlainString().take(40) }
+      s.monthlySpendingCap?.takeIf { it > BigDecimal.ZERO }?.let { map["monthlySpendingCap"] = it.toPlainString().take(40) }
+      s.safeToSpendWarningThreshold?.takeIf { it > BigDecimal.ZERO }?.let { map["safeToSpendWarningThreshold"] = it.toPlainString().take(40) }
       s.homeTimeZoneId?.trim()?.takeIf { it.isNotEmpty() }?.let { map["homeTimeZoneId"] = it.take(64) }
       return map
     }
@@ -204,6 +305,8 @@ data class CloudExpense(
     val resolvedFreq = recurrenceFrequency?.let { code ->
       runCatching { RecurrenceFrequency.valueOf(code) }.getOrNull()
     }
+    val resolvedCreatedAt = createdAt?.toDate()?.time ?: timestamp
+    val resolvedUpdatedAt = updatedAt?.toDate()?.time ?: resolvedCreatedAt
     return Expense(
       id = id,
       originalAmount = Money.of(origBig, origCurr),
@@ -224,7 +327,9 @@ data class CloudExpense(
       receiptUri = receiptUri,
       isRecurring = isRecurring,
       recurrenceFrequency = resolvedFreq,
-      lastRecurrenceLoggedMillis = lastRecurrenceLoggedMillis
+      lastRecurrenceLoggedMillis = lastRecurrenceLoggedMillis,
+      createdAt = resolvedCreatedAt,
+      updatedAt = resolvedUpdatedAt
     )
   }
 

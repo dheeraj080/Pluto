@@ -67,8 +67,8 @@ class FirestoreSyncRepositoryRuleTest : FirestoreEmulatorTestBase() {
       homeCurrency = Currency.USD,
       destinationCurrency = Currency.JPY,
       isOnboardingCompleted = true,
-      dailySpendingCap = 75.0,
-      monthlySpendingCap = 2000.0,
+      dailySpendingCap = BigDecimal("75.00"),
+      monthlySpendingCap = BigDecimal("2000.00"),
       homeTimeZoneId = "Asia/Kolkata"
     )
 

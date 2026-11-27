@@ -1,7 +1,5 @@
 package com.pluto.app.ui.home
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,29 +10,28 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FlightTakeoff
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pluto.app.domain.model.UserPersona
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.components.PlutoCard
+import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
 
 /**
  * Quick dialog allowing users to switch active profile between International Student, Expat, and Tourist.
@@ -108,12 +105,12 @@ fun PersonaSwitcherDialog(
       }
     },
     confirmButton = {
-      TextButton(
+      PlutoButton(
+        text = "Done",
         onClick = onDismiss,
-        modifier = Modifier.testTag("persona_dialog_close")
-      ) {
-        Text("Done")
-      }
+        variant = PlutoButtonVariant.GHOST,
+        testTag = "persona_dialog_close"
+      )
     }
   )
 }
@@ -128,30 +125,24 @@ private fun PersonaOptionRow(
   testTag: String,
   onClick: () -> Unit
 ) {
-  Card(
-    modifier = Modifier
-      .fillMaxWidth()
-      .clip(RoundedCornerShape(14.dp))
-      .clickable { onClick() }
-      .testTag(testTag),
-    shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(
-      containerColor = if (isSelected) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-      } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-      }
-    ),
-    border = if (isSelected) {
-      BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-    } else null
+  PlutoCard(
+    modifier = Modifier.fillMaxWidth(),
+    onClick = onClick,
+    shape = PlutoShapes.large,
+    containerColor = if (isSelected) {
+      MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+    } else {
+      MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    },
+    borderColor = if (isSelected) MaterialTheme.colorScheme.primary else null,
+    testTag = testTag
   ) {
     Row(
-      modifier = Modifier.padding(12.dp),
+      modifier = Modifier.padding(PlutoSpacing.md),
       verticalAlignment = Alignment.CenterVertically
     ) {
       Surface(
-        shape = RoundedCornerShape(10.dp),
+        shape = PlutoShapes.medium,
         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
         modifier = Modifier.size(38.dp)
       ) {
@@ -181,7 +172,7 @@ private fun PersonaOptionRow(
           )
           if (isSelected) {
             Surface(
-              shape = RoundedCornerShape(4.dp),
+              shape = PlutoShapes.extraSmall,
               color = MaterialTheme.colorScheme.primary
             ) {
               Text(

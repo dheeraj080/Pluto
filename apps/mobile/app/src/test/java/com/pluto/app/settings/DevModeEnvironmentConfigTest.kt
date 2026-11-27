@@ -15,6 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.math.BigDecimal
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
@@ -26,8 +27,8 @@ class DevModeEnvironmentConfigTest {
   private val testUserSettings = UserSettings(
     homeCurrency = Currency.USD,
     destinationCurrency = Currency.EUR,
-    dailySpendingCap = 150.0,
-    monthlySpendingCap = 4500.0,
+    dailySpendingCap = BigDecimal("150.00"),
+    monthlySpendingCap = BigDecimal("4500.00"),
     isOnboardingCompleted = true
   )
 

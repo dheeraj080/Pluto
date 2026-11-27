@@ -2,6 +2,8 @@ package com.pluto.app.currency
 
 import com.pluto.app.data.local.exchange.ExchangeRateDao
 import com.pluto.app.data.local.exchange.ExchangeRateEntity
+import com.pluto.app.data.local.exchange.ManualExchangeRateDao
+import com.pluto.app.data.local.exchange.ManualExchangeRateEntity
 import com.pluto.app.data.remote.exchange.ExchangeRateApiService
 import com.pluto.app.data.remote.exchange.ExchangeRateResponseDto
 import com.pluto.app.data.repository.OfflineFirstExchangeRateRepository
@@ -19,14 +21,16 @@ import java.math.BigDecimal
 class LruCacheExchangeRateTest {
 
   private lateinit var fakeDao: FakeExchangeRateDao
+  private lateinit var fakeManualDao: FakeManualExchangeRateDao
   private lateinit var fakeApiService: FakeExchangeRateApiService
   private lateinit var repository: OfflineFirstExchangeRateRepository
 
   @Before
   fun setUp() {
     fakeDao = FakeExchangeRateDao()
+    fakeManualDao = FakeManualExchangeRateDao()
     fakeApiService = FakeExchangeRateApiService()
-    repository = OfflineFirstExchangeRateRepository(fakeDao, fakeApiService)
+    repository = OfflineFirstExchangeRateRepository(fakeDao, fakeManualDao, fakeApiService)
   }
 
   @Test
@@ -145,6 +149,73 @@ class LruCacheExchangeRateTest {
     }
   }
 
+  private class FakeManualExchangeRateDao : ManualExchangeRateDao {
+    val manualRates = mutableMapOf<Triple<String, String, Long>, ManualExchangeRateEntity>()
+
+    override suspend fun insertManualRate(rate: ManualExchangeRateEntity) {
+      manualRates[Triple(rate.fromCurrency, rate.toCurrency, rate.effectiveFrom)] = rate
+    }
+
+    override suspend fun insertManualRates(rates: List<ManualExchangeRateEntity>) {
+      rates.forEach { manualRates[Triple(it.fromCurrency, it.toCurrency, it.effectiveFrom)] = it }
+    }
+
+    override suspend fun getManualRateForPeriod(
+      from: String,
+      to: String,
+      effectiveFrom: Long
+    ): ManualExchangeRateEntity? = manualRates[Triple(from, to, effectiveFrom)]
+
+    override suspend fun getManualRatesForPair(from: String, to: String): List<ManualExchangeRateEntity> =
+      manualRates.values
+        .filter { it.fromCurrency == from && it.toCurrency == to }
+        .sortedBy { it.effectiveFrom }
+
+    override suspend fun getApplicableManualRate(
+      from: String,
+      to: String,
+      timestamp: Long
+    ): ManualExchangeRateEntity? =
+      manualRates.values
+        .filter { it.fromCurrency == from && it.toCurrency == to && it.isApplicableAt(timestamp) }
+        .maxByOrNull { it.effectiveFrom }
+
+    override fun observeManualRatesForPair(from: String, to: String) =
+      flowOf(
+        manualRates.values
+          .filter { it.fromCurrency == from && it.toCurrency == to }
+          .sortedByDescending { it.effectiveFrom }
+      )
+
+    override fun observeAllManualRates() =
+      flowOf(
+        manualRates.values.sortedWith(
+          compareBy<ManualExchangeRateEntity> { it.fromCurrency }
+            .thenBy { it.toCurrency }
+            .thenBy { it.effectiveFrom }
+        )
+      )
+
+    override suspend fun getAllManualRates(): List<ManualExchangeRateEntity> =
+      manualRates.values.sortedWith(
+        compareBy<ManualExchangeRateEntity> { it.fromCurrency }
+          .thenBy { it.toCurrency }
+          .thenBy { it.effectiveFrom }
+      )
+
+    override suspend fun deleteManualRatePeriod(from: String, to: String, effectiveFrom: Long) {
+      manualRates.remove(Triple(from, to, effectiveFrom))
+    }
+
+    override suspend fun deleteManualRatesForPair(from: String, to: String) {
+      manualRates.keys.removeAll { it.first == from && it.second == to }
+    }
+
+    override suspend fun clearAll() {
+      manualRates.clear()
+    }
+  }
+
   private class FakeExchangeRateApiService : ExchangeRateApiService {
     override suspend fun getLatestRates(baseCurrency: String): ExchangeRateResponseDto {
       return ExchangeRateResponseDto(
@@ -152,7 +223,11 @@ class LruCacheExchangeRateTest {
         baseCode = baseCurrency,
         timeLastUpdateUnix = System.currentTimeMillis() / 1000,
         timeLastUpdateUtc = "Fri, 06 Nov 2026 00:00:00 +0000",
-        rates = mapOf("EUR" to 0.92, "USD" to 1.0, "JPY" to 150.0)
+        rates = mapOf(
+          "EUR" to BigDecimal("0.92"),
+          "USD" to BigDecimal("1.0"),
+          "JPY" to BigDecimal("150.0")
+        )
       )
     }
   }

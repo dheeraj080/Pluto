@@ -22,25 +22,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -60,9 +54,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pluto.app.domain.model.Currency
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.components.PlutoCard
+import com.pluto.app.ui.components.PlutoTopBar
 import com.pluto.app.ui.theme.PlutoMotion
 import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
 import com.pluto.app.ui.theme.plutoHeading
 import com.pluto.app.ui.theme.plutoPressableScale
 import com.pluto.app.ui.theme.rememberPrefersReducedMotion
@@ -93,29 +92,11 @@ fun ConverterScreen(
   Scaffold(
     modifier = modifier.fillMaxSize(),
     topBar = {
-      TopAppBar(
-        title = {
-          Text(
-            text = "Currency Converter",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-          )
-        },
-        navigationIcon = {
-          if (onNavigateBack != null) {
-            IconButton(
-              onClick = onNavigateBack,
-              modifier = Modifier
-                .minimumInteractiveComponentSize()
-                .testTag("converter_back_button")
-            ) {
-              Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back"
-              )
-            }
-          }
-        },
+      PlutoTopBar(
+        title = "Currency Converter",
+        onNavigateBack = onNavigateBack,
+        titleStyle = MaterialTheme.typography.titleLarge,
+        backButtonTestTag = "converter_back_button",
         actions = {
           IconButton(
             onClick = { viewModel.retry() },
@@ -128,10 +109,7 @@ fun ConverterScreen(
               contentDescription = "Refresh exchange rate"
             )
           }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-          containerColor = MaterialTheme.colorScheme.background
-        )
+        }
       )
     }
   ) { innerPadding ->
@@ -165,12 +143,10 @@ fun ConverterScreen(
       Spacer(modifier = Modifier.height(20.dp))
 
       // Source Currency Card & Input (20dp outer = 14dp padding + 6dp inner radius)
-      Card(
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("converter_source_card"),
+      PlutoCard(
+        modifier = Modifier.fillMaxWidth(),
         shape = PlutoShapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        testTag = "converter_source_card"
       ) {
         Column(modifier = Modifier.padding(14.dp)) {
           Text(
@@ -237,12 +213,14 @@ fun ConverterScreen(
               ),
               placeholder = {
                 Text(
-                  text = "0.00",
+                  text = sourceCurrency.zeroPlaceholder(),
                   style = MaterialTheme.typography.titleLarge.merge(PlutoNumericStyle)
                 )
               },
               singleLine = true,
-              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+              keyboardOptions = KeyboardOptions(
+                keyboardType = if (sourceCurrency.decimalPlaces == 0) KeyboardType.Number else KeyboardType.Decimal
+              ),
               shape = PlutoShapes.small
             )
           }
@@ -287,14 +265,11 @@ fun ConverterScreen(
       }
 
       // Target Currency Card (20dp outer = 14dp padding + 6dp inner radius)
-      Card(
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("converter_target_card"),
+      PlutoCard(
+        modifier = Modifier.fillMaxWidth(),
         shape = PlutoShapes.extraLarge,
-        colors = CardDefaults.cardColors(
-          containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-        )
+        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+        testTag = "converter_target_card"
       ) {
         Column(modifier = Modifier.padding(14.dp)) {
           Text(
@@ -505,21 +480,12 @@ fun ConverterScreen(
                   color = MaterialTheme.colorScheme.onErrorContainer
                 )
               }
-              val retryInteraction = remember { MutableInteractionSource() }
-              OutlinedButton(
+              PlutoButton(
+                text = "Retry",
                 onClick = { viewModel.retry() },
-                interactionSource = retryInteraction,
-                modifier = Modifier
-                  .padding(start = 8.dp)
-                  .minimumInteractiveComponentSize()
-                  .plutoPressableScale(
-                    enabled = true,
-                    pressedScale = PlutoMotion.PressScale,
-                    interactionSource = retryInteraction
-                  )
-              ) {
-                Text("Retry")
-              }
+                variant = PlutoButtonVariant.OUTLINED,
+                modifier = Modifier.padding(start = PlutoSpacing.sm)
+              )
             }
           }
         }

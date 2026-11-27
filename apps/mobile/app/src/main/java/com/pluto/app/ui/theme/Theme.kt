@@ -8,9 +8,44 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.pluto.app.domain.model.ThemeMode
+
+@Immutable
+data class PlutoExtendedColors(
+  val isDark: Boolean,
+  val heroContainer: Color,
+  val onHeroContainer: Color,
+  val heroBorder: Color?,
+  val heroDayIconTint: Color
+)
+
+private val LightExtendedColors = PlutoExtendedColors(
+  isDark = false,
+  heroContainer = ForestPrimary,
+  onHeroContainer = Color.White,
+  heroBorder = null,
+  heroDayIconTint = HarvestGoldContainer
+)
+
+private val DarkExtendedColors = PlutoExtendedColors(
+  isDark = true,
+  heroContainer = DeepEmeraldHeroSurface,
+  onHeroContainer = DeepEmeraldHeroOnSurface,
+  heroBorder = DeepEmeraldHeroBorder,
+  heroDayIconTint = WarmAmberTertiary
+)
+
+val LocalPlutoExtendedColors = staticCompositionLocalOf { LightExtendedColors }
+
+object PlutoThemeDefaults {
+  val extendedColors: PlutoExtendedColors
+    @Composable get() = LocalPlutoExtendedColors.current
+}
 
 val EditorialDarkColorScheme = darkColorScheme(
   primary = LuminousMintPrimary,
@@ -18,7 +53,7 @@ val EditorialDarkColorScheme = darkColorScheme(
   primaryContainer = DeepPineContainer,
   onPrimaryContainer = DeepPineOnContainer,
   secondary = SageEmeraldSecondary,
-  onSecondary = Color(0xFF052E16),
+  onSecondary = SageEmeraldOnSecondary,
   secondaryContainer = SageEmeraldContainer,
   onSecondaryContainer = SageEmeraldOnContainer,
   tertiary = WarmAmberTertiary,
@@ -26,7 +61,7 @@ val EditorialDarkColorScheme = darkColorScheme(
   tertiaryContainer = WarmAmberContainer,
   onTertiaryContainer = WarmAmberOnContainer,
   error = CoralErrorDark,
-  onError = Color(0xFF3F0A0E),
+  onError = CoralErrorDarkOnError,
   errorContainer = CoralErrorDarkContainer,
   onErrorContainer = CoralErrorDarkOnContainer,
   background = EspressoForestCanvas,
@@ -39,7 +74,7 @@ val EditorialDarkColorScheme = darkColorScheme(
   surfaceContainerLow = CharcoalPineSurface,
   surfaceContainer = CharcoalPineSurface,
   surfaceContainerHigh = DarkMossElevated,
-  surfaceContainerHighest = Color(0xFF273730),
+  surfaceContainerHighest = DarkMossElevatedHighest,
   outline = EspressoOutline,
   outlineVariant = EspressoOutlineSubtle
 )
@@ -71,7 +106,7 @@ val EditorialLightColorScheme = lightColorScheme(
   surfaceContainerLow = AlabasterCanvas,
   surfaceContainer = IvoryCardSurface,
   surfaceContainerHigh = SoftSageMist,
-  surfaceContainerHighest = Color(0xFFE1E8E2),
+  surfaceContainerHighest = SoftSageMistHighest,
   outline = SageOutline,
   outlineVariant = SageOutlineSubtle
 )
@@ -97,12 +132,16 @@ fun PlutoTheme(
     else -> EditorialLightColorScheme
   }
 
-  MaterialTheme(
-    colorScheme = colorScheme,
-    typography = Typography,
-    shapes = PlutoShapes,
-    content = content
-  )
+  val extendedColors = if (isDark) DarkExtendedColors else LightExtendedColors
+
+  CompositionLocalProvider(LocalPlutoExtendedColors provides extendedColors) {
+    MaterialTheme(
+      colorScheme = colorScheme,
+      typography = Typography,
+      shapes = PlutoShapes,
+      content = content
+    )
+  }
 }
 
 /**

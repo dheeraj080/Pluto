@@ -4,33 +4,29 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,11 +37,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
+import com.pluto.app.ui.theme.plutoHeading
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -107,128 +106,121 @@ fun ErrorRecoveryScreen(
   val context = LocalContext.current
   val scrollState = rememberScrollState()
 
-  Box(
+  Scaffold(
     modifier = modifier
       .fillMaxSize()
-      .background(MaterialTheme.colorScheme.background)
       .testTag("error_recovery_screen"),
-    contentAlignment = Alignment.Center
-  ) {
-    Column(
+    containerColor = MaterialTheme.colorScheme.background,
+    contentWindowInsets = WindowInsets.safeDrawing
+  ) { innerPadding ->
+    Box(
       modifier = Modifier
-        .fillMaxWidth()
-        .padding(24.dp)
-        .verticalScroll(scrollState),
-      horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.Center
+        .fillMaxSize()
+        .padding(innerPadding),
+      contentAlignment = Alignment.Center
     ) {
-      Surface(
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.errorContainer,
-        modifier = Modifier.size(76.dp)
+      Column(
+        modifier = Modifier
+          .widthIn(max = 480.dp)
+          .fillMaxWidth()
+          .verticalScroll(scrollState)
+          .padding(PlutoSpacing.xxl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
       ) {
-        Box(contentAlignment = Alignment.Center) {
-          Icon(
-            imageVector = Icons.Rounded.Warning,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.size(38.dp)
-          )
-        }
-      }
-
-      Spacer(modifier = Modifier.height(20.dp))
-
-      Text(
-        text = "Pluto Encountered an Issue",
-        style = MaterialTheme.typography.headlineSmall,
-        fontWeight = FontWeight.Bold,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onBackground
-      )
-
-      Spacer(modifier = Modifier.height(8.dp))
-
-      Text(
-        text = "Don't worry — your offline transactions, travel wallets, and budgets remain safe in local storage.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.padding(horizontal = 12.dp)
-      )
-
-      Spacer(modifier = Modifier.height(20.dp))
-
-      Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-          containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        modifier = Modifier.fillMaxWidth()
-      ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-          Text(
-            text = "Error Diagnostics",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-          )
-          Spacer(modifier = Modifier.height(6.dp))
-          Text(
-            text = "${throwable::class.simpleName ?: "Exception"}: ${throwable.message ?: "Unknown runtime issue"}",
-            style = MaterialTheme.typography.bodySmall.copy(
-              fontFamily = FontFamily.Monospace,
-              fontSize = 11.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-        }
-      }
-
-      Spacer(modifier = Modifier.height(28.dp))
-
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-      ) {
-        OutlinedButton(
-          onClick = {
-            val clip = ClipData.newPlainText(
-              "Pluto Error Log",
-              "${throwable::class.java.name}: ${throwable.message}\n" +
-                  throwable.stackTrace.take(8).joinToString("\n")
+        Surface(
+          shape = CircleShape,
+          color = MaterialTheme.colorScheme.errorContainer,
+          modifier = Modifier.size(76.dp)
+        ) {
+          Box(contentAlignment = Alignment.Center) {
+            Icon(
+              imageVector = Icons.Rounded.Warning,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.error,
+              modifier = Modifier.size(38.dp)
             )
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-            clipboard?.setPrimaryClip(clip)
-            Toast.makeText(context, "Error details copied to clipboard", Toast.LENGTH_SHORT).show()
-          },
-          shape = RoundedCornerShape(12.dp),
-          modifier = Modifier.weight(1f)
-        ) {
-          Icon(
-            imageVector = Icons.Rounded.ContentCopy,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-          )
-          Spacer(modifier = Modifier.width(6.dp))
-          Text("Copy Log")
+          }
         }
 
-        Button(
-          onClick = onReset,
-          shape = RoundedCornerShape(12.dp),
-          colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary
-          ),
-          modifier = Modifier.weight(1f)
+        Spacer(modifier = Modifier.height(PlutoSpacing.xl))
+
+        Text(
+          text = "Pluto Encountered an Issue",
+          style = MaterialTheme.typography.headlineSmall,
+          fontWeight = FontWeight.Bold,
+          textAlign = TextAlign.Center,
+          color = MaterialTheme.colorScheme.onBackground,
+          modifier = Modifier.plutoHeading()
+        )
+
+        Spacer(modifier = Modifier.height(PlutoSpacing.sm))
+
+        Text(
+          text = "Don't worry — your offline transactions, travel wallets, and budgets remain safe in local storage.",
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          textAlign = TextAlign.Center,
+          modifier = Modifier.padding(horizontal = PlutoSpacing.md)
+        )
+
+        Spacer(modifier = Modifier.height(PlutoSpacing.xl))
+
+        PlutoCard(
+          shape = PlutoShapes.large,
+          containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+          modifier = Modifier.fillMaxWidth()
         ) {
-          Icon(
-            imageVector = Icons.Rounded.Refresh,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
+          Column(modifier = Modifier.padding(PlutoSpacing.lg)) {
+            Text(
+              text = "Error Diagnostics",
+              style = MaterialTheme.typography.labelMedium,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(PlutoSpacing.xs))
+            Text(
+              text = "${throwable::class.simpleName ?: "Exception"}: ${throwable.message ?: "Unknown runtime issue"}",
+              style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle).copy(
+                fontSize = 11.sp
+              ),
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+        }
+
+        Spacer(modifier = Modifier.height(PlutoSpacing.xxl))
+
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.md)
+        ) {
+          PlutoButton(
+            text = "Copy Log",
+            onClick = {
+              val clip = ClipData.newPlainText(
+                "Pluto Error Log",
+                "${throwable::class.java.name}: ${throwable.message}\n" +
+                  throwable.stackTrace.take(8).joinToString("\n")
+              )
+              val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+              clipboard?.setPrimaryClip(clip)
+              Toast.makeText(context, "Error details copied to clipboard", Toast.LENGTH_SHORT).show()
+            },
+            variant = PlutoButtonVariant.OUTLINED,
+            leadingIcon = Icons.Rounded.ContentCopy,
+            modifier = Modifier.weight(1f),
+            testTag = "error_copy_log_button"
           )
-          Spacer(modifier = Modifier.width(6.dp))
-          Text("Restart App")
+
+          PlutoButton(
+            text = "Restart App",
+            onClick = onReset,
+            variant = PlutoButtonVariant.PRIMARY,
+            leadingIcon = Icons.Rounded.Refresh,
+            modifier = Modifier.weight(1f),
+            testTag = "error_restart_button"
+          )
         }
       }
     }

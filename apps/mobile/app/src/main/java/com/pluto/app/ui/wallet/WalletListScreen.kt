@@ -1,7 +1,5 @@
 package com.pluto.app.ui.wallet
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,15 +18,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -37,10 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,9 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,12 +51,15 @@ import com.pluto.app.domain.model.PortfolioValuationSummary
 import com.pluto.app.domain.model.UserSettings
 import com.pluto.app.domain.model.WalletValuation
 import com.pluto.app.ui.components.CurrencyBadge
+import com.pluto.app.ui.components.DualCurrencyAmountView
 import com.pluto.app.ui.components.EmptyState
+import com.pluto.app.ui.components.PlutoCard
+import com.pluto.app.ui.components.PlutoTopBar
+import com.pluto.app.ui.components.SectionHeader
 import com.pluto.app.ui.theme.PlutoMotion
 import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
-import com.pluto.app.ui.theme.RobotoMonoFontFamily
-import com.pluto.app.ui.theme.plutoHeading
+import com.pluto.app.ui.theme.PlutoSpacing
 import com.pluto.app.ui.theme.plutoPressableScale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -119,27 +112,11 @@ fun WalletListScreen(
   Scaffold(
     modifier = modifier.fillMaxSize(),
     topBar = {
-      TopAppBar(
-        title = {
-          Text(
-            text = "Currency Wallets",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-          )
-        },
-        navigationIcon = {
-          IconButton(
-            onClick = onNavigateBack,
-            modifier = Modifier
-              .minimumInteractiveComponentSize()
-              .testTag("wallet_list_back_button")
-          ) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-          }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-          containerColor = MaterialTheme.colorScheme.background
-        )
+      PlutoTopBar(
+        title = "Currency Wallets",
+        onNavigateBack = onNavigateBack,
+        titleStyle = MaterialTheme.typography.titleLarge,
+        backButtonTestTag = "wallet_list_back_button"
       )
     },
     floatingActionButton = {
@@ -199,14 +176,7 @@ fun WalletListScreen(
               PortfolioHeroCard(summary = summary)
             }
             item {
-              Text(
-                text = "Your Wallets",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                  .padding(top = 8.dp, bottom = 4.dp)
-                  .plutoHeading()
-              )
+              SectionHeader(title = "Your Wallets")
             }
             items(summary.walletValuations, key = { it.wallet.id }) { valuation ->
               WalletItemCard(
@@ -249,14 +219,7 @@ fun WalletListScreen(
           }
 
           item {
-            Text(
-              text = "Your Wallets",
-              style = MaterialTheme.typography.titleMedium,
-              fontWeight = FontWeight.Bold,
-              modifier = Modifier
-                .padding(top = 8.dp, bottom = 4.dp)
-                .plutoHeading()
-            )
+            SectionHeader(title = "Your Wallets")
           }
 
           items(summary.walletValuations, key = { it.wallet.id }) { valuation ->
@@ -281,17 +244,13 @@ fun PortfolioHeroCard(
   val primaryAmount = summary.totalValuedDestAmount?.format() ?: summary.totalValuedHomeAmount.format()
   val secondaryAmount = summary.totalValuedHomeAmount.format()
 
-  Card(
-    modifier = modifier
-      .fillMaxWidth()
-      .testTag("portfolio_hero_card"),
+  PlutoCard(
+    modifier = modifier.fillMaxWidth(),
     shape = PlutoShapes.extraLarge,
-    colors = CardDefaults.cardColors(
-      containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-    ),
-    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+    testTag = "portfolio_hero_card"
   ) {
-    Column(modifier = Modifier.padding(20.dp)) {
+    Column(modifier = Modifier.padding(PlutoSpacing.xl)) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -314,10 +273,7 @@ fun PortfolioHeroCard(
 
       Text(
         text = primaryAmount,
-        style = MaterialTheme.typography.headlineLarge.copy(
-          fontFamily = RobotoMonoFontFamily,
-          fontFeatureSettings = "tnum"
-        ),
+        style = MaterialTheme.typography.headlineLarge.merge(PlutoNumericStyle),
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onSurface,
         maxLines = 1,
@@ -357,36 +313,19 @@ private fun WalletItemCard(
   modifier: Modifier = Modifier
 ) {
   val wallet = valuation.wallet
-  val cardInteraction = remember { MutableInteractionSource() }
-
-  Card(
-    modifier = modifier
-      .fillMaxWidth()
-      .plutoPressableScale(
-        enabled = true,
-        pressedScale = PlutoMotion.CardPressScale,
-        interactionSource = cardInteraction
-      )
-      .clip(PlutoShapes.large)
-      .clickable(
-        interactionSource = cardInteraction,
-        indication = androidx.compose.material3.ripple(),
-        role = Role.Button,
-        onClick = onCardClick
-      )
-      .testTag("wallet_card_${wallet.currency.code.lowercase()}"),
+  PlutoCard(
+    modifier = modifier.fillMaxWidth(),
+    onClick = onCardClick,
     shape = PlutoShapes.large,
-    colors = CardDefaults.cardColors(
-      containerColor = if (isSelected) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
-      } else {
-        MaterialTheme.colorScheme.surface
-      }
-    ),
-    border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
-    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    containerColor = if (isSelected) {
+      MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+    } else {
+      MaterialTheme.colorScheme.surface
+    },
+    borderColor = if (isSelected) MaterialTheme.colorScheme.primary else null,
+    testTag = "wallet_card_${wallet.currency.code.lowercase()}"
   ) {
-    Column(modifier = Modifier.padding(16.dp)) {
+    Column(modifier = Modifier.padding(PlutoSpacing.lg)) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -437,10 +376,7 @@ private fun WalletItemCard(
           )
           Text(
             text = wallet.balance.format(),
-            style = MaterialTheme.typography.titleLarge.copy(
-              fontFamily = RobotoMonoFontFamily,
-              fontFeatureSettings = "tnum"
-            ),
+            style = MaterialTheme.typography.titleLarge.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold
           )
         }
@@ -449,23 +385,13 @@ private fun WalletItemCard(
           is WalletValuation.Valued -> {
             Column(horizontalAlignment = Alignment.End) {
               val primaryVal = valuation.destValue?.format() ?: valuation.homeValue.format()
-              Text(
-                text = primaryVal,
-                style = MaterialTheme.typography.titleMedium.copy(
-                  fontFamily = RobotoMonoFontFamily,
-                  fontFeatureSettings = "tnum"
-                ),
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-              )
-              Text(
-                text = "≈ ${valuation.homeValue.format()}",
-                style = MaterialTheme.typography.bodySmall.copy(
-                  fontFamily = RobotoMonoFontFamily,
-                  fontFeatureSettings = "tnum"
-                ),
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Medium
+              DualCurrencyAmountView(
+                primaryAmount = primaryVal,
+                secondaryAmount = "≈ ${valuation.homeValue.format()}",
+                primaryStyle = MaterialTheme.typography.titleMedium,
+                secondaryStyle = MaterialTheme.typography.bodySmall,
+                secondaryColor = MaterialTheme.colorScheme.primary,
+                secondaryFontWeight = FontWeight.Medium
               )
               Text(
                 text = "${valuation.compositionPercentage.toPlainString()}% of portfolio",

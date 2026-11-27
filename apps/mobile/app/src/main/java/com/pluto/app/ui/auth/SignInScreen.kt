@@ -1,10 +1,8 @@
 package com.pluto.app.ui.auth
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,16 +25,11 @@ import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.CurrencyExchange
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -56,11 +48,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pluto.app.R
 import com.pluto.app.data.remote.cloud.GoogleSignInButton
-import com.pluto.app.ui.theme.PlutoMotion
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 import com.pluto.app.ui.theme.plutoHeading
-import com.pluto.app.ui.theme.plutoPressableScale
 
 @Composable
 fun SignInScreen(
@@ -79,15 +72,7 @@ fun SignInScreen(
     Box(
       modifier = Modifier
         .fillMaxSize()
-        .background(
-          Brush.verticalGradient(
-            colors = listOf(
-              MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
-              MaterialTheme.colorScheme.background,
-              MaterialTheme.colorScheme.background
-            )
-          )
-        )
+        .background(MaterialTheme.colorScheme.background)
         .padding(innerPadding),
       contentAlignment = Alignment.Center
     ) {
@@ -140,14 +125,12 @@ fun SignInScreen(
 
         Spacer(modifier = Modifier.height(PlutoSpacing.xl))
 
-        Card(
+        PlutoCard(
           modifier = Modifier.fillMaxWidth(),
-          shape = PlutoShapes.extraLarge,
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+          shape = PlutoShapes.extraLarge
         ) {
           Column(
-            modifier = Modifier.padding(PlutoSpacing.md),
+            modifier = Modifier.padding(PlutoSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(PlutoSpacing.md)
           ) {
             AuthFeatureRow(
@@ -203,41 +186,17 @@ fun SignInScreen(
 
         Spacer(modifier = Modifier.height(PlutoSpacing.md))
 
-        val offlineInteractionSource = remember { MutableInteractionSource() }
-        OutlinedButton(
+        PlutoButton(
+          text = stringResource(R.string.sign_in_continue_offline),
           onClick = {
             errorMessage = null
             onContinueOffline()
           },
-          interactionSource = offlineInteractionSource,
-          shape = PlutoShapes.medium,
-          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-          colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = MaterialTheme.colorScheme.onBackground
-          ),
-          modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .minimumInteractiveComponentSize()
-            .plutoPressableScale(
-              enabled = true,
-              pressedScale = PlutoMotion.PressScale,
-              interactionSource = offlineInteractionSource
-            )
-            .testTag("continue_offline_button")
-        ) {
-          Icon(
-            imageVector = Icons.Rounded.CloudOff,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-          )
-          Spacer(modifier = Modifier.width(10.dp))
-          Text(
-            text = stringResource(R.string.sign_in_continue_offline),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-          )
-        }
+          variant = PlutoButtonVariant.OUTLINED,
+          leadingIcon = Icons.Rounded.CloudOff,
+          modifier = Modifier.fillMaxWidth(),
+          testTag = "continue_offline_button"
+        )
 
         Spacer(modifier = Modifier.height(PlutoSpacing.sm))
 

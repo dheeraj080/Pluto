@@ -53,9 +53,9 @@ class FakeUserSettingsRepository(private var settings: UserSettings) : UserSetti
     settings = settings.copy(destinationCurrency = currency)
     flow.value = settings
   }
-  override suspend fun updateSpendingCaps(dailyCap: Double?, monthlyCap: Double?) {}
-  override suspend fun updateWarningThreshold(threshold: Double?, notificationsEnabled: Boolean) {}
-  override suspend fun updateCategoryBudgets(categoryBudgets: Map<String, Double>) {}
+  override suspend fun updateSpendingCaps(dailyCap: BigDecimal?, monthlyCap: BigDecimal?) {}
+  override suspend fun updateWarningThreshold(threshold: BigDecimal?, notificationsEnabled: Boolean) {}
+  override suspend fun updateCategoryBudgets(categoryBudgets: Map<String, BigDecimal>) {}
   override suspend fun updateThemeMode(themeMode: com.pluto.app.domain.model.ThemeMode) {
     settings = settings.copy(themeMode = themeMode)
     flow.value = settings

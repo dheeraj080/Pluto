@@ -7,7 +7,9 @@ import com.pluto.app.domain.model.Money
 import com.pluto.app.domain.model.WalletTransaction
 import com.pluto.app.domain.model.WalletTransactionType
 import com.pluto.app.domain.repository.CurrencyWalletRepository
+import com.pluto.app.domain.repository.DirectTransactionRunner
 import com.pluto.app.domain.repository.ExchangeRateRepository
+import com.pluto.app.domain.repository.TransactionRunner
 import com.pluto.app.domain.repository.WalletTransactionRepository
 import kotlinx.coroutines.flow.Flow
 import java.math.BigDecimal
@@ -44,7 +46,8 @@ sealed interface TransferResult {
 
 class CreateWalletDepositUseCase(
   private val walletRepository: CurrencyWalletRepository,
-  private val transactionRepository: WalletTransactionRepository
+  private val transactionRepository: WalletTransactionRepository,
+  private val transactionRunner: TransactionRunner = DirectTransactionRunner
 ) {
   suspend operator fun invoke(
     walletId: String,
@@ -55,30 +58,32 @@ class CreateWalletDepositUseCase(
       return DepositResult.InvalidAmount("Deposit amount must be strictly greater than zero")
     }
 
-    val wallet = walletRepository.getWalletById(walletId)
-      ?: return DepositResult.WalletNotFound(walletId)
-
-    val depositMoney = Money.of(amount, wallet.currency)
-    val newBalance = wallet.balance + depositMoney
-
-    val now = System.currentTimeMillis()
-    val transaction = WalletTransaction(
-      walletId = wallet.id,
-      type = WalletTransactionType.DEPOSIT,
-      amount = depositMoney,
-      timestamp = now,
-      note = note.trim(),
-      createdAt = now
-    )
-
-    val updatedWallet = wallet.copy(
-      balance = newBalance,
-      updatedAt = now
-    )
-
     return try {
-      transactionRepository.executeDeposit(updatedWallet, transaction)
-      DepositResult.Success(transaction, updatedWallet)
+      transactionRunner.runInTransaction {
+        val wallet = walletRepository.getWalletById(walletId)
+          ?: return@runInTransaction DepositResult.WalletNotFound(walletId)
+
+        val depositMoney = Money.of(amount, wallet.currency)
+        val newBalance = wallet.balance + depositMoney
+
+        val now = System.currentTimeMillis()
+        val transaction = WalletTransaction(
+          walletId = wallet.id,
+          type = WalletTransactionType.DEPOSIT,
+          amount = depositMoney,
+          timestamp = now,
+          note = note.trim(),
+          createdAt = now
+        )
+
+        val updatedWallet = wallet.copy(
+          balance = newBalance,
+          updatedAt = now
+        )
+
+        transactionRepository.executeDeposit(updatedWallet, transaction)
+        DepositResult.Success(transaction, updatedWallet)
+      }
     } catch (e: Exception) {
       DepositResult.Failure(e.message ?: "Failed to record deposit")
     }
@@ -87,7 +92,8 @@ class CreateWalletDepositUseCase(
 
 class CreateWalletWithdrawalUseCase(
   private val walletRepository: CurrencyWalletRepository,
-  private val transactionRepository: WalletTransactionRepository
+  private val transactionRepository: WalletTransactionRepository,
+  private val transactionRunner: TransactionRunner = DirectTransactionRunner
 ) {
   suspend operator fun invoke(
     walletId: String,
@@ -98,43 +104,45 @@ class CreateWalletWithdrawalUseCase(
       return WithdrawalResult.InvalidAmount("Withdrawal amount must be strictly greater than zero")
     }
 
-    val wallet = walletRepository.getWalletById(walletId)
-      ?: return WithdrawalResult.WalletNotFound(walletId)
-
-    val withdrawalMoney = Money.of(amount, wallet.currency)
-    if (withdrawalMoney > wallet.balance) {
-      return WithdrawalResult.InsufficientFunds(
-        available = wallet.balance,
-        requested = withdrawalMoney
-      )
-    }
-
-    val newBalance = wallet.balance - withdrawalMoney
-    if (newBalance.amount < BigDecimal.ZERO) {
-      return WithdrawalResult.InsufficientFunds(
-        available = wallet.balance,
-        requested = withdrawalMoney
-      )
-    }
-
-    val now = System.currentTimeMillis()
-    val transaction = WalletTransaction(
-      walletId = wallet.id,
-      type = WalletTransactionType.WITHDRAWAL,
-      amount = withdrawalMoney,
-      timestamp = now,
-      note = note.trim(),
-      createdAt = now
-    )
-
-    val updatedWallet = wallet.copy(
-      balance = newBalance,
-      updatedAt = now
-    )
-
     return try {
-      transactionRepository.executeWithdrawal(updatedWallet, transaction)
-      WithdrawalResult.Success(transaction, updatedWallet)
+      transactionRunner.runInTransaction {
+        val wallet = walletRepository.getWalletById(walletId)
+          ?: return@runInTransaction WithdrawalResult.WalletNotFound(walletId)
+
+        val withdrawalMoney = Money.of(amount, wallet.currency)
+        if (withdrawalMoney > wallet.balance) {
+          return@runInTransaction WithdrawalResult.InsufficientFunds(
+            available = wallet.balance,
+            requested = withdrawalMoney
+          )
+        }
+
+        val newBalance = wallet.balance - withdrawalMoney
+        if (newBalance.amount < BigDecimal.ZERO) {
+          return@runInTransaction WithdrawalResult.InsufficientFunds(
+            available = wallet.balance,
+            requested = withdrawalMoney
+          )
+        }
+
+        val now = System.currentTimeMillis()
+        val transaction = WalletTransaction(
+          walletId = wallet.id,
+          type = WalletTransactionType.WITHDRAWAL,
+          amount = withdrawalMoney,
+          timestamp = now,
+          note = note.trim(),
+          createdAt = now
+        )
+
+        val updatedWallet = wallet.copy(
+          balance = newBalance,
+          updatedAt = now
+        )
+
+        transactionRepository.executeWithdrawal(updatedWallet, transaction)
+        WithdrawalResult.Success(transaction, updatedWallet)
+      }
     } catch (e: Exception) {
       WithdrawalResult.Failure(e.message ?: "Failed to record withdrawal")
     }
@@ -144,7 +152,8 @@ class CreateWalletWithdrawalUseCase(
 class CreateWalletTransferUseCase(
   private val walletRepository: CurrencyWalletRepository,
   private val transactionRepository: WalletTransactionRepository,
-  private val exchangeRateRepository: ExchangeRateRepository
+  private val exchangeRateRepository: ExchangeRateRepository,
+  private val transactionRunner: TransactionRunner = DirectTransactionRunner
 ) {
   suspend operator fun invoke(
     sourceWalletId: String,
@@ -159,79 +168,104 @@ class CreateWalletTransferUseCase(
       return TransferResult.SameWallet(sourceWalletId)
     }
 
-    val sourceWallet = walletRepository.getWalletById(sourceWalletId)
+    // Resolve wallets and pre-check funds before FX lookup to avoid unnecessary network calls
+    val initialSourceWallet = walletRepository.getWalletById(sourceWalletId)
       ?: return TransferResult.WalletNotFound(sourceWalletId)
-    val destWallet = walletRepository.getWalletById(destinationWalletId)
+    val initialDestWallet = walletRepository.getWalletById(destinationWalletId)
       ?: return TransferResult.WalletNotFound(destinationWalletId)
 
-    val sendMoney = Money.of(sourceAmount, sourceWallet.currency)
-    if (sendMoney > sourceWallet.balance) {
+    val initialSendMoney = Money.of(sourceAmount, initialSourceWallet.currency)
+    if (initialSendMoney > initialSourceWallet.balance) {
       return TransferResult.InsufficientFunds(
-        available = sourceWallet.balance,
-        requested = sendMoney
+        available = initialSourceWallet.balance,
+        requested = initialSendMoney
       )
     }
 
-    val (exchangeRate, receiveMoney) = if (sourceWallet.currency == destWallet.currency) {
-      val identityRate = ExchangeRate.identity(sourceWallet.currency)
-      Pair(identityRate, sendMoney)
+    val exchangeRate: ExchangeRate = if (initialSourceWallet.currency == initialDestWallet.currency) {
+      ExchangeRate.identity(initialSourceWallet.currency)
     } else {
-      val rate = exchangeRateRepository.getRate(
-        from = sourceWallet.currency,
-        to = destWallet.currency,
+      exchangeRateRepository.getRate(
+        from = initialSourceWallet.currency,
+        to = initialDestWallet.currency,
         allowOfflineCache = true
-      ) ?: return TransferResult.RateUnavailable(sourceWallet.currency, destWallet.currency)
-      val converted = rate.convert(sendMoney)
-      Pair(rate, converted)
+      ) ?: return TransferResult.RateUnavailable(initialSourceWallet.currency, initialDestWallet.currency)
     }
-
-    val now = System.currentTimeMillis()
-    val sourceTransaction = WalletTransaction(
-      walletId = sourceWallet.id,
-      type = WalletTransactionType.TRANSFER_OUT,
-      amount = sendMoney,
-      timestamp = now,
-      note = note.trim(),
-      targetWalletId = destWallet.id,
-      targetAmount = receiveMoney,
-      exchangeRate = exchangeRate,
-      createdAt = now
-    )
-
-    val destTransaction = WalletTransaction(
-      walletId = destWallet.id,
-      type = WalletTransactionType.TRANSFER_IN,
-      amount = receiveMoney,
-      timestamp = now,
-      note = note.trim(),
-      targetWalletId = sourceWallet.id,
-      targetAmount = sendMoney,
-      exchangeRate = exchangeRate,
-      createdAt = now
-    )
-
-    val updatedSourceWallet = sourceWallet.copy(
-      balance = sourceWallet.balance - sendMoney,
-      updatedAt = now
-    )
-    val updatedDestWallet = destWallet.copy(
-      balance = destWallet.balance + receiveMoney,
-      updatedAt = now
-    )
 
     return try {
-      transactionRepository.executeTransfer(
-        sourceWallet = updatedSourceWallet,
-        sourceTransaction = sourceTransaction,
-        destWallet = updatedDestWallet,
-        destTransaction = destTransaction
-      )
-      TransferResult.Success(
-        sourceTransaction = sourceTransaction,
-        destinationTransaction = destTransaction,
-        updatedSourceWallet = updatedSourceWallet,
-        updatedDestinationWallet = updatedDestWallet
-      )
+      transactionRunner.runInTransaction {
+        val sourceWallet = walletRepository.getWalletById(sourceWalletId)
+          ?: return@runInTransaction TransferResult.WalletNotFound(sourceWalletId)
+        val destWallet = walletRepository.getWalletById(destinationWalletId)
+          ?: return@runInTransaction TransferResult.WalletNotFound(destinationWalletId)
+
+        val sendMoney = Money.of(sourceAmount, sourceWallet.currency)
+        if (sendMoney > sourceWallet.balance) {
+          return@runInTransaction TransferResult.InsufficientFunds(
+            available = sourceWallet.balance,
+            requested = sendMoney
+          )
+        }
+
+        val effectiveRate = if (sourceWallet.currency == destWallet.currency) {
+          ExchangeRate.identity(sourceWallet.currency)
+        } else if (
+          exchangeRate.fromCurrency == sourceWallet.currency &&
+          exchangeRate.toCurrency == destWallet.currency
+        ) {
+          exchangeRate
+        } else {
+          return@runInTransaction TransferResult.RateUnavailable(sourceWallet.currency, destWallet.currency)
+        }
+
+        val receiveMoney = effectiveRate.convert(sendMoney)
+        val now = System.currentTimeMillis()
+        val sourceTransaction = WalletTransaction(
+          walletId = sourceWallet.id,
+          type = WalletTransactionType.TRANSFER_OUT,
+          amount = sendMoney,
+          timestamp = now,
+          note = note.trim(),
+          targetWalletId = destWallet.id,
+          targetAmount = receiveMoney,
+          exchangeRate = effectiveRate,
+          createdAt = now
+        )
+
+        val destTransaction = WalletTransaction(
+          walletId = destWallet.id,
+          type = WalletTransactionType.TRANSFER_IN,
+          amount = receiveMoney,
+          timestamp = now,
+          note = note.trim(),
+          targetWalletId = sourceWallet.id,
+          targetAmount = sendMoney,
+          exchangeRate = effectiveRate,
+          createdAt = now
+        )
+
+        val updatedSourceWallet = sourceWallet.copy(
+          balance = sourceWallet.balance - sendMoney,
+          updatedAt = now
+        )
+        val updatedDestWallet = destWallet.copy(
+          balance = destWallet.balance + receiveMoney,
+          updatedAt = now
+        )
+
+        transactionRepository.executeTransfer(
+          sourceWallet = updatedSourceWallet,
+          sourceTransaction = sourceTransaction,
+          destWallet = updatedDestWallet,
+          destTransaction = destTransaction
+        )
+        TransferResult.Success(
+          sourceTransaction = sourceTransaction,
+          destinationTransaction = destTransaction,
+          updatedSourceWallet = updatedSourceWallet,
+          updatedDestinationWallet = updatedDestWallet
+        )
+      }
     } catch (e: Exception) {
       TransferResult.Failure(e.message ?: "Failed to execute transfer")
     }

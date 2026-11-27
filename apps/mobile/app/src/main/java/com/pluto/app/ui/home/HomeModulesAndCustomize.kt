@@ -49,8 +49,6 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Wallet
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -60,11 +58,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -81,6 +77,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,19 +92,28 @@ import com.pluto.app.domain.model.RunwayPaceStatus
 import com.pluto.app.domain.model.TermRunwaySummary
 import com.pluto.app.domain.model.UserPersona
 import com.pluto.app.domain.model.UserSettings
+import com.pluto.app.domain.model.WalletValuation
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.theme.PlutoMotion
 import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
+import com.pluto.app.ui.theme.PlutoThemeDefaults
 import com.pluto.app.ui.theme.plutoHeading
 import com.pluto.app.ui.theme.plutoPressableScale
 import com.pluto.app.ui.theme.rememberPrefersReducedMotion
 import java.math.BigDecimal
+import java.math.RoundingMode
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 /**
  * Stacked Dual Wallet Hero:
  * - Back card: Warm Harvest Gold / Sand Home Reserve account.
- * - Front card: Deep Forest Green (or Luminous Mint in dark mode) Active Travel Wallet
+ * - Front card: Deep Forest Green (or Deep Emerald in dark mode) Active Travel Wallet
  *   with an inline Dual-Zone Clock row in the header.
  */
 @Composable
@@ -116,6 +122,7 @@ fun StackedCardsHero(
   portfolioValuation: PortfolioValuationSummary?,
   userSettings: UserSettings,
   wallets: List<CurrencyWallet> = emptyList(),
+  fxStatus: DashboardFxStatus? = null,
   onNavigateToWallets: () -> Unit = {},
   onClockClick: () -> Unit = {},
   modifier: Modifier = Modifier
@@ -196,39 +203,34 @@ fun StackedCardsHero(
       }
     }
 
-    // Front Card: Active Travel Wallet (Deep Forest Green / Luminous Mint)
-    val frontInteraction = remember { MutableInteractionSource() }
+    // Front Card: Active Travel Wallet (Forest Green in light, Deep Emerald in dark)
+    val heroColors = PlutoThemeDefaults.extendedColors
     Surface(
       shape = PlutoShapes.extraLarge,
-      color = MaterialTheme.colorScheme.primary,
+      color = heroColors.heroContainer,
+      contentColor = heroColors.onHeroContainer,
+      border = heroColors.heroBorder?.let { BorderStroke(1.dp, it) },
       modifier = Modifier
         .fillMaxWidth()
         .padding(top = 46.dp)
         .align(Alignment.BottomCenter)
-        .plutoPressableScale(
-          enabled = true,
-          pressedScale = PlutoMotion.CardPressScale,
-          interactionSource = frontInteraction
-        )
-        .clip(PlutoShapes.extraLarge)
-        .clickable(
-          interactionSource = frontInteraction,
-          indication = androidx.compose.material3.ripple(),
-          role = Role.Button,
-          onClick = onNavigateToWallets
-        )
         .testTag("main_wallet_hero_card")
     ) {
       Column(
         modifier = Modifier
           .fillMaxWidth()
-          .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+          .padding(PlutoSpacing.xl),
+        verticalArrangement = Arrangement.spacedBy(PlutoSpacing.md)
       ) {
         // Inline Dual-Zone Clock inside card header
         DualZoneClockInlineRow(
           userSettings = userSettings,
-          onClick = onClockClick
+          onClick = onClockClick,
+          containerColor = heroColors.onHeroContainer.copy(alpha = if (heroColors.isDark) 0.10f else 0.14f),
+          contentColor = heroColors.onHeroContainer,
+          secondaryContentColor = heroColors.onHeroContainer.copy(alpha = 0.80f),
+          dayIconTint = heroColors.heroDayIconTint,
+          nightIconTint = heroColors.onHeroContainer
         )
 
         // Wallet Header Row
@@ -240,38 +242,38 @@ fun StackedCardsHero(
           Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(
               shape = CircleShape,
-              color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f),
+              color = heroColors.onHeroContainer.copy(alpha = 0.16f),
               modifier = Modifier.size(28.dp)
             ) {
               Box(contentAlignment = Alignment.Center) {
                 Icon(
                   imageVector = Icons.Rounded.CreditCard,
                   contentDescription = null,
-                  tint = MaterialTheme.colorScheme.onPrimary,
+                  tint = heroColors.onHeroContainer,
                   modifier = Modifier.size(16.dp)
                 )
               }
             }
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(PlutoSpacing.sm))
             Text(
               text = "ACTIVE TRAVEL WALLET",
               style = MaterialTheme.typography.labelSmall,
               fontWeight = FontWeight.Bold,
               letterSpacing = 0.8.sp,
-              color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
+              color = heroColors.onHeroContainer.copy(alpha = 0.9f)
             )
           }
 
           Surface(
             shape = PlutoShapes.medium,
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f)
+            color = heroColors.onHeroContainer.copy(alpha = 0.16f)
           ) {
             Text(
               text = travelWallet?.currency?.code ?: destinationCurrency.code,
               style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
               fontWeight = FontWeight.Bold,
-              color = MaterialTheme.colorScheme.onPrimary,
-              modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+              color = heroColors.onHeroContainer,
+              modifier = Modifier.padding(horizontal = 10.dp, vertical = PlutoSpacing.xs)
             )
           }
         }
@@ -281,28 +283,94 @@ fun StackedCardsHero(
           Text(
             text = "Available Travel Funds",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+            color = heroColors.onHeroContainer.copy(alpha = 0.80f)
           )
-          Spacer(modifier = Modifier.height(2.dp))
+          Spacer(modifier = Modifier.height(PlutoSpacing.xxs))
           Text(
             text = travelWalletBalance,
             style = MaterialTheme.typography.displaySmall.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimary,
+            color = heroColors.onHeroContainer,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.testTag("hero_travel_balance_amount")
           )
-          Spacer(modifier = Modifier.height(2.dp))
+          Spacer(modifier = Modifier.height(PlutoSpacing.xxs))
           Text(
             text = portfolioValuation?.let { valuation ->
               "Total Portfolio: ${valuation.totalValuedHomeAmount.format()} in ${homeCurrency.code}"
             } ?: "Trip Currency: ${destinationCurrency.name}",
             style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
-            maxLines = 1,
+            color = heroColors.onHeroContainer.copy(alpha = 0.85f),
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis
           )
+
+          if (homeCurrency != destinationCurrency && fxStatus != null) {
+            Spacer(modifier = Modifier.height(PlutoSpacing.xs))
+            val timeFormat = remember { SimpleDateFormat("d MMM HH:mm", Locale.getDefault()) }
+            val fxBadgeContainer = when {
+              fxStatus.isUnavailable -> MaterialTheme.colorScheme.errorContainer
+              fxStatus.isStale -> MaterialTheme.colorScheme.tertiaryContainer
+              else -> heroColors.onHeroContainer.copy(alpha = 0.14f)
+            }
+            val fxBadgeContent = when {
+              fxStatus.isUnavailable -> MaterialTheme.colorScheme.onErrorContainer
+              fxStatus.isStale -> MaterialTheme.colorScheme.onTertiaryContainer
+              else -> heroColors.onHeroContainer.copy(alpha = 0.92f)
+            }
+            val fxLabel = when {
+              fxStatus.isUnavailable ->
+                "FX rate unavailable (${homeCurrency.code} → ${destinationCurrency.code})"
+              fxStatus.isStale -> {
+                val formattedRate = fxStatus.rate?.setScale(4, RoundingMode.HALF_EVEN)?.stripTrailingZeros()?.toPlainString()
+                val updatedAt = fxStatus.timestampMillis?.let { timeFormat.format(Date(it)) }
+                buildString {
+                  append("Cached rate")
+                  if (formattedRate != null) append(" · 1 ${homeCurrency.code} = $formattedRate ${destinationCurrency.code}")
+                  if (updatedAt != null) append(" ($updatedAt)")
+                }
+              }
+              else -> {
+                val isManualRate = fxStatus.source?.startsWith("manual") == true
+                val formattedRate = fxStatus.rate?.setScale(4, RoundingMode.HALF_EVEN)?.stripTrailingZeros()?.toPlainString()
+                val updatedAt = fxStatus.timestampMillis?.let { timeFormat.format(Date(it)) }
+                buildString {
+                  if (isManualRate) append("Custom FX") else append("FX live")
+                  if (formattedRate != null) append(" · 1 ${homeCurrency.code} = $formattedRate ${destinationCurrency.code}")
+                  if (updatedAt != null && !isManualRate) append(" · $updatedAt")
+                }
+              }
+            }
+
+            Surface(
+              shape = PlutoShapes.small,
+              color = fxBadgeContainer,
+              modifier = Modifier.testTag("home_fx_status_chip")
+            ) {
+              Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+              ) {
+                if (fxStatus.isUnavailable || fxStatus.isStale) {
+                  Icon(
+                    imageVector = Icons.Rounded.Warning,
+                    contentDescription = null,
+                    tint = fxBadgeContent,
+                    modifier = Modifier.size(12.dp)
+                  )
+                }
+                Text(
+                  text = fxLabel,
+                  style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+                  color = fxBadgeContent,
+                  maxLines = 2,
+                  overflow = TextOverflow.Ellipsis
+                )
+              }
+            }
+          }
         }
 
         // Bottom Row: Account Count + Manage Wallets Pill
@@ -311,11 +379,15 @@ fun StackedCardsHero(
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically
         ) {
-          Column {
+          Column(
+            modifier = Modifier
+              .weight(1f)
+              .padding(end = PlutoSpacing.sm)
+          ) {
             Text(
               text = "Accounts",
               style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f)
+              color = heroColors.onHeroContainer.copy(alpha = 0.74f)
             )
             Text(
               text = if (wallets.isNotEmpty()) {
@@ -325,14 +397,21 @@ fun StackedCardsHero(
               },
               style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
               fontWeight = FontWeight.SemiBold,
-              color = MaterialTheme.colorScheme.onPrimary
+              color = heroColors.onHeroContainer,
+              maxLines = 2,
+              overflow = TextOverflow.Ellipsis
             )
           }
 
           val manageInteraction = remember { MutableInteractionSource() }
           Surface(
             shape = PlutoShapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface,
+            color = if (heroColors.isDark) {
+              MaterialTheme.colorScheme.surfaceVariant
+            } else {
+              MaterialTheme.colorScheme.surface
+            },
+            border = heroColors.heroBorder?.let { BorderStroke(1.dp, it) },
             modifier = Modifier
               .minimumInteractiveComponentSize()
               .plutoPressableScale(
@@ -364,7 +443,9 @@ fun StackedCardsHero(
                 text = "Manage Wallets",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
               )
             }
           }
@@ -478,7 +559,7 @@ private fun ActionDockPill(
     ) {
       Icon(
         imageVector = icon,
-        contentDescription = label,
+        contentDescription = null,
         tint = contentColor,
         modifier = Modifier.size(18.dp)
       )
@@ -488,7 +569,8 @@ private fun ActionDockPill(
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.Bold,
         color = contentColor,
-        maxLines = 1,
+        textAlign = TextAlign.Center,
+        maxLines = 2,
         overflow = TextOverflow.Ellipsis
       )
     }
@@ -503,29 +585,15 @@ fun PortfolioOverviewModuleCard(
   portfolioValuation: PortfolioValuationSummary?,
   wallets: List<CurrencyWallet>,
   userSettings: UserSettings,
+  fxStatus: DashboardFxStatus? = null,
   onNavigateToWallets: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val interaction = remember { MutableInteractionSource() }
-  Card(
-    modifier = modifier
-      .fillMaxWidth()
-      .plutoPressableScale(
-        enabled = true,
-        pressedScale = PlutoMotion.CardPressScale,
-        interactionSource = interaction
-      )
-      .clip(PlutoShapes.extraLarge)
-      .clickable(
-        interactionSource = interaction,
-        indication = androidx.compose.material3.ripple(),
-        role = Role.Button,
-        onClick = onNavigateToWallets
-      )
-      .testTag("module_card_stacked_wallets"),
+  PlutoCard(
+    modifier = modifier.fillMaxWidth(),
+    onClick = onNavigateToWallets,
     shape = PlutoShapes.extraLarge,
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    testTag = "module_card_stacked_wallets"
   ) {
     Column(
       modifier = Modifier
@@ -538,7 +606,10 @@ fun PortfolioOverviewModuleCard(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier.weight(1f)
+        ) {
           Icon(
             imageVector = Icons.Rounded.Wallet,
             contentDescription = null,
@@ -550,9 +621,12 @@ fun PortfolioOverviewModuleCard(
             text = "WALLET PORTFOLIO BREAKDOWN",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
           )
         }
+        Spacer(modifier = Modifier.width(PlutoSpacing.sm))
         Text(
           text = "${wallets.size} accounts",
           style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
@@ -580,15 +654,39 @@ fun PortfolioOverviewModuleCard(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
               )
-              if (valuation is com.pluto.app.domain.model.WalletValuation.Valued) {
+              if (valuation is WalletValuation.Valued) {
                 Text(
                   text = "≈ ${valuation.homeValue.format()} · ${valuation.compositionPercentage.toPlainString()}%",
                   style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
                   color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+              } else if (valuation is WalletValuation.Unavailable) {
+                Text(
+                  text = "Rate unavailable",
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.tertiary
+                )
               }
             }
           }
+        }
+
+        val hasStaleValuation = fxStatus?.isStale == true ||
+          portfolioValuation.walletValuations.any { it is WalletValuation.Valued && it.isStale }
+        val hasUnavailableValuation = fxStatus?.isUnavailable == true ||
+          portfolioValuation.walletValuations.any { it is WalletValuation.Unavailable }
+
+        if (hasUnavailableValuation || hasStaleValuation) {
+          Text(
+            text = if (hasUnavailableValuation) {
+              "Some wallet conversions are awaiting a live FX rate."
+            } else {
+              "Portfolio valuations use a cached FX rate."
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.testTag("portfolio_fx_notice")
+          )
         }
       } else {
         Text(
@@ -609,7 +707,7 @@ fun DailySafeToSpendModuleCard(
   summary: DashboardSummary,
   userSettings: UserSettings,
   onOpenCapsDialog: () -> Unit,
-  onUpdateWarningThreshold: (Double?, Boolean) -> Unit,
+  onUpdateWarningThreshold: (BigDecimal?, Boolean) -> Unit,
   onTestNotification: () -> Boolean,
   modifier: Modifier = Modifier
 ) {
@@ -682,13 +780,10 @@ fun DailySafeToSpendModuleCard(
     label = "daily_safe_spend_progress"
   )
 
-  Card(
-    modifier = modifier
-      .fillMaxWidth()
-      .testTag("module_card_daily_safe_to_spend"),
+  PlutoCard(
+    modifier = modifier.fillMaxWidth(),
     shape = PlutoShapes.extraLarge,
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    testTag = "module_card_daily_safe_to_spend"
   ) {
     Column(
       modifier = Modifier
@@ -835,13 +930,14 @@ fun DailySafeToSpendModuleCard(
         strokeCap = StrokeCap.Round
       )
 
-      Row(
+      @OptIn(ExperimentalLayoutApi::class)
+      FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(4.dp)
       ) {
         val capText = summary.dailySpendingCapDest?.format()
-          ?: dailyCap?.let { "${homeCurrency.symbol}${String.format(Locale.US, "%.0f", it)}" }
+          ?: dailyCap?.let { com.pluto.app.domain.model.Money.of(it, homeCurrency).format() }
           ?: "—"
         Text(
           text = "Daily Cap: $capText",
@@ -854,6 +950,15 @@ fun DailySafeToSpendModuleCard(
           style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
           fontWeight = FontWeight.SemiBold,
           color = if (isExceeded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+        )
+      }
+
+      if (summary.unvaluedTodayIncomeCurrencies.isNotEmpty()) {
+        Text(
+          text = "Today's ${summary.unvaluedTodayIncomeCurrencies.joinToString(", ") { it.code }} deposit excluded (rate unavailable)",
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.tertiary,
+          modifier = Modifier.testTag("daily_safe_unvalued_income_notice")
         )
       }
     }
@@ -876,6 +981,7 @@ fun DailySafeToSpendModuleCard(
 /**
  * Compact borderless Cycle / Semester Runway module card.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CycleRunwayModuleCard(
   runwaySummary: TermRunwaySummary?,
@@ -883,26 +989,10 @@ fun CycleRunwayModuleCard(
   onEditTermClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val interaction = remember { MutableInteractionSource() }
-  Card(
-    modifier = modifier
-      .fillMaxWidth()
-      .plutoPressableScale(
-        enabled = true,
-        pressedScale = PlutoMotion.CardPressScale,
-        interactionSource = interaction
-      )
-      .clip(PlutoShapes.extraLarge)
-      .clickable(
-        interactionSource = interaction,
-        indication = androidx.compose.material3.ripple(),
-        role = Role.Button,
-        onClick = onEditTermClick
-      )
-      .testTag("module_card_cycle_runway"),
+  PlutoCard(
+    modifier = modifier.fillMaxWidth(),
     shape = PlutoShapes.extraLarge,
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    testTag = "module_card_cycle_runway"
   ) {
     if (runwaySummary == null) {
       Row(
@@ -946,7 +1036,7 @@ fun CycleRunwayModuleCard(
           )
         }
       }
-      return@Card
+      return@PlutoCard
     }
 
     val homeCurrency = userSettings.homeCurrency
@@ -1100,9 +1190,10 @@ fun CycleRunwayModuleCard(
       )
 
       val remainingMoney = runwaySummary.remainingDiscretionaryDest ?: runwaySummary.remainingDiscretionaryHome
-      Row(
+      FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
       ) {
         Text(
           text = "Discretionary: ${remainingMoney.format()} left",
@@ -1140,13 +1231,10 @@ fun CategoryBudgetsModuleCard(
       modifier = modifier.testTag("module_card_category_budgets")
     )
   } else {
-    Card(
-      modifier = modifier
-        .fillMaxWidth()
-        .testTag("module_card_category_budgets"),
+    PlutoCard(
+      modifier = modifier.fillMaxWidth(),
       shape = PlutoShapes.extraLarge,
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-      elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+      testTag = "module_card_category_budgets"
     ) {
       Row(
         modifier = Modifier
@@ -1162,21 +1250,19 @@ fun CategoryBudgetsModuleCard(
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
           )
-          Spacer(modifier = Modifier.height(4.dp))
+          Spacer(modifier = Modifier.height(PlutoSpacing.xs))
           Text(
             text = "No category spending logged yet",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
         }
-        OutlinedButton(
+        PlutoButton(
+          text = "Set Budgets",
           onClick = onManageBudgetsClick,
-          modifier = Modifier
-            .minimumInteractiveComponentSize()
-            .testTag("manage_category_budgets_button")
-        ) {
-          Text("Set Budgets")
-        }
+          variant = PlutoButtonVariant.OUTLINED,
+          testTag = "manage_category_budgets_button"
+        )
       }
     }
   }
@@ -1287,20 +1373,12 @@ fun HomeCustomizeSheet(
           }
 
           if (isCustom) {
-            TextButton(
+            PlutoButton(
+              text = "Reset to Preset",
               onClick = { onApplyPersonaPreset(currentPersona) },
-              modifier = Modifier
-                .heightIn(min = 48.dp)
-                .minimumInteractiveComponentSize()
-                .testTag("reset_home_preset_button"),
-              contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-            ) {
-              Text(
-                text = "Reset to Preset",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold
-              )
-            }
+              variant = PlutoButtonVariant.GHOST,
+              testTag = "reset_home_preset_button"
+            )
           }
         }
 

@@ -8,21 +8,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -32,11 +30,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,10 +51,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pluto.app.domain.model.Category
 import com.pluto.app.domain.model.Currency
+import com.pluto.app.domain.model.Money
 import com.pluto.app.domain.model.UserSettings
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
 import java.math.BigDecimal
-import java.util.Locale
+import java.math.RoundingMode
+
+private fun sanitizeCategoryDecimalInput(input: String, currency: Currency): String? =
+  currency.sanitizeAmountInput(input)
+
+private fun formatConvertedCap(amount: BigDecimal, currency: Currency): String {
+  val scaled = amount.setScale(currency.decimalPlaces, RoundingMode.HALF_EVEN)
+  val stripped = scaled.stripTrailingZeros()
+  return if (stripped.scale() <= 0) stripped.toPlainString() else scaled.toPlainString()
+}
 
 /**
  * Dialog enabling creation and configuration of multiple category-specific budgets
@@ -70,8 +82,11 @@ import java.util.Locale
 fun CategoryBudgetsDialog(
   userSettings: UserSettings,
   dashboardViewModel: DashboardViewModel? = null,
+  onGetConversionRate: (suspend (Currency, Currency) -> BigDecimal?)? = dashboardViewModel?.let { vm ->
+    { from, to -> vm.getConversionRate(from, to) }
+  },
   onDismiss: () -> Unit,
-  onSave: (Map<String, Double>) -> Unit,
+  onSave: (Map<String, BigDecimal>) -> Unit,
   modifier: Modifier = Modifier
 ) {
   val homeCurrency = userSettings.homeCurrency
@@ -79,50 +94,53 @@ fun CategoryBudgetsDialog(
 
   var selectedBudgetCurrency by remember { mutableStateOf(destCurrency) }
   var currencyDropdownExpanded by remember { mutableStateOf(false) }
-  var currentRateToBase by remember { mutableStateOf<BigDecimal?>(null) }
+  var currentRateToBase by remember { mutableStateOf<BigDecimal?>(if (selectedBudgetCurrency == homeCurrency) BigDecimal.ONE else null) }
+  var isRateUnavailable by remember { mutableStateOf(false) }
 
-  // Query conversion rate from selectedBudgetCurrency -> homeCurrency
-  LaunchedEffect(selectedBudgetCurrency, homeCurrency) {
-    if (selectedBudgetCurrency == homeCurrency) {
-      currentRateToBase = BigDecimal.ONE
-    } else {
-      currentRateToBase = dashboardViewModel?.getConversionRate(selectedBudgetCurrency, homeCurrency)
-        ?: run {
-          when {
-            selectedBudgetCurrency.code == "JPY" && homeCurrency.code == "USD" -> BigDecimal("0.0067")
-            selectedBudgetCurrency.code == "USD" && homeCurrency.code == "JPY" -> BigDecimal("150.0")
-            selectedBudgetCurrency.code == "EUR" && homeCurrency.code == "USD" -> BigDecimal("1.08")
-            selectedBudgetCurrency.code == "USD" && homeCurrency.code == "EUR" -> BigDecimal("0.92")
-            else -> BigDecimal.ONE
-          }
-        }
-    }
-  }
-
-  val rate = currentRateToBase ?: BigDecimal.ONE
-
-  // Local state map holding input string for each category
+  // Local state map holding input string for each category and tracking whether user edited it
   val budgetInputs = remember {
     mutableStateMapOf<String, String>().apply {
-      Category.DEFAULT_CATEGORIES.forEach { category ->
-        val homeCap = userSettings.categoryMonthlyBudgets[category.id]
-        if (homeCap != null && homeCap > 0.0) {
-          // If in destination currency initially, convert home amount to dest
-          val displayedValue = if (selectedBudgetCurrency == homeCurrency) {
-            String.format(Locale.US, "%.0f", homeCap)
-          } else {
-            val rateToDest = when {
-              selectedBudgetCurrency.code == "JPY" && homeCurrency.code == "USD" -> 150.0
-              selectedBudgetCurrency.code == "EUR" && homeCurrency.code == "USD" -> 0.92
-              else -> 1.0
-            }
-            String.format(Locale.US, "%.0f", homeCap * rateToDest)
+      if (selectedBudgetCurrency == homeCurrency) {
+        Category.DEFAULT_CATEGORIES.forEach { category ->
+          val homeCap = userSettings.categoryMonthlyBudgets[category.id]
+          if (homeCap != null && homeCap > BigDecimal.ZERO) {
+            put(category.id, formatConvertedCap(homeCap, homeCurrency))
           }
-          put(category.id, displayedValue)
         }
       }
     }
   }
+  val editedCategories = remember { mutableStateMapOf<String, Boolean>() }
+
+  // Query conversion rate from selectedBudgetCurrency -> homeCurrency
+  LaunchedEffect(selectedBudgetCurrency, homeCurrency, onGetConversionRate) {
+    val resolvedRate = if (selectedBudgetCurrency == homeCurrency) {
+      BigDecimal.ONE
+    } else {
+      onGetConversionRate?.invoke(selectedBudgetCurrency, homeCurrency)?.takeIf { it > BigDecimal.ZERO }
+    }
+    currentRateToBase = resolvedRate
+    isRateUnavailable = selectedBudgetCurrency != homeCurrency && resolvedRate == null
+    if (resolvedRate != null && resolvedRate > BigDecimal.ZERO) {
+      Category.DEFAULT_CATEGORIES.forEach { category ->
+        if (editedCategories[category.id] != true) {
+          val homeCap = userSettings.categoryMonthlyBudgets[category.id]
+          if (homeCap != null && homeCap > BigDecimal.ZERO) {
+            val converted = if (selectedBudgetCurrency == homeCurrency) {
+              homeCap
+            } else {
+              homeCap.divide(resolvedRate, selectedBudgetCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+            }
+            budgetInputs[category.id] = formatConvertedCap(converted, selectedBudgetCurrency)
+          } else {
+            budgetInputs.remove(category.id)
+          }
+        }
+      }
+    }
+  }
+
+  val rate = currentRateToBase
 
   ModalBottomSheet(
     onDismissRequest = onDismiss,
@@ -134,6 +152,7 @@ fun CategoryBudgetsDialog(
       modifier = Modifier
         .fillMaxWidth()
         .navigationBarsPadding()
+        .imePadding()
         .padding(horizontal = 24.dp)
         .padding(bottom = 24.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -143,7 +162,10 @@ fun CategoryBudgetsDialog(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier.weight(1f)
+        ) {
           Icon(
             imageVector = Icons.Rounded.Category,
             contentDescription = null,
@@ -157,7 +179,10 @@ fun CategoryBudgetsDialog(
             fontWeight = FontWeight.Bold
           )
         }
-        IconButton(onClick = onDismiss) {
+        IconButton(
+          onClick = onDismiss,
+          modifier = Modifier.minimumInteractiveComponentSize()
+        ) {
           Icon(Icons.Rounded.Close, contentDescription = "Close")
         }
       }
@@ -178,7 +203,7 @@ fun CategoryBudgetsDialog(
             readOnly = true,
             label = { Text("Budget Input Currency") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyDropdownExpanded) },
-            shape = RoundedCornerShape(12.dp),
+            shape = PlutoShapes.medium,
             modifier = Modifier
               .fillMaxWidth()
               .menuAnchor(MenuAnchorType.PrimaryNotEditable)
@@ -225,6 +250,21 @@ fun CategoryBudgetsDialog(
           }
         }
 
+        if (isRateUnavailable) {
+          Surface(
+            shape = PlutoShapes.medium,
+            color = MaterialTheme.colorScheme.errorContainer,
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Text(
+              text = "Exchange rate unavailable for ${selectedBudgetCurrency.code} → ${homeCurrency.code}. Switch to ${homeCurrency.code} to edit budgets offline.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onErrorContainer,
+              modifier = Modifier.padding(10.dp)
+            )
+          }
+        }
+
         Spacer(modifier = Modifier.height(2.dp))
 
         // Scrollable list of categories
@@ -236,13 +276,17 @@ fun CategoryBudgetsDialog(
         ) {
           items(Category.DEFAULT_CATEGORIES, key = { it.id }) { cat ->
             val currentValue = budgetInputs[cat.id] ?: ""
-            val parsed = currentValue.toDoubleOrNull()?.takeIf { it > 0.0 }
+            val parsed = currentValue.toBigDecimalOrNull()?.takeIf { it > BigDecimal.ZERO }
             val inHome = parsed?.let {
-              if (selectedBudgetCurrency == homeCurrency) it else it * rate.toDouble()
+              when {
+                selectedBudgetCurrency == homeCurrency -> it.setScale(homeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+                rate != null && rate > BigDecimal.ZERO -> it.multiply(rate).setScale(homeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+                else -> null
+              }
             }
 
             Surface(
-              shape = RoundedCornerShape(12.dp),
+              shape = PlutoShapes.medium,
               color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
               modifier = Modifier.fillMaxWidth()
             ) {
@@ -261,7 +305,7 @@ fun CategoryBudgetsDialog(
                   )
                   if (selectedBudgetCurrency != homeCurrency && inHome != null) {
                     Text(
-                      text = "≈ ${homeCurrency.symbol}${String.format(Locale.US, "%.1f", inHome)} ${homeCurrency.code}",
+                      text = "≈ ${Money.of(inHome, homeCurrency).format()} ${homeCurrency.code}",
                       style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
                       color = MaterialTheme.colorScheme.primary,
                       fontSize = 10.sp
@@ -273,7 +317,8 @@ fun CategoryBudgetsDialog(
                   OutlinedTextField(
                     value = currentValue,
                     onValueChange = { newVal ->
-                      val filtered = newVal.filter { it.isDigit() || it == '.' }
+                      val filtered = sanitizeCategoryDecimalInput(newVal, selectedBudgetCurrency) ?: return@OutlinedTextField
+                      editedCategories[cat.id] = true
                       if (filtered.isEmpty()) {
                         budgetInputs.remove(cat.id)
                       } else {
@@ -281,7 +326,7 @@ fun CategoryBudgetsDialog(
                       }
                     },
                     textStyle = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
-                    placeholder = { Text("0") },
+                    placeholder = { Text(selectedBudgetCurrency.zeroPlaceholder()) },
                     leadingIcon = {
                       Text(
                         text = selectedBudgetCurrency.symbol,
@@ -291,7 +336,10 @@ fun CategoryBudgetsDialog(
                     },
                     trailingIcon = {
                       if (currentValue.isNotEmpty()) {
-                        IconButton(onClick = { budgetInputs.remove(cat.id) }) {
+                        IconButton(onClick = {
+                          editedCategories[cat.id] = true
+                          budgetInputs.remove(cat.id)
+                        }) {
                           Icon(
                             imageVector = Icons.Rounded.Clear,
                             contentDescription = "Clear",
@@ -301,8 +349,10 @@ fun CategoryBudgetsDialog(
                       }
                     },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(8.dp),
+                    keyboardOptions = KeyboardOptions(
+                      keyboardType = if (selectedBudgetCurrency.decimalPlaces == 0) KeyboardType.Number else KeyboardType.Decimal
+                    ),
+                    shape = PlutoShapes.small,
                     modifier = Modifier
                       .width(130.dp)
                       .testTag("category_budget_input_${cat.id}")
@@ -316,7 +366,7 @@ fun CategoryBudgetsDialog(
 
       Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.md),
         verticalAlignment = Alignment.CenterVertically
       ) {
         TextButton(
@@ -328,30 +378,41 @@ fun CategoryBudgetsDialog(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        OutlinedButton(
+        PlutoButton(
+          text = "Cancel",
           onClick = onDismiss,
-          shape = RoundedCornerShape(12.dp)
-        ) {
-          Text("Cancel")
-        }
+          variant = PlutoButtonVariant.OUTLINED
+        )
 
-        Button(
+        val canSave = !isRateUnavailable || budgetInputs.isEmpty()
+        PlutoButton(
+          text = "Save Budgets",
           onClick = {
-            val resultBudgets = mutableMapOf<String, Double>()
+            val activeRate = rate
+            if (selectedBudgetCurrency != homeCurrency && activeRate == null) {
+              if (budgetInputs.isEmpty()) {
+                onSave(emptyMap())
+              }
+              return@PlutoButton
+            }
+            val resultBudgets = mutableMapOf<String, BigDecimal>()
             budgetInputs.forEach { (catId, text) ->
-              val entered = text.toDoubleOrNull()
-              if (entered != null && entered > 0.0) {
-                val homeAmount = if (selectedBudgetCurrency == homeCurrency) entered else entered * rate.toDouble()
+              val entered = text.toBigDecimalOrNull()
+              if (entered != null && entered > BigDecimal.ZERO) {
+                val homeAmount = if (selectedBudgetCurrency == homeCurrency) {
+                  entered.setScale(homeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+                } else {
+                  entered.multiply(activeRate!!).setScale(homeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+                }
                 resultBudgets[catId] = homeAmount
               }
             }
             onSave(resultBudgets)
           },
-          shape = RoundedCornerShape(12.dp),
-          modifier = Modifier.testTag("dialog_save_category_budgets_button")
-        ) {
-          Text("Save Budgets")
-        }
+          variant = PlutoButtonVariant.PRIMARY,
+          enabled = canSave,
+          testTag = "dialog_save_category_budgets_button"
+        )
       }
     }
   }

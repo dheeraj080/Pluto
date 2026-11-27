@@ -35,6 +35,11 @@ service cloud.firestore {
       return val is string && val.size() >= 1 && val.size() <= 40;
     }
 
+    function isValidNonNegativeDecimal(val) {
+      return (isValidAmountString(val) && val.matches('^[0-9]+(\\.[0-9]+)?$')) ||
+        (val is number && val >= 0);
+    }
+
     function isValidSettings(data, userId) {
       return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
         isValidCurrencyCode(data.homeCurrencyCode) &&
@@ -44,17 +49,17 @@ service cloud.firestore {
         data.termName is string && data.termName.size() <= 100 &&
         data.termStartDate is int &&
         data.termEndDate is int &&
-        data.totalAllowanceHome is number && data.totalAllowanceHome >= 0 &&
-        data.tuitionAndFixedCommittedHome is number && data.tuitionAndFixedCommittedHome >= 0 &&
+        isValidNonNegativeDecimal(data.totalAllowanceHome) &&
+        isValidNonNegativeDecimal(data.tuitionAndFixedCommittedHome) &&
         data.tripName is string && data.tripName.size() <= 100 &&
         data.tripStartDate is int &&
         data.tripEndDate is int &&
-        data.totalTripBudgetHome is number && data.totalTripBudgetHome >= 0 &&
+        isValidNonNegativeDecimal(data.totalTripBudgetHome) &&
         data.firstDayOfWeek is int && data.firstDayOfWeek >= 1 && data.firstDayOfWeek <= 7 &&
         data.defaultCategoryId is string && data.defaultCategoryId.size() >= 1 && data.defaultCategoryId.size() <= 64 &&
-        (!('dailySpendingCap' in data) || data.dailySpendingCap == null || (data.dailySpendingCap is number && data.dailySpendingCap >= 0)) &&
-        (!('monthlySpendingCap' in data) || data.monthlySpendingCap == null || (data.monthlySpendingCap is number && data.monthlySpendingCap >= 0)) &&
-        (!('safeToSpendWarningThreshold' in data) || data.safeToSpendWarningThreshold == null || (data.safeToSpendWarningThreshold is number && data.safeToSpendWarningThreshold >= 0)) &&
+        (!('dailySpendingCap' in data) || data.dailySpendingCap == null || isValidNonNegativeDecimal(data.dailySpendingCap)) &&
+        (!('monthlySpendingCap' in data) || data.monthlySpendingCap == null || isValidNonNegativeDecimal(data.monthlySpendingCap)) &&
+        (!('safeToSpendWarningThreshold' in data) || data.safeToSpendWarningThreshold == null || isValidNonNegativeDecimal(data.safeToSpendWarningThreshold)) &&
         data.warningNotificationsEnabled is bool &&
         (!('categoryMonthlyBudgets' in data) || data.categoryMonthlyBudgets == null || (data.categoryMonthlyBudgets is map && data.categoryMonthlyBudgets.size() <= 30)) &&
         data.themeMode is string && data.themeMode in ['SYSTEM', 'LIGHT', 'DARK'] &&

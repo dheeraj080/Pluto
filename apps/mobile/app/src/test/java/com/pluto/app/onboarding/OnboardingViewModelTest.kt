@@ -20,6 +20,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.math.BigDecimal
 
 /**
  * Fake implementation of [UserSettingsRepository] for fast local unit testing.
@@ -37,16 +38,16 @@ class FakeUserSettingsRepository(
   override suspend fun updateDestinationCurrency(destinationCurrency: Currency) {
     state.value = state.value.copy(destinationCurrency = destinationCurrency)
   }
-  override suspend fun updateSpendingCaps(dailyCap: Double?, monthlyCap: Double?) {
+  override suspend fun updateSpendingCaps(dailyCap: BigDecimal?, monthlyCap: BigDecimal?) {
     state.value = state.value.copy(dailySpendingCap = dailyCap, monthlySpendingCap = monthlyCap)
   }
-  override suspend fun updateWarningThreshold(threshold: Double?, notificationsEnabled: Boolean) {
+  override suspend fun updateWarningThreshold(threshold: BigDecimal?, notificationsEnabled: Boolean) {
     state.value = state.value.copy(
       safeToSpendWarningThreshold = threshold,
       warningNotificationsEnabled = notificationsEnabled
     )
   }
-  override suspend fun updateCategoryBudgets(categoryBudgets: Map<String, Double>) {
+  override suspend fun updateCategoryBudgets(categoryBudgets: Map<String, BigDecimal>) {
     state.value = state.value.copy(categoryMonthlyBudgets = categoryBudgets)
   }
   override suspend fun updateThemeMode(themeMode: com.pluto.app.domain.model.ThemeMode) {
@@ -187,8 +188,8 @@ class OnboardingViewModelTest {
   fun `configuring student persona and allowance persists academic term settings`() = runTest {
     viewModel.onPersonaSelected(com.pluto.app.domain.model.UserPersona.INTERNATIONAL_STUDENT)
     viewModel.onTermNameChanged("Spring 2027")
-    viewModel.onSemesterAllowanceChanged(7500.0)
-    viewModel.onTuitionAndFixedChanged(2000.0)
+    viewModel.onSemesterAllowanceChanged(BigDecimal("7500.00"))
+    viewModel.onTuitionAndFixedChanged(BigDecimal("2000.00"))
     viewModel.onTermDaysChanged(100)
 
     viewModel.completeOnboarding {}
@@ -198,7 +199,26 @@ class OnboardingViewModelTest {
     assertEquals(com.pluto.app.domain.model.UserPersona.INTERNATIONAL_STUDENT, saved.persona)
     assertEquals(com.pluto.app.domain.model.BudgetCycleType.ACADEMIC_TERM, saved.budgetCycleType)
     assertEquals("Spring 2027", saved.academicTermSettings.termName)
-    assertEquals(7500.0, saved.academicTermSettings.totalAllowanceHome, 0.001)
-    assertEquals(2000.0, saved.academicTermSettings.tuitionAndFixedCommittedHome, 0.001)
+    assertEquals("7500.00", saved.academicTermSettings.totalAllowanceHome.toPlainString())
+    assertEquals("2000.00", saved.academicTermSettings.tuitionAndFixedCommittedHome.toPlainString())
+  }
+
+  @Test
+  fun `fractional spending caps and term allowance preserve exact decimal values`() = runTest {
+    viewModel.onDailyCapChanged(BigDecimal("49.99"))
+    viewModel.onMonthlyCapChanged(BigDecimal("1499.95"))
+    viewModel.onSemesterAllowanceChanged(BigDecimal("6123.45"))
+    viewModel.onTuitionAndFixedChanged(BigDecimal("1543.21"))
+    viewModel.onTripBudgetChanged(BigDecimal("888.75"))
+
+    viewModel.completeOnboarding {}
+    advanceUntilIdle()
+
+    val saved = fakeRepository.getSettings()
+    assertEquals("49.99", saved.dailySpendingCap?.toPlainString())
+    assertEquals("1499.95", saved.monthlySpendingCap?.toPlainString())
+    assertEquals("6123.45", saved.academicTermSettings.totalAllowanceHome.toPlainString())
+    assertEquals("1543.21", saved.academicTermSettings.tuitionAndFixedCommittedHome.toPlainString())
+    assertEquals("888.75", saved.tripSettings.totalTripBudgetHome.toPlainString())
   }
 }

@@ -26,17 +26,12 @@ import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -64,23 +59,21 @@ import com.pluto.app.domain.model.DashboardSummary
 import com.pluto.app.domain.model.Money
 import com.pluto.app.domain.model.UserSettings
 import com.pluto.app.ui.components.CurrencyBadge
+import com.pluto.app.ui.components.DualCurrencyAmountView
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.home.CategoryBudgetsDialog
 import com.pluto.app.ui.home.DashboardUiState
 import com.pluto.app.ui.home.DashboardViewModel
 import com.pluto.app.ui.home.SpendingCapsDialog
 import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
+import com.pluto.app.ui.theme.parseCategoryColor
 import com.pluto.app.ui.theme.plutoHeading
 import java.math.BigDecimal
 import java.util.Locale
-
-private fun parseCategoryColor(hex: String): Color {
-  return try {
-    Color(android.graphics.Color.parseColor(hex))
-  } catch (_: Exception) {
-    Color(0xFF15805A)
-  }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,7 +81,7 @@ fun BudgetsScreen(
   userSettings: UserSettings,
   dashboardViewModel: DashboardViewModel,
   onNavigateToProfile: () -> Unit,
-  onUpdateSpendingCaps: (Double?, Double?) -> Unit,
+  onUpdateSpendingCaps: (BigDecimal?, BigDecimal?) -> Unit,
   modifier: Modifier = Modifier
 ) {
   val homeCurrency = userSettings.homeCurrency
@@ -204,6 +197,24 @@ fun BudgetsScreen(
           modifier = Modifier.padding(innerPadding)
         )
       }
+
+      is DashboardUiState.Error -> {
+        Box(
+          modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding),
+          contentAlignment = Alignment.Center
+        ) {
+          com.pluto.app.ui.components.EmptyState(
+            icon = androidx.compose.material.icons.Icons.Rounded.Warning,
+            title = "Couldn't load budgets",
+            description = state.message,
+            actionText = "Retry",
+            onActionClick = dashboardViewModel::retry,
+            actionTestTag = "budgets_retry_button"
+          )
+        }
+      }
     }
   }
 }
@@ -218,8 +229,8 @@ private fun BudgetsContent(
 ) {
   val homeCurrency = userSettings.homeCurrency
   val destCurrency = userSettings.destinationCurrency
-  val hasTripBudget = (summary.monthlySpendingCap != null && summary.monthlySpendingCap > 0.0)
-  val hasDailyCap = (summary.dailySpendingCap != null && summary.dailySpendingCap > 0.0)
+  val hasTripBudget = (summary.monthlySpendingCap != null && summary.monthlySpendingCap > BigDecimal.ZERO)
+  val hasDailyCap = (summary.dailySpendingCap != null && summary.dailySpendingCap > BigDecimal.ZERO)
 
   val totalSpentPrimary = summary.totalDestSpending?.format() ?: summary.totalHomeSpending.format()
   val totalSpentSecondary = if (summary.totalDestSpending != null) summary.totalHomeSpending.format() else null
@@ -252,13 +263,10 @@ private fun BudgetsContent(
     ) {
       item(key = "overall_budget_card") {
     // 1. Overall Trip / Monthly Budget Card
-    Card(
-      modifier = Modifier
-        .fillMaxWidth()
-        .testTag("card_overall_budget"),
+    PlutoCard(
+      modifier = Modifier.fillMaxWidth(),
       shape = PlutoShapes.extraLarge,
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-      elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+      testTag = "card_overall_budget"
     ) {
       Column(modifier = Modifier.padding(20.dp)) {
         Row(
@@ -330,19 +338,16 @@ private fun BudgetsContent(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
               )
-              Text(
-                text = totalSpentPrimary,
-                style = MaterialTheme.typography.titleLarge.merge(PlutoNumericStyle),
-                fontWeight = FontWeight.ExtraBold,
-                color = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+              DualCurrencyAmountView(
+                primaryAmount = totalSpentPrimary,
+                secondaryAmount = totalSpentSecondary,
+                primaryStyle = MaterialTheme.typography.titleLarge,
+                primaryColor = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                primaryFontWeight = FontWeight.ExtraBold,
+                secondaryStyle = MaterialTheme.typography.bodySmall,
+                secondaryFontWeight = FontWeight.Normal,
+                horizontalAlignment = Alignment.Start
               )
-              if (totalSpentSecondary != null) {
-                Text(
-                  text = totalSpentSecondary,
-                  style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
-                  color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-              }
             }
 
             Column(horizontalAlignment = Alignment.End) {
@@ -351,7 +356,7 @@ private fun BudgetsContent(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
               )
-              val capMoney = Money.of(summary.monthlySpendingCap ?: 0.0, homeCurrency)
+              val capMoney = Money.of(summary.monthlySpendingCap ?: BigDecimal.ZERO, homeCurrency)
               Text(
                 text = capMoney.format(),
                 style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
@@ -431,33 +436,28 @@ private fun BudgetsContent(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
               )
-              Spacer(modifier = Modifier.height(8.dp))
-              Button(
+              Spacer(modifier = Modifier.height(PlutoSpacing.sm))
+              PlutoButton(
+                text = "Set Trip Budget",
                 onClick = onOpenCapsDialog,
-                modifier = Modifier.testTag("btn_set_trip_budget")
-              ) {
-                Icon(imageVector = Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Set Trip Budget")
-              }
+                leadingIcon = Icons.Rounded.Add,
+                testTag = "btn_set_trip_budget"
+              )
             }
           }
         }
       }
     }
 
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(modifier = Modifier.height(PlutoSpacing.lg))
       }
 
       item(key = "daily_pace_card") {
     // 2. Daily Safe-to-Spend & Pace Card
-    Card(
-      modifier = Modifier
-        .fillMaxWidth()
-        .testTag("card_daily_pace"),
+    PlutoCard(
+      modifier = Modifier.fillMaxWidth(),
       shape = PlutoShapes.extraLarge,
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-      elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+      testTag = "card_daily_pace"
     ) {
       Column(modifier = Modifier.padding(18.dp)) {
         Row(
@@ -539,7 +539,7 @@ private fun BudgetsContent(
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (hasDailyCap) {
-              val dailyCapMoney = Money.of(summary.dailySpendingCap ?: 0.0, homeCurrency)
+              val dailyCapMoney = Money.of(summary.dailySpendingCap ?: BigDecimal.ZERO, homeCurrency)
               Text(
                 text = dailyCapMoney.format(),
                 style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
@@ -580,14 +580,13 @@ private fun BudgetsContent(
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
       }
-      OutlinedButton(
+      PlutoButton(
+        text = "Manage Caps",
         onClick = onOpenCategoryDialog,
-        modifier = Modifier.testTag("btn_manage_category_budgets")
-      ) {
-        Icon(imageVector = Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-        Spacer(modifier = Modifier.width(6.dp))
-        Text("Manage Caps")
-      }
+        variant = PlutoButtonVariant.OUTLINED,
+        leadingIcon = Icons.Rounded.Edit,
+        testTag = "btn_manage_category_budgets"
+      )
     }
 
     Spacer(modifier = Modifier.height(12.dp))
@@ -629,27 +628,25 @@ private fun BudgetsContent(
             modifier = Modifier.padding(vertical = 4.dp),
             lineHeight = 18.sp
           )
-          Spacer(modifier = Modifier.height(12.dp))
-          Button(
+          Spacer(modifier = Modifier.height(PlutoSpacing.md))
+          PlutoButton(
+            text = "Set Category Limits",
             onClick = onOpenCategoryDialog,
-            modifier = Modifier.testTag("btn_setup_category_budgets")
-          ) {
-            Text("Set Category Limits")
-          }
+            testTag = "btn_setup_category_budgets"
+          )
         }
       }
       }
     }
 
       item(key = "budget_smart_tip_card") {
-    Spacer(modifier = Modifier.height(20.dp))
+    Spacer(modifier = Modifier.height(PlutoSpacing.xl))
 
     // 4. Helpful Budgeting Tips / Advisory
-    Card(
+    PlutoCard(
       modifier = Modifier.fillMaxWidth(),
       shape = PlutoShapes.large,
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f)),
-      elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+      containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f)
     ) {
       Row(
         modifier = Modifier.padding(16.dp),
@@ -702,11 +699,9 @@ private fun CategoryBudgetRow(
     else -> MaterialTheme.colorScheme.primary
   }
 
-  Card(
+  PlutoCard(
     modifier = modifier.fillMaxWidth(),
-    shape = PlutoShapes.large,
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    shape = PlutoShapes.large
   ) {
     Column(modifier = Modifier.padding(16.dp)) {
       Row(
@@ -737,27 +732,21 @@ private fun CategoryBudgetRow(
             )
             Text(
               text = "${item.transactionCount} transactions",
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-          }
-        }
-
-        Column(horizontalAlignment = Alignment.End) {
-          Text(
-            text = item.totalHomeAmount.format(),
-            style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold,
-            color = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-          )
-          item.budgetHome?.let { budget ->
-            Text(
-              text = "of ${budget.format()}",
               style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
           }
         }
+
+        DualCurrencyAmountView(
+          primaryAmount = item.totalHomeAmount.format(),
+          secondaryAmount = item.budgetHome?.let { "of ${it.format()}" },
+          primaryStyle = MaterialTheme.typography.titleMedium,
+          primaryColor = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+          secondaryStyle = MaterialTheme.typography.bodySmall,
+          secondaryFontWeight = FontWeight.Normal,
+          horizontalAlignment = Alignment.End
+        )
       }
 
       Spacer(modifier = Modifier.height(10.dp))

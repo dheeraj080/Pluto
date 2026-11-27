@@ -223,8 +223,8 @@ class DashboardSummaryTest {
       period = DashboardPeriod.TODAY,
       currentHomeCurrency = usd,
       destinationCurrency = eur,
-      dailySpendingCap = 100.0,
-      monthlySpendingCap = 1000.0
+      dailySpendingCap = BigDecimal("100.00"),
+      monthlySpendingCap = BigDecimal("1000.00")
     )
 
     assertEquals(usd, summary.homeCurrency)
@@ -255,7 +255,7 @@ class DashboardSummaryTest {
       period = DashboardPeriod.TODAY,
       currentHomeCurrency = usd,
       destinationCurrency = eur,
-      dailySpendingCap = 100.0,
+      dailySpendingCap = BigDecimal("100.00"),
       destinationExchangeRate = BigDecimal("0.90")
     )
 
@@ -342,7 +342,7 @@ class DashboardSummaryTest {
       period = DashboardPeriod.THIS_MONTH,
       currentHomeCurrency = Currency.USD,
       destinationCurrency = Currency.JPY,
-      dailySpendingCap = 50.0,
+      dailySpendingCap = BigDecimal("50.00"),
       destinationExchangeRate = BigDecimal("150.00")
     )
 
@@ -405,7 +405,7 @@ class DashboardSummaryTest {
       period = DashboardPeriod.THIS_MONTH,
       currentHomeCurrency = Currency.USD,
       destinationCurrency = Currency.JPY,
-      dailySpendingCap = 50.0,
+      dailySpendingCap = BigDecimal("50.00"),
       destinationExchangeRate = BigDecimal("150.00")
     )
 
@@ -440,8 +440,8 @@ class DashboardSummaryTest {
       period = DashboardPeriod.TODAY,
       currentHomeCurrency = Currency.USD,
       destinationCurrency = Currency.EUR,
-      dailySpendingCap = 100.0,
-      safeToSpendWarningThreshold = 25.0,
+      dailySpendingCap = BigDecimal("100.00"),
+      safeToSpendWarningThreshold = BigDecimal("25.00"),
       destinationExchangeRate = BigDecimal("0.90")
     )
 
@@ -475,8 +475,8 @@ class DashboardSummaryTest {
       period = DashboardPeriod.TODAY,
       currentHomeCurrency = Currency.USD,
       destinationCurrency = Currency.EUR,
-      dailySpendingCap = 100.0,
-      safeToSpendWarningThreshold = 20.0,
+      dailySpendingCap = BigDecimal("100.00"),
+      safeToSpendWarningThreshold = BigDecimal("20.00"),
       destinationExchangeRate = BigDecimal("0.90")
     )
 
@@ -505,8 +505,8 @@ class DashboardSummaryTest {
       period = DashboardPeriod.TODAY,
       currentHomeCurrency = Currency.USD,
       destinationCurrency = Currency.EUR,
-      dailySpendingCap = 100.0,
-      safeToSpendWarningThreshold = 20.0,
+      dailySpendingCap = BigDecimal("100.00"),
+      safeToSpendWarningThreshold = BigDecimal("20.00"),
       destinationExchangeRate = BigDecimal("0.90")
     )
 
@@ -600,8 +600,8 @@ class DashboardSummaryTest {
     )
 
     val categoryBudgets = mapOf(
-      Category.FOOD.id to 100.0, // Food is 120 / 100 -> Over budget (120%)
-      Category.TRANSPORT.id to 80.0 // Transport is 40 / 80 -> Under budget (50%)
+      Category.FOOD.id to BigDecimal("100.00"), // Food is 120 / 100 -> Over budget (120%)
+      Category.TRANSPORT.id to BigDecimal("80.00") // Transport is 40 / 80 -> Under budget (50%)
     )
 
     val summary = getDashboardSummaryUseCase(
@@ -636,8 +636,8 @@ class DashboardSummaryTest {
       termName = "Fall 2026",
       termStartDate = now - (10L * 86400000L), // 10 days ago
       termEndDate = now + (90L * 86400000L),   // 90 days left
-      totalAllowanceHome = 6000.0,
-      tuitionAndFixedCommittedHome = 1500.0
+      totalAllowanceHome = BigDecimal("6000.00"),
+      tuitionAndFixedCommittedHome = BigDecimal("1500.00")
     )
 
     // Expense in term: $500 home currency
@@ -675,6 +675,156 @@ class DashboardSummaryTest {
     // In destination currency EUR (rate 0.90) = 44.44 * 0.90 = 40.00 EUR / day
     assertEquals("40.00", runway?.dailyRunwaySafeToSpendDest?.amount?.toPlainString())
     assertEquals(com.pluto.app.domain.model.RunwayPaceStatus.ON_TRACK, runway?.paceStatus)
+  }
+
+  @Test
+  fun `fractional spending caps, warning threshold, category budgets, and term allowance compute with exact BigDecimal math`() {
+    val now = System.currentTimeMillis()
+    val exp = Expense(
+      id = "exp-frac-1",
+      originalAmount = Money.of("30.04", Currency.USD),
+      homeAmount = Money.of("30.04", Currency.USD),
+      exchangeRate = ExchangeRate.identity(Currency.USD),
+      category = Category.FOOD,
+      timestamp = now
+    )
+    val termSettings = com.pluto.app.domain.model.AcademicTermSettings(
+      termName = "Winter 2027",
+      termStartDate = now - (5L * 86400000L),
+      termEndDate = now + (10L * 86400000L),
+      totalAllowanceHome = BigDecimal("1000.55"),
+      tuitionAndFixedCommittedHome = BigDecimal("250.25")
+    )
+
+    val summary = getDashboardSummaryUseCase(
+      allExpenses = listOf(exp),
+      period = DashboardPeriod.TODAY,
+      currentHomeCurrency = Currency.USD,
+      destinationCurrency = Currency.EUR,
+      dailySpendingCap = BigDecimal("49.99"),
+      monthlySpendingCap = BigDecimal("320.50"),
+      safeToSpendWarningThreshold = BigDecimal("19.95"),
+      destinationExchangeRate = BigDecimal("0.90"),
+      categoryBudgets = mapOf(Category.FOOD.id to BigDecimal("45.67")),
+      userPersona = com.pluto.app.domain.model.UserPersona.INTERNATIONAL_STUDENT,
+      academicTermSettings = termSettings
+    )
+
+    // 49.99 - 30.04 = 19.95 -> equals threshold (<= 19.95), triggers warning
+    assertEquals("19.95", summary.safeToSpendTodayHome.amount.toPlainString())
+    assertEquals("19.95", summary.warningThresholdHome?.amount?.toPlainString())
+    assertTrue(summary.isBelowWarningThreshold)
+    assertFalse(summary.isDailyBudgetExceeded)
+    assertEquals("49.99", summary.dailySpendingCap?.toPlainString())
+    assertEquals("320.50", summary.monthlySpendingCap?.toPlainString())
+
+    val foodBreakdown = summary.categoryBreakdowns.first { it.category == Category.FOOD }
+    assertEquals("45.67", foodBreakdown.budgetHome?.amount?.toPlainString())
+
+    val runway = summary.termRunwaySummary!!
+    // 1000.55 - 250.25 - 30.04 = 720.26 remaining over 10 days = 72.03 (HALF_EVEN from 72.026)
+    assertEquals("1000.55", runway.totalAllowanceHome.amount.toPlainString())
+    assertEquals("250.25", runway.committedFixedHome.amount.toPlainString())
+    assertEquals("720.26", runway.remainingDiscretionaryHome.amount.toPlainString())
+    assertEquals("72.03", runway.dailyRunwaySafeToSpendHome.amount.toPlainString())
+  }
+
+  @Test
+  fun `multi-currency deposits convert to home currency using resolved rates and never add raw cross-currency amounts`() {
+    val now = System.currentTimeMillis()
+    val usdDeposit = com.pluto.app.domain.model.WalletTransaction(
+      id = "dep-usd",
+      walletId = "w-usd",
+      type = com.pluto.app.domain.model.WalletTransactionType.DEPOSIT,
+      amount = Money.of("100.00", Currency.USD),
+      note = "Base paycheck",
+      timestamp = now
+    )
+    // Foreign deposit in JPY: 15000 JPY @ 0.00666667 = 100.00 USD
+    val jpyDeposit = com.pluto.app.domain.model.WalletTransaction(
+      id = "dep-jpy",
+      walletId = "w-jpy",
+      type = com.pluto.app.domain.model.WalletTransactionType.DEPOSIT,
+      amount = Money.of("15000", Currency.JPY),
+      note = "Part-time tutoring",
+      timestamp = now - 500
+    )
+    // Foreign deposit in EUR: 90.00 EUR when USD -> EUR destination rate = 0.90 => 100.00 USD
+    val eurDeposit = com.pluto.app.domain.model.WalletTransaction(
+      id = "dep-eur",
+      walletId = "w-eur",
+      type = com.pluto.app.domain.model.WalletTransactionType.DEPOSIT,
+      amount = Money.of("90.00", Currency.EUR),
+      note = "Refund",
+      timestamp = now - 1000
+    )
+
+    val summary = getDashboardSummaryUseCase(
+      allExpenses = emptyList(),
+      walletTransactions = listOf(usdDeposit, jpyDeposit, eurDeposit),
+      period = DashboardPeriod.THIS_MONTH,
+      currentHomeCurrency = Currency.USD,
+      destinationCurrency = Currency.EUR,
+      destinationExchangeRate = BigDecimal("0.90"),
+      depositToHomeRates = mapOf(
+        Currency.JPY to BigDecimal("0.00666667")
+      )
+    )
+
+    // USD (100.00) + JPY (100.00) + EUR (90 / 0.90 = 100.00) = 300.00 USD
+    assertEquals("300.00", summary.totalIncomeHome.amount.toPlainString())
+    assertEquals("300.00", summary.todayIncomeHome.amount.toPlainString())
+    assertEquals("270.00", summary.totalIncomeDest?.amount?.toPlainString())
+    assertEquals("300.00", summary.netCashFlowHome.amount.toPlainString())
+    assertTrue(summary.unvaluedIncomeCurrencies.isEmpty())
+    assertTrue(summary.unvaluedTodayIncomeCurrencies.isEmpty())
+
+    // Unified feed JPY item should show converted ≈ +$100.00 home and +€90.00 dest
+    val jpyFeedItem = summary.unifiedRecentTransactions.first { it.id == "dep-jpy" }
+    assertTrue(jpyFeedItem.primaryAmountFormatted.contains("90.00"))
+    assertTrue(jpyFeedItem.secondaryAmountFormatted?.contains("100.00") == true)
+  }
+
+  @Test
+  fun `foreign deposits without exchange rates are excluded from home totals and reported in unvaluedIncomeCurrencies`() {
+    val now = System.currentTimeMillis()
+    val usdDeposit = com.pluto.app.domain.model.WalletTransaction(
+      id = "dep-usd",
+      walletId = "w-usd",
+      type = com.pluto.app.domain.model.WalletTransactionType.DEPOSIT,
+      amount = Money.of("50.00", Currency.USD),
+      note = "USD Allowance",
+      timestamp = now
+    )
+    // GBP deposit with NO GBP -> USD rate supplied
+    val gbpDeposit = com.pluto.app.domain.model.WalletTransaction(
+      id = "dep-gbp",
+      walletId = "w-gbp",
+      type = com.pluto.app.domain.model.WalletTransactionType.DEPOSIT,
+      amount = Money.of("200.00", Currency.GBP),
+      note = "UK Stipend",
+      timestamp = now
+    )
+
+    val summary = getDashboardSummaryUseCase(
+      allExpenses = emptyList(),
+      walletTransactions = listOf(usdDeposit, gbpDeposit),
+      period = DashboardPeriod.THIS_MONTH,
+      currentHomeCurrency = Currency.USD,
+      destinationCurrency = Currency.EUR,
+      destinationExchangeRate = BigDecimal("0.90"),
+      depositToHomeRates = emptyMap()
+    )
+
+    // Must NOT add raw 200.00 GBP into USD total: only 50.00 USD counts
+    assertEquals("50.00", summary.totalIncomeHome.amount.toPlainString())
+    assertEquals("50.00", summary.todayIncomeHome.amount.toPlainString())
+    assertEquals(listOf(Currency.GBP), summary.unvaluedIncomeCurrencies)
+    assertEquals(listOf(Currency.GBP), summary.unvaluedTodayIncomeCurrencies)
+
+    val gbpItem = summary.unifiedRecentTransactions.first { it.id == "dep-gbp" }
+    assertTrue(gbpItem.primaryAmountFormatted.contains("200.00"))
+    assertEquals("Rate to USD unavailable", gbpItem.secondaryAmountFormatted)
   }
 }
 

@@ -15,17 +15,11 @@ import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -33,8 +27,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
 import com.pluto.app.util.BackupSummary
 import com.pluto.app.util.RestoreMode
 import java.text.SimpleDateFormat
@@ -95,11 +93,9 @@ fun BackupRestoreDialog(
 
           Spacer(modifier = Modifier.height(14.dp))
 
-          Card(
+          PlutoCard(
             shape = PlutoShapes.medium,
-            colors = CardDefaults.cardColors(
-              containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            ),
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             modifier = Modifier.fillMaxWidth()
           ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -146,23 +142,22 @@ fun BackupRestoreDialog(
 
           Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.sm)
           ) {
-            OutlinedButton(
+            PlutoButton(
+              text = "Merge Data",
               onClick = { onConfirmRestore(RestoreMode.MERGE) },
-              modifier = Modifier.weight(1f).testTag("restore_merge_button"),
-              shape = PlutoShapes.medium
-            ) {
-              Text("Merge Data")
-            }
-            Button(
+              variant = PlutoButtonVariant.OUTLINED,
+              testTag = "restore_merge_button",
+              modifier = Modifier.weight(1f)
+            )
+            PlutoButton(
+              text = "Replace All",
               onClick = { onConfirmRestore(RestoreMode.REPLACE) },
-              modifier = Modifier.weight(1f).testTag("restore_replace_button"),
-              shape = PlutoShapes.medium,
-              colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-            ) {
-              Text("Replace All")
-            }
+              variant = PlutoButtonVariant.PRIMARY,
+              testTag = "restore_replace_button",
+              modifier = Modifier.weight(1f)
+            )
           }
         } else {
           // Standard Backup & Export actions
@@ -191,51 +186,38 @@ fun BackupRestoreDialog(
           Spacer(modifier = Modifier.height(18.dp))
 
           // Action 1: Create Backup via SAF
-          Button(
+          PlutoButton(
+            text = "Save Backup (Google Drive / Files)",
             onClick = onCreateBackupClick,
-            shape = PlutoShapes.medium,
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-            modifier = Modifier
-              .fillMaxWidth()
-              .height(48.dp)
-              .testTag("create_backup_file_button")
-          ) {
-            Icon(imageVector = Icons.Rounded.FileUpload, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Save Backup (Google Drive / Files)")
-          }
+            variant = PlutoButtonVariant.PRIMARY,
+            leadingIcon = Icons.Rounded.FileUpload,
+            testTag = "create_backup_file_button",
+            modifier = Modifier.fillMaxWidth()
+          )
 
           Spacer(modifier = Modifier.height(10.dp))
 
           // Action 2: Share Backup File
-          OutlinedButton(
+          PlutoButton(
+            text = "Share Backup Archive",
             onClick = onShareBackupClick,
-            shape = PlutoShapes.medium,
-            modifier = Modifier
-              .fillMaxWidth()
-              .height(48.dp)
-              .testTag("share_backup_button")
-          ) {
-            Icon(imageVector = Icons.Rounded.Share, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Share Backup Archive")
-          }
+            variant = PlutoButtonVariant.OUTLINED,
+            leadingIcon = Icons.Rounded.Share,
+            testTag = "share_backup_button",
+            modifier = Modifier.fillMaxWidth()
+          )
 
           Spacer(modifier = Modifier.height(10.dp))
 
           // Action 3: Restore Backup via SAF
-          OutlinedButton(
+          PlutoButton(
+            text = "Restore from Backup File",
             onClick = onRestoreBackupClick,
-            shape = PlutoShapes.medium,
-            modifier = Modifier
-              .fillMaxWidth()
-              .height(48.dp)
-              .testTag("open_restore_file_button")
-          ) {
-            Icon(imageVector = Icons.Rounded.FileDownload, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Restore from Backup File")
-          }
+            variant = PlutoButtonVariant.OUTLINED,
+            leadingIcon = Icons.Rounded.FileDownload,
+            testTag = "open_restore_file_button",
+            modifier = Modifier.fillMaxWidth()
+          )
         }
 
         if (isProcessing) {
@@ -253,12 +235,12 @@ fun BackupRestoreDialog(
       }
     },
     confirmButton = {
-      TextButton(
+      PlutoButton(
+        text = "Done",
         onClick = onDismiss,
-        modifier = Modifier.testTag("close_backup_dialog_button")
-      ) {
-        Text("Done")
-      }
+        variant = PlutoButtonVariant.GHOST,
+        testTag = "close_backup_dialog_button"
+      )
     }
   )
 }

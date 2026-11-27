@@ -22,8 +22,6 @@ import androidx.compose.material.icons.automirrored.rounded.TrendingDown
 import androidx.compose.material.icons.automirrored.rounded.TrendingFlat
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -49,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pluto.app.domain.model.DailySpendPoint
 import com.pluto.app.domain.model.DashboardSummary
+import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
 import java.math.BigDecimal
@@ -76,15 +75,10 @@ fun SpendingTrendCard(
   var selectedIndex by remember { mutableStateOf<Int?>(null) }
   val activePoint = selectedIndex?.let { trendPoints.getOrNull(it) }
 
-  Card(
-    modifier = modifier
-      .fillMaxWidth()
-      .testTag("spending_trend_card"),
+  PlutoCard(
+    modifier = modifier.fillMaxWidth(),
     shape = PlutoShapes.extraLarge,
-    colors = CardDefaults.cardColors(
-      containerColor = MaterialTheme.colorScheme.surface
-    ),
-    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    testTag = "spending_trend_card"
   ) {
     Column(
       modifier = Modifier
@@ -308,7 +302,7 @@ private fun TrendTelemetryBar(
           Spacer(modifier = Modifier.width(3.dp))
           Text(
             text = trendText,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelMedium.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = trendColor,
             maxLines = 1
@@ -352,7 +346,7 @@ private fun TelemetryMetricPill(
       if (subValue != null) {
         Text(
           text = subValue,
-          style = MaterialTheme.typography.labelSmall,
+          style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           fontSize = 9.sp,
           maxLines = 1
@@ -595,7 +589,7 @@ private fun ScrubberTooltipPill(
             Spacer(modifier = Modifier.width(6.dp))
             Text(
               text = "≈ ${point.amountHome.format()}",
-              style = MaterialTheme.typography.labelSmall,
+              style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
           }
@@ -610,7 +604,7 @@ private fun ScrubberTooltipPill(
         ) {
           Text(
             text = "${point.transactionCount} tx",
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)

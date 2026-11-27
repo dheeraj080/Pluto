@@ -27,6 +27,7 @@ import java.math.BigDecimal
 
 class FakeExchangeRateRepository : ExchangeRateRepository {
   private val rates = mutableMapOf<Pair<String, String>, ExchangeRate>()
+  private val historicalRates = mutableMapOf<Pair<String, String>, ExchangeRate>()
   private val ratesFlow = MutableStateFlow<List<ExchangeRate>>(emptyList())
 
   fun setRate(exchangeRate: ExchangeRate) {
@@ -34,8 +35,13 @@ class FakeExchangeRateRepository : ExchangeRateRepository {
     ratesFlow.value = rates.values.toList()
   }
 
+  fun setHistoricalRate(exchangeRate: ExchangeRate) {
+    historicalRates[Pair(exchangeRate.fromCurrency.code, exchangeRate.toCurrency.code)] = exchangeRate
+  }
+
   fun clear() {
     rates.clear()
+    historicalRates.clear()
     ratesFlow.value = emptyList()
   }
 
@@ -50,7 +56,7 @@ class FakeExchangeRateRepository : ExchangeRateRepository {
 
   override suspend fun getHistoricalRate(from: Currency, to: Currency, timestamp: Long): ExchangeRate? {
     if (from == to) return ExchangeRate.identity(from)
-    return rates[Pair(from.code, to.code)]
+    return historicalRates[Pair(from.code, to.code)] ?: rates[Pair(from.code, to.code)]
   }
 
   override suspend fun saveRate(exchangeRate: ExchangeRate) {

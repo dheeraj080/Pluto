@@ -61,7 +61,7 @@ typography:
     lineHeight: "18sp"
     letterSpacing: "0.2sp"
   numeric:
-    fontFamily: "JetBrains Mono"
+    fontFamily: "Roboto Mono"
     fontFeature: "tnum"
 rounded:
   xs: "4dp"
@@ -118,7 +118,7 @@ The interface operates primarily in **Operate** mode: instant scanability of ava
 - **Nordic Cobalt & Soft Ice Gray**: Cool ice-gray canvas separation (`#F4F6FA`) lets crisp `#FFFFFF` instrument cards read cleanly without drop shadows; dark mode switches to Nordic Midnight (`#0B101B`) and `#131A29`.
 - **Unified Runway Hero & Action Dock (Home)**: A single Unified Runway Hero Card stacks the total multi-currency balance band above a 2-column split of **Safe-to-Spend Today** and **Cycle Runway** (concentric `PlutoShapes.small` inner tiles), followed by a 4-tile Tactile Action Dock (`Expense`, `Income`, `Wallets`, `Convert`), Spending Velocity Trend, and Collapsible Category & Ledger sections.
 - **Single-Scroll Story (Insights)**: An editorial financial narrative flowing top-to-bottom: Period Selector -> **Spend Pulse Bento** (Total Spent Cobalt card + Daily Burn Rate & Avg Expense 2-up row) -> Velocity Over Time curve -> Interactive Category Donut & Ranked Breakdown -> Cross-Border Currency Exposure with proportional share bars -> Highest Expenses & Export Statement Dock.
-- **Dual-Currency & Tabular Discipline**: Every amount renders in `JetBrainsMonoFontFamily` with `fontFeatureSettings = "tnum"` (`PlutoNumericStyle`), anchoring destination currency primary and home currency secondary.
+- **Dual-Currency & Tabular Discipline**: Every amount renders in `RobotoMonoFontFamily` with `fontFeatureSettings = "tnum"` (`PlutoNumericStyle`), anchoring destination currency primary and home currency secondary.
 - **Native Material 3 Ergonomics**: `enableEdgeToEdge()`, adaptive `NavigationSuiteScaffold`, `48.dp` minimum touch targets, TalkBack `plutoHeading()` landmarks, and reduced-motion-safe Compose transitions.
 
 ## Colors
@@ -146,9 +146,9 @@ Pluto restricts chromatic intensity to purposeful brand highlights and semantic 
 
 ## Typography
 
-**Display & UI Font:** `PlusJakartaSansFontFamily` (bundled locally in `res/font/plus_jakarta_sans.ttf`, weights 400–800)  
-**Numeric & Monospace Font:** `JetBrainsMonoFontFamily` (bundled locally in `res/font/jetbrains_mono.ttf`, `fontFeatureSettings = "tnum"` via `PlutoNumericStyle`)  
-**Character:** Crisp geometric `Plus Jakarta Sans` paired with engineered tabular alignment in `JetBrains Mono` so balances, exchange rates, and live dual-zone clocks never jump horizontally as digits change.
+**Display & UI Font:** `ManropeFontFamily` (bundled locally in `res/font/manrope.ttf`, weights 400–800)<br>
+**Numeric & Monospace Font:** `RobotoMonoFontFamily` (bundled locally in `res/font/roboto_mono.ttf`, `fontFeatureSettings = "tnum"` via `PlutoNumericStyle`)<br>
+**Character:** Crisp geometric `Manrope` paired with engineered tabular alignment in `Roboto Mono` so balances, exchange rates, and live dual-zone clocks never jump horizontally as digits change.
 
 ### Hierarchy (`ui/theme/Type.kt`)
 - **Display** (`displayLarge` 38.sp / 44.sp Bold, `-0.5.sp` tracking; `displayMedium` 32.sp / 38.sp Bold): Hero balance totals and primary converter outputs (merged with `PlutoNumericStyle` for numbers).
@@ -158,7 +158,7 @@ Pluto restricts chromatic intensity to purposeful brand highlights and semantic 
 - **Label** (`labelLarge` 13.sp / 18.sp SemiBold; `labelMedium` 11.sp / 16.sp Medium; `labelSmall` 10.sp / 14.sp Medium): Button labels, navigation labels, category pills, and `LOCAL` / `HOME` clock prefixes.
 
 ### Named Rules
-- **The Tabular Numeric Rule.** Every currency amount, rate, percentage, and live time value MUST merge `PlutoNumericStyle` (`JetBrainsMonoFontFamily` + `"tnum"`) with `maxLines = 1` and explicit overflow handling (`TextOverflow.Ellipsis` or `softWrap = false` where appropriate).
+- **The Tabular Numeric Rule.** Every currency amount, rate, percentage, and live time value MUST merge `PlutoNumericStyle` (`RobotoMonoFontFamily` + `"tnum"`) with `maxLines = 1` and explicit overflow handling (`TextOverflow.Ellipsis` or `softWrap = false` where appropriate).
 - **The System Scale Rule.** Specify all type sizes in `.sp`, avoid fixed-height text containers that clip at `font_scale = 1.3`, and verify wrap/truncation behavior on narrow viewports.
 
 ## Layout

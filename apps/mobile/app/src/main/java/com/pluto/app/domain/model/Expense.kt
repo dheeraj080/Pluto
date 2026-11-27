@@ -26,7 +26,9 @@ data class Expense(
   val receiptUri: String? = null,
   val isRecurring: Boolean = false,
   val recurrenceFrequency: RecurrenceFrequency? = null,
-  val lastRecurrenceLoggedMillis: Long? = null
+  val lastRecurrenceLoggedMillis: Long? = null,
+  val createdAt: Long = System.currentTimeMillis(),
+  val updatedAt: Long = createdAt
 ) {
   val originalCurrency: Currency
     get() = originalAmount.currency
@@ -62,7 +64,9 @@ data class Expense(
       receiptUri: String? = null,
       isRecurring: Boolean = false,
       recurrenceFrequency: RecurrenceFrequency? = null,
-      lastRecurrenceLoggedMillis: Long? = null
+      lastRecurrenceLoggedMillis: Long? = null,
+      createdAt: Long = System.currentTimeMillis(),
+      updatedAt: Long = createdAt
     ): Expense {
       require(exchangeRate.fromCurrency == originalAmount.currency) {
         "Exchange rate fromCurrency must match original currency"
@@ -85,7 +89,9 @@ data class Expense(
         receiptUri = receiptUri,
         isRecurring = isRecurring,
         recurrenceFrequency = recurrenceFrequency,
-        lastRecurrenceLoggedMillis = lastRecurrenceLoggedMillis
+        lastRecurrenceLoggedMillis = lastRecurrenceLoggedMillis,
+        createdAt = createdAt,
+        updatedAt = updatedAt
       )
     }
   }

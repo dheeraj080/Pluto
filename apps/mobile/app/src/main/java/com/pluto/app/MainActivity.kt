@@ -22,6 +22,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.pluto.app.data.local.AppDatabase
+import com.pluto.app.data.local.RoomTransactionRunner
 import com.pluto.app.data.remote.cloud.CloudSyncCoordinator
 import com.pluto.app.data.remote.cloud.CloudSyncState
 import com.pluto.app.data.remote.cloud.FirestoreCloudSyncRepository
@@ -51,6 +52,7 @@ import com.pluto.app.domain.usecase.GetPortfolioValuationUseCase
 import com.pluto.app.domain.usecase.ObserveCurrencyWalletsUseCase
 import com.pluto.app.domain.usecase.ObserveExpensesUseCase
 import com.pluto.app.domain.usecase.ObserveWalletTransactionsUseCase
+import com.pluto.app.domain.usecase.RestoreExpenseUseCase
 import com.pluto.app.domain.usecase.UpdateCurrencyWalletUseCase
 import com.pluto.app.domain.usecase.UpdateExpenseUseCase
 import com.pluto.app.ui.MainAppShell
@@ -105,6 +107,7 @@ class MainActivity : FragmentActivity() {
   private val exchangeRateRepository by lazy {
     OfflineFirstExchangeRateRepository(
       dao = database.exchangeRateDao(),
+      manualDao = database.manualExchangeRateDao(),
       apiService = ExchangeRateApiClient.apiService
     )
   }
@@ -122,10 +125,15 @@ class MainActivity : FragmentActivity() {
     )
   }
 
+  private val transactionRunner by lazy {
+    RoomTransactionRunner(database)
+  }
+
   private val rawWalletRepository by lazy {
     RoomCurrencyWalletRepository(
       dao = database.currencyWalletDao(),
-      transactionDao = database.walletTransactionDao()
+      transactionDao = database.walletTransactionDao(),
+      database = database
     )
   }
 
@@ -183,21 +191,25 @@ class MainActivity : FragmentActivity() {
     DeleteExpenseUseCase(expenseRepository)
   }
 
+  private val restoreExpenseUseCase by lazy {
+    RestoreExpenseUseCase(expenseRepository)
+  }
+
   // Wallet Use Cases
   private val observeCurrencyWalletsUseCase by lazy {
     ObserveCurrencyWalletsUseCase(walletRepository)
   }
 
   private val createCurrencyWalletUseCase by lazy {
-    CreateCurrencyWalletUseCase(walletRepository)
+    CreateCurrencyWalletUseCase(walletRepository, transactionRunner)
   }
 
   private val updateCurrencyWalletUseCase by lazy {
-    UpdateCurrencyWalletUseCase(walletRepository)
+    UpdateCurrencyWalletUseCase(walletRepository, transactionRunner)
   }
 
   private val deleteCurrencyWalletUseCase by lazy {
-    DeleteCurrencyWalletUseCase(walletRepository)
+    DeleteCurrencyWalletUseCase(walletRepository, transactionRunner)
   }
 
   private val getPortfolioValuationUseCase by lazy {
@@ -207,14 +219,16 @@ class MainActivity : FragmentActivity() {
   private val createWalletDepositUseCase by lazy {
     CreateWalletDepositUseCase(
       walletRepository = walletRepository,
-      transactionRepository = walletTransactionRepository
+      transactionRepository = walletTransactionRepository,
+      transactionRunner = transactionRunner
     )
   }
 
   private val createWalletWithdrawalUseCase by lazy {
     CreateWalletWithdrawalUseCase(
       walletRepository = walletRepository,
-      transactionRepository = walletTransactionRepository
+      transactionRepository = walletTransactionRepository,
+      transactionRunner = transactionRunner
     )
   }
 
@@ -222,7 +236,8 @@ class MainActivity : FragmentActivity() {
     CreateWalletTransferUseCase(
       walletRepository = walletRepository,
       transactionRepository = walletTransactionRepository,
-      exchangeRateRepository = exchangeRateRepository
+      exchangeRateRepository = exchangeRateRepository,
+      transactionRunner = transactionRunner
     )
   }
 
@@ -275,7 +290,8 @@ class MainActivity : FragmentActivity() {
   private val processRecurringExpensesUseCase by lazy {
     com.pluto.app.domain.usecase.ProcessRecurringExpensesUseCase(
       expenseRepository = expenseRepository,
-      convertCurrencyUseCase = convertCurrencyUseCase
+      convertCurrencyUseCase = convertCurrencyUseCase,
+      transactionRunner = transactionRunner
     )
   }
 
@@ -288,7 +304,8 @@ class MainActivity : FragmentActivity() {
       userSettingsRepository = userSettingsRepository,
       convertCurrencyUseCase = convertCurrencyUseCase,
       exchangeRateRepository = exchangeRateRepository,
-      processRecurringExpensesUseCase = processRecurringExpensesUseCase
+      processRecurringExpensesUseCase = processRecurringExpensesUseCase,
+      restoreExpenseUseCase = restoreExpenseUseCase
     )
   }
 
@@ -312,9 +329,11 @@ class MainActivity : FragmentActivity() {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
 
-    // Initialize background WorkManager rate prefetching and offline cache warmup
+    // Initialize background WorkManager rate prefetching and recurring expense processing
     com.pluto.app.data.worker.ExchangeRateSyncWorker.schedulePeriodicSync(applicationContext)
     com.pluto.app.data.worker.ExchangeRateSyncWorker.syncNow(applicationContext)
+    com.pluto.app.data.worker.RecurringExpenseWorker.schedulePeriodicProcessing(applicationContext)
+    com.pluto.app.data.worker.RecurringExpenseWorker.processNow(applicationContext)
 
     // Observe Privacy Mode to set or clear FLAG_SECURE dynamically
     lifecycleScope.launch {

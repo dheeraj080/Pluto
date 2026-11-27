@@ -6,32 +6,52 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.pluto.app.domain.model.AcademicTermSettings
+import com.pluto.app.domain.model.Money
 import com.pluto.app.domain.model.UserSettings
-import java.util.Locale
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoShapes
+import java.math.BigDecimal
+import java.math.RoundingMode
+
+private fun sanitizeDecimalInput(input: String): String {
+  val filtered = input.filter { it.isDigit() || it == '.' }
+  val dotIndex = filtered.indexOf('.')
+  return if (dotIndex == -1) {
+    filtered
+  } else {
+    filtered.substring(0, dotIndex + 1) + filtered.substring(dotIndex + 1).replace(".", "")
+  }
+}
+
+private fun formatInitialDecimalInput(amount: BigDecimal): String {
+  if (amount <= BigDecimal.ZERO) return ""
+  val stripped = amount.stripTrailingZeros()
+  return if (stripped.scale() <= 0) stripped.toPlainString() else amount.toPlainString()
+}
 
 /**
  * Modal dialog for International Students to adjust academic term parameters,
@@ -47,11 +67,18 @@ fun TermSettingsDialog(
   val homeCurrency = userSettings.homeCurrency
 
   var termName by remember { mutableStateOf(currentTerm.termName) }
-  var totalAllowance by remember { mutableDoubleStateOf(currentTerm.totalAllowanceHome) }
-  var committedTuition by remember { mutableDoubleStateOf(currentTerm.tuitionAndFixedCommittedHome) }
+  var totalAllowanceInput by remember {
+    mutableStateOf(formatInitialDecimalInput(currentTerm.totalAllowanceHome))
+  }
+  var committedTuitionInput by remember {
+    mutableStateOf(formatInitialDecimalInput(currentTerm.tuitionAndFixedCommittedHome))
+  }
 
   val daysRemaining = ((currentTerm.termEndDate - System.currentTimeMillis()) / 86400000L).coerceAtLeast(1L).toInt()
   var daysInput by remember { mutableIntStateOf(daysRemaining) }
+
+  val totalAllowance = totalAllowanceInput.toBigDecimalOrNull()?.coerceAtLeast(BigDecimal.ZERO) ?: BigDecimal.ZERO
+  val committedTuition = committedTuitionInput.toBigDecimalOrNull()?.coerceAtLeast(BigDecimal.ZERO) ?: BigDecimal.ZERO
 
   AlertDialog(
     onDismissRequest = onDismiss,
@@ -66,6 +93,8 @@ fun TermSettingsDialog(
       Column(
         modifier = Modifier
           .fillMaxWidth()
+          .verticalScroll(rememberScrollState())
+          .imePadding()
           .padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
       ) {
@@ -86,24 +115,26 @@ fun TermSettingsDialog(
         )
 
         OutlinedTextField(
-          value = if (totalAllowance > 0) totalAllowance.toInt().toString() else "",
-          onValueChange = { str -> totalAllowance = str.toDoubleOrNull() ?: 0.0 },
+          value = totalAllowanceInput,
+          onValueChange = { str -> totalAllowanceInput = sanitizeDecimalInput(str) },
           label = { Text("Total Semester Allowance (${homeCurrency.code})") },
+          textStyle = MaterialTheme.typography.bodyLarge.merge(PlutoNumericStyle),
           modifier = Modifier
             .fillMaxWidth()
             .testTag("dialog_term_allowance_input"),
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
           singleLine = true
         )
 
         OutlinedTextField(
-          value = if (committedTuition > 0) committedTuition.toInt().toString() else "",
-          onValueChange = { str -> committedTuition = str.toDoubleOrNull() ?: 0.0 },
+          value = committedTuitionInput,
+          onValueChange = { str -> committedTuitionInput = sanitizeDecimalInput(str) },
           label = { Text("Committed Tuition & Housing (${homeCurrency.code})") },
+          textStyle = MaterialTheme.typography.bodyLarge.merge(PlutoNumericStyle),
           modifier = Modifier
             .fillMaxWidth()
             .testTag("dialog_term_tuition_input"),
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
           singleLine = true
         )
 
@@ -111,6 +142,7 @@ fun TermSettingsDialog(
           value = daysInput.toString(),
           onValueChange = { str -> daysInput = str.toIntOrNull()?.coerceAtLeast(1) ?: 1 },
           label = { Text("Days Remaining in Term") },
+          textStyle = MaterialTheme.typography.bodyLarge.merge(PlutoNumericStyle),
           modifier = Modifier
             .fillMaxWidth()
             .testTag("dialog_term_days_input"),
@@ -118,11 +150,15 @@ fun TermSettingsDialog(
           singleLine = true
         )
 
-        val discretionary = (totalAllowance - committedTuition).coerceAtLeast(0.0)
-        val safeDaily = if (daysInput > 0) discretionary / daysInput else 0.0
+        val discretionary = (totalAllowance - committedTuition).coerceAtLeast(BigDecimal.ZERO)
+        val safeDaily = if (daysInput > 0) {
+          discretionary.divide(BigDecimal(daysInput), homeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+        } else {
+          BigDecimal.ZERO
+        }
 
         Surface(
-          shape = RoundedCornerShape(12.dp),
+          shape = PlutoShapes.medium,
           color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
           modifier = Modifier.fillMaxWidth()
         ) {
@@ -134,8 +170,8 @@ fun TermSettingsDialog(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-              text = "${homeCurrency.symbol}${String.format(Locale.US, "%.2f", safeDaily)} / day",
-              style = MaterialTheme.typography.titleMedium,
+              text = "${Money.of(safeDaily, homeCurrency).format()} / day",
+              style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
               fontWeight = FontWeight.Bold,
               color = MaterialTheme.colorScheme.primary
             )
@@ -144,29 +180,29 @@ fun TermSettingsDialog(
       }
     },
     confirmButton = {
-      Button(
+      PlutoButton(
+        text = "Save Term",
         onClick = {
           val newEnd = System.currentTimeMillis() + (daysInput.toLong() * 86400000L)
           val updated = currentTerm.copy(
             termName = termName.trim().ifEmpty { "Current Semester" },
-            totalAllowanceHome = totalAllowance,
-            tuitionAndFixedCommittedHome = committedTuition,
+            totalAllowanceHome = totalAllowance.setScale(homeCurrency.decimalPlaces, RoundingMode.HALF_EVEN),
+            tuitionAndFixedCommittedHome = committedTuition.setScale(homeCurrency.decimalPlaces, RoundingMode.HALF_EVEN),
             termEndDate = newEnd
           )
           onSave(updated)
         },
-        modifier = Modifier.testTag("dialog_term_save_button")
-      ) {
-        Text("Save Term")
-      }
+        variant = PlutoButtonVariant.PRIMARY,
+        testTag = "dialog_term_save_button"
+      )
     },
     dismissButton = {
-      OutlinedButton(
+      PlutoButton(
+        text = "Cancel",
         onClick = onDismiss,
-        modifier = Modifier.testTag("dialog_term_cancel_button")
-      ) {
-        Text("Cancel")
-      }
+        variant = PlutoButtonVariant.OUTLINED,
+        testTag = "dialog_term_cancel_button"
+      )
     }
   )
 }

@@ -52,10 +52,10 @@ class PlayPolicyAndAssetsTest {
     assertNotNull(ContextCompat.getDrawable(context, R.drawable.ic_notification_pluto))
     assertNotNull(ContextCompat.getDrawable(context, R.drawable.ic_launcher_foreground))
 
-    context.resources.openRawResource(R.font.plus_jakarta_sans).use { stream ->
+    context.resources.openRawResource(R.font.manrope).use { stream ->
       assertTrue(stream.available() > 1024)
     }
-    context.resources.openRawResource(R.font.jetbrains_mono).use { stream ->
+    context.resources.openRawResource(R.font.roboto_mono).use { stream ->
       assertTrue(stream.available() > 1024)
     }
   }

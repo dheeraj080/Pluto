@@ -97,7 +97,7 @@ class OfflineModeAndCloudMergeTest : FirestoreEmulatorTestBase() {
         UserSettings(
           homeCurrency = Currency.USD,
           destinationCurrency = Currency.GBP,
-          categoryMonthlyBudgets = mapOf(Category.TRANSPORT.id to 180.0),
+          categoryMonthlyBudgets = mapOf(Category.TRANSPORT.id to BigDecimal("180.00")),
           isOnboardingCompleted = true
         )
       )
@@ -113,7 +113,7 @@ class OfflineModeAndCloudMergeTest : FirestoreEmulatorTestBase() {
       UserSettings(
         homeCurrency = Currency.USD,
         destinationCurrency = Currency.EUR,
-        categoryMonthlyBudgets = mapOf(Category.FOOD.id to 320.0),
+        categoryMonthlyBudgets = mapOf(Category.FOOD.id to BigDecimal("320.00")),
         isOnboardingCompleted = true
       )
     )
@@ -178,8 +178,8 @@ class OfflineModeAndCloudMergeTest : FirestoreEmulatorTestBase() {
     assertTrue(mergedLocalExpenses.any { it.id == localExpenseId })
 
     val mergedCloudSettings = withTimeout(5000L) { cloudRepo.getSettings().getOrThrow() }
-    assertEquals(320.0, mergedCloudSettings?.categoryMonthlyBudgets?.get(Category.FOOD.id) ?: 0.0, 0.01)
-    assertEquals(180.0, mergedCloudSettings?.categoryMonthlyBudgets?.get(Category.TRANSPORT.id) ?: 0.0, 0.01)
+    assertEquals(0, BigDecimal("320.00").compareTo(mergedCloudSettings?.categoryMonthlyBudgets?.get(Category.FOOD.id)))
+    assertEquals(0, BigDecimal("180.00").compareTo(mergedCloudSettings?.categoryMonthlyBudgets?.get(Category.TRANSPORT.id)))
 
     val syncState = coordinator.syncState.value
     assertTrue("Expected CloudSyncState.Synced but got $syncState", syncState is CloudSyncState.Synced)

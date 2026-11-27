@@ -59,7 +59,9 @@ object ExpenseEntityMapper {
       receiptUri = entity.receiptUri,
       isRecurring = entity.isRecurring,
       recurrenceFrequency = recurrenceFreq,
-      lastRecurrenceLoggedMillis = entity.lastRecurrenceLoggedMillis
+      lastRecurrenceLoggedMillis = entity.lastRecurrenceLoggedMillis,
+      createdAt = entity.createdAt,
+      updatedAt = entity.updatedAt
     )
   }
 
@@ -82,7 +84,9 @@ object ExpenseEntityMapper {
       receiptUri = domain.receiptUri,
       isRecurring = domain.isRecurring,
       recurrenceFrequency = domain.recurrenceFrequency?.name,
-      lastRecurrenceLoggedMillis = domain.lastRecurrenceLoggedMillis
+      lastRecurrenceLoggedMillis = domain.lastRecurrenceLoggedMillis,
+      createdAt = domain.createdAt,
+      updatedAt = domain.updatedAt
     )
   }
 }

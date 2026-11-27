@@ -26,8 +26,8 @@ Unlike single-currency expense apps or generic travel splitters, Pluto is built 
 - **Core modules**:
   - Home Dashboard with swipeable hero cards (Unified Balance, Safe-to-Spend daily cap, Semester/Trip Runway), Dual-Zone Clock chip + searchable Home Time Zone picker sheet, quick actions, and unified transaction stream.
   - Multi-Currency Wallets (create, edit, deposit, withdraw, inter-wallet FX transfer, portfolio valuation).
-  - Expenses & Recurring Expenses (local/home currency dual entry, category budgets, edit/delete bottom sheets).
-  - Currency Converter with dedicated calculator numpad and live/cached/custom FX rates.
+  - Expenses & Recurring Expenses (local/home currency dual entry, category/date and custom-range filters, audit timestamps, category budgets, edit/delete bottom sheets).
+  - Currency Converter with an arithmetic expression evaluator and live/cached/effective-dated manual FX rates.
   - Budgets & Insights (category progress, safe-to-spend threshold alerts, breakdown charts).
   - Security, Privacy & Portability (Biometric lock with configurable timeout, Privacy Mode `FLAG_SECURE`, JSON backup/restore, optional Google Sign-In via Jetpack Credential Manager + Cloud Firestore real-time sync or Offline Local Vault mode).
 - **Technical constraints**:
@@ -43,7 +43,7 @@ Unlike single-currency expense apps or generic travel splitters, Pluto is built 
 
 ## Evidence on Hand
 - Native design token system (`app/src/main/java/com/pluto/app/ui/theme/`) and reusable UI primitives (`app/src/main/java/com/pluto/app/ui/components/SharedComponents.kt`).
-- Bundled local typography assets in `app/src/main/res/font/` (`plus_jakarta_sans.ttf`, `jetbrains_mono.ttf`).
+- Bundled local typography assets in `app/src/main/res/font/` (`manrope.ttf`, `roboto_mono.ttf`).
 - Robolectric + Compose UI test suite in `app/src/test/`, Firebase Auth/Firestore emulator tests, Firestore rules tests (`firestore.test.js`), and `.github/workflows/android.yml` CI running unit tests, emulator tests, and a debug build on every push touching `apps/mobile`.
 
 ## Product Principles

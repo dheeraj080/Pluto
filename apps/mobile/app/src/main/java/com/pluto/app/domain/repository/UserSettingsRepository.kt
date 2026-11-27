@@ -3,6 +3,7 @@ package com.pluto.app.domain.repository
 import com.pluto.app.domain.model.Currency
 import com.pluto.app.domain.model.UserSettings
 import kotlinx.coroutines.flow.Flow
+import java.math.BigDecimal
 
 /**
  * Domain repository contract for user settings and preferences.
@@ -31,17 +32,17 @@ interface UserSettingsRepository {
   /**
    * Updates user daily and monthly spending caps in home currency.
    */
-  suspend fun updateSpendingCaps(dailyCap: Double?, monthlyCap: Double?)
+  suspend fun updateSpendingCaps(dailyCap: BigDecimal?, monthlyCap: BigDecimal?)
 
   /**
    * Updates user safe-to-spend minimum warning threshold and notification alert preference.
    */
-  suspend fun updateWarningThreshold(threshold: Double?, notificationsEnabled: Boolean = true)
+  suspend fun updateWarningThreshold(threshold: BigDecimal?, notificationsEnabled: Boolean = true)
 
   /**
    * Updates category-specific monthly spending budgets in home currency.
    */
-  suspend fun updateCategoryBudgets(categoryBudgets: Map<String, Double>)
+  suspend fun updateCategoryBudgets(categoryBudgets: Map<String, BigDecimal>)
 
   /**
    * Updates user theme preference (System, Light, Dark).

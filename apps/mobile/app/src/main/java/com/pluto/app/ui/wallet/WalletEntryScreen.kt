@@ -4,10 +4,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -15,15 +18,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -46,10 +46,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pluto.app.domain.model.Currency
 import com.pluto.app.domain.model.UserSettings
+import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.components.PrimaryActionButton
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun WalletEntryScreen(
   viewModel: WalletViewModel,
@@ -77,7 +80,7 @@ fun WalletEntryScreen(
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically
     ) {
-      Column {
+      Column(modifier = Modifier.weight(1f)) {
         Text(
           text = if (isEditing) "Edit ${formState.currency.code} Wallet" else "Add Currency Wallet",
           style = MaterialTheme.typography.titleLarge,
@@ -121,10 +124,10 @@ fun WalletEntryScreen(
     )
 
     // 2. Card with Currency Selector and Balance Input
-    Card(
+    PlutoCard(
       modifier = Modifier.fillMaxWidth(),
-      shape = RoundedCornerShape(18.dp),
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+      shape = PlutoShapes.extraLarge,
+      containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
     ) {
       Column(modifier = Modifier.padding(18.dp)) {
         Text(
@@ -143,7 +146,7 @@ fun WalletEntryScreen(
         ) {
           // Currency selector pill
           Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = PlutoShapes.large,
             color = MaterialTheme.colorScheme.primaryContainer,
             modifier = Modifier
               .clickable(enabled = !isEditing) { onOpenCurrencyPicker(formState.currency) }
@@ -181,12 +184,14 @@ fun WalletEntryScreen(
             modifier = Modifier
               .weight(1f)
               .testTag("wallet_balance_input"),
-            placeholder = { Text("0.00") },
+            placeholder = { Text(formState.currency.zeroPlaceholder()) },
             label = { Text("Balance (${formState.currency.symbol})") },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            keyboardOptions = KeyboardOptions(
+              keyboardType = if (formState.currency.decimalPlaces == 0) KeyboardType.Number else KeyboardType.Decimal
+            ),
             textStyle = MaterialTheme.typography.headlineMedium.merge(PlutoNumericStyle).copy(fontWeight = FontWeight.Bold),
-            shape = RoundedCornerShape(14.dp)
+            shape = PlutoShapes.large
           )
         }
       }
@@ -197,15 +202,16 @@ fun WalletEntryScreen(
     val homeCurrency = userSettings?.homeCurrency
 
     if (!isEditing && visitingCurrency != null && homeCurrency != null) {
-      Row(
+      FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(8.dp)
       ) {
         Text(
           text = "Currency:",
           style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.align(Alignment.CenterVertically)
         )
 
         FilterChip(
@@ -217,12 +223,15 @@ fun WalletEntryScreen(
               style = MaterialTheme.typography.labelSmall
             )
           },
-          shape = RoundedCornerShape(10.dp),
+          shape = PlutoShapes.medium,
           colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
           ),
-          modifier = Modifier.testTag("wallet_currency_chip_visiting")
+          modifier = Modifier
+            .heightIn(min = 48.dp)
+            .minimumInteractiveComponentSize()
+            .testTag("wallet_currency_chip_visiting")
         )
 
         FilterChip(
@@ -234,19 +243,22 @@ fun WalletEntryScreen(
               style = MaterialTheme.typography.labelSmall
             )
           },
-          shape = RoundedCornerShape(10.dp),
+          shape = PlutoShapes.medium,
           colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
           ),
-          modifier = Modifier.testTag("wallet_currency_chip_home")
+          modifier = Modifier
+            .heightIn(min = 48.dp)
+            .minimumInteractiveComponentSize()
+            .testTag("wallet_currency_chip_home")
         )
       }
     }
 
     if (formState.errorMessage != null) {
       Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = PlutoShapes.medium,
         color = MaterialTheme.colorScheme.errorContainer,
         modifier = Modifier.fillMaxWidth()
       ) {

@@ -59,16 +59,15 @@ class ConverterViewModel(
   }
 
   fun onAmountChanged(newAmount: String) {
-    val clean = newAmount.filter { it.isDigit() || it == '.' }
-    // Prevent multiple dots
-    if (clean.count { it == '.' } > 1) return
-    _amountInput.value = clean
+    val sanitized = _sourceCurrency.value.sanitizeAmountInput(newAmount) ?: return
+    _amountInput.value = sanitized
     performConversion(immediate = false)
   }
 
   fun setSourceCurrency(currency: Currency) {
     if (_sourceCurrency.value == currency) return
     _sourceCurrency.value = currency
+    _amountInput.value = currency.normalizeForScale(_amountInput.value)
     performConversion(immediate = true)
   }
 
@@ -80,8 +79,10 @@ class ConverterViewModel(
 
   fun swapCurrencies() {
     val temp = _sourceCurrency.value
-    _sourceCurrency.value = _targetCurrency.value
+    val nextSource = _targetCurrency.value
+    _sourceCurrency.value = nextSource
     _targetCurrency.value = temp
+    _amountInput.value = nextSource.normalizeForScale(_amountInput.value)
     performConversion(immediate = true)
   }
 

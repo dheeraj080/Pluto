@@ -34,13 +34,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.FlightTakeoff
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Public
-import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Verified
@@ -61,7 +60,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,14 +72,17 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pluto.app.R
 import com.pluto.app.domain.model.Currency
+import com.pluto.app.domain.model.Money
 import com.pluto.app.ui.components.CurrencyBadge
 import com.pluto.app.ui.components.CurrencyRow
+import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.components.PrimaryActionButton
 import com.pluto.app.ui.theme.PlutoMotion
 import com.pluto.app.ui.theme.PlutoNumericStyle
@@ -86,6 +90,8 @@ import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.plutoHeading
 import com.pluto.app.ui.theme.plutoPressableScale
 import com.pluto.app.ui.theme.rememberPrefersReducedMotion
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -439,7 +445,7 @@ private fun CurrencySelectionStep(
         )
       },
       singleLine = true,
-      shape = RoundedCornerShape(12.dp)
+      shape = PlutoShapes.medium
     )
 
     Spacer(modifier = Modifier.height(12.dp))
@@ -471,197 +477,20 @@ private fun CurrencySelectionStep(
   }
 }
 
-@Composable
-private fun PersonaSelectionStep(
-  selectedPersona: com.pluto.app.domain.model.UserPersona,
-  onPersonaSelected: (com.pluto.app.domain.model.UserPersona) -> Unit,
-  onContinue: () -> Unit,
-  modifier: Modifier = Modifier
-) {
-  Column(
-    modifier = modifier
-      .fillMaxSize()
-      .padding(horizontal = 24.dp, vertical = 20.dp),
-    horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.SpaceBetween
-  ) {
-    Column(
-      horizontalAlignment = Alignment.CenterHorizontally,
-      modifier = Modifier.fillMaxWidth()
-    ) {
-      Text(
-        text = "What describes your journey?",
-        style = MaterialTheme.typography.headlineMedium,
-        fontWeight = FontWeight.Bold,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onBackground
-      )
-
-      Spacer(modifier = Modifier.height(8.dp))
-
-      Text(
-        text = "We will tailor your currency dashboard, runway calculators, and budgeting cycles.",
-        style = MaterialTheme.typography.bodyMedium,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-      )
-
-      Spacer(modifier = Modifier.height(24.dp))
-
-      // Student Card (Highlighted / Recommended)
-      PersonaChoiceCard(
-        persona = com.pluto.app.domain.model.UserPersona.INTERNATIONAL_STUDENT,
-        icon = Icons.Rounded.School,
-        title = "International Student",
-        subtitle = "Semester allowance runway, tuition & books, flatmate splits, and daily safe-to-spend limit.",
-        isSelected = selectedPersona == com.pluto.app.domain.model.UserPersona.INTERNATIONAL_STUDENT,
-        isRecommended = true,
-        testTag = "onboarding_persona_student",
-        onClick = { onPersonaSelected(com.pluto.app.domain.model.UserPersona.INTERNATIONAL_STUDENT) }
-      )
-
-      Spacer(modifier = Modifier.height(14.dp))
-
-      // Expat Card
-      PersonaChoiceCard(
-        persona = com.pluto.app.domain.model.UserPersona.EXPAT,
-        icon = Icons.Rounded.Home,
-        title = "Expat & Remote Worker",
-        subtitle = "Monthly salary cycles, rent & utilities, dual-currency cost of living, and remittances.",
-        isSelected = selectedPersona == com.pluto.app.domain.model.UserPersona.EXPAT,
-        isRecommended = false,
-        testTag = "onboarding_persona_expat",
-        onClick = { onPersonaSelected(com.pluto.app.domain.model.UserPersona.EXPAT) }
-      )
-
-      Spacer(modifier = Modifier.height(14.dp))
-
-      // Tourist Card
-      PersonaChoiceCard(
-        persona = com.pluto.app.domain.model.UserPersona.TOURIST,
-        icon = Icons.Rounded.FlightTakeoff,
-        title = "Tourist & Traveler",
-        subtitle = "Trip budget countdown, daily itinerary allowances, and real-time offline currency exchange.",
-        isSelected = selectedPersona == com.pluto.app.domain.model.UserPersona.TOURIST,
-        isRecommended = false,
-        testTag = "onboarding_persona_tourist",
-        onClick = { onPersonaSelected(com.pluto.app.domain.model.UserPersona.TOURIST) }
-      )
-    }
-
-    PrimaryActionButton(
-      text = "Continue as ${selectedPersona.displayName}",
-      onClick = onContinue,
-      testTag = "onboarding_persona_continue_button"
-    )
+private fun sanitizeOnboardingDecimal(input: String): String {
+  val filtered = input.filter { it.isDigit() || it == '.' }
+  val dotIndex = filtered.indexOf('.')
+  return if (dotIndex == -1) {
+    filtered
+  } else {
+    filtered.substring(0, dotIndex + 1) + filtered.substring(dotIndex + 1).replace(".", "")
   }
 }
 
-@Composable
-private fun PersonaChoiceCard(
-  persona: com.pluto.app.domain.model.UserPersona,
-  icon: ImageVector,
-  title: String,
-  subtitle: String,
-  isSelected: Boolean,
-  isRecommended: Boolean,
-  testTag: String,
-  onClick: () -> Unit
-) {
-  val cardInteraction = remember { MutableInteractionSource() }
-  Card(
-    modifier = Modifier
-      .fillMaxWidth()
-      .plutoPressableScale(
-        enabled = true,
-        pressedScale = PlutoMotion.CardPressScale,
-        interactionSource = cardInteraction
-      )
-      .clip(PlutoShapes.large)
-      .clickable(
-        interactionSource = cardInteraction,
-        indication = androidx.compose.material3.ripple(),
-        role = Role.Button,
-        onClick = onClick
-      )
-      .testTag(testTag),
-    shape = PlutoShapes.large,
-    colors = CardDefaults.cardColors(
-      containerColor = if (isSelected) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-      } else {
-        MaterialTheme.colorScheme.surface
-      }
-    ),
-    border = if (isSelected) {
-      BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-    } else {
-      BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-    },
-    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-  ) {
-    Row(
-      modifier = Modifier.padding(16.dp),
-      verticalAlignment = Alignment.Top
-    ) {
-      Box(
-        modifier = Modifier
-          .size(44.dp)
-          .clip(CircleShape)
-          .background(
-            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-          ),
-        contentAlignment = Alignment.Center
-      ) {
-        Icon(
-          imageVector = icon,
-          contentDescription = null,
-          tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.size(24.dp)
-        )
-      }
-
-      Spacer(modifier = Modifier.width(14.dp))
-
-      Column(modifier = Modifier.weight(1f)) {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-          )
-          if (isRecommended) {
-            Surface(
-              shape = RoundedCornerShape(6.dp),
-              color = MaterialTheme.colorScheme.primary
-            ) {
-              Text(
-                text = "PRIMARY",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimary,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-              )
-            }
-          }
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Text(
-          text = subtitle,
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          lineHeight = 18.sp
-        )
-      }
-    }
-  }
+private fun formatOnboardingCap(amount: BigDecimal?): String {
+  if (amount == null) return ""
+  val stripped = amount.stripTrailingZeros()
+  return if (stripped.scale() <= 0) stripped.toPlainString() else amount.toPlainString()
 }
 
 @Composable
@@ -669,17 +498,19 @@ private fun ReadyStep(
   uiState: OnboardingUiState,
   onSwapCurrencies: () -> Unit,
   onTermNameChanged: (String) -> Unit = {},
-  onAllowanceChanged: (Double) -> Unit = {},
-  onTuitionChanged: (Double) -> Unit = {},
+  onAllowanceChanged: (BigDecimal) -> Unit = {},
+  onTuitionChanged: (BigDecimal) -> Unit = {},
   onTermDaysChanged: (Int) -> Unit = {},
-  onDailyCapChanged: (Double?) -> Unit = {},
-  onMonthlyCapChanged: (Double?) -> Unit = {},
-  onTripBudgetChanged: (Double) -> Unit = {},
+  onDailyCapChanged: (BigDecimal?) -> Unit = {},
+  onMonthlyCapChanged: (BigDecimal?) -> Unit = {},
+  onTripBudgetChanged: (BigDecimal) -> Unit = {},
   onComplete: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   val homeCurrency = uiState.homeCurrency
   val destinationCurrency = uiState.destinationCurrency
+  var monthlyCapInput by remember { mutableStateOf(formatOnboardingCap(uiState.monthlySpendingCap)) }
+  var dailyCapInput by remember { mutableStateOf(formatOnboardingCap(uiState.dailySpendingCap)) }
 
   LazyColumn(
     modifier = modifier
@@ -731,13 +562,9 @@ private fun ReadyStep(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Dual currency pair card
-        Card(
+        PlutoCard(
           modifier = Modifier.fillMaxWidth(),
-          shape = PlutoShapes.extraLarge,
-          colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-          ),
-          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+          shape = PlutoShapes.extraLarge
         ) {
           Column(
             modifier = Modifier.padding(14.dp),
@@ -865,13 +692,10 @@ private fun ReadyStep(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Universal Monthly & Daily Spending Caps Setup (20dp outer = 14dp padding + 6dp inner radius)
-        Card(
+        PlutoCard(
           modifier = Modifier.fillMaxWidth(),
           shape = PlutoShapes.extraLarge,
-          colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f)
-          ),
-          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+          containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f)
         ) {
           Column(
             modifier = Modifier.padding(14.dp),
@@ -889,10 +713,15 @@ private fun ReadyStep(
               horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
               OutlinedTextField(
-                value = uiState.monthlySpendingCap?.toInt()?.toString() ?: "",
-                onValueChange = { str -> onMonthlyCapChanged(str.toDoubleOrNull()) },
+                value = monthlyCapInput,
+                onValueChange = { str ->
+                  val sanitized = sanitizeOnboardingDecimal(str)
+                  monthlyCapInput = sanitized
+                  onMonthlyCapChanged(sanitized.toBigDecimalOrNull())
+                },
                 label = { Text("Monthly (${homeCurrency.code})") },
                 textStyle = MaterialTheme.typography.bodyLarge.merge(PlutoNumericStyle),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier
                   .weight(1f)
                   .testTag("onboarding_monthly_cap_input"),
@@ -900,10 +729,15 @@ private fun ReadyStep(
               )
 
               OutlinedTextField(
-                value = uiState.dailySpendingCap?.toInt()?.toString() ?: "",
-                onValueChange = { str -> onDailyCapChanged(str.toDoubleOrNull()) },
+                value = dailyCapInput,
+                onValueChange = { str ->
+                  val sanitized = sanitizeOnboardingDecimal(str)
+                  dailyCapInput = sanitized
+                  onDailyCapChanged(sanitized.toBigDecimalOrNull())
+                },
                 label = { Text("Daily (${homeCurrency.code})") },
                 textStyle = MaterialTheme.typography.bodyLarge.merge(PlutoNumericStyle),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier
                   .weight(1f)
                   .testTag("onboarding_daily_cap_input"),
@@ -911,8 +745,9 @@ private fun ReadyStep(
               )
             }
 
-            val estimatedDaily = uiState.dailySpendingCap
-              ?: (uiState.monthlySpendingCap?.let { it / 30.0 } ?: 50.0)
+            val estimatedDaily: BigDecimal = uiState.dailySpendingCap
+              ?: (uiState.monthlySpendingCap?.divide(BigDecimal("30"), homeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+                ?: BigDecimal("50.00"))
 
             Surface(
               shape = PlutoShapes.small,
@@ -931,7 +766,7 @@ private fun ReadyStep(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                   )
                   Text(
-                    text = "${homeCurrency.symbol}${String.format(java.util.Locale.US, "%.2f", estimatedDaily)} / day",
+                    text = "${Money.of(estimatedDaily, homeCurrency).format()} / day",
                     style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary

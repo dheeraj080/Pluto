@@ -12,15 +12,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,7 +24,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,10 +35,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.pluto.app.domain.model.Currency
 import com.pluto.app.domain.model.ExchangeRate
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
 import java.math.BigDecimal
 
 /**
@@ -101,11 +100,9 @@ fun CustomRateOverridesDialog(
         Spacer(modifier = Modifier.height(14.dp))
 
         if (isAddingNew) {
-          Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-              containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-            ),
+          PlutoCard(
+            shape = PlutoShapes.medium,
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
             modifier = Modifier.fillMaxWidth()
           ) {
             Column(modifier = Modifier.padding(14.dp)) {
@@ -124,7 +121,7 @@ fun CustomRateOverridesDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
               ) {
                 Surface(
-                  shape = RoundedCornerShape(8.dp),
+                  shape = PlutoShapes.small,
                   color = MaterialTheme.colorScheme.surfaceVariant,
                   modifier = Modifier
                     .weight(1f)
@@ -145,7 +142,7 @@ fun CustomRateOverridesDialog(
                 Text("➔", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
 
                 Surface(
-                  shape = RoundedCornerShape(8.dp),
+                  shape = PlutoShapes.small,
                   color = MaterialTheme.colorScheme.surfaceVariant,
                   modifier = Modifier
                     .weight(1f)
@@ -197,12 +194,15 @@ fun CustomRateOverridesDialog(
                 horizontalArrangement = Arrangement.End
               ) {
                 if (activeOverrides.isNotEmpty()) {
-                  TextButton(onClick = { isAddingNew = false }) {
-                    Text("Cancel")
-                  }
-                  Spacer(modifier = Modifier.width(8.dp))
+                  PlutoButton(
+                    text = "Cancel",
+                    onClick = { isAddingNew = false },
+                    variant = PlutoButtonVariant.GHOST
+                  )
+                  Spacer(modifier = Modifier.width(PlutoSpacing.sm))
                 }
-                Button(
+                PlutoButton(
+                  text = "Save Rate",
                   onClick = {
                     val parsed = rateInput.toBigDecimalOrNull()
                     if (parsed == null || parsed <= BigDecimal.ZERO) {
@@ -215,10 +215,9 @@ fun CustomRateOverridesDialog(
                       isAddingNew = false
                     }
                   },
-                  modifier = Modifier.testTag("save_custom_rate_button")
-                ) {
-                  Text("Save Rate")
-                }
+                  variant = PlutoButtonVariant.PRIMARY,
+                  testTag = "save_custom_rate_button"
+                )
               }
             }
           }
@@ -289,12 +288,12 @@ fun CustomRateOverridesDialog(
       }
     },
     confirmButton = {
-      TextButton(
+      PlutoButton(
+        text = "Done",
         onClick = onDismiss,
-        modifier = Modifier.testTag("close_custom_rates_dialog")
-      ) {
-        Text("Done")
-      }
+        variant = PlutoButtonVariant.GHOST,
+        testTag = "close_custom_rates_dialog"
+      )
     }
   )
 }

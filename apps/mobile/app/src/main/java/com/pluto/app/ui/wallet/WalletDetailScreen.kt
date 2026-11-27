@@ -1,7 +1,5 @@
 package com.pluto.app.ui.wallet
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,10 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDownward
@@ -31,8 +27,6 @@ import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -48,8 +42,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,24 +51,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pluto.app.domain.model.CurrencyWallet
-import com.pluto.app.domain.model.PortfolioValuationSummary
 import com.pluto.app.domain.model.WalletTransaction
 import com.pluto.app.domain.model.WalletTransactionType
 import com.pluto.app.domain.model.WalletValuation
 import com.pluto.app.ui.components.CurrencyBadge
 import com.pluto.app.ui.components.EmptyState
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.components.PlutoCard
+import com.pluto.app.ui.components.PlutoTopBar
+import com.pluto.app.ui.components.SectionHeader
 import com.pluto.app.ui.theme.PlutoNumericStyle
-import com.pluto.app.ui.theme.RobotoMonoFontFamily
-import com.pluto.app.ui.theme.plutoHeading
+import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -127,26 +121,17 @@ fun WalletDetailScreen(
   Scaffold(
     modifier = modifier.fillMaxSize(),
     topBar = {
-      TopAppBar(
-        title = {
-          Text(
-            text = "${currentWallet.currency.code} Ledger",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-          )
-        },
-        navigationIcon = {
-          IconButton(
-            onClick = onNavigateBack,
-            modifier = Modifier.testTag("wallet_detail_back_button")
-          ) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-          }
-        },
+      PlutoTopBar(
+        title = "${currentWallet.currency.code} Ledger",
+        onNavigateBack = onNavigateBack,
+        titleStyle = MaterialTheme.typography.titleLarge,
+        backButtonTestTag = "wallet_detail_back_button",
         actions = {
           IconButton(
             onClick = { showDeleteDialog = true },
-            modifier = Modifier.testTag("wallet_detail_delete_button")
+            modifier = Modifier
+              .minimumInteractiveComponentSize()
+              .testTag("wallet_detail_delete_button")
           ) {
             Icon(
               Icons.Rounded.Delete,
@@ -154,10 +139,7 @@ fun WalletDetailScreen(
               tint = MaterialTheme.colorScheme.error
             )
           }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-          containerColor = MaterialTheme.colorScheme.background
-        )
+        }
       )
     }
   ) { innerPadding ->
@@ -183,24 +165,38 @@ fun WalletDetailPaneContent(
   val currentWallet = allWallets.find { it.id == wallet.id } ?: wallet
   val transactions by viewModel.selectedWalletTransactions.collectAsStateWithLifecycle()
   val valuationSummary by viewModel.portfolioValuation.collectAsStateWithLifecycle()
+  val isTransactionSubmitting by viewModel.isTransactionSubmitting.collectAsStateWithLifecycle()
 
   val walletValuation = valuationSummary?.walletValuations?.find { it.wallet.id == currentWallet.id }
 
   var showDepositDialog by remember { mutableStateOf(false) }
   var showWithdrawDialog by remember { mutableStateOf(false) }
   var showTransferDialog by remember { mutableStateOf(false) }
+  var depositError by remember { mutableStateOf<String?>(null) }
+  var withdrawError by remember { mutableStateOf<String?>(null) }
+  var transferError by remember { mutableStateOf<String?>(null) }
 
   if (showDepositDialog) {
     DepositDialog(
       wallet = currentWallet,
-      onDismiss = { showDepositDialog = false },
+      isSubmitting = isTransactionSubmitting,
+      externalErrorMessage = depositError,
+      onClearExternalError = { depositError = null },
+      onDismiss = {
+        depositError = null
+        showDepositDialog = false
+      },
       onConfirm = { amount, note ->
+        depositError = null
         viewModel.deposit(
           walletId = currentWallet.id,
           amount = amount,
           note = note,
-          onSuccess = { showDepositDialog = false },
-          onError = { /* Handled in dialog error display */ }
+          onSuccess = {
+            depositError = null
+            showDepositDialog = false
+          },
+          onError = { msg -> depositError = msg }
         )
       }
     )
@@ -209,14 +205,24 @@ fun WalletDetailPaneContent(
   if (showWithdrawDialog) {
     WithdrawDialog(
       wallet = currentWallet,
-      onDismiss = { showWithdrawDialog = false },
+      isSubmitting = isTransactionSubmitting,
+      externalErrorMessage = withdrawError,
+      onClearExternalError = { withdrawError = null },
+      onDismiss = {
+        withdrawError = null
+        showWithdrawDialog = false
+      },
       onConfirm = { amount, note ->
+        withdrawError = null
         viewModel.withdraw(
           walletId = currentWallet.id,
           amount = amount,
           note = note,
-          onSuccess = { showWithdrawDialog = false },
-          onError = { /* Handled in dialog error display */ }
+          onSuccess = {
+            withdrawError = null
+            showWithdrawDialog = false
+          },
+          onError = { msg -> withdrawError = msg }
         )
       }
     )
@@ -227,15 +233,25 @@ fun WalletDetailPaneContent(
     TransferDialog(
       sourceWallet = currentWallet,
       availableWallets = otherWallets,
-      onDismiss = { showTransferDialog = false },
+      isSubmitting = isTransactionSubmitting,
+      externalErrorMessage = transferError,
+      onClearExternalError = { transferError = null },
+      onDismiss = {
+        transferError = null
+        showTransferDialog = false
+      },
       onConfirm = { destWalletId, amount, note ->
+        transferError = null
         viewModel.transfer(
           sourceWalletId = currentWallet.id,
           destinationWalletId = destWalletId,
           amount = amount,
           note = note,
-          onSuccess = { showTransferDialog = false },
-          onError = { /* Handled in dialog error display */ }
+          onSuccess = {
+            transferError = null
+            showTransferDialog = false
+          },
+          onError = { msg -> transferError = msg }
         )
       }
     )
@@ -268,25 +284,11 @@ fun WalletDetailPaneContent(
 
     // Section header
     item {
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(top = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-      ) {
-        Text(
-          text = "Ledger History",
-          style = MaterialTheme.typography.titleMedium,
-          fontWeight = FontWeight.Bold,
-          modifier = Modifier.plutoHeading()
-        )
-        Text(
-          text = "${transactions.size} entries",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-      }
+      SectionHeader(
+        title = "Ledger History",
+        badgeText = "${transactions.size} entries",
+        modifier = Modifier.padding(top = PlutoSpacing.sm)
+      )
     }
 
     if (transactions.isEmpty()) {
@@ -324,17 +326,13 @@ private fun WalletHeroCard(
   valuation: WalletValuation?,
   modifier: Modifier = Modifier
 ) {
-  Card(
-    modifier = modifier
-      .fillMaxWidth()
-      .testTag("wallet_hero_card"),
-    shape = RoundedCornerShape(22.dp),
-    colors = CardDefaults.cardColors(
-      containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
-    ),
-    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+  PlutoCard(
+    modifier = modifier.fillMaxWidth(),
+    shape = PlutoShapes.extraLarge,
+    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+    testTag = "wallet_hero_card"
   ) {
-    Column(modifier = Modifier.padding(20.dp)) {
+    Column(modifier = Modifier.padding(PlutoSpacing.xl)) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -351,13 +349,13 @@ private fun WalletHeroCard(
         }
 
         Surface(
-          shape = RoundedCornerShape(10.dp),
+          shape = PlutoShapes.medium,
           color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
         ) {
           Text(
             text = "Opened with ${wallet.initialBalance.format()}",
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+            modifier = Modifier.padding(horizontal = PlutoSpacing.sm, vertical = PlutoSpacing.xs),
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
         }
@@ -374,10 +372,7 @@ private fun WalletHeroCard(
 
       Text(
         text = wallet.balance.format(),
-        style = MaterialTheme.typography.headlineLarge.copy(
-          fontFamily = RobotoMonoFontFamily,
-          fontFeatureSettings = "tnum"
-        ),
+        style = MaterialTheme.typography.headlineLarge.merge(PlutoNumericStyle),
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onSurface
       )
@@ -389,14 +384,14 @@ private fun WalletHeroCard(
           val primaryVal = valuation.destValue?.format() ?: valuation.homeValue.format()
           Text(
             text = "≈ $primaryVal in local currency",
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold
           )
-          Spacer(modifier = Modifier.height(2.dp))
+          Spacer(modifier = Modifier.height(PlutoSpacing.xxs))
           Text(
             text = "≈ ${valuation.homeValue.format()} in home currency (${valuation.homeValue.currency.code}) · ${valuation.compositionPercentage.toPlainString()}% of portfolio",
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium
           )
@@ -431,7 +426,7 @@ private fun WalletActionsRow(
       modifier = Modifier
         .weight(1f)
         .testTag("wallet_action_deposit"),
-      shape = RoundedCornerShape(14.dp),
+      shape = PlutoShapes.large,
       contentPadding = PaddingValues(vertical = 12.dp)
     ) {
       Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -444,7 +439,7 @@ private fun WalletActionsRow(
       modifier = Modifier
         .weight(1f)
         .testTag("wallet_action_withdraw"),
-      shape = RoundedCornerShape(14.dp),
+      shape = PlutoShapes.large,
       contentPadding = PaddingValues(vertical = 12.dp)
     ) {
       Icon(Icons.Rounded.Remove, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -458,7 +453,7 @@ private fun WalletActionsRow(
       modifier = Modifier
         .weight(1f)
         .testTag("wallet_action_transfer"),
-      shape = RoundedCornerShape(14.dp),
+      shape = PlutoShapes.large,
       contentPadding = PaddingValues(vertical = 12.dp)
     ) {
       Icon(Icons.Rounded.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -482,18 +477,15 @@ private fun TransactionItemCard(
   val dateFormat = remember { SimpleDateFormat("MMM d, yyyy · HH:mm", Locale.getDefault()) }
   val dateString = remember(transaction.timestamp) { dateFormat.format(Date(transaction.timestamp)) }
 
-  Card(
-    modifier = modifier
-      .fillMaxWidth()
-      .testTag("wallet_transaction_item_${transaction.id}"),
-    shape = com.pluto.app.ui.theme.PlutoShapes.large,
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+  PlutoCard(
+    modifier = modifier.fillMaxWidth(),
+    shape = PlutoShapes.large,
+    testTag = "wallet_transaction_item_${transaction.id}"
   ) {
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(16.dp),
+        .padding(PlutoSpacing.lg),
       verticalAlignment = Alignment.CenterVertically
     ) {
       // Type Icon Circle
@@ -548,24 +540,21 @@ private fun TransactionItemCard(
           }
           Text(
             text = rateInfo,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
             color = MaterialTheme.colorScheme.primary
           )
         }
 
         Text(
           text = dateString,
-          style = MaterialTheme.typography.labelSmall,
+          style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
           color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
         )
       }
 
       Text(
         text = if (isPositive) "+${transaction.amount.format()}" else "-${transaction.amount.format()}",
-        style = MaterialTheme.typography.titleMedium.copy(
-          fontFamily = RobotoMonoFontFamily,
-          fontFeatureSettings = "tnum"
-        ),
+        style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
         fontWeight = FontWeight.Bold,
         color = color
       )
@@ -576,15 +565,19 @@ private fun TransactionItemCard(
 @Composable
 private fun DepositDialog(
   wallet: CurrencyWallet,
+  isSubmitting: Boolean = false,
+  externalErrorMessage: String? = null,
+  onClearExternalError: () -> Unit = {},
   onDismiss: () -> Unit,
   onConfirm: (BigDecimal, String) -> Unit
 ) {
   var amountInput by remember { mutableStateOf("") }
   var noteInput by remember { mutableStateOf("") }
   var errorMessage by remember { mutableStateOf<String?>(null) }
+  val displayedError = errorMessage ?: externalErrorMessage
 
   AlertDialog(
-    onDismissRequest = onDismiss,
+    onDismissRequest = { if (!isSubmitting) onDismiss() },
     title = { Text("Deposit to ${wallet.currency.code} Wallet") },
     text = {
       Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -596,16 +589,18 @@ private fun DepositDialog(
         OutlinedTextField(
           value = amountInput,
           onValueChange = {
-            val clean = it.filter { ch -> ch.isDigit() || ch == '.' }
-            if (clean.count { ch -> ch == '.' } <= 1) {
-              amountInput = clean
-              errorMessage = null
-            }
+            val sanitized = wallet.currency.sanitizeAmountInput(it) ?: return@OutlinedTextField
+            amountInput = sanitized
+            errorMessage = null
+            onClearExternalError()
           },
           label = { Text("Amount (${wallet.currency.code})") },
-          placeholder = { Text("0.00") },
+          placeholder = { Text(wallet.currency.zeroPlaceholder()) },
           singleLine = true,
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+          textStyle = MaterialTheme.typography.bodyLarge.merge(PlutoNumericStyle),
+          keyboardOptions = KeyboardOptions(
+            keyboardType = if (wallet.currency.decimalPlaces == 0) KeyboardType.Number else KeyboardType.Decimal
+          ),
           modifier = Modifier
             .fillMaxWidth()
             .testTag("deposit_amount_input")
@@ -622,17 +617,19 @@ private fun DepositDialog(
             .testTag("deposit_note_input")
         )
 
-        if (errorMessage != null) {
+        if (displayedError != null) {
           Text(
-            text = errorMessage ?: "",
+            text = displayedError,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.testTag("deposit_error_message")
           )
         }
       }
     },
     confirmButton = {
-      Button(
+      PlutoButton(
+        text = if (isSubmitting) "Processing..." else "Deposit",
         onClick = {
           val bd = try {
             BigDecimal(amountInput.trim())
@@ -645,15 +642,18 @@ private fun DepositDialog(
             onConfirm(bd, noteInput)
           }
         },
-        modifier = Modifier.testTag("deposit_confirm_button")
-      ) {
-        Text("Deposit")
-      }
+        variant = PlutoButtonVariant.PRIMARY,
+        enabled = !isSubmitting,
+        testTag = "deposit_confirm_button"
+      )
     },
     dismissButton = {
-      TextButton(onClick = onDismiss) {
-        Text("Cancel")
-      }
+      PlutoButton(
+        text = "Cancel",
+        onClick = onDismiss,
+        variant = PlutoButtonVariant.GHOST,
+        enabled = !isSubmitting
+      )
     }
   )
 }
@@ -661,21 +661,25 @@ private fun DepositDialog(
 @Composable
 private fun WithdrawDialog(
   wallet: CurrencyWallet,
+  isSubmitting: Boolean = false,
+  externalErrorMessage: String? = null,
+  onClearExternalError: () -> Unit = {},
   onDismiss: () -> Unit,
   onConfirm: (BigDecimal, String) -> Unit
 ) {
   var amountInput by remember { mutableStateOf("") }
   var noteInput by remember { mutableStateOf("") }
   var errorMessage by remember { mutableStateOf<String?>(null) }
+  val displayedError = errorMessage ?: externalErrorMessage
 
   AlertDialog(
-    onDismissRequest = onDismiss,
+    onDismissRequest = { if (!isSubmitting) onDismiss() },
     title = { Text("Withdraw from ${wallet.currency.code} Wallet") },
     text = {
       Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
           text = "Available balance: ${wallet.balance.format()}",
-          style = MaterialTheme.typography.bodyMedium,
+          style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
           fontWeight = FontWeight.SemiBold,
           color = MaterialTheme.colorScheme.primary
         )
@@ -683,16 +687,18 @@ private fun WithdrawDialog(
         OutlinedTextField(
           value = amountInput,
           onValueChange = {
-            val clean = it.filter { ch -> ch.isDigit() || ch == '.' }
-            if (clean.count { ch -> ch == '.' } <= 1) {
-              amountInput = clean
-              errorMessage = null
-            }
+            val sanitized = wallet.currency.sanitizeAmountInput(it) ?: return@OutlinedTextField
+            amountInput = sanitized
+            errorMessage = null
+            onClearExternalError()
           },
           label = { Text("Amount (${wallet.currency.code})") },
-          placeholder = { Text("0.00") },
+          placeholder = { Text(wallet.currency.zeroPlaceholder()) },
           singleLine = true,
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+          textStyle = MaterialTheme.typography.bodyLarge.merge(PlutoNumericStyle),
+          keyboardOptions = KeyboardOptions(
+            keyboardType = if (wallet.currency.decimalPlaces == 0) KeyboardType.Number else KeyboardType.Decimal
+          ),
           modifier = Modifier
             .fillMaxWidth()
             .testTag("withdraw_amount_input")
@@ -709,17 +715,19 @@ private fun WithdrawDialog(
             .testTag("withdraw_note_input")
         )
 
-        if (errorMessage != null) {
+        if (displayedError != null) {
           Text(
-            text = errorMessage ?: "",
+            text = displayedError,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.testTag("withdraw_error_message")
           )
         }
       }
     },
     confirmButton = {
-      Button(
+      PlutoButton(
+        text = if (isSubmitting) "Processing..." else "Withdraw",
         onClick = {
           val bd = try {
             BigDecimal(amountInput.trim())
@@ -734,15 +742,18 @@ private fun WithdrawDialog(
             onConfirm(bd, noteInput)
           }
         },
-        modifier = Modifier.testTag("withdraw_confirm_button")
-      ) {
-        Text("Withdraw")
-      }
+        variant = PlutoButtonVariant.PRIMARY,
+        enabled = !isSubmitting,
+        testTag = "withdraw_confirm_button"
+      )
     },
     dismissButton = {
-      TextButton(onClick = onDismiss) {
-        Text("Cancel")
-      }
+      PlutoButton(
+        text = "Cancel",
+        onClick = onDismiss,
+        variant = PlutoButtonVariant.GHOST,
+        enabled = !isSubmitting
+      )
     }
   )
 }
@@ -752,6 +763,9 @@ private fun WithdrawDialog(
 private fun TransferDialog(
   sourceWallet: CurrencyWallet,
   availableWallets: List<CurrencyWallet>,
+  isSubmitting: Boolean = false,
+  externalErrorMessage: String? = null,
+  onClearExternalError: () -> Unit = {},
   onDismiss: () -> Unit,
   onConfirm: (String, BigDecimal, String) -> Unit
 ) {
@@ -764,15 +778,16 @@ private fun TransferDialog(
   var expandedDropdown by remember { mutableStateOf(false) }
 
   val targetWallet = availableWallets.find { it.id == selectedDestWalletId }
+  val displayedError = errorMessage ?: externalErrorMessage
 
   AlertDialog(
-    onDismissRequest = onDismiss,
+    onDismissRequest = { if (!isSubmitting) onDismiss() },
     title = { Text("Transfer from ${sourceWallet.currency.code}") },
     text = {
       Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
           text = "Available balance: ${sourceWallet.balance.format()}",
-          style = MaterialTheme.typography.bodyMedium,
+          style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
           fontWeight = FontWeight.SemiBold,
           color = MaterialTheme.colorScheme.primary
         )
@@ -804,6 +819,7 @@ private fun TransferDialog(
                 onClick = {
                   selectedDestWalletId = w.id
                   expandedDropdown = false
+                  onClearExternalError()
                 }
               )
             }
@@ -813,16 +829,18 @@ private fun TransferDialog(
         OutlinedTextField(
           value = amountInput,
           onValueChange = {
-            val clean = it.filter { ch -> ch.isDigit() || ch == '.' }
-            if (clean.count { ch -> ch == '.' } <= 1) {
-              amountInput = clean
-              errorMessage = null
-            }
+            val sanitized = sourceWallet.currency.sanitizeAmountInput(it) ?: return@OutlinedTextField
+            amountInput = sanitized
+            errorMessage = null
+            onClearExternalError()
           },
           label = { Text("Amount (${sourceWallet.currency.code})") },
-          placeholder = { Text("0.00") },
+          placeholder = { Text(sourceWallet.currency.zeroPlaceholder()) },
           singleLine = true,
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+          textStyle = MaterialTheme.typography.bodyLarge.merge(PlutoNumericStyle),
+          keyboardOptions = KeyboardOptions(
+            keyboardType = if (sourceWallet.currency.decimalPlaces == 0) KeyboardType.Number else KeyboardType.Decimal
+          ),
           modifier = Modifier
             .fillMaxWidth()
             .testTag("transfer_amount_input")
@@ -839,17 +857,19 @@ private fun TransferDialog(
             .testTag("transfer_note_input")
         )
 
-        if (errorMessage != null) {
+        if (displayedError != null) {
           Text(
-            text = errorMessage ?: "",
+            text = displayedError,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.testTag("transfer_error_message")
           )
         }
       }
     },
     confirmButton = {
-      Button(
+      PlutoButton(
+        text = if (isSubmitting) "Processing..." else "Confirm Transfer",
         onClick = {
           val bd = try {
             BigDecimal(amountInput.trim())
@@ -866,15 +886,18 @@ private fun TransferDialog(
             onConfirm(selectedDestWalletId, bd, noteInput)
           }
         },
-        modifier = Modifier.testTag("transfer_confirm_button")
-      ) {
-        Text("Confirm Transfer")
-      }
+        variant = PlutoButtonVariant.PRIMARY,
+        enabled = !isSubmitting,
+        testTag = "transfer_confirm_button"
+      )
     },
     dismissButton = {
-      TextButton(onClick = onDismiss) {
-        Text("Cancel")
-      }
+      PlutoButton(
+        text = "Cancel",
+        onClick = onDismiss,
+        variant = PlutoButtonVariant.GHOST,
+        enabled = !isSubmitting
+      )
     }
   )
 }

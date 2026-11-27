@@ -21,12 +21,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.CalendarToday
@@ -49,24 +46,15 @@ import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -88,14 +76,22 @@ import androidx.core.content.ContextCompat
 import com.pluto.app.R
 import com.pluto.app.data.remote.cloud.CloudSyncState
 import com.pluto.app.data.remote.cloud.GoogleSignInButton
+import com.pluto.app.domain.model.Currency
+import com.pluto.app.domain.model.Money
 import com.pluto.app.domain.model.UserSettings
 import com.pluto.app.ui.components.CurrencyBadge
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.components.PlutoCard
+import com.pluto.app.ui.components.PlutoTopBar
 import com.pluto.app.ui.home.SpendingCapsDialog
 import com.pluto.app.ui.theme.PlutoMotion
 import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
 import com.pluto.app.ui.theme.plutoHeading
 import com.pluto.app.ui.theme.plutoPressableScale
+import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -106,14 +102,15 @@ fun SettingsScreen(
   userSettings: UserSettings,
   onChangeHomeCurrencyClick: () -> Unit,
   onChangeDestinationClick: () -> Unit,
-  onUpdateSpendingCaps: (Double?, Double?) -> Unit,
-  onUpdateCategoryBudgets: (Map<String, Double>) -> Unit = {},
+  onUpdateSpendingCaps: (BigDecimal?, BigDecimal?) -> Unit,
+  onUpdateCategoryBudgets: (Map<String, BigDecimal>) -> Unit = {},
+  onGetConversionRate: (suspend (Currency, Currency) -> BigDecimal?)? = null,
   onUpdateThemeMode: (com.pluto.app.domain.model.ThemeMode) -> Unit = {},
   onUpdatePersona: (com.pluto.app.domain.model.UserPersona) -> Unit = {},
   onUpdateAcademicTermSettings: (com.pluto.app.domain.model.AcademicTermSettings) -> Unit = {},
   onUpdateBiometricLock: (Boolean, Int) -> Unit = { _, _ -> },
   onUpdatePrivacyMode: (Boolean) -> Unit = {},
-  onUpdateWarningThreshold: (Double?, Boolean) -> Unit = { _, _ -> },
+  onUpdateWarningThreshold: (BigDecimal?, Boolean) -> Unit = { _, _ -> },
   onOpenCustomRates: () -> Unit = {},
   onOpenBackupRestore: () -> Unit = {},
   onResetOnboardingClick: () -> Unit,
@@ -172,6 +169,7 @@ fun SettingsScreen(
   if (showCapsDialog) {
     SpendingCapsDialog(
       userSettings = userSettings,
+      onGetConversionRate = onGetConversionRate,
       onDismiss = { showCapsDialog = false },
       onSave = { daily, monthly ->
         onUpdateSpendingCaps(daily, monthly)
@@ -183,6 +181,7 @@ fun SettingsScreen(
   if (showCategoryBudgetsDialog) {
     com.pluto.app.ui.home.CategoryBudgetsDialog(
       userSettings = userSettings,
+      onGetConversionRate = onGetConversionRate,
       onDismiss = { showCategoryBudgetsDialog = false },
       onSave = { budgets ->
         onUpdateCategoryBudgets(budgets)
@@ -194,32 +193,11 @@ fun SettingsScreen(
   Scaffold(
     modifier = modifier.fillMaxSize().testTag("profile_settings_screen"),
     topBar = {
-      TopAppBar(
-        title = {
-          Text(
-            text = "Profile & Settings",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-          )
-        },
-        navigationIcon = {
-          if (onNavigateBack != null) {
-            IconButton(
-              onClick = onNavigateBack,
-              modifier = Modifier
-                .minimumInteractiveComponentSize()
-                .testTag("settings_back_button")
-            ) {
-              Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back"
-              )
-            }
-          }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-          containerColor = MaterialTheme.colorScheme.background
-        )
+      PlutoTopBar(
+        title = "Profile & Settings",
+        onNavigateBack = onNavigateBack,
+        titleStyle = MaterialTheme.typography.titleLarge,
+        backButtonTestTag = "settings_back_button"
       )
     }
   ) { innerPadding ->
@@ -237,13 +215,11 @@ fun SettingsScreen(
           .padding(horizontal = 20.dp, vertical = 12.dp)
       ) {
       // 1. Account & Cloud Sync Card (20dp outer = 14dp padding + 6dp inner pill)
-      Card(
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("profile_header_card"),
+      PlutoCard(
+        modifier = Modifier.fillMaxWidth(),
         shape = PlutoShapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+        testTag = "profile_header_card"
       ) {
         Column(modifier = Modifier.padding(14.dp)) {
           Row(verticalAlignment = Alignment.CenterVertically) {
@@ -344,46 +320,24 @@ fun SettingsScreen(
               modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-              val syncInteraction = remember { MutableInteractionSource() }
               val syncEnabled = cloudSyncState !is CloudSyncState.Syncing
-              FilledTonalButton(
+              PlutoButton(
+                text = "Sync Now",
                 onClick = onSyncNowClick,
+                variant = PlutoButtonVariant.SECONDARY,
                 enabled = syncEnabled,
-                interactionSource = syncInteraction,
-                modifier = Modifier
-                  .weight(1f)
-                  .minimumInteractiveComponentSize()
-                  .plutoPressableScale(
-                    enabled = syncEnabled,
-                    pressedScale = PlutoMotion.PressScale,
-                    interactionSource = syncInteraction
-                  )
-                  .testTag("settings_sync_now_button")
-              ) {
-                Icon(Icons.Rounded.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Sync Now", fontWeight = FontWeight.SemiBold)
-              }
+                leadingIcon = Icons.Rounded.Sync,
+                testTag = "settings_sync_now_button",
+                modifier = Modifier.weight(1f)
+              )
 
-              val signOutInteraction = remember { MutableInteractionSource() }
-              OutlinedButton(
+              PlutoButton(
+                text = "Sign Out",
                 onClick = onSignOutClick,
-                interactionSource = signOutInteraction,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                modifier = Modifier
-                  .weight(1f)
-                  .minimumInteractiveComponentSize()
-                  .plutoPressableScale(
-                    enabled = true,
-                    pressedScale = PlutoMotion.PressScale,
-                    interactionSource = signOutInteraction
-                  )
-                  .testTag("settings_sign_out_button")
-              ) {
-                Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Sign Out", fontWeight = FontWeight.SemiBold)
-              }
+                variant = PlutoButtonVariant.OUTLINED,
+                testTag = "settings_sign_out_button",
+                modifier = Modifier.weight(1f)
+              )
             }
           } else {
             Spacer(modifier = Modifier.height(12.dp))
@@ -394,9 +348,9 @@ fun SettingsScreen(
               modifier = Modifier.testTag("settings_offline_merge_hint")
             )
             if (signInErrorMessage != null) {
-              Spacer(modifier = Modifier.height(8.dp))
+              Spacer(modifier = Modifier.height(PlutoSpacing.sm))
               Surface(
-                shape = RoundedCornerShape(10.dp),
+                shape = PlutoShapes.medium,
                 color = MaterialTheme.colorScheme.errorContainer,
                 modifier = Modifier
                   .fillMaxWidth()
@@ -434,11 +388,9 @@ fun SettingsScreen(
       // 2. Travel Tools Section (houses Currency Converter)
       SettingsSectionHeader(title = "Travel Tools")
 
-      Card(
+      PlutoCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = PlutoShapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = PlutoShapes.large
       ) {
         SettingsRowItem(
           icon = Icons.Rounded.CurrencyExchange,
@@ -448,7 +400,7 @@ fun SettingsScreen(
           testTag = "settings_row_currency_converter",
           trailingContent = {
             Surface(
-              shape = RoundedCornerShape(8.dp),
+              shape = PlutoShapes.small,
               color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
             ) {
               Text(
@@ -474,11 +426,9 @@ fun SettingsScreen(
       // 3. Preferences Section
       SettingsSectionHeader(title = "Currency & Destination")
 
-      Card(
+      PlutoCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = PlutoShapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = PlutoShapes.large
       ) {
         Column {
           SettingsRowItem(
@@ -540,18 +490,16 @@ fun SettingsScreen(
       // 4. Budgeting Caps Section
       SettingsSectionHeader(title = "Budgeting & Spending Caps")
 
-      Card(
+      PlutoCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = PlutoShapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = PlutoShapes.large
       ) {
         Column {
           SettingsRowItem(
             icon = Icons.Rounded.Speed,
             title = "Daily Spending Cap",
             subtitle = userSettings.dailySpendingCap?.let {
-              "${homeCurrency.symbol}${String.format(Locale.US, "%.2f", it)} per day"
+              "${Money.of(it, homeCurrency).format()} per day"
             } ?: "Not set (Tap to configure)",
             onClick = { showCapsDialog = true },
             testTag = "settings_row_daily_cap",
@@ -573,7 +521,7 @@ fun SettingsScreen(
             icon = Icons.Rounded.CalendarToday,
             title = "Monthly Spending Cap",
             subtitle = userSettings.monthlySpendingCap?.let {
-              "${homeCurrency.symbol}${String.format(Locale.US, "%.2f", it)} per month"
+              "${Money.of(it, homeCurrency).format()} per month"
             } ?: "Not set (Tap to configure)",
             onClick = { showCapsDialog = true },
             testTag = "settings_row_monthly_cap",
@@ -628,11 +576,9 @@ fun SettingsScreen(
       // 5. Appearance Section
       SettingsSectionHeader(title = "Appearance")
 
-      Card(
+      PlutoCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = PlutoShapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = PlutoShapes.large
       ) {
         Column {
           val themeSubtitle = when (userSettings.themeMode) {
@@ -649,7 +595,7 @@ fun SettingsScreen(
             testTag = "settings_row_theme",
             trailingContent = {
               Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = PlutoShapes.small,
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
               ) {
                 Text(
@@ -691,11 +637,9 @@ fun SettingsScreen(
       // 6. Security & Privacy Section
       SettingsSectionHeader(title = "Security & Privacy")
 
-      Card(
+      PlutoCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = PlutoShapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = PlutoShapes.large
       ) {
         Column {
           SettingsSwitchRowItem(
@@ -735,15 +679,15 @@ fun SettingsScreen(
               testTag = "settings_row_timeout",
               trailingContent = {
                 Surface(
-                  shape = RoundedCornerShape(8.dp),
+                  shape = PlutoShapes.small,
                   color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                 ) {
                   Text(
                     text = "${userSettings.autoLockTimeoutMinutes}m",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(horizontal = PlutoSpacing.sm, vertical = PlutoSpacing.xs)
                   )
                 }
                 Spacer(modifier = Modifier.width(6.dp))
@@ -802,11 +746,9 @@ fun SettingsScreen(
       // 7. Data & Cloud Backup Section
       SettingsSectionHeader(title = "Data & Cloud Backup")
 
-      Card(
+      PlutoCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = PlutoShapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = PlutoShapes.large
       ) {
         Column {
           SettingsRowItem(
@@ -817,7 +759,7 @@ fun SettingsScreen(
             testTag = "settings_row_backup_restore",
             trailingContent = {
               Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = PlutoShapes.small,
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
               ) {
                 Text(
@@ -853,25 +795,21 @@ fun SettingsScreen(
           SettingsSectionHeader(title = "Developer & Debug Tools")
           Surface(
             color = MaterialTheme.colorScheme.tertiaryContainer,
-            shape = RoundedCornerShape(6.dp),
-            modifier = Modifier.padding(bottom = 8.dp)
+            shape = PlutoShapes.small,
+            modifier = Modifier.padding(bottom = PlutoSpacing.sm)
           ) {
             Text(
               text = "DEV MODE",
               style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
               color = MaterialTheme.colorScheme.onTertiaryContainer,
-              modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+              modifier = Modifier.padding(horizontal = PlutoSpacing.sm, vertical = PlutoSpacing.xxs)
             )
           }
         }
 
-        Card(
+        PlutoCard(
           modifier = Modifier.fillMaxWidth(),
-          shape = PlutoShapes.large,
-          colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-          ),
-          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+          shape = PlutoShapes.large
         ) {
           Column {
             SettingsRowItem(
@@ -903,11 +841,9 @@ fun SettingsScreen(
       // 7. About Section
       SettingsSectionHeader(title = "About")
 
-      Card(
+      PlutoCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = PlutoShapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = PlutoShapes.large
       ) {
         Column {
           SettingsRowItem(
@@ -1057,9 +993,11 @@ fun ThemeSelectionDialog(
       }
     },
     confirmButton = {
-      TextButton(onClick = onDismiss) {
-        Text("Done")
-      }
+      PlutoButton(
+        text = "Done",
+        onClick = onDismiss,
+        variant = PlutoButtonVariant.GHOST
+      )
     }
   )
 }
@@ -1073,11 +1011,11 @@ private fun ThemeOptionRow(
   testTag: String
 ) {
   Surface(
-    shape = RoundedCornerShape(12.dp),
+    shape = PlutoShapes.medium,
     color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
     modifier = Modifier
       .fillMaxWidth()
-      .clip(RoundedCornerShape(12.dp))
+      .clip(PlutoShapes.medium)
       .clickable(onClick = onClick)
       .testTag(testTag)
   ) {
@@ -1129,7 +1067,7 @@ private fun SettingsSwitchRowItem(
     verticalAlignment = Alignment.CenterVertically
   ) {
     Surface(
-      shape = RoundedCornerShape(10.dp),
+      shape = PlutoShapes.medium,
       color = MaterialTheme.colorScheme.surfaceVariant,
       modifier = Modifier.size(40.dp)
     ) {
@@ -1195,12 +1133,12 @@ fun AutoLockTimeoutDialog(
         options.forEach { (mins, label) ->
           val isSelected = currentMinutes == mins
           Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = PlutoShapes.medium,
             color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
             modifier = Modifier
               .fillMaxWidth()
-              .clip(RoundedCornerShape(12.dp))
+              .clip(PlutoShapes.medium)
               .clickable { onSelectMinutes(mins) }
               .testTag("autolock_option_$mins")
           ) {
@@ -1229,9 +1167,11 @@ fun AutoLockTimeoutDialog(
       }
     },
     confirmButton = {
-      TextButton(onClick = onDismiss) {
-        Text("Cancel")
-      }
+      PlutoButton(
+        text = "Cancel",
+        onClick = onDismiss,
+        variant = PlutoButtonVariant.GHOST
+      )
     }
   )
 }

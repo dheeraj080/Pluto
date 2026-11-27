@@ -21,8 +21,9 @@ The native app is tied to its own Firebase project. Before a release build:
 4. Add the Web OAuth client to the same Google Cloud project so the Google
    Services plugin can generate `default_web_client_id` for Google Sign-In.
 
-The old AI Studio Firebase config is not committed. Do not reuse it: it is bound
-to `com.example.nhpnee` and a different Firestore database.
+AI Studio Firebase configs are not committed. Do not reuse one: exports have
+been bound to `com.example.nhpnee` / `com.example.qbbkif` and a named Firestore
+database, none of which match `com.pluto.app` or the `(default)` database.
 
 ## 2. Production API — [blocked: not deployed]
 

@@ -30,12 +30,13 @@ class GetDashboardSummaryUseCase {
     period: DashboardPeriod,
     currentHomeCurrency: Currency,
     destinationCurrency: Currency = Currency.EUR,
-    dailySpendingCap: Double? = null,
-    monthlySpendingCap: Double? = null,
-    safeToSpendWarningThreshold: Double? = null,
+    dailySpendingCap: BigDecimal? = null,
+    monthlySpendingCap: BigDecimal? = null,
+    safeToSpendWarningThreshold: BigDecimal? = null,
     walletTransactions: List<com.pluto.app.domain.model.WalletTransaction> = emptyList(),
     destinationExchangeRate: BigDecimal? = null,
-    categoryBudgets: Map<String, Double> = emptyMap(),
+    depositToHomeRates: Map<Currency, BigDecimal> = emptyMap(),
+    categoryBudgets: Map<String, BigDecimal> = emptyMap(),
     recentLimit: Int = 10,
     userPersona: com.pluto.app.domain.model.UserPersona = com.pluto.app.domain.model.UserPersona.INTERNATIONAL_STUDENT,
     academicTermSettings: com.pluto.app.domain.model.AcademicTermSettings? = null,
@@ -92,19 +93,40 @@ class GetDashboardSummaryUseCase {
       Money.of(destAmount, destinationCurrency)
     } else null
 
+    fun convertDepositToHome(tx: com.pluto.app.domain.model.WalletTransaction): BigDecimal? {
+      val depositCurrency = tx.amount.currency
+      val recordedRate = tx.exchangeRate
+      return when {
+        depositCurrency == currentHomeCurrency -> tx.amount.amount
+        recordedRate != null &&
+          recordedRate.fromCurrency == depositCurrency &&
+          recordedRate.toCurrency == currentHomeCurrency -> {
+          recordedRate.convert(tx.amount).amount
+        }
+        depositToHomeRates[depositCurrency]?.let { it > BigDecimal.ZERO } == true -> {
+          val rate = depositToHomeRates.getValue(depositCurrency)
+          tx.amount.amount.multiply(rate).setScale(currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+        }
+        effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO && depositCurrency == destinationCurrency -> {
+          tx.amount.amount.divide(effectiveDestRate, currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+        }
+        else -> null
+      }
+    }
+
     // 5. Today's Income from deposits & Safe-to-Spend Daily Budget
     val todayWalletTx = walletTransactions.filter { it.timestamp in todayStart..todayEnd }
+    val unvaluedTodayCurrenciesSet = linkedSetOf<Currency>()
     val todayIncomeBigDecimal = todayWalletTx
       .filter { it.type == com.pluto.app.domain.model.WalletTransactionType.DEPOSIT }
       .fold(BigDecimal.ZERO) { acc, tx ->
-        val txHomeAmount = when {
-          tx.amount.currency == currentHomeCurrency -> tx.amount.amount
-          effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO && tx.amount.currency == destinationCurrency -> {
-            tx.amount.amount.divide(effectiveDestRate, currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
-          }
-          else -> tx.amount.amount
+        val txHomeAmount = convertDepositToHome(tx)
+        if (txHomeAmount != null) {
+          acc.add(txHomeAmount)
+        } else {
+          unvaluedTodayCurrenciesSet.add(tx.amount.currency)
+          acc
         }
-        acc.add(txHomeAmount)
       }
     val todayIncomeHome = Money.of(todayIncomeBigDecimal, currentHomeCurrency)
     val todayIncomeDest = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO) {
@@ -114,8 +136,8 @@ class GetDashboardSummaryUseCase {
 
     // Effective daily budget base combines daily spending cap with any income received today
     val effectiveDailyBudgetBigDecimal: BigDecimal? = when {
-      dailySpendingCap != null && dailySpendingCap > 0.0 -> {
-        BigDecimal(dailySpendingCap).add(todayIncomeBigDecimal)
+      dailySpendingCap != null && dailySpendingCap > BigDecimal.ZERO -> {
+        dailySpendingCap.add(todayIncomeBigDecimal)
       }
       todayIncomeBigDecimal > BigDecimal.ZERO -> {
         todayIncomeBigDecimal
@@ -143,45 +165,53 @@ class GetDashboardSummaryUseCase {
       Money.of(destAmount, destinationCurrency)
     } else null
 
-    val warningThresholdHome = if (safeToSpendWarningThreshold != null && safeToSpendWarningThreshold > 0.0) {
-      Money.of(BigDecimal(safeToSpendWarningThreshold).setScale(currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN), currentHomeCurrency)
+    val warningThresholdHome = if (safeToSpendWarningThreshold != null && safeToSpendWarningThreshold > BigDecimal.ZERO) {
+      Money.of(safeToSpendWarningThreshold.setScale(currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN), currentHomeCurrency)
     } else null
 
-    val warningThresholdDest = if (safeToSpendWarningThreshold != null && safeToSpendWarningThreshold > 0.0 && effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO) {
-      val destAmount = BigDecimal(safeToSpendWarningThreshold).multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+    val warningThresholdDest = if (safeToSpendWarningThreshold != null && safeToSpendWarningThreshold > BigDecimal.ZERO && effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO) {
+      val destAmount = safeToSpendWarningThreshold.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
       Money.of(destAmount, destinationCurrency)
     } else null
 
-    val isBelowWarningThreshold = if (effectiveDailyBudgetBigDecimal != null && safeToSpendWarningThreshold != null && safeToSpendWarningThreshold > 0.0) {
+    val isBelowWarningThreshold = if (effectiveDailyBudgetBigDecimal != null && safeToSpendWarningThreshold != null && safeToSpendWarningThreshold > BigDecimal.ZERO) {
       val remaining = effectiveDailyBudgetBigDecimal.subtract(todayHomeBigDecimal)
-      val thresholdBd = BigDecimal(safeToSpendWarningThreshold)
-      remaining > BigDecimal.ZERO && remaining <= thresholdBd
+      remaining > BigDecimal.ZERO && remaining <= safeToSpendWarningThreshold
     } else false
 
     val dailyCapProgress = if (effectiveDailyBudgetBigDecimal != null && effectiveDailyBudgetBigDecimal > BigDecimal.ZERO) {
-      (todayHomeBigDecimal.toDouble() / effectiveDailyBudgetBigDecimal.toDouble()).toFloat().coerceAtLeast(0f)
+      todayHomeBigDecimal.divide(effectiveDailyBudgetBigDecimal, 4, RoundingMode.HALF_EVEN).toFloat().coerceAtLeast(0f)
     } else null
 
-    val dailySpendingCapDest = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO && dailySpendingCap != null && dailySpendingCap > 0.0) {
-      val capAmount = BigDecimal(dailySpendingCap).multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+    val dailySpendingCapDest = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO && dailySpendingCap != null && dailySpendingCap > BigDecimal.ZERO) {
+      val capAmount = dailySpendingCap.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
       Money.of(capAmount, destinationCurrency)
     } else null
 
     // 6. Monthly Cap Progress
-    val monthlyCapProgress = if (monthlySpendingCap != null && monthlySpendingCap > 0.0) {
-      (monthHomeBigDecimal.toDouble() / monthlySpendingCap).toFloat().coerceAtLeast(0f)
+    val monthlyCapProgress = if (monthlySpendingCap != null && monthlySpendingCap > BigDecimal.ZERO) {
+      monthHomeBigDecimal.divide(monthlySpendingCap, 4, RoundingMode.HALF_EVEN).toFloat().coerceAtLeast(0f)
     } else null
 
-    val monthlySpendingCapDest = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO && monthlySpendingCap != null && monthlySpendingCap > 0.0) {
-      val capAmount = BigDecimal(monthlySpendingCap).multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+    val monthlySpendingCapDest = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO && monthlySpendingCap != null && monthlySpendingCap > BigDecimal.ZERO) {
+      val capAmount = monthlySpendingCap.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
       Money.of(capAmount, destinationCurrency)
     } else null
 
     // 7. Cash Flow Calculations (Deposits in Period = Income)
     val periodWalletTx = walletTransactions.filter { it.timestamp in startTime..endTime }
+    val unvaluedPeriodCurrenciesSet = linkedSetOf<Currency>()
     val totalIncomeBigDecimal = periodWalletTx
       .filter { it.type == com.pluto.app.domain.model.WalletTransactionType.DEPOSIT }
-      .fold(BigDecimal.ZERO) { acc, tx -> acc.add(tx.amount.amount) }
+      .fold(BigDecimal.ZERO) { acc, tx ->
+        val txHomeAmount = convertDepositToHome(tx)
+        if (txHomeAmount != null) {
+          acc.add(txHomeAmount)
+        } else {
+          unvaluedPeriodCurrenciesSet.add(tx.amount.currency)
+          acc
+        }
+      }
     val totalIncomeHome = Money.of(totalIncomeBigDecimal, currentHomeCurrency)
     val totalIncomeDest = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO) {
       val destAmount = totalIncomeBigDecimal.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
@@ -217,21 +247,21 @@ class GetDashboardSummaryUseCase {
             Money.of(destAmount, destinationCurrency)
           } else null
 
-          val budgetCap = categoryBudgets[category.id]
+          val budgetCap = categoryBudgets[category.id]?.takeIf { it > BigDecimal.ZERO }
           val budgetHomeMoney = budgetCap?.let {
-            Money.of(BigDecimal(it).setScale(currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN), currentHomeCurrency)
+            Money.of(it.setScale(currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN), currentHomeCurrency)
           }
           val budgetDestMoney = if (budgetCap != null && effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO) {
-            val destAmount = BigDecimal(budgetCap).multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+            val destAmount = budgetCap.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
             Money.of(destAmount, destinationCurrency)
           } else null
 
-          val progress = if (budgetCap != null && budgetCap > 0.0) {
-            (categorySum.toDouble() / budgetCap).toFloat().coerceAtLeast(0f)
+          val progress = if (budgetCap != null) {
+            categorySum.divide(budgetCap, 4, RoundingMode.HALF_EVEN).toFloat().coerceAtLeast(0f)
           } else null
 
-          val isOver = if (budgetCap != null && budgetCap > 0.0) {
-            categorySum > BigDecimal(budgetCap)
+          val isOver = if (budgetCap != null) {
+            categorySum > budgetCap
           } else false
 
           CategorySpendingSummary(
@@ -314,26 +344,24 @@ class GetDashboardSummaryUseCase {
     val walletItems = walletTransactions.mapNotNull { tx ->
       when (tx.type) {
         com.pluto.app.domain.model.WalletTransactionType.DEPOSIT -> {
+          val convertedHome = convertDepositToHome(tx)
+          val homeMoney: Money? = convertedHome?.let { Money.of(it, currentHomeCurrency) }
+
           val destMoney: Money = when {
             tx.amount.currency == destinationCurrency -> tx.amount
-            effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO && tx.amount.currency == currentHomeCurrency -> {
-              val converted = tx.amount.amount.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+            convertedHome != null && effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO -> {
+              val converted = convertedHome.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
               Money.of(converted, destinationCurrency)
             }
             else -> tx.amount
           }
 
-          val homeMoney: Money = when {
-            tx.amount.currency == currentHomeCurrency -> tx.amount
-            effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO && tx.amount.currency == destinationCurrency -> {
-              val converted = tx.amount.amount.divide(effectiveDestRate, currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
-              Money.of(converted, currentHomeCurrency)
-            }
-            else -> tx.amount
-          }
-
           val primaryStr = "+${destMoney.format()}"
-          val secondaryStr = if (destMoney.currency != currentHomeCurrency) "≈ +${homeMoney.format()}" else "+${homeMoney.format()}"
+          val secondaryStr = when {
+            homeMoney == null -> "Rate to ${currentHomeCurrency.code} unavailable"
+            destMoney.currency != currentHomeCurrency -> "≈ +${homeMoney.format()}"
+            else -> "+${homeMoney.format()}"
+          }
 
           com.pluto.app.domain.model.UnifiedTransactionItem(
             id = tx.id,
@@ -461,14 +489,14 @@ class GetDashboardSummaryUseCase {
       Money.of(converted, destinationCurrency)
     } else null
 
-    val totalAllowanceBd = BigDecimal(termSettings.totalAllowanceHome).setScale(currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+    val totalAllowanceBd = termSettings.totalAllowanceHome.setScale(currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
     val totalAllowanceHome = Money.of(totalAllowanceBd, currentHomeCurrency)
     val totalAllowanceDest = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO) {
       val converted = totalAllowanceBd.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
       Money.of(converted, destinationCurrency)
     } else null
 
-    val committedFixedBd = BigDecimal(termSettings.tuitionAndFixedCommittedHome).setScale(currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+    val committedFixedBd = termSettings.tuitionAndFixedCommittedHome.setScale(currentHomeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
     val committedFixedHome = Money.of(committedFixedBd, currentHomeCurrency)
     val committedFixedDest = if (effectiveDestRate != null && effectiveDestRate > BigDecimal.ZERO) {
       val converted = committedFixedBd.multiply(effectiveDestRate).setScale(destinationCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
@@ -507,7 +535,7 @@ class GetDashboardSummaryUseCase {
 
     val runwayPaceStatus = when {
       remainingDiscretionaryBd < BigDecimal.ZERO -> com.pluto.app.domain.model.RunwayPaceStatus.DEFICIT
-      actualDailyAvgBd > dailyRunwaySafeToSpendBd.multiply(BigDecimal(1.2)) -> com.pluto.app.domain.model.RunwayPaceStatus.CAUTION
+      actualDailyAvgBd > dailyRunwaySafeToSpendBd.multiply(BigDecimal("1.2")) -> com.pluto.app.domain.model.RunwayPaceStatus.CAUTION
       else -> com.pluto.app.domain.model.RunwayPaceStatus.ON_TRACK
     }
 
@@ -575,7 +603,9 @@ class GetDashboardSummaryUseCase {
       thirtyDayPeakDay = thirtyDayPeakDay,
       thirtyDayTrendPercentage = thirtyDayTrendPercentage,
       userPersona = userPersona,
-      termRunwaySummary = termRunwaySummary
+      termRunwaySummary = termRunwaySummary,
+      unvaluedIncomeCurrencies = unvaluedPeriodCurrenciesSet.sortedBy { it.code },
+      unvaluedTodayIncomeCurrencies = unvaluedTodayCurrenciesSet.sortedBy { it.code }
     )
   }
 }

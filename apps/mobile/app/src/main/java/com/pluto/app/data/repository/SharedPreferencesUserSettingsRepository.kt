@@ -2,11 +2,16 @@ package com.pluto.app.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.pluto.app.domain.model.AcademicTermSettings
+import com.pluto.app.domain.model.BudgetCycleType
 import com.pluto.app.domain.model.Category
 import com.pluto.app.domain.model.Currency
 import com.pluto.app.domain.model.HomeLayoutPresets
 import com.pluto.app.domain.model.HomeModuleConfig
 import com.pluto.app.domain.model.HomeModuleId
+import com.pluto.app.domain.model.ThemeMode
+import com.pluto.app.domain.model.TripSettings
+import com.pluto.app.domain.model.UserPersona
 import com.pluto.app.domain.model.UserSettings
 import com.pluto.app.domain.repository.UserSettingsRepository
 import kotlinx.coroutines.channels.BufferOverflow
@@ -14,12 +19,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import java.math.BigDecimal
 
 /**
  * Concrete implementation of [UserSettingsRepository] backed by Android [SharedPreferences].
  *
- * Lightweight, zero-extra-dependency persistence perfect for user-level preferences,
- * theme choice, and onboarding completion state.
+ * All monetary fields are persisted as exact decimal strings (`BigDecimal.toPlainString()`),
+ * with backward-compatible reads for legacy Float preferences written by earlier app versions.
  */
 class SharedPreferencesUserSettingsRepository(
   context: Context
@@ -57,16 +63,16 @@ class SharedPreferencesUserSettingsRepository(
     _settingsFlow.tryEmit(loadSettingsFromPrefs())
   }
 
-  override suspend fun updateSpendingCaps(dailyCap: Double?, monthlyCap: Double?) {
+  override suspend fun updateSpendingCaps(dailyCap: BigDecimal?, monthlyCap: BigDecimal?) {
     val editor = prefs.edit()
-    if (dailyCap != null && dailyCap > 0.0) {
-      editor.putFloat(KEY_DAILY_SPENDING_CAP, dailyCap.toFloat())
+    if (dailyCap != null && dailyCap > BigDecimal.ZERO) {
+      editor.putString(KEY_DAILY_SPENDING_CAP, dailyCap.toPlainString())
     } else {
       editor.remove(KEY_DAILY_SPENDING_CAP)
     }
 
-    if (monthlyCap != null && monthlyCap > 0.0) {
-      editor.putFloat(KEY_MONTHLY_SPENDING_CAP, monthlyCap.toFloat())
+    if (monthlyCap != null && monthlyCap > BigDecimal.ZERO) {
+      editor.putString(KEY_MONTHLY_SPENDING_CAP, monthlyCap.toPlainString())
     } else {
       editor.remove(KEY_MONTHLY_SPENDING_CAP)
     }
@@ -75,10 +81,10 @@ class SharedPreferencesUserSettingsRepository(
     _settingsFlow.tryEmit(loadSettingsFromPrefs())
   }
 
-  override suspend fun updateWarningThreshold(threshold: Double?, notificationsEnabled: Boolean) {
+  override suspend fun updateWarningThreshold(threshold: BigDecimal?, notificationsEnabled: Boolean) {
     val editor = prefs.edit()
-    if (threshold != null && threshold > 0.0) {
-      editor.putFloat(KEY_WARNING_THRESHOLD, threshold.toFloat())
+    if (threshold != null && threshold > BigDecimal.ZERO) {
+      editor.putString(KEY_WARNING_THRESHOLD, threshold.toPlainString())
     } else {
       editor.remove(KEY_WARNING_THRESHOLD)
     }
@@ -87,52 +93,54 @@ class SharedPreferencesUserSettingsRepository(
     _settingsFlow.tryEmit(loadSettingsFromPrefs())
   }
 
-  override suspend fun updateCategoryBudgets(categoryBudgets: Map<String, Double>) {
+  override suspend fun updateCategoryBudgets(categoryBudgets: Map<String, BigDecimal>) {
     val editor = prefs.edit()
-    val serialized = categoryBudgets.entries.joinToString(";") { "${it.key}:${it.value}" }
+    val serialized = categoryBudgets.entries
+      .filter { it.value > BigDecimal.ZERO }
+      .joinToString(";") { "${it.key}:${it.value.toPlainString()}" }
     editor.putString(KEY_CATEGORY_BUDGETS, serialized)
     editor.apply()
     _settingsFlow.tryEmit(loadSettingsFromPrefs())
   }
 
-  override suspend fun updateThemeMode(themeMode: com.pluto.app.domain.model.ThemeMode) {
+  override suspend fun updateThemeMode(themeMode: ThemeMode) {
     prefs.edit()
       .putString(KEY_THEME_MODE, themeMode.name)
       .apply()
     _settingsFlow.tryEmit(loadSettingsFromPrefs())
   }
 
-  override suspend fun updatePersona(persona: com.pluto.app.domain.model.UserPersona) {
+  override suspend fun updatePersona(persona: UserPersona) {
     prefs.edit()
       .putString(KEY_USER_PERSONA, persona.name)
       .apply()
     _settingsFlow.tryEmit(loadSettingsFromPrefs())
   }
 
-  override suspend fun updateBudgetCycleType(budgetCycleType: com.pluto.app.domain.model.BudgetCycleType) {
+  override suspend fun updateBudgetCycleType(budgetCycleType: BudgetCycleType) {
     prefs.edit()
       .putString(KEY_BUDGET_CYCLE_TYPE, budgetCycleType.name)
       .apply()
     _settingsFlow.tryEmit(loadSettingsFromPrefs())
   }
 
-  override suspend fun updateAcademicTermSettings(academicTermSettings: com.pluto.app.domain.model.AcademicTermSettings) {
+  override suspend fun updateAcademicTermSettings(academicTermSettings: AcademicTermSettings) {
     prefs.edit()
       .putString(KEY_TERM_NAME, academicTermSettings.termName)
       .putLong(KEY_TERM_START, academicTermSettings.termStartDate)
       .putLong(KEY_TERM_END, academicTermSettings.termEndDate)
-      .putFloat(KEY_TERM_ALLOWANCE, academicTermSettings.totalAllowanceHome.toFloat())
-      .putFloat(KEY_TERM_COMMITTED, academicTermSettings.tuitionAndFixedCommittedHome.toFloat())
+      .putString(KEY_TERM_ALLOWANCE, academicTermSettings.totalAllowanceHome.max(BigDecimal.ZERO).toPlainString())
+      .putString(KEY_TERM_COMMITTED, academicTermSettings.tuitionAndFixedCommittedHome.max(BigDecimal.ZERO).toPlainString())
       .apply()
     _settingsFlow.tryEmit(loadSettingsFromPrefs())
   }
 
-  override suspend fun updateTripSettings(tripSettings: com.pluto.app.domain.model.TripSettings) {
+  override suspend fun updateTripSettings(tripSettings: TripSettings) {
     prefs.edit()
       .putString(KEY_TRIP_NAME, tripSettings.tripName)
       .putLong(KEY_TRIP_START, tripSettings.tripStartDate)
       .putLong(KEY_TRIP_END, tripSettings.tripEndDate)
-      .putFloat(KEY_TRIP_BUDGET, tripSettings.totalTripBudgetHome.toFloat())
+      .putString(KEY_TRIP_BUDGET, tripSettings.totalTripBudgetHome.max(BigDecimal.ZERO).toPlainString())
       .apply()
     _settingsFlow.tryEmit(loadSettingsFromPrefs())
   }
@@ -182,12 +190,12 @@ class SharedPreferencesUserSettingsRepository(
       .putString(KEY_TERM_NAME, settings.academicTermSettings.termName)
       .putLong(KEY_TERM_START, settings.academicTermSettings.termStartDate)
       .putLong(KEY_TERM_END, settings.academicTermSettings.termEndDate)
-      .putFloat(KEY_TERM_ALLOWANCE, settings.academicTermSettings.totalAllowanceHome.toFloat())
-      .putFloat(KEY_TERM_COMMITTED, settings.academicTermSettings.tuitionAndFixedCommittedHome.toFloat())
+      .putString(KEY_TERM_ALLOWANCE, settings.academicTermSettings.totalAllowanceHome.max(BigDecimal.ZERO).toPlainString())
+      .putString(KEY_TERM_COMMITTED, settings.academicTermSettings.tuitionAndFixedCommittedHome.max(BigDecimal.ZERO).toPlainString())
       .putString(KEY_TRIP_NAME, settings.tripSettings.tripName)
       .putLong(KEY_TRIP_START, settings.tripSettings.tripStartDate)
       .putLong(KEY_TRIP_END, settings.tripSettings.tripEndDate)
-      .putFloat(KEY_TRIP_BUDGET, settings.tripSettings.totalTripBudgetHome.toFloat())
+      .putString(KEY_TRIP_BUDGET, settings.tripSettings.totalTripBudgetHome.max(BigDecimal.ZERO).toPlainString())
       .putInt(KEY_FIRST_DAY_OF_WEEK, settings.firstDayOfWeek)
       .putString(KEY_DEFAULT_CATEGORY, settings.defaultCategoryId)
       .putString(KEY_THEME_MODE, settings.themeMode.name)
@@ -197,23 +205,25 @@ class SharedPreferencesUserSettingsRepository(
       .putInt(KEY_AUTO_LOCK_TIMEOUT_MINUTES, settings.autoLockTimeoutMinutes)
       .putBoolean(KEY_PRIVACY_MODE_ENABLED, settings.isPrivacyModeEnabled)
 
-    val serializedBudgets = settings.categoryMonthlyBudgets.entries.joinToString(";") { "${it.key}:${it.value}" }
+    val serializedBudgets = settings.categoryMonthlyBudgets.entries
+      .filter { it.value > BigDecimal.ZERO }
+      .joinToString(";") { "${it.key}:${it.value.toPlainString()}" }
     editor.putString(KEY_CATEGORY_BUDGETS, serializedBudgets)
 
-    if (settings.dailySpendingCap != null && settings.dailySpendingCap > 0.0) {
-      editor.putFloat(KEY_DAILY_SPENDING_CAP, settings.dailySpendingCap.toFloat())
+    if (settings.dailySpendingCap != null && settings.dailySpendingCap > BigDecimal.ZERO) {
+      editor.putString(KEY_DAILY_SPENDING_CAP, settings.dailySpendingCap.toPlainString())
     } else {
       editor.remove(KEY_DAILY_SPENDING_CAP)
     }
 
-    if (settings.monthlySpendingCap != null && settings.monthlySpendingCap > 0.0) {
-      editor.putFloat(KEY_MONTHLY_SPENDING_CAP, settings.monthlySpendingCap.toFloat())
+    if (settings.monthlySpendingCap != null && settings.monthlySpendingCap > BigDecimal.ZERO) {
+      editor.putString(KEY_MONTHLY_SPENDING_CAP, settings.monthlySpendingCap.toPlainString())
     } else {
       editor.remove(KEY_MONTHLY_SPENDING_CAP)
     }
 
-    if (settings.safeToSpendWarningThreshold != null && settings.safeToSpendWarningThreshold > 0.0) {
-      editor.putFloat(KEY_WARNING_THRESHOLD, settings.safeToSpendWarningThreshold.toFloat())
+    if (settings.safeToSpendWarningThreshold != null && settings.safeToSpendWarningThreshold > BigDecimal.ZERO) {
+      editor.putString(KEY_WARNING_THRESHOLD, settings.safeToSpendWarningThreshold.toPlainString())
     } else {
       editor.remove(KEY_WARNING_THRESHOLD)
     }
@@ -233,65 +243,70 @@ class SharedPreferencesUserSettingsRepository(
   }
 
   private fun loadSettingsFromPrefs(): UserSettings {
-    val homeCurrencyCode = prefs.getString(KEY_HOME_CURRENCY, Currency.USD.code) ?: Currency.USD.code
-    val homeCurrency = Currency.findByCode(homeCurrencyCode) ?: Currency.USD
-
-    val destinationCurrencyCode = prefs.getString(KEY_DESTINATION_CURRENCY, Currency.EUR.code) ?: Currency.EUR.code
-    val destinationCurrency = Currency.findByCode(destinationCurrencyCode) ?: Currency.EUR
-
-    val personaRaw = prefs.getString(KEY_USER_PERSONA, com.pluto.app.domain.model.UserPersona.INTERNATIONAL_STUDENT.name)
-    val persona = try {
-      com.pluto.app.domain.model.UserPersona.valueOf(personaRaw ?: com.pluto.app.domain.model.UserPersona.INTERNATIONAL_STUDENT.name)
-    } catch (e: Exception) {
-      com.pluto.app.domain.model.UserPersona.INTERNATIONAL_STUDENT
+    val storedHomeCode = prefs.getString(KEY_HOME_CURRENCY, null)
+    val homeCurrency = if (storedHomeCode == null) {
+      Currency.USD
+    } else {
+      Currency.requireByCode(storedHomeCode)
     }
 
-    val cycleRaw = prefs.getString(KEY_BUDGET_CYCLE_TYPE, com.pluto.app.domain.model.BudgetCycleType.ACADEMIC_TERM.name)
+    val storedDestinationCode = prefs.getString(KEY_DESTINATION_CURRENCY, null)
+    val destinationCurrency = if (storedDestinationCode == null) {
+      Currency.EUR
+    } else {
+      Currency.requireByCode(storedDestinationCode)
+    }
+
+    val personaRaw = prefs.getString(KEY_USER_PERSONA, UserPersona.INTERNATIONAL_STUDENT.name)
+    val persona = try {
+      UserPersona.valueOf(personaRaw ?: UserPersona.INTERNATIONAL_STUDENT.name)
+    } catch (_: Exception) {
+      UserPersona.INTERNATIONAL_STUDENT
+    }
+
+    val cycleRaw = prefs.getString(KEY_BUDGET_CYCLE_TYPE, BudgetCycleType.ACADEMIC_TERM.name)
     val budgetCycleType = try {
-      com.pluto.app.domain.model.BudgetCycleType.valueOf(cycleRaw ?: com.pluto.app.domain.model.BudgetCycleType.ACADEMIC_TERM.name)
-    } catch (e: Exception) {
-      com.pluto.app.domain.model.BudgetCycleType.ACADEMIC_TERM
+      BudgetCycleType.valueOf(cycleRaw ?: BudgetCycleType.ACADEMIC_TERM.name)
+    } catch (_: Exception) {
+      BudgetCycleType.ACADEMIC_TERM
     }
 
     val termName = prefs.getString(KEY_TERM_NAME, "Fall Semester") ?: "Fall Semester"
     val termStart = prefs.getLong(KEY_TERM_START, System.currentTimeMillis() - (14L * 86400000L))
     val termEnd = prefs.getLong(KEY_TERM_END, System.currentTimeMillis() + (90L * 86400000L))
-    val termAllowance = prefs.getFloat(KEY_TERM_ALLOWANCE, 6000f).toDouble()
-    val termCommitted = prefs.getFloat(KEY_TERM_COMMITTED, 1500f).toDouble()
-    val academicTermSettings = com.pluto.app.domain.model.AcademicTermSettings(
+    val termAllowance = readDecimalFromPrefs(KEY_TERM_ALLOWANCE, BigDecimal("6000.00")) ?: BigDecimal("6000.00")
+    val termCommitted = readDecimalFromPrefs(KEY_TERM_COMMITTED, BigDecimal("1500.00")) ?: BigDecimal("1500.00")
+    val academicTermSettings = AcademicTermSettings(
       termName = termName,
       termStartDate = termStart,
       termEndDate = termEnd,
-      totalAllowanceHome = termAllowance,
-      tuitionAndFixedCommittedHome = termCommitted
+      totalAllowanceHome = termAllowance.max(BigDecimal.ZERO),
+      tuitionAndFixedCommittedHome = termCommitted.max(BigDecimal.ZERO)
     )
 
     val tripName = prefs.getString(KEY_TRIP_NAME, "Current Trip") ?: "Current Trip"
     val tripStart = prefs.getLong(KEY_TRIP_START, System.currentTimeMillis())
     val tripEnd = prefs.getLong(KEY_TRIP_END, System.currentTimeMillis() + (14L * 86400000L))
-    val tripBudget = prefs.getFloat(KEY_TRIP_BUDGET, 1500f).toDouble()
-    val tripSettings = com.pluto.app.domain.model.TripSettings(
+    val tripBudget = readDecimalFromPrefs(KEY_TRIP_BUDGET, BigDecimal("1500.00")) ?: BigDecimal("1500.00")
+    val tripSettings = TripSettings(
       tripName = tripName,
       tripStartDate = tripStart,
       tripEndDate = tripEnd,
-      totalTripBudgetHome = tripBudget
+      totalTripBudgetHome = tripBudget.max(BigDecimal.ZERO)
     )
 
     val firstDay = prefs.getInt(KEY_FIRST_DAY_OF_WEEK, 1)
     val defaultCat = prefs.getString(KEY_DEFAULT_CATEGORY, Category.FOOD.id) ?: Category.FOOD.id
     val onboardingCompleted = prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
 
-    val dailyCap = if (prefs.contains(KEY_DAILY_SPENDING_CAP)) {
-      prefs.getFloat(KEY_DAILY_SPENDING_CAP, 0f).toDouble()
-    } else null
+    val dailyCap = readDecimalFromPrefs(KEY_DAILY_SPENDING_CAP, null)
+      ?.takeIf { it > BigDecimal.ZERO }
 
-    val monthlyCap = if (prefs.contains(KEY_MONTHLY_SPENDING_CAP)) {
-      prefs.getFloat(KEY_MONTHLY_SPENDING_CAP, 0f).toDouble()
-    } else null
+    val monthlyCap = readDecimalFromPrefs(KEY_MONTHLY_SPENDING_CAP, null)
+      ?.takeIf { it > BigDecimal.ZERO }
 
-    val warningThreshold = if (prefs.contains(KEY_WARNING_THRESHOLD)) {
-      prefs.getFloat(KEY_WARNING_THRESHOLD, 20f).toDouble()
-    } else 20.0
+    val warningThreshold = readDecimalFromPrefs(KEY_WARNING_THRESHOLD, BigDecimal("20.00"))
+      ?.takeIf { it > BigDecimal.ZERO }
 
     val notificationsEnabled = prefs.getBoolean(KEY_WARNING_NOTIFICATIONS_ENABLED, true)
 
@@ -301,17 +316,17 @@ class SharedPreferencesUserSettingsRepository(
         .mapNotNull { pair ->
           val parts = pair.split(":")
           if (parts.size == 2) {
-            val amount = parts[1].toDoubleOrNull()
-            if (amount != null && amount > 0.0) parts[0] to amount else null
+            val amount = parts[1].trim().toBigDecimalOrNull()
+            if (amount != null && amount > BigDecimal.ZERO) parts[0] to amount else null
           } else null
         }.toMap()
     } else emptyMap()
 
-    val themeModeRaw = prefs.getString(KEY_THEME_MODE, com.pluto.app.domain.model.ThemeMode.SYSTEM.name)
+    val themeModeRaw = prefs.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name)
     val themeMode = try {
-      com.pluto.app.domain.model.ThemeMode.valueOf(themeModeRaw ?: com.pluto.app.domain.model.ThemeMode.SYSTEM.name)
-    } catch (e: Exception) {
-      com.pluto.app.domain.model.ThemeMode.SYSTEM
+      ThemeMode.valueOf(themeModeRaw ?: ThemeMode.SYSTEM.name)
+    } catch (_: Exception) {
+      ThemeMode.SYSTEM
     }
 
     val biometricLockEnabled = prefs.getBoolean(KEY_BIOMETRIC_LOCK_ENABLED, false)
@@ -344,12 +359,27 @@ class SharedPreferencesUserSettingsRepository(
     )
   }
 
+  /**
+   * Reads a decimal value stored either as an exact decimal String (current format)
+   * or a legacy Float/Number (older versions) without throwing ClassCastException.
+   */
+  private fun readDecimalFromPrefs(key: String, defaultValue: BigDecimal?): BigDecimal? {
+    if (!prefs.contains(key)) return defaultValue
+    val raw = prefs.all[key] ?: return defaultValue
+    return when (raw) {
+      is String -> raw.trim().takeIf { it.isNotEmpty() }?.toBigDecimalOrNull() ?: defaultValue
+      is Float -> BigDecimal(raw.toString())
+      is Number -> raw.toString().toBigDecimalOrNull() ?: defaultValue
+      else -> defaultValue
+    }
+  }
+
   private fun serializeHomeModules(modules: List<HomeModuleConfig>): String =
     modules.joinToString(",") { "${it.id.name}:${it.isEnabled}" }
 
   private fun parseHomeModules(
     raw: String?,
-    persona: com.pluto.app.domain.model.UserPersona
+    persona: UserPersona
   ): List<HomeModuleConfig> {
     if (raw.isNullOrBlank()) return HomeLayoutPresets.forPersona(persona)
     val parsed = raw.split(",")

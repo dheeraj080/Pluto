@@ -35,6 +35,7 @@ class ExchangeRateSyncWorker(
       val apiService = ExchangeRateApiClient.apiService
       val repository = OfflineFirstExchangeRateRepository(
         dao = database.exchangeRateDao(),
+        manualDao = database.manualExchangeRateDao(),
         apiService = apiService
       )
       val userSettingsRepository = SharedPreferencesUserSettingsRepository(applicationContext)

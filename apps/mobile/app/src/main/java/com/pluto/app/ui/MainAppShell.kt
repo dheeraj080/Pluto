@@ -1,13 +1,20 @@
 package com.pluto.app.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -16,12 +23,17 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,10 +41,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -51,6 +66,8 @@ import com.pluto.app.domain.model.UserPersona
 import com.pluto.app.domain.model.UserSettings
 import com.pluto.app.domain.repository.ExchangeRateRepository
 import com.pluto.app.domain.repository.UserSettingsRepository
+import com.pluto.app.ui.components.EmptyState
+import com.pluto.app.ui.components.PlutoTopBar
 import com.pluto.app.ui.budgets.BudgetsScreen
 import com.pluto.app.ui.convert.ConverterScreen
 import com.pluto.app.ui.convert.ConverterViewModel
@@ -75,10 +92,13 @@ import com.pluto.app.ui.navigation.WalletDetailRoute
 import com.pluto.app.ui.navigation.WalletsRoute
 import com.pluto.app.ui.settings.SettingsDialogsHost
 import com.pluto.app.ui.settings.SettingsScreen
+import com.pluto.app.ui.theme.PlutoSpacing
 import com.pluto.app.ui.wallet.WalletDetailScreen
 import com.pluto.app.ui.wallet.WalletEntryScreen
 import com.pluto.app.ui.wallet.WalletListScreen
 import com.pluto.app.ui.wallet.WalletViewModel
+import com.pluto.app.ui.wallet.WalletsLoadState
+import java.math.BigDecimal
 import kotlinx.coroutines.launch
 
 /**
@@ -95,8 +115,8 @@ fun MainAppShell(
   expenseViewModel: ExpenseViewModel,
   onUpdateHomeCurrency: (Currency) -> Unit,
   onUpdateDestinationCurrency: (Currency) -> Unit,
-  onUpdateSpendingCaps: (Double?, Double?) -> Unit,
-  onUpdateWarningThreshold: (Double?, Boolean) -> Unit = { _, _ -> },
+  onUpdateSpendingCaps: (BigDecimal?, BigDecimal?) -> Unit,
+  onUpdateWarningThreshold: (BigDecimal?, Boolean) -> Unit = { _, _ -> },
   onUpdateThemeMode: (ThemeMode) -> Unit = {},
   onUpdateBiometricLock: (Boolean, Int) -> Unit = { _, _ -> },
   onUpdatePrivacyMode: (Boolean) -> Unit = {},
@@ -122,6 +142,7 @@ fun MainAppShell(
   val navBackStackEntry by navController.currentBackStackEntryAsState()
   val currentDestination = navBackStackEntry?.destination
 
+  val isShowingCurrencyPicker = currentDestination?.hasRoute<CurrencyPickerRoute>() == true
   val isTopLevelRoute = currentDestination == null ||
     currentDestination.hasRoute<HomeRoute>() ||
     currentDestination.hasRoute<ExpensesRoute>() ||
@@ -137,7 +158,7 @@ fun MainAppShell(
   val snackbarHostState = remember { SnackbarHostState() }
   val coroutineScope = rememberCoroutineScope()
   val context = LocalContext.current
-  val allWallets by walletViewModel.allWallets.collectAsStateWithLifecycle()
+  val walletsLoadState by walletViewModel.walletsLoadState.collectAsStateWithLifecycle()
 
   SettingsDialogsHost(
     userSettings = userSettings,
@@ -153,9 +174,11 @@ fun MainAppShell(
     context = context
   )
 
-  if (isAddingOrEditingWallet) {
+  if (isAddingOrEditingWallet && !isShowingCurrencyPicker) {
+    val walletSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
       onDismissRequest = { isAddingOrEditingWallet = false },
+      sheetState = walletSheetState,
       containerColor = MaterialTheme.colorScheme.surface
     ) {
       WalletEntryScreen(
@@ -167,9 +190,11 @@ fun MainAppShell(
     }
   }
 
-  if (isAddingOrEditingExpense) {
+  if (isAddingOrEditingExpense && !isShowingCurrencyPicker) {
+    val expenseSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
       onDismissRequest = { isAddingOrEditingExpense = false },
+      sheetState = expenseSheetState,
       containerColor = MaterialTheme.colorScheme.surface
     ) {
       ExpenseEntryScreen(
@@ -189,6 +214,23 @@ fun MainAppShell(
     }
   }
 
+  val handleDeleteWithUndo: (String, () -> Unit) -> Unit = { id, onDeletedUi ->
+    expenseViewModel.deleteExpenseWithUndo(id) { deletedSnapshot ->
+      onDeletedUi()
+      coroutineScope.launch {
+        snackbarHostState.currentSnackbarData?.dismiss()
+        val result = snackbarHostState.showSnackbar(
+          message = "Expense deleted",
+          actionLabel = if (deletedSnapshot != null) "Undo" else null,
+          duration = SnackbarDuration.Long
+        )
+        if (result == SnackbarResult.ActionPerformed && deletedSnapshot != null) {
+          expenseViewModel.restoreExpense(deletedSnapshot)
+        }
+      }
+    }
+  }
+
   selectedExpenseDetail?.let { expense ->
     ExpenseDetailBottomSheet(
       expense = expense,
@@ -200,10 +242,7 @@ fun MainAppShell(
         isAddingOrEditingExpense = true
       },
       onDeleteExpense = { id ->
-        expenseViewModel.deleteExpense(id) {
-          selectedExpenseDetail = null
-          coroutineScope.launch { snackbarHostState.showSnackbar("Expense deleted") }
-        }
+        handleDeleteWithUndo(id) { selectedExpenseDetail = null }
       }
     )
   }
@@ -248,32 +287,43 @@ fun MainAppShell(
           NavigationRailItem(
             selected = selected,
             onClick = { navigateToTopLevel(destination) },
+            alwaysShowLabel = true,
             icon = {
               Icon(
                 imageVector = if (selected) destination.selectedIcon else destination.unselectedIcon,
-                contentDescription = destination.title,
-                modifier = Modifier.size(22.dp)
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
               )
             },
             label = {
               Text(
                 text = destination.title,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                softWrap = true,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
               )
             },
             colors = NavigationRailItemDefaults.colors(
-              selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+              selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
               selectedTextColor = MaterialTheme.colorScheme.primary,
-              indicatorColor = MaterialTheme.colorScheme.primary,
+              indicatorColor = MaterialTheme.colorScheme.primaryContainer,
               unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
               unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
             ),
-            modifier = Modifier.testTag("nav_tab_${destination.name.lowercase()}")
+            modifier = Modifier
+              .minimumInteractiveComponentSize()
+              .testTag("nav_tab_${destination.name.lowercase()}")
           )
         }
         Spacer(modifier = Modifier.weight(1f))
       }
+      VerticalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant,
+        thickness = 1.dp
+      )
     }
 
     Scaffold(
@@ -353,9 +403,7 @@ fun MainAppShell(
                 isAddingOrEditingExpense = true
               },
               onDeleteExpense = { id ->
-                expenseViewModel.deleteExpense(id) {
-                  coroutineScope.launch { snackbarHostState.showSnackbar("Expense deleted") }
-                }
+                handleDeleteWithUndo(id) {}
               }
             )
           }
@@ -393,6 +441,7 @@ fun MainAppShell(
               },
               onUpdateSpendingCaps = onUpdateSpendingCaps,
               onUpdateCategoryBudgets = { budgets -> dashboardViewModel.updateCategoryBudgets(budgets) },
+              onGetConversionRate = dashboardViewModel::getConversionRate,
               onResetOnboardingClick = onResetOnboarding,
               onSeedDummyDataClick = {
                 onSeedDummyData()
@@ -455,14 +504,28 @@ fun MainAppShell(
 
           composable<WalletDetailRoute> { backStackEntry ->
             val route = backStackEntry.toRoute<WalletDetailRoute>()
-            val wallet = allWallets.find { it.id == route.walletId }
-            if (wallet != null) {
-              WalletDetailScreen(
-                wallet = wallet,
-                viewModel = walletViewModel,
-                onNavigateBack = { navController.popBackStack() }
-              )
+            val navigateBackToWallets: () -> Unit = {
+              if (!navController.popBackStack<WalletsRoute>(inclusive = false)) {
+                navController.navigate(WalletsRoute) {
+                  popUpTo<WalletDetailRoute> { inclusive = true }
+                  launchSingleTop = true
+                }
+              }
             }
+            val navigateBackOrWallets: () -> Unit = {
+              if (!navController.popBackStack()) {
+                navController.navigate(WalletsRoute) {
+                  launchSingleTop = true
+                }
+              }
+            }
+            WalletDetailRouteContent(
+              walletId = route.walletId,
+              walletsLoadState = walletsLoadState,
+              walletViewModel = walletViewModel,
+              onNavigateBack = navigateBackOrWallets,
+              onRecoverToWalletList = navigateBackToWallets
+            )
           }
 
           composable<CurrencyPickerRoute> { backStackEntry ->
@@ -500,6 +563,122 @@ fun MainAppShell(
               onBackClick = { navController.popBackStack() }
             )
           }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+internal fun WalletDetailRouteContent(
+  walletId: String,
+  walletsLoadState: WalletsLoadState,
+  walletViewModel: WalletViewModel,
+  onNavigateBack: () -> Unit,
+  onRecoverToWalletList: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  when (walletsLoadState) {
+    is WalletsLoadState.Loading -> {
+      Scaffold(
+        modifier = modifier
+          .fillMaxSize()
+          .testTag("wallet_detail_loading"),
+        topBar = {
+          PlutoTopBar(
+            title = "Wallet Ledger",
+            onNavigateBack = onNavigateBack
+          )
+        }
+      ) { innerPadding ->
+        Box(
+          modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding),
+          contentAlignment = Alignment.Center
+        ) {
+          Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+          ) {
+            CircularProgressIndicator(modifier = Modifier.testTag("wallet_detail_loading_indicator"))
+            Spacer(modifier = Modifier.height(PlutoSpacing.md))
+            Text(
+              text = "Loading wallet details...",
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+        }
+      }
+    }
+
+    is WalletsLoadState.Loaded -> {
+      val wallet = walletsLoadState.wallets.find { it.id == walletId }
+      if (wallet != null) {
+        WalletDetailScreen(
+          wallet = wallet,
+          viewModel = walletViewModel,
+          onNavigateBack = onNavigateBack,
+          modifier = modifier
+        )
+      } else {
+        Scaffold(
+          modifier = modifier
+            .fillMaxSize()
+            .testTag("wallet_detail_not_found"),
+          topBar = {
+            PlutoTopBar(
+              title = "Wallet Not Found",
+              onNavigateBack = onNavigateBack
+            )
+          }
+        ) { innerPadding ->
+          Box(
+            modifier = Modifier
+              .fillMaxSize()
+              .padding(innerPadding),
+            contentAlignment = Alignment.Center
+          ) {
+            EmptyState(
+              icon = Icons.Rounded.AccountBalanceWallet,
+              title = "Wallet not found",
+              description = "This currency wallet may have been deleted or is no longer available.",
+              actionText = "Back to Wallets",
+              onActionClick = onRecoverToWalletList,
+              actionTestTag = "wallet_not_found_back_button"
+            )
+          }
+        }
+      }
+    }
+
+    is WalletsLoadState.Error -> {
+      Scaffold(
+        modifier = modifier
+          .fillMaxSize()
+          .testTag("wallet_detail_error"),
+        topBar = {
+          PlutoTopBar(
+            title = "Wallet Ledger",
+            onNavigateBack = onNavigateBack
+          )
+        }
+      ) { innerPadding ->
+        Box(
+          modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding),
+          contentAlignment = Alignment.Center
+        ) {
+          EmptyState(
+            icon = Icons.Rounded.Warning,
+            title = "Couldn't load wallet",
+            description = walletsLoadState.message,
+            actionText = "Retry",
+            onActionClick = walletViewModel::retryWallets,
+            actionTestTag = "wallet_detail_retry_button"
+          )
         }
       }
     }

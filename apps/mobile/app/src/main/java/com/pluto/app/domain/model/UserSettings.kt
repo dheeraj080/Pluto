@@ -1,5 +1,7 @@
 package com.pluto.app.domain.model
 
+import java.math.BigDecimal
+
 /**
  * Persona profiles that tailor the financial experience for specific international lifestyles.
  */
@@ -132,8 +134,8 @@ data class AcademicTermSettings(
   val termName: String = "Fall Semester",
   val termStartDate: Long = System.currentTimeMillis() - (14L * 86400000L), // started 2 weeks ago
   val termEndDate: Long = System.currentTimeMillis() + (90L * 86400000L),  // ~90 days remaining
-  val totalAllowanceHome: Double = 6000.0,
-  val tuitionAndFixedCommittedHome: Double = 1500.0
+  val totalAllowanceHome: BigDecimal = BigDecimal("6000.00"),
+  val tuitionAndFixedCommittedHome: BigDecimal = BigDecimal("1500.00")
 )
 
 /**
@@ -143,7 +145,7 @@ data class TripSettings(
   val tripName: String = "Current Trip",
   val tripStartDate: Long = System.currentTimeMillis(),
   val tripEndDate: Long = System.currentTimeMillis() + (14L * 86400000L),
-  val totalTripBudgetHome: Double = 1500.0
+  val totalTripBudgetHome: BigDecimal = BigDecimal("1500.00")
 )
 
 /**
@@ -158,11 +160,11 @@ data class UserSettings(
   val tripSettings: TripSettings = TripSettings(),
   val firstDayOfWeek: Int = 1,
   val defaultCategoryId: String = Category.FOOD.id,
-  val dailySpendingCap: Double? = null,
-  val monthlySpendingCap: Double? = null,
-  val safeToSpendWarningThreshold: Double? = 20.0,
+  val dailySpendingCap: BigDecimal? = null,
+  val monthlySpendingCap: BigDecimal? = null,
+  val safeToSpendWarningThreshold: BigDecimal? = BigDecimal("20.00"),
   val warningNotificationsEnabled: Boolean = true,
-  val categoryMonthlyBudgets: Map<String, Double> = emptyMap(),
+  val categoryMonthlyBudgets: Map<String, BigDecimal> = emptyMap(),
   val isDarkThemeTheme: Boolean? = null,
   val themeMode: ThemeMode = ThemeMode.SYSTEM,
   val isOnboardingCompleted: Boolean = false,

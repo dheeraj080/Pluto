@@ -8,6 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.pluto.app.data.local.exchange.ExchangeRateDao
 import com.pluto.app.data.local.exchange.ExchangeRateEntity
+import com.pluto.app.data.local.exchange.ManualExchangeRateDao
+import com.pluto.app.data.local.exchange.ManualExchangeRateEntity
 import com.pluto.app.data.local.expense.ExpenseDao
 import com.pluto.app.data.local.expense.ExpenseEntity
 import com.pluto.app.data.local.wallet.CurrencyWalletDao
@@ -18,16 +20,18 @@ import com.pluto.app.data.local.wallet.WalletTransactionEntity
 @Database(
   entities = [
     ExchangeRateEntity::class,
+    ManualExchangeRateEntity::class,
     ExpenseEntity::class,
     CurrencyWalletEntity::class,
     WalletTransactionEntity::class
   ],
-  version = 6,
+  version = 8,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
   abstract fun exchangeRateDao(): ExchangeRateDao
+  abstract fun manualExchangeRateDao(): ManualExchangeRateDao
   abstract fun expenseDao(): ExpenseDao
   abstract fun currencyWalletDao(): CurrencyWalletDao
   abstract fun walletTransactionDao(): WalletTransactionDao
@@ -144,6 +148,112 @@ abstract class AppDatabase : RoomDatabase() {
       }
     }
 
+    /**
+     * Migration from Version 6 to Version 7 (Adding createdAt and updatedAt audit timestamps to Expenses).
+     * Backfills existing expenses with their transaction timestamp so historical audit records remain intact.
+     */
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `expenses` ADD COLUMN `createdAt` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `expenses` ADD COLUMN `updatedAt` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("UPDATE `expenses` SET `createdAt` = `timestamp`, `updatedAt` = `timestamp` WHERE `createdAt` = 0")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_expenses_updatedAt` ON `expenses` (`updatedAt`)")
+      }
+    }
+
+    /**
+     * Migration from Version 7 to Version 8 (Separating Manual Exchange Rates into `manual_exchange_rates`).
+     * Creates the dedicated `manual_exchange_rates` table keyed by `(fromCurrency, toCurrency, effectiveFrom)`,
+     * migrates every existing `manual*` override row from `exchange_rates` preserving exact BigDecimal rate
+     * strings, chains consecutive `expiresAt` bounds so historical periods remain non-overlapping
+     * `[effectiveFrom, expiresAt)` windows, and deletes migrated manual rows from `exchange_rates` while
+     * keeping all API cache entries intact.
+     */
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+          """
+          CREATE TABLE IF NOT EXISTS `manual_exchange_rates` (
+            `fromCurrency` TEXT NOT NULL,
+            `toCurrency` TEXT NOT NULL,
+            `rate` TEXT NOT NULL,
+            `effectiveDate` TEXT NOT NULL,
+            `effectiveFrom` INTEGER NOT NULL,
+            `expiresAt` INTEGER,
+            `source` TEXT NOT NULL,
+            `updatedAt` INTEGER NOT NULL,
+            PRIMARY KEY(`fromCurrency`, `toCurrency`, `effectiveFrom`)
+          )
+          """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_manual_exchange_rates_fromCurrency_toCurrency_effectiveFrom_expiresAt` ON `manual_exchange_rates` (`fromCurrency`, `toCurrency`, `effectiveFrom`, `expiresAt`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_manual_exchange_rates_effectiveDate` ON `manual_exchange_rates` (`effectiveDate`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_manual_exchange_rates_updatedAt` ON `manual_exchange_rates` (`updatedAt`)")
+
+        db.execSQL(
+          """
+          INSERT OR REPLACE INTO `manual_exchange_rates` (
+            `fromCurrency`,
+            `toCurrency`,
+            `rate`,
+            `effectiveDate`,
+            `effectiveFrom`,
+            `expiresAt`,
+            `source`,
+            `updatedAt`
+          )
+          SELECT
+            er.`fromCurrency`,
+            er.`toCurrency`,
+            er.`rate`,
+            er.`effectiveDate`,
+            CASE
+              WHEN EXISTS (
+                SELECT 1 FROM `exchange_rates` dup
+                WHERE dup.`fromCurrency` = er.`fromCurrency`
+                  AND dup.`toCurrency` = er.`toCurrency`
+                  AND dup.`source` LIKE 'manual%'
+                  AND dup.`fetchedAt` = er.`fetchedAt`
+                  AND dup.`effectiveDate` != er.`effectiveDate`
+              )
+              THEN COALESCE(CAST(strftime('%s', er.`effectiveDate`) AS INTEGER) * 1000, er.`fetchedAt`)
+              ELSE er.`fetchedAt`
+            END,
+            NULL,
+            er.`source`,
+            er.`fetchedAt`
+          FROM `exchange_rates` er
+          WHERE er.`source` LIKE 'manual%'
+          ORDER BY er.`effectiveDate` ASC, er.`fetchedAt` ASC
+          """.trimIndent()
+        )
+
+        // Chain consecutive migrated overrides per currency pair into contiguous non-overlapping
+        // half-open intervals [effectiveFrom, expiresAt) so every historical record remains queryable.
+        db.execSQL(
+          """
+          UPDATE `manual_exchange_rates`
+          SET `expiresAt` = (
+            SELECT MIN(next_m.`effectiveFrom`)
+            FROM `manual_exchange_rates` next_m
+            WHERE next_m.`fromCurrency` = `manual_exchange_rates`.`fromCurrency`
+              AND next_m.`toCurrency` = `manual_exchange_rates`.`toCurrency`
+              AND next_m.`effectiveFrom` > `manual_exchange_rates`.`effectiveFrom`
+          )
+          WHERE EXISTS (
+            SELECT 1
+            FROM `manual_exchange_rates` next_m
+            WHERE next_m.`fromCurrency` = `manual_exchange_rates`.`fromCurrency`
+              AND next_m.`toCurrency` = `manual_exchange_rates`.`toCurrency`
+              AND next_m.`effectiveFrom` > `manual_exchange_rates`.`effectiveFrom`
+          )
+          """.trimIndent()
+        )
+
+        db.execSQL("DELETE FROM `exchange_rates` WHERE `source` LIKE 'manual%'")
+      }
+    }
+
     fun getInstance(context: Context): AppDatabase {
       return INSTANCE ?: synchronized(this) {
         INSTANCE ?: Room.databaseBuilder(
@@ -152,7 +262,15 @@ abstract class AppDatabase : RoomDatabase() {
           "global_expense.db"
         )
           .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-          .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+          .addMigrations(
+            MIGRATION_1_2,
+            MIGRATION_2_3,
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+            MIGRATION_5_6,
+            MIGRATION_6_7,
+            MIGRATION_7_8
+          )
           .build()
           .also { INSTANCE = it }
       }

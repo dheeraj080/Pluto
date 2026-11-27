@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,17 +31,13 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ZoomIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,6 +60,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,8 +68,12 @@ import androidx.compose.ui.window.Dialog
 import com.pluto.app.domain.model.Expense
 import com.pluto.app.domain.model.UserSettings
 import com.pluto.app.ui.components.CurrencyBadge
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.PlutoSpacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.math.RoundingMode
@@ -148,7 +150,9 @@ fun ExpenseDetailSheetContent(
   var showReceiptViewerDialog by remember { mutableStateOf(false) }
 
   val dateFormat = remember { SimpleDateFormat("EEEE, d MMMM yyyy · HH:mm", Locale.getDefault()) }
+  val rateTimestampFormat = remember { SimpleDateFormat("d MMM yyyy · HH:mm", Locale.getDefault()) }
   val homeCurrency = userSettings?.homeCurrency ?: expense.homeCurrency
+  val displayTitle = expense.merchant.ifBlank { expense.category.name }
 
   val primaryAmountStr = expense.originalAmount.format()
   val secondaryAmountStr = expense.homeAmount.format()
@@ -157,8 +161,12 @@ fun ExpenseDetailSheetContent(
   if (showDeleteDialog) {
     AlertDialog(
       onDismissRequest = { showDeleteDialog = false },
-      title = { Text("Delete Expense", fontWeight = FontWeight.Bold) },
-      text = { Text("Are you sure you want to delete this expense? Deleted expenses cannot be recovered.") },
+      title = { Text("Delete Expense?", fontWeight = FontWeight.Bold) },
+      text = {
+        Text(
+          "Delete $displayTitle ($primaryAmountStr)? You can undo this immediately from the confirmation banner."
+        )
+      },
       confirmButton = {
         TextButton(
           onClick = {
@@ -166,13 +174,18 @@ fun ExpenseDetailSheetContent(
             onDeleteExpense(expense.id)
           },
           colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-          modifier = Modifier.testTag("confirm_delete_button")
+          modifier = Modifier
+            .minimumInteractiveComponentSize()
+            .testTag("confirm_delete_button")
         ) {
           Text("Delete", fontWeight = FontWeight.Bold)
         }
       },
       dismissButton = {
-        TextButton(onClick = { showDeleteDialog = false }) {
+        TextButton(
+          onClick = { showDeleteDialog = false },
+          modifier = Modifier.minimumInteractiveComponentSize()
+        ) {
           Text("Cancel")
         }
       }
@@ -206,7 +219,10 @@ fun ExpenseDetailSheetContent(
               style = MaterialTheme.typography.titleMedium,
               fontWeight = FontWeight.Bold
             )
-            IconButton(onClick = { showReceiptViewerDialog = false }) {
+            IconButton(
+              onClick = { showReceiptViewerDialog = false },
+              modifier = Modifier.minimumInteractiveComponentSize()
+            ) {
               Icon(Icons.Rounded.Close, contentDescription = "Close preview")
             }
           }
@@ -264,10 +280,11 @@ fun ExpenseDetailSheetContent(
   Column(
     modifier = modifier
       .fillMaxWidth()
+      .navigationBarsPadding()
       .verticalScroll(rememberScrollState())
       .padding(bottom = 20.dp)
   ) {
-    // 1. Header Row: Category Badge + Title & Quick Actions (Edit, Delete, Close)
+    // 1. Header Row: Category Badge + Title & Single Close Button
     Row(
       modifier = Modifier
         .fillMaxWidth()
@@ -295,12 +312,12 @@ fun ExpenseDetailSheetContent(
           }
         }
 
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = expense.merchant.ifBlank { expense.category.name },
+            text = displayTitle,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis
           )
           Row(
@@ -331,60 +348,27 @@ fun ExpenseDetailSheetContent(
         }
       }
 
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(
-          onClick = { onEditExpense(expense) },
-          modifier = Modifier
-            .minimumInteractiveComponentSize()
-            .testTag("expense_detail_edit_button")
-        ) {
-          Icon(
-            imageVector = Icons.Rounded.Edit,
-            contentDescription = "Edit expense",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
-          )
-        }
-
-        IconButton(
-          onClick = { showDeleteDialog = true },
-          modifier = Modifier
-            .minimumInteractiveComponentSize()
-            .testTag("expense_detail_delete_button")
-        ) {
-          Icon(
-            imageVector = Icons.Rounded.Delete,
-            contentDescription = "Delete expense",
-            tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.size(20.dp)
-          )
-        }
-
-        IconButton(
-          onClick = onDismiss,
-          modifier = Modifier
-            .minimumInteractiveComponentSize()
-            .testTag("expense_detail_back_button")
-        ) {
-          Icon(
-            imageVector = Icons.Rounded.Close,
-            contentDescription = "Close",
-            modifier = Modifier.size(20.dp)
-          )
-        }
+      IconButton(
+        onClick = onDismiss,
+        modifier = Modifier
+          .minimumInteractiveComponentSize()
+          .testTag("expense_detail_back_button")
+      ) {
+        Icon(
+          imageVector = Icons.Rounded.Close,
+          contentDescription = "Close",
+          modifier = Modifier.size(20.dp)
+        )
       }
     }
 
-    // 2. Amount Hero Card (Compact dual-currency presentation)
-    Card(
+    // 2. Amount Hero Card (Dual-currency hierarchy)
+    PlutoCard(
       modifier = Modifier
         .fillMaxWidth()
         .padding(horizontal = 20.dp, vertical = 8.dp),
       shape = PlutoShapes.large,
-      colors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-      ),
-      elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+      containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
     ) {
       Row(
         modifier = Modifier
@@ -393,7 +377,11 @@ fun ExpenseDetailSheetContent(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Column {
+        Column(
+          modifier = Modifier
+            .weight(1f)
+            .padding(end = PlutoSpacing.sm)
+        ) {
           Text(
             text = "AMOUNT SPENT",
             style = MaterialTheme.typography.labelSmall,
@@ -423,45 +411,61 @@ fun ExpenseDetailSheetContent(
       }
     }
 
-    // 3. Compact Transaction Details Card
-    Card(
+    // 3. Transaction Details & FX Provenance Card
+    PlutoCard(
       modifier = Modifier
         .fillMaxWidth()
         .padding(horizontal = 20.dp, vertical = 4.dp),
       shape = PlutoShapes.large,
-      colors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-      )
+      containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
     ) {
-      Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-        DetailRow(label = "Date & Time", value = dateFormat.format(Date(expense.timestamp)))
+      Column(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        DetailRow(label = "Date & Time", value = dateFormat.format(Date(expense.timestamp)), isNumeric = true)
 
         if (expense.merchant.isNotBlank() && expense.merchant != expense.category.name) {
-          Spacer(modifier = Modifier.height(8.dp))
           DetailRow(label = "Merchant", value = expense.merchant)
         }
 
         if (expense.note.isNotBlank()) {
-          Spacer(modifier = Modifier.height(8.dp))
           DetailRow(label = "Note", value = expense.note)
         }
 
         if (expense.originalCurrency != expense.homeCurrency) {
-          Spacer(modifier = Modifier.height(8.dp))
-          val formattedRate = expense.exchangeRate.rate.setScale(
-            expense.homeCurrency.decimalPlaces.coerceAtLeast(2),
-            RoundingMode.HALF_EVEN
-          ).toPlainString()
           DetailRow(
-            label = "Exchange Rate",
-            value = "1 ${expense.originalCurrency.code} = ${expense.homeCurrency.symbol}$formattedRate ${expense.homeCurrency.code}"
+            label = "Original Amount",
+            value = "${expense.originalAmount.format()} (${expense.originalCurrency.code})",
+            isNumeric = true
           )
+          DetailRow(
+            label = "Home Equivalent",
+            value = "${expense.homeAmount.format()} (${homeCurrency.code})",
+            isNumeric = true
+          )
+          val formattedRate = formatRateNumber(expense.exchangeRate.rate, expense.homeCurrency)
+          DetailRow(
+            label = "Historical Rate",
+            value = "1 ${expense.originalCurrency.code} = ${expense.homeCurrency.symbol}$formattedRate ${expense.homeCurrency.code}",
+            isNumeric = true
+          )
+          DetailRow(
+            label = "Rate Source",
+            value = rateSourceLabel(expense.exchangeRate.source)
+          )
+          if (expense.exchangeRate.timestamp > 0L) {
+            DetailRow(
+              label = "Rate Recorded",
+              value = rateTimestampFormat.format(Date(expense.exchangeRate.timestamp)),
+              isNumeric = true
+            )
+          }
         }
 
         if (expense.isRecurring) {
-          Spacer(modifier = Modifier.height(8.dp))
           DetailRow(
-            label = "Subscription / Recurrence",
+            label = "Recurrence",
             value = "${expense.recurrenceFrequency?.label ?: "Monthly"} (Auto-logged)"
           )
         }
@@ -470,24 +474,31 @@ fun ExpenseDetailSheetContent(
 
     // 4. Receipt Attachment Card (if present)
     if (expense.receiptUri != null) {
-      Card(
+      val thumbPx = with(LocalDensity.current) { 44.dp.roundToPx().coerceAtLeast(128) }
+      val thumbLoadState by rememberSampledReceiptState(
+        uriString = expense.receiptUri,
+        maxWidthPx = thumbPx,
+        maxHeightPx = thumbPx
+      )
+      val canEnlarge = thumbLoadState is ReceiptDecodeState.Loaded
+
+      PlutoCard(
         modifier = Modifier
           .fillMaxWidth()
-          .padding(horizontal = 20.dp, vertical = 6.dp)
-          .clip(PlutoShapes.large)
-          .clickable(role = Role.Button) { showReceiptViewerDialog = true }
-          .testTag("detail_receipt_card"),
+          .padding(horizontal = 20.dp, vertical = 6.dp),
+        onClick = if (canEnlarge) {
+          { showReceiptViewerDialog = true }
+        } else null,
         shape = PlutoShapes.large,
-        colors = CardDefaults.cardColors(
-          containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-        )
+        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        testTag = "detail_receipt_card"
       ) {
         Row(
           modifier = Modifier.padding(10.dp),
           verticalAlignment = Alignment.CenterVertically
         ) {
           ReceiptThumbnail(
-            uriString = expense.receiptUri,
+            loadState = thumbLoadState,
             modifier = Modifier
               .size(44.dp)
               .clip(PlutoShapes.small)
@@ -504,100 +515,116 @@ fun ExpenseDetailSheetContent(
               color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-              text = "Tap to enlarge photo",
+              text = when (thumbLoadState) {
+                is ReceiptDecodeState.Loaded -> "Tap to enlarge photo"
+                is ReceiptDecodeState.Loading -> "Loading receipt preview..."
+                is ReceiptDecodeState.Failed -> "Receipt file unavailable on this device"
+              },
               style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.primary
+              color = when (thumbLoadState) {
+                is ReceiptDecodeState.Loaded -> MaterialTheme.colorScheme.primary
+                is ReceiptDecodeState.Loading -> MaterialTheme.colorScheme.onSurfaceVariant
+                is ReceiptDecodeState.Failed -> MaterialTheme.colorScheme.error
+              }
             )
           }
 
-          Icon(
-            imageVector = Icons.Rounded.ZoomIn,
-            contentDescription = "Enlarge receipt",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
-          )
+          if (canEnlarge) {
+            Icon(
+              imageVector = Icons.Rounded.ZoomIn,
+              contentDescription = "Enlarge receipt",
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(20.dp)
+            )
+          }
         }
       }
     }
 
-    // 5. Bottom Action Buttons (Delete & Edit)
+    // 5. Single Primary Action Bar (Delete & Edit)
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 20.dp, vertical = 12.dp),
-      horizontalArrangement = Arrangement.spacedBy(12.dp)
+        .padding(horizontal = 20.dp, vertical = PlutoSpacing.md),
+      horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.md)
     ) {
-      OutlinedButton(
+      PlutoButton(
+        text = "Delete",
         onClick = { showDeleteDialog = true },
-        modifier = Modifier
-          .weight(1f)
-          .height(48.dp)
-          .testTag("expense_detail_delete_bottom_button"),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
-        shape = PlutoShapes.medium
-      ) {
-        Icon(
-          imageVector = Icons.Rounded.Delete,
-          contentDescription = null,
-          modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text("Delete", fontWeight = FontWeight.SemiBold)
-      }
+        variant = PlutoButtonVariant.DESTRUCTIVE,
+        leadingIcon = Icons.Rounded.Delete,
+        modifier = Modifier.weight(1f),
+        testTag = "expense_detail_delete_button"
+      )
 
-      Button(
+      PlutoButton(
+        text = "Edit",
         onClick = { onEditExpense(expense) },
-        modifier = Modifier
-          .weight(1f)
-          .height(48.dp)
-          .testTag("expense_detail_edit_bottom_button"),
-        shape = PlutoShapes.medium
-      ) {
-        Icon(
-          imageVector = Icons.Rounded.Edit,
-          contentDescription = null,
-          modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text("Edit", fontWeight = FontWeight.SemiBold)
-      }
+        leadingIcon = Icons.Rounded.Edit,
+        modifier = Modifier.weight(1f),
+        testTag = "expense_detail_edit_button"
+      )
     }
   }
 }
 
 @Composable
-private fun DetailRow(label: String, value: String) {
-  Row(
-    modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceBetween,
-    verticalAlignment = Alignment.CenterVertically
-  ) {
-    Text(
-      text = label,
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    Text(
-      text = value,
-      style = MaterialTheme.typography.bodySmall,
-      fontWeight = FontWeight.SemiBold,
-      color = MaterialTheme.colorScheme.onSurface
-    )
+private fun DetailRow(label: String, value: String, isNumeric: Boolean = false) {
+  val valueStyle = if (isNumeric) {
+    MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle)
+  } else {
+    MaterialTheme.typography.bodySmall
+  }
+  val isLargeFontScale = LocalDensity.current.fontScale >= 1.35f
+
+  if (isLargeFontScale) {
+    Column(
+      modifier = Modifier.fillMaxWidth(),
+      verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+      Text(
+        text = label,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+      )
+      Text(
+        text = value,
+        style = valueStyle,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface
+      )
+    }
+  } else {
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.Top
+    ) {
+      Text(
+        text = label,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+          .weight(0.42f)
+          .padding(end = PlutoSpacing.sm)
+      )
+      Text(
+        text = value,
+        style = valueStyle,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface,
+        textAlign = TextAlign.End,
+        modifier = Modifier.weight(0.58f)
+      )
+    }
   }
 }
 
 @Composable
 private fun ReceiptThumbnail(
-  uriString: String?,
+  loadState: ReceiptDecodeState,
   modifier: Modifier = Modifier
 ) {
-  val thumbnailTargetPx = with(LocalDensity.current) { 44.dp.roundToPx().coerceAtLeast(128) }
-  val loadState by rememberSampledReceiptState(
-    uriString = uriString,
-    maxWidthPx = thumbnailTargetPx,
-    maxHeightPx = thumbnailTargetPx
-  )
   val bitmap = (loadState as? ReceiptDecodeState.Loaded)?.bitmap
 
   Surface(

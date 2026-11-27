@@ -81,12 +81,12 @@ class HomeScreenUnifiedSwipeTest {
     homeCurrency = usd,
     destinationCurrency = inr,
     persona = UserPersona.INTERNATIONAL_STUDENT,
-    dailySpendingCap = 100.0,
-    monthlySpendingCap = 3000.0,
+    dailySpendingCap = BigDecimal("100.00"),
+    monthlySpendingCap = BigDecimal("3000.00"),
     academicTermSettings = AcademicTermSettings(
       termName = "Fall Semester",
-      totalAllowanceHome = 6000.0,
-      tuitionAndFixedCommittedHome = 1500.0
+      totalAllowanceHome = BigDecimal("6000.00"),
+      tuitionAndFixedCommittedHome = BigDecimal("1500.00")
     ),
     homeModules = HomeLayoutPresets.forPersona(UserPersona.INTERNATIONAL_STUDENT)
   )

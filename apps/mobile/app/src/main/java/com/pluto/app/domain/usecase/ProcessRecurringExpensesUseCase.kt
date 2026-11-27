@@ -1,82 +1,119 @@
 package com.pluto.app.domain.usecase
 
 import com.pluto.app.domain.model.ConversionResult
+import com.pluto.app.domain.model.Currency
+import com.pluto.app.domain.model.ExchangeRate
 import com.pluto.app.domain.model.Expense
+import com.pluto.app.domain.model.Money
 import com.pluto.app.domain.model.RecurrenceFrequency
+import com.pluto.app.domain.repository.DirectTransactionRunner
 import com.pluto.app.domain.repository.ExpenseRepository
-import java.util.UUID
+import com.pluto.app.domain.repository.TransactionRunner
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.math.BigDecimal
 
 /**
- * Automates logging of due recurring expenses (subscriptions and fixed costs).
+ * Automates idempotent logging of due recurring expenses (subscriptions and fixed costs).
  *
- * For each recurring expense configured by the user:
- * - Checks when the next payment was due based on [lastRecurrenceLoggedMillis] or original [timestamp].
- * - If the next due date has arrived (up to [nowMillis]), automatically generates and persists
- *   a new logged transaction instance preserving original amount and category.
- * - Obtains the conversion rate for accurate dual-currency tracking.
- * - Advances [lastRecurrenceLoggedMillis] on the parent recurring expense.
+ * Guarantees against duplicate occurrences even under concurrent ViewModel + WorkManager runs:
+ * - Process-wide [processingMutex] serializes overlapping invocations.
+ * - Exchange rates are pre-resolved outside the DB transaction lock.
+ * - Each parent is re-read and advanced inside [TransactionRunner.runInTransaction].
+ * - Each scheduled occurrence uses deterministic ID `"rec_<parentId>_<dueTimestamp>"` and is
+ *   inserted only if absent from the repository.
  */
 class ProcessRecurringExpensesUseCase(
   private val expenseRepository: ExpenseRepository,
-  private val convertCurrencyUseCase: ConvertCurrencyUseCase
+  private val convertCurrencyUseCase: ConvertCurrencyUseCase,
+  private val transactionRunner: TransactionRunner = DirectTransactionRunner
 ) {
 
-  suspend operator fun invoke(nowMillis: Long = System.currentTimeMillis()): List<Expense> {
-    val recurringParents = expenseRepository.getRecurringExpenses()
-    val newlyLogged = mutableListOf<Expense>()
+  suspend operator fun invoke(nowMillis: Long = System.currentTimeMillis()): List<Expense> =
+    processingMutex.withLock {
+      val recurringParents = expenseRepository.getRecurringExpenses()
+      if (recurringParents.isEmpty()) return@withLock emptyList()
 
-    for (parent in recurringParents) {
-      val freq = parent.recurrenceFrequency ?: RecurrenceFrequency.MONTHLY
-      var lastLogged = parent.lastRecurrenceLoggedMillis ?: parent.timestamp
-      var nextDue = freq.getNextTimestamp(lastLogged)
-      var hasAdvanced = false
-
-      // Catch up any due occurrences (limit iterations to 12 to prevent runaway loops)
-      var iterations = 0
-      while (nextDue <= nowMillis && iterations < 12) {
-        iterations++
-        val conversion = convertCurrencyUseCase(parent.originalAmount, parent.homeCurrency)
-        val homeMoney = if (conversion is ConversionResult.Success) {
-          conversion.convertedMoney
-        } else {
-          parent.exchangeRate.convert(parent.originalAmount)
-        }
-        val rate = if (conversion is ConversionResult.Success) {
-          conversion.exchangeRate
-        } else {
-          parent.exchangeRate
+      // Pre-resolve FX rates outside DB transaction to avoid holding SQLite write locks over network calls
+      val resolvedRates = mutableMapOf<Pair<Currency, Currency>, ExchangeRate>()
+      recurringParents
+        .map { it.originalCurrency to it.homeCurrency }
+        .distinct()
+        .forEach { (from, to) ->
+          val probe = Money.of(BigDecimal.ONE, from)
+          val conversion = convertCurrencyUseCase(probe, to)
+          if (conversion is ConversionResult.Success) {
+            resolvedRates[from to to] = conversion.exchangeRate
+          }
         }
 
-        val autoInstance = Expense(
-          id = UUID.randomUUID().toString(),
-          originalAmount = parent.originalAmount,
-          homeAmount = homeMoney,
-          exchangeRate = rate,
-          category = parent.category,
-          timestamp = nextDue,
-          merchant = parent.merchant,
-          note = if (parent.note.isNotBlank()) "${parent.note} (Auto-logged subscription)" else "Auto-logged subscription",
-          location = parent.location,
-          tripId = parent.tripId,
-          receiptUri = parent.receiptUri,
-          isRecurring = false,
-          recurrenceFrequency = null,
-          lastRecurrenceLoggedMillis = null
-        )
+      val newlyLogged = mutableListOf<Expense>()
 
-        expenseRepository.saveExpense(autoInstance)
-        newlyLogged.add(autoInstance)
-        lastLogged = nextDue
-        hasAdvanced = true
-        nextDue = freq.getNextTimestamp(lastLogged)
+      for (parentSummary in recurringParents) {
+        transactionRunner.runInTransaction {
+          val parent = expenseRepository.getExpenseById(parentSummary.id) ?: return@runInTransaction
+          if (!parent.isRecurring) return@runInTransaction
+
+          val freq = parent.recurrenceFrequency ?: RecurrenceFrequency.MONTHLY
+          var lastLogged = parent.lastRecurrenceLoggedMillis ?: parent.timestamp
+          var nextDue = freq.getNextTimestamp(lastLogged)
+          var hasAdvanced = false
+
+          // Catch up any due occurrences (limit iterations to 12 to prevent runaway loops)
+          var iterations = 0
+          while (nextDue <= nowMillis && iterations < 12) {
+            iterations++
+            val deterministicId = occurrenceId(parent.id, nextDue)
+            val existingOccurrence = expenseRepository.getExpenseById(deterministicId)
+            if (existingOccurrence == null) {
+              val rate = resolvedRates[parent.originalCurrency to parent.homeCurrency] ?: parent.exchangeRate
+              val homeMoney = rate.convert(parent.originalAmount)
+
+              val autoInstance = Expense(
+                id = deterministicId,
+                originalAmount = parent.originalAmount,
+                homeAmount = homeMoney,
+                exchangeRate = rate,
+                category = parent.category,
+                timestamp = nextDue,
+                merchant = parent.merchant,
+                note = if (parent.note.isNotBlank()) "${parent.note} (Auto-logged subscription)" else "Auto-logged subscription",
+                location = parent.location,
+                tripId = parent.tripId,
+                receiptUri = parent.receiptUri,
+                isRecurring = false,
+                recurrenceFrequency = null,
+                lastRecurrenceLoggedMillis = null,
+                createdAt = nowMillis,
+                updatedAt = nowMillis
+              )
+
+              expenseRepository.saveExpense(autoInstance)
+              newlyLogged.add(autoInstance)
+            }
+            lastLogged = nextDue
+            hasAdvanced = true
+            nextDue = freq.getNextTimestamp(lastLogged)
+          }
+
+          if (hasAdvanced) {
+            val updatedParent = parent.copy(
+              lastRecurrenceLoggedMillis = lastLogged,
+              updatedAt = maxOf(parent.updatedAt, nowMillis)
+            )
+            expenseRepository.saveExpense(updatedParent)
+          }
+        }
       }
 
-      if (hasAdvanced) {
-        val updatedParent = parent.copy(lastRecurrenceLoggedMillis = lastLogged)
-        expenseRepository.saveExpense(updatedParent)
-      }
+      newlyLogged
     }
 
-    return newlyLogged
+  companion object {
+    private val processingMutex = Mutex()
+
+    fun occurrenceId(parentId: String, dueTimestamp: Long): String {
+      return "rec_${parentId}_$dueTimestamp"
+    }
   }
 }

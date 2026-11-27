@@ -2,8 +2,10 @@ package com.pluto.app.util
 
 import android.content.Context
 import android.net.Uri
+import androidx.room.withTransaction
 import com.pluto.app.data.local.AppDatabase
 import com.pluto.app.data.local.exchange.ExchangeRateEntity
+import com.pluto.app.data.local.exchange.ManualExchangeRateEntity
 import com.pluto.app.data.local.expense.ExpenseEntity
 import com.pluto.app.data.local.wallet.CurrencyWalletEntity
 import com.pluto.app.data.local.wallet.WalletTransactionEntity
@@ -20,6 +22,10 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.math.BigDecimal
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 enum class RestoreMode {
   REPLACE,
@@ -32,7 +38,8 @@ data class BackupSummary(
   val walletCount: Int,
   val transactionCount: Int,
   val homeCurrency: String,
-  val destinationCurrency: String
+  val destinationCurrency: String,
+  val manualRateCount: Int = 0
 )
 
 data class RestoreResult(
@@ -40,7 +47,8 @@ data class RestoreResult(
   val message: String,
   val expensesRestored: Int = 0,
   val walletsRestored: Int = 0,
-  val transactionsRestored: Int = 0
+  val transactionsRestored: Int = 0,
+  val manualRatesRestored: Int = 0
 )
 
 /**
@@ -49,7 +57,7 @@ data class RestoreResult(
  */
 object DatabaseBackupService {
 
-  private const val BACKUP_SCHEMA_VERSION = 1
+  private const val BACKUP_SCHEMA_VERSION = 2
   private const val BACKUP_APP_NAME = "Pluto"
 
   suspend fun generateBackupJson(
@@ -70,9 +78,9 @@ object DatabaseBackupService {
       put("budgetCycleType", settings.budgetCycleType.name)
       put("firstDayOfWeek", settings.firstDayOfWeek)
       put("defaultCategoryId", settings.defaultCategoryId)
-      settings.dailySpendingCap?.let { put("dailySpendingCap", it) }
-      settings.monthlySpendingCap?.let { put("monthlySpendingCap", it) }
-      settings.safeToSpendWarningThreshold?.let { put("safeToSpendWarningThreshold", it) }
+      settings.dailySpendingCap?.let { put("dailySpendingCap", it.toPlainString()) }
+      settings.monthlySpendingCap?.let { put("monthlySpendingCap", it.toPlainString()) }
+      settings.safeToSpendWarningThreshold?.let { put("safeToSpendWarningThreshold", it.toPlainString()) }
       put("warningNotificationsEnabled", settings.warningNotificationsEnabled)
       put("themeMode", settings.themeMode.name)
       put("isOnboardingCompleted", settings.isOnboardingCompleted)
@@ -85,8 +93,8 @@ object DatabaseBackupService {
         put("termName", settings.academicTermSettings.termName)
         put("termStartDate", settings.academicTermSettings.termStartDate)
         put("termEndDate", settings.academicTermSettings.termEndDate)
-        put("totalAllowanceHome", settings.academicTermSettings.totalAllowanceHome)
-        put("tuitionAndFixedCommittedHome", settings.academicTermSettings.tuitionAndFixedCommittedHome)
+        put("totalAllowanceHome", settings.academicTermSettings.totalAllowanceHome.toPlainString())
+        put("tuitionAndFixedCommittedHome", settings.academicTermSettings.tuitionAndFixedCommittedHome.toPlainString())
       }
       put("academicTermSettings", termObj)
 
@@ -94,13 +102,13 @@ object DatabaseBackupService {
         put("tripName", settings.tripSettings.tripName)
         put("tripStartDate", settings.tripSettings.tripStartDate)
         put("tripEndDate", settings.tripSettings.tripEndDate)
-        put("totalTripBudgetHome", settings.tripSettings.totalTripBudgetHome)
+        put("totalTripBudgetHome", settings.tripSettings.totalTripBudgetHome.toPlainString())
       }
       put("tripSettings", tripObj)
 
       val budgetsObj = JSONObject()
       settings.categoryMonthlyBudgets.forEach { (cat, amount) ->
-        budgetsObj.put(cat, amount)
+        budgetsObj.put(cat, amount.toPlainString())
       }
       put("categoryMonthlyBudgets", budgetsObj)
     }
@@ -168,12 +176,14 @@ object DatabaseBackupService {
         put("isRecurring", e.isRecurring)
         put("recurrenceFrequency", e.recurrenceFrequency ?: JSONObject.NULL)
         put("lastRecurrenceLoggedMillis", e.lastRecurrenceLoggedMillis ?: JSONObject.NULL)
+        put("createdAt", e.createdAt)
+        put("updatedAt", e.updatedAt)
       }
       expensesArray.put(obj)
     }
     root.put("expenses", expensesArray)
 
-    // 5. Rates (including custom overrides)
+    // 5. Cached API Rates
     val rates = database.exchangeRateDao().getAllRates()
     val ratesArray = JSONArray()
     rates.forEach { r ->
@@ -189,6 +199,24 @@ object DatabaseBackupService {
     }
     root.put("exchangeRates", ratesArray)
 
+    // 6. Separate Manual Exchange Rate Overrides
+    val manualRates = database.manualExchangeRateDao().getAllManualRates()
+    val manualRatesArray = JSONArray()
+    manualRates.forEach { m ->
+      val obj = JSONObject().apply {
+        put("fromCurrency", m.fromCurrency)
+        put("toCurrency", m.toCurrency)
+        put("rate", m.rate)
+        put("effectiveDate", m.effectiveDate)
+        put("effectiveFrom", m.effectiveFrom)
+        put("expiresAt", m.expiresAt ?: JSONObject.NULL)
+        put("source", m.source)
+        put("updatedAt", m.updatedAt)
+      }
+      manualRatesArray.put(obj)
+    }
+    root.put("manualExchangeRates", manualRatesArray)
+
     return root.toString(2)
   }
 
@@ -198,6 +226,7 @@ object DatabaseBackupService {
     val expenseCount = root.optJSONArray("expenses")?.length() ?: 0
     val walletCount = root.optJSONArray("wallets")?.length() ?: 0
     val transactionCount = root.optJSONArray("walletTransactions")?.length() ?: 0
+    val manualRateCount = root.optJSONArray("manualExchangeRates")?.length() ?: 0
 
     val settingsObj = root.optJSONObject("settings")
     val homeCurrency = settingsObj?.optString("homeCurrency", "USD") ?: "USD"
@@ -209,7 +238,8 @@ object DatabaseBackupService {
       walletCount = walletCount,
       transactionCount = transactionCount,
       homeCurrency = homeCurrency,
-      destinationCurrency = destinationCurrency
+      destinationCurrency = destinationCurrency,
+      manualRateCount = manualRateCount
     )
   }
 
@@ -228,9 +258,17 @@ object DatabaseBackupService {
 
       // 1. Settings restoration
       val settingsObj = root.optJSONObject("settings")
-      if (settingsObj != null) {
-        val homeCurr = Currency.findByCode(settingsObj.optString("homeCurrency", "USD")) ?: Currency.USD
-        val destCurr = Currency.findByCode(settingsObj.optString("destinationCurrency", "EUR")) ?: Currency.EUR
+      val parsedSettings: UserSettings? = if (settingsObj != null) {
+        val homeCurr = if (settingsObj.has("homeCurrency") && !settingsObj.isNull("homeCurrency")) {
+          Currency.requireByCode(settingsObj.getString("homeCurrency"))
+        } else {
+          Currency.USD
+        }
+        val destCurr = if (settingsObj.has("destinationCurrency") && !settingsObj.isNull("destinationCurrency")) {
+          Currency.requireByCode(settingsObj.getString("destinationCurrency"))
+        } else {
+          Currency.EUR
+        }
         val persona = try {
           UserPersona.valueOf(settingsObj.optString("persona", UserPersona.INTERNATIONAL_STUDENT.name))
         } catch (_: Exception) {
@@ -248,8 +286,8 @@ object DatabaseBackupService {
             termName = termObj.optString("termName", "Fall Semester"),
             termStartDate = termObj.optLong("termStartDate", System.currentTimeMillis()),
             termEndDate = termObj.optLong("termEndDate", System.currentTimeMillis() + 90L * 86400000L),
-            totalAllowanceHome = termObj.optDouble("totalAllowanceHome", 6000.0),
-            tuitionAndFixedCommittedHome = termObj.optDouble("tuitionAndFixedCommittedHome", 1500.0)
+            totalAllowanceHome = termObj.optBigDecimal("totalAllowanceHome")?.max(BigDecimal.ZERO) ?: BigDecimal("6000.00"),
+            tuitionAndFixedCommittedHome = termObj.optBigDecimal("tuitionAndFixedCommittedHome")?.max(BigDecimal.ZERO) ?: BigDecimal("1500.00")
           )
         } else AcademicTermSettings()
 
@@ -259,14 +297,14 @@ object DatabaseBackupService {
             tripName = tripObj.optString("tripName", "Current Trip"),
             tripStartDate = tripObj.optLong("tripStartDate", System.currentTimeMillis()),
             tripEndDate = tripObj.optLong("tripEndDate", System.currentTimeMillis() + 14L * 86400000L),
-            totalTripBudgetHome = tripObj.optDouble("totalTripBudgetHome", 1500.0)
+            totalTripBudgetHome = tripObj.optBigDecimal("totalTripBudgetHome")?.max(BigDecimal.ZERO) ?: BigDecimal("1500.00")
           )
         } else TripSettings()
 
-        val budgetsMap = mutableMapOf<String, Double>()
+        val budgetsMap = mutableMapOf<String, BigDecimal>()
         val budgetsObj = settingsObj.optJSONObject("categoryMonthlyBudgets")
         budgetsObj?.keys()?.forEach { k ->
-          budgetsMap[k] = budgetsObj.optDouble(k, 0.0)
+          budgetsObj.optBigDecimal(k)?.takeIf { it > BigDecimal.ZERO }?.let { budgetsMap[k] = it }
         }
 
         val themeMode = try {
@@ -275,7 +313,7 @@ object DatabaseBackupService {
           ThemeMode.SYSTEM
         }
 
-        val updatedSettings = UserSettings(
+        UserSettings(
           homeCurrency = homeCurr,
           destinationCurrency = destCurr,
           persona = persona,
@@ -284,9 +322,13 @@ object DatabaseBackupService {
           tripSettings = tripSettings,
           firstDayOfWeek = settingsObj.optInt("firstDayOfWeek", 1),
           defaultCategoryId = settingsObj.optString("defaultCategoryId", "food"),
-          dailySpendingCap = if (settingsObj.has("dailySpendingCap")) settingsObj.optDouble("dailySpendingCap") else null,
-          monthlySpendingCap = if (settingsObj.has("monthlySpendingCap")) settingsObj.optDouble("monthlySpendingCap") else null,
-          safeToSpendWarningThreshold = if (settingsObj.has("safeToSpendWarningThreshold")) settingsObj.optDouble("safeToSpendWarningThreshold") else 20.0,
+          dailySpendingCap = settingsObj.optBigDecimal("dailySpendingCap")?.takeIf { it > BigDecimal.ZERO },
+          monthlySpendingCap = settingsObj.optBigDecimal("monthlySpendingCap")?.takeIf { it > BigDecimal.ZERO },
+          safeToSpendWarningThreshold = if (!settingsObj.has("safeToSpendWarningThreshold")) {
+            BigDecimal("20.00")
+          } else {
+            settingsObj.optBigDecimal("safeToSpendWarningThreshold")?.takeIf { it > BigDecimal.ZERO }
+          },
           warningNotificationsEnabled = settingsObj.optBoolean("warningNotificationsEnabled", true),
           categoryMonthlyBudgets = budgetsMap,
           themeMode = themeMode,
@@ -298,25 +340,19 @@ object DatabaseBackupService {
             settingsObj.optString("homeTimeZoneId").trim().takeIf { it.isNotEmpty() }
           } else null
         )
-        userSettingsRepository.updateSettings(updatedSettings)
-      }
+      } else null
 
-      if (mode == RestoreMode.REPLACE) {
-        database.expenseDao().clearAll()
-        database.walletTransactionDao().clearAll()
-        database.currencyWalletDao().clearAll()
-      }
-
-      // 2. Wallets
+      // Parse & validate all records up front so unsupported currency codes fail cleanly before mutating DB
       val walletsArray = root.optJSONArray("wallets")
       val restoredWallets = mutableListOf<CurrencyWalletEntity>()
       if (walletsArray != null) {
         for (i in 0 until walletsArray.length()) {
           val obj = walletsArray.getJSONObject(i)
+          val code = Currency.requireByCode(obj.getString("currencyCode")).code
           restoredWallets.add(
             CurrencyWalletEntity(
               id = obj.getString("id"),
-              currencyCode = obj.getString("currencyCode"),
+              currencyCode = code,
               balance = obj.getString("balance"),
               initialBalance = obj.optString("initialBalance", "0"),
               createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
@@ -324,54 +360,58 @@ object DatabaseBackupService {
             )
           )
         }
-        database.currencyWalletDao().insertWallets(restoredWallets)
       }
 
-      // 3. Transactions
       val transArray = root.optJSONArray("walletTransactions")
       val restoredTransactions = mutableListOf<WalletTransactionEntity>()
       if (transArray != null) {
         for (i in 0 until transArray.length()) {
           val obj = transArray.getJSONObject(i)
+          val code = Currency.requireByCode(obj.getString("currencyCode")).code
+          val targetCode = if (obj.isNull("targetCurrencyCode")) null
+          else Currency.requireByCode(obj.getString("targetCurrencyCode")).code
           restoredTransactions.add(
             WalletTransactionEntity(
               id = obj.getString("id"),
               walletId = obj.getString("walletId"),
               type = obj.getString("type"),
               amount = obj.getString("amount"),
-              currencyCode = obj.getString("currencyCode"),
+              currencyCode = code,
               timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
               note = obj.optString("note", ""),
               targetWalletId = if (obj.isNull("targetWalletId")) null else obj.getString("targetWalletId"),
               targetAmount = if (obj.isNull("targetAmount")) null else obj.getString("targetAmount"),
-              targetCurrencyCode = if (obj.isNull("targetCurrencyCode")) null else obj.getString("targetCurrencyCode"),
+              targetCurrencyCode = targetCode,
               exchangeRate = if (obj.isNull("exchangeRate")) null else obj.getString("exchangeRate"),
               exchangeRateSource = if (obj.isNull("exchangeRateSource")) null else obj.getString("exchangeRateSource"),
               createdAt = obj.optLong("createdAt", System.currentTimeMillis())
             )
           )
         }
-        database.walletTransactionDao().insertTransactionsReplace(restoredTransactions)
       }
 
-      // 4. Expenses
       val expensesArray = root.optJSONArray("expenses")
       val restoredExpenses = mutableListOf<ExpenseEntity>()
       if (expensesArray != null) {
         for (i in 0 until expensesArray.length()) {
           val obj = expensesArray.getJSONObject(i)
+          val origCode = Currency.requireByCode(obj.getString("originalCurrencyCode")).code
+          val homeCode = Currency.requireByCode(obj.getString("homeCurrencyCode")).code
+          val txTimestamp = obj.optLong("timestamp", System.currentTimeMillis())
+          val createdAt = obj.optLong("createdAt", txTimestamp)
+          val updatedAt = obj.optLong("updatedAt", createdAt)
           restoredExpenses.add(
             ExpenseEntity(
               id = obj.getString("id"),
               originalAmount = obj.getString("originalAmount"),
-              originalCurrencyCode = obj.getString("originalCurrencyCode"),
+              originalCurrencyCode = origCode,
               homeAmount = obj.getString("homeAmount"),
-              homeCurrencyCode = obj.getString("homeCurrencyCode"),
+              homeCurrencyCode = homeCode,
               exchangeRate = obj.getString("exchangeRate"),
               exchangeRateTimestamp = obj.optLong("exchangeRateTimestamp", System.currentTimeMillis()),
               exchangeRateSource = obj.optString("exchangeRateSource", "backup"),
               categoryId = obj.getString("categoryId"),
-              timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+              timestamp = txTimestamp,
               merchant = obj.optString("merchant", ""),
               note = obj.optString("note", ""),
               location = if (obj.isNull("location")) null else obj.getString("location"),
@@ -379,39 +419,223 @@ object DatabaseBackupService {
               receiptUri = if (obj.isNull("receiptUri")) null else obj.getString("receiptUri"),
               isRecurring = obj.optBoolean("isRecurring", false),
               recurrenceFrequency = if (obj.isNull("recurrenceFrequency")) null else obj.getString("recurrenceFrequency"),
-              lastRecurrenceLoggedMillis = if (obj.isNull("lastRecurrenceLoggedMillis")) null else obj.getLong("lastRecurrenceLoggedMillis")
+              lastRecurrenceLoggedMillis = if (obj.isNull("lastRecurrenceLoggedMillis")) null else obj.getLong("lastRecurrenceLoggedMillis"),
+              createdAt = createdAt,
+              updatedAt = updatedAt
             )
           )
         }
-        database.expenseDao().insertExpenses(restoredExpenses)
       }
 
-      // 5. Rates
+      val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+      val restoredManualByKey = linkedMapOf<Triple<String, String, Long>, ManualExchangeRateEntity>()
+      val manualPeriodsByPair = linkedMapOf<Pair<String, String>, MutableList<ManualExchangeRateEntity>>()
+
+      val manualRatesArray = root.optJSONArray("manualExchangeRates")
+      if (manualRatesArray != null) {
+        for (i in 0 until manualRatesArray.length()) {
+          val obj = manualRatesArray.getJSONObject(i)
+          val fromCode = Currency.requireByCode(obj.getString("fromCurrency")).code
+          val toCode = Currency.requireByCode(obj.getString("toCurrency")).code
+          require(fromCode != toCode) {
+            "Manual exchange rate currencies must differ, got '$fromCode'"
+          }
+          val rawRate = obj.getString("rate").trim()
+          val parsedRate = rawRate.toBigDecimalOrNull()
+            ?: throw IllegalArgumentException("Malformed manual exchange rate '$rawRate'")
+          require(parsedRate.compareTo(BigDecimal.ZERO) > 0) {
+            "Manual exchange rate must be positive, got '$rawRate'"
+          }
+          val effectiveFrom = if (obj.has("effectiveFrom") && !obj.isNull("effectiveFrom")) {
+            obj.getLong("effectiveFrom")
+          } else {
+            obj.optLong("updatedAt", System.currentTimeMillis())
+          }
+          val expiresAt = if (!obj.has("expiresAt") || obj.isNull("expiresAt")) {
+            null
+          } else {
+            obj.getLong("expiresAt").also { exp ->
+              require(exp > effectiveFrom) {
+                "Manual exchange rate expiresAt ($exp, exclusive) must be strictly after effectiveFrom ($effectiveFrom)"
+              }
+            }
+          }
+          val effectiveDate = obj.optString("effectiveDate", "").trim().takeIf { it.isNotEmpty() }
+            ?: synchronized(dateFormat) { dateFormat.format(Date(effectiveFrom)) }
+          val source = obj.optString("source", "manual_override").trim().ifEmpty { "manual_override" }
+          val updatedAt = obj.optLong("updatedAt", effectiveFrom)
+
+          val entity = ManualExchangeRateEntity(
+            fromCurrency = fromCode,
+            toCurrency = toCode,
+            rate = parsedRate.toPlainString(),
+            effectiveDate = effectiveDate,
+            effectiveFrom = effectiveFrom,
+            expiresAt = expiresAt,
+            source = source,
+            updatedAt = updatedAt
+          )
+
+          val key = Triple(fromCode, toCode, effectiveFrom)
+          require(!restoredManualByKey.containsKey(key)) {
+            "Duplicate manual exchange rate period for $fromCode->$toCode starting at $effectiveFrom"
+          }
+          val existingForPair = manualPeriodsByPair.getOrPut(fromCode to toCode) { mutableListOf() }
+          existingForPair.firstOrNull { it.overlapsWith(effectiveFrom, expiresAt) }?.let { conflict ->
+            throw IllegalArgumentException(
+              "Overlapping manual exchange rate windows for $fromCode->$toCode: [$effectiveFrom, ${expiresAt ?: "∞"}) overlaps [${conflict.effectiveFrom}, ${conflict.expiresAt ?: "∞"})"
+            )
+          }
+
+          existingForPair.add(entity)
+          restoredManualByKey[key] = entity
+        }
+      }
+
       val ratesArray = root.optJSONArray("exchangeRates")
       val restoredRates = mutableListOf<ExchangeRateEntity>()
+      val legacyManualRawByPair = linkedMapOf<Pair<String, String>, MutableList<ExchangeRateEntity>>()
       if (ratesArray != null) {
         for (i in 0 until ratesArray.length()) {
           val obj = ratesArray.getJSONObject(i)
-          restoredRates.add(
-            ExchangeRateEntity(
-              fromCurrency = obj.getString("fromCurrency"),
-              toCurrency = obj.getString("toCurrency"),
-              rate = obj.getString("rate"),
-              effectiveDate = obj.getString("effectiveDate"),
-              fetchedAt = obj.optLong("fetchedAt", System.currentTimeMillis()),
-              source = obj.optString("source", "backup")
+          val fromCode = Currency.requireByCode(obj.getString("fromCurrency")).code
+          val toCode = Currency.requireByCode(obj.getString("toCurrency")).code
+          val rawRate = obj.getString("rate").trim()
+          val parsedRate = rawRate.toBigDecimalOrNull()
+            ?: throw IllegalArgumentException("Malformed exchange rate '$rawRate'")
+          require(parsedRate.compareTo(BigDecimal.ZERO) > 0) {
+            "Exchange rate must be positive, got '$rawRate'"
+          }
+          val fetchedAt = obj.optLong("fetchedAt", System.currentTimeMillis())
+          val effectiveDate = obj.optString("effectiveDate", "").trim().takeIf { it.isNotEmpty() }
+            ?: synchronized(dateFormat) { dateFormat.format(Date(fetchedAt)) }
+          val source = obj.optString("source", "backup").trim().ifEmpty { "backup" }
+
+          // Route legacy pre-v2 manual overrides stored in exchangeRates into manual_exchange_rates
+          if (source.startsWith("manual") && fromCode != toCode) {
+            legacyManualRawByPair.getOrPut(fromCode to toCode) { mutableListOf() }.add(
+              ExchangeRateEntity(
+                fromCurrency = fromCode,
+                toCurrency = toCode,
+                rate = parsedRate.toPlainString(),
+                effectiveDate = effectiveDate,
+                fetchedAt = fetchedAt,
+                source = source
+              )
             )
-          )
+          } else {
+            restoredRates.add(
+              ExchangeRateEntity(
+                fromCurrency = fromCode,
+                toCurrency = toCode,
+                rate = parsedRate.toPlainString(),
+                effectiveDate = effectiveDate,
+                fetchedAt = fetchedAt,
+                source = source
+              )
+            )
+          }
         }
-        database.exchangeRateDao().insertRates(restoredRates)
+      }
+
+      // Chain consecutive legacy v1 manual rates per currency pair into non-overlapping [effectiveFrom, expiresAt) windows
+      legacyManualRawByPair.forEach { (pair, rawEntries) ->
+        val distinctFetchedCount = rawEntries.map { it.fetchedAt }.distinct().size
+        val hasDuplicateFetchedAt = distinctFetchedCount < rawEntries.size
+        val resolvedEntries = rawEntries.map { raw ->
+          val effectiveFrom = if (hasDuplicateFetchedAt) {
+            synchronized(dateFormat) {
+              try {
+                dateFormat.parse(raw.effectiveDate)?.time ?: raw.fetchedAt
+              } catch (_: Exception) {
+                raw.fetchedAt
+              }
+            }
+          } else {
+            raw.fetchedAt
+          }
+          raw to effectiveFrom
+        }.sortedBy { it.second }
+
+        resolvedEntries.forEachIndexed { idx, (raw, effectiveFrom) ->
+          val chainedExpiresAt = resolvedEntries.getOrNull(idx + 1)?.second?.takeIf { it > effectiveFrom }
+          val key = Triple(pair.first, pair.second, effectiveFrom)
+          val existingForPair = manualPeriodsByPair.getOrPut(pair) { mutableListOf() }
+          val conflicts = existingForPair.any { it.overlapsWith(effectiveFrom, chainedExpiresAt) }
+          if (!restoredManualByKey.containsKey(key) && !conflicts) {
+            val entity = ManualExchangeRateEntity(
+              fromCurrency = pair.first,
+              toCurrency = pair.second,
+              rate = raw.rate,
+              effectiveDate = raw.effectiveDate,
+              effectiveFrom = effectiveFrom,
+              expiresAt = chainedExpiresAt,
+              source = raw.source,
+              updatedAt = raw.fetchedAt
+            )
+            existingForPair.add(entity)
+            restoredManualByKey[key] = entity
+          }
+        }
+      }
+
+      val restoredManualRates = restoredManualByKey.values.toList()
+
+      if (parsedSettings != null) {
+        userSettingsRepository.updateSettings(parsedSettings)
+      }
+
+      val hasManualSection = root.has("manualExchangeRates")
+      database.withTransaction {
+        if (mode == RestoreMode.REPLACE) {
+          database.expenseDao().clearAll()
+          database.walletTransactionDao().clearAll()
+          database.currencyWalletDao().clearAll()
+          if (hasManualSection) {
+            database.manualExchangeRateDao().clearAll()
+          }
+        } else if (restoredManualRates.isNotEmpty()) {
+          val existingDbManual = database.manualExchangeRateDao().getAllManualRates()
+          restoredManualRates.forEach { candidate ->
+            existingDbManual
+              .filter {
+                it.fromCurrency == candidate.fromCurrency &&
+                  it.toCurrency == candidate.toCurrency &&
+                  it.effectiveFrom != candidate.effectiveFrom
+              }
+              .firstOrNull { it.overlapsWith(candidate.effectiveFrom, candidate.expiresAt) }
+              ?.let { conflict ->
+                throw IllegalArgumentException(
+                  "Restored manual rate [${candidate.effectiveFrom}, ${candidate.expiresAt ?: "∞"}) for ${candidate.fromCurrency}->${candidate.toCurrency} overlaps existing period [${conflict.effectiveFrom}, ${conflict.expiresAt ?: "∞"})"
+                )
+              }
+          }
+        }
+
+        if (restoredWallets.isNotEmpty()) {
+          database.currencyWalletDao().insertWallets(restoredWallets)
+        }
+        if (restoredTransactions.isNotEmpty()) {
+          database.walletTransactionDao().insertTransactionsReplace(restoredTransactions)
+        }
+        if (restoredExpenses.isNotEmpty()) {
+          database.expenseDao().insertExpenses(restoredExpenses)
+        }
+        if (restoredRates.isNotEmpty()) {
+          database.exchangeRateDao().insertRates(restoredRates)
+        }
+        if (restoredManualRates.isNotEmpty()) {
+          database.manualExchangeRateDao().insertManualRates(restoredManualRates)
+        }
       }
 
       RestoreResult(
         success = true,
-        message = "Successfully restored ${restoredExpenses.size} expenses, ${restoredWallets.size} wallets, and ${restoredTransactions.size} transactions.",
+        message = "Successfully restored ${restoredExpenses.size} expenses, ${restoredWallets.size} wallets, ${restoredTransactions.size} transactions, and ${restoredManualRates.size} manual rates.",
         expensesRestored = restoredExpenses.size,
         walletsRestored = restoredWallets.size,
-        transactionsRestored = restoredTransactions.size
+        transactionsRestored = restoredTransactions.size,
+        manualRatesRestored = restoredManualRates.size
       )
     } catch (e: Exception) {
       RestoreResult(false, "Restore failed: ${e.message ?: "Invalid or corrupted backup"}")
@@ -441,6 +665,17 @@ object DatabaseBackupService {
       }
     } catch (_: Exception) {
       null
+    }
+  }
+
+  private fun JSONObject.optBigDecimal(key: String): BigDecimal? {
+    if (!has(key) || isNull(key)) return null
+    val raw = opt(key) ?: return null
+    return when (raw) {
+      is BigDecimal -> raw
+      is String -> raw.trim().takeIf { it.isNotEmpty() }?.toBigDecimalOrNull()
+      is Number -> raw.toString().toBigDecimalOrNull()
+      else -> null
     }
   }
 }

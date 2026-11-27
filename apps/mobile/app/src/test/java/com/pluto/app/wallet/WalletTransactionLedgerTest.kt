@@ -11,12 +11,15 @@ import com.pluto.app.domain.model.UserSettings
 import com.pluto.app.domain.model.WalletTransaction
 import com.pluto.app.domain.model.WalletTransactionType
 import com.pluto.app.domain.model.WalletValuation
+import com.pluto.app.domain.repository.CurrencyWalletRepository
 import com.pluto.app.domain.repository.ExpenseRepository
+import com.pluto.app.domain.repository.TransactionRunner
 import com.pluto.app.domain.repository.WalletTransactionRepository
 import com.pluto.app.domain.usecase.CreateCurrencyWalletUseCase
 import com.pluto.app.domain.usecase.CreateWalletDepositUseCase
 import com.pluto.app.domain.usecase.CreateWalletTransferUseCase
 import com.pluto.app.domain.usecase.CreateWalletWithdrawalUseCase
+import com.pluto.app.domain.usecase.DeleteCurrencyWalletUseCase
 import com.pluto.app.domain.usecase.DepositResult
 import com.pluto.app.domain.usecase.GetPortfolioValuationUseCase
 import com.pluto.app.domain.usecase.GetWalletBalanceUseCase
@@ -24,10 +27,15 @@ import com.pluto.app.domain.usecase.ObserveWalletTransactionsUseCase
 import com.pluto.app.domain.usecase.TransferResult
 import com.pluto.app.domain.usecase.WalletOperationResult
 import com.pluto.app.domain.usecase.WithdrawalResult
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -43,6 +51,11 @@ class FakeWalletTransactionRepository(
 ) : WalletTransactionRepository {
   private val transactions = mutableMapOf<String, MutableList<WalletTransaction>>()
   private val transactionsFlow = mutableMapOf<String, MutableStateFlow<List<WalletTransaction>>>()
+  private val allTransactionsFlow = MutableStateFlow<List<WalletTransaction>>(emptyList())
+
+  private fun refreshAllFlow() {
+    allTransactionsFlow.value = transactions.values.flatten().sortedByDescending { it.timestamp }
+  }
 
   private fun getFlow(walletId: String): MutableStateFlow<List<WalletTransaction>> {
     return transactionsFlow.getOrPut(walletId) {
@@ -55,12 +68,10 @@ class FakeWalletTransactionRepository(
   }
 
   override fun observeAllTransactions(): Flow<List<WalletTransaction>> {
-    val all = transactions.values.flatten().sortedByDescending { it.timestamp }
-    return MutableStateFlow(all).asStateFlow()
+    return allTransactionsFlow.asStateFlow()
   }
 
   override suspend fun getTransactionsForWallet(walletId: String): List<WalletTransaction> {
-
     return transactions[walletId]?.toList() ?: emptyList()
   }
 
@@ -69,6 +80,7 @@ class FakeWalletTransactionRepository(
     val list = transactions.getOrPut(wallet.id) { mutableListOf() }
     list.add(0, transaction)
     getFlow(wallet.id).value = list.toList()
+    refreshAllFlow()
   }
 
   override suspend fun executeWithdrawal(wallet: CurrencyWallet, transaction: WalletTransaction) {
@@ -76,6 +88,7 @@ class FakeWalletTransactionRepository(
     val list = transactions.getOrPut(wallet.id) { mutableListOf() }
     list.add(0, transaction)
     getFlow(wallet.id).value = list.toList()
+    refreshAllFlow()
   }
 
   override suspend fun executeTransfer(
@@ -93,11 +106,13 @@ class FakeWalletTransactionRepository(
     val destList = transactions.getOrPut(destWallet.id) { mutableListOf() }
     destList.add(0, destTransaction)
     getFlow(destWallet.id).value = destList.toList()
+    refreshAllFlow()
   }
 
   override suspend fun deleteTransactionsForWallet(walletId: String) {
     transactions.remove(walletId)
     getFlow(walletId).value = emptyList()
+    refreshAllFlow()
   }
 }
 
@@ -675,5 +690,161 @@ class WalletTransactionLedgerTest {
     val valUsd = getPortfolioValuationUseCase(listOf(wEur), usd)
     assertEquals(BigDecimal("1100.00"), valUsd.totalValuedHomeAmount.amount)
     assertEquals(usd, valUsd.homeCurrency)
+  }
+
+  @Test
+  fun `41 serialized transactionRunner prevents concurrent withdrawal double-spend`() = runTest {
+    val mutex = Mutex()
+    val serializedRunner = object : TransactionRunner {
+      override suspend fun <T> runInTransaction(block: suspend () -> T): T {
+        return mutex.withLock { block() }
+      }
+    }
+    val atomicCreateWallet = CreateCurrencyWalletUseCase(walletRepo, serializedRunner)
+    val atomicWithdraw = CreateWalletWithdrawalUseCase(walletRepo, transactionRepo, serializedRunner)
+
+    val wallet = (atomicCreateWallet(usd, BigDecimal("100.00")) as WalletOperationResult.Success).wallet
+
+    // Two concurrent withdrawals of $80 each against a $100 wallet
+    val results = listOf(
+      async { atomicWithdraw(wallet.id, BigDecimal("80.00"), "ATM 1") },
+      async { atomicWithdraw(wallet.id, BigDecimal("80.00"), "ATM 2") }
+    ).awaitAll()
+
+    val successCount = results.count { it is WithdrawalResult.Success }
+    val insufficientCount = results.count { it is WithdrawalResult.InsufficientFunds }
+    assertEquals(1, successCount)
+    assertEquals(1, insufficientCount)
+
+    val finalWallet = walletRepo.getWalletById(wallet.id)!!
+    assertEquals(BigDecimal("20.00"), finalWallet.balance.amount)
+    assertEquals(1, transactionRepo.getTransactionsForWallet(wallet.id).size)
+  }
+
+  @Test
+  fun `42 failed transfer rolls back wallet balances and ledger entries atomically`() = runTest {
+    val wallets = mutableMapOf<String, CurrencyWallet>()
+    val txs = mutableMapOf<String, MutableList<WalletTransaction>>()
+    val mutex = Mutex()
+
+    val rollbackRunner = object : TransactionRunner {
+      override suspend fun <T> runInTransaction(block: suspend () -> T): T = mutex.withLock {
+        val walletSnap = HashMap(wallets)
+        val txSnap = txs.mapValues { it.value.toMutableList() }.toMutableMap()
+        try {
+          block()
+        } catch (t: Throwable) {
+          wallets.clear()
+          wallets.putAll(walletSnap)
+          txs.clear()
+          txs.putAll(txSnap)
+          throw t
+        }
+      }
+    }
+
+    val atomicWalletRepo = object : CurrencyWalletRepository {
+      override fun observeAllWallets(): Flow<List<CurrencyWallet>> = MutableStateFlow(wallets.values.toList())
+      override suspend fun getWalletByCurrency(currency: Currency) = wallets.values.find { it.currency == currency }
+      override suspend fun getWalletById(id: String) = wallets[id]
+      override suspend fun saveWallet(wallet: CurrencyWallet) { wallets[wallet.id] = wallet }
+      override suspend fun deleteWallet(id: String) {
+        txs.remove(id)
+        wallets.remove(id)
+      }
+    }
+
+    val failingTxRepo = object : WalletTransactionRepository {
+      override fun observeTransactionsForWallet(walletId: String): Flow<List<WalletTransaction>> =
+        MutableStateFlow(txs[walletId] ?: emptyList())
+      override fun observeAllTransactions(): Flow<List<WalletTransaction>> =
+        MutableStateFlow(txs.values.flatten())
+      override suspend fun getTransactionsForWallet(walletId: String) = txs[walletId]?.toList() ?: emptyList()
+      override suspend fun executeDeposit(wallet: CurrencyWallet, transaction: WalletTransaction) {}
+      override suspend fun executeWithdrawal(wallet: CurrencyWallet, transaction: WalletTransaction) {}
+      override suspend fun executeTransfer(
+        sourceWallet: CurrencyWallet,
+        sourceTransaction: WalletTransaction,
+        destWallet: CurrencyWallet,
+        destTransaction: WalletTransaction
+      ) {
+        // Simulate partial write before crash
+        wallets[sourceWallet.id] = sourceWallet
+        txs.getOrPut(sourceWallet.id) { mutableListOf() }.add(sourceTransaction)
+        throw IllegalStateException("Simulated SQLite constraint error on dest ledger insert")
+      }
+      override suspend fun deleteTransactionsForWallet(walletId: String) { txs.remove(walletId) }
+    }
+
+    val wSrc = CurrencyWallet.create(usd, BigDecimal("500.00"))
+    val wDst = CurrencyWallet.create(eur, BigDecimal("100.00"))
+    wallets[wSrc.id] = wSrc
+    wallets[wDst.id] = wDst
+    exchangeRepo.setRate(ExchangeRate(usd, eur, BigDecimal("0.90000000"), source = "test"))
+
+    val transferUseCase = CreateWalletTransferUseCase(atomicWalletRepo, failingTxRepo, exchangeRepo, rollbackRunner)
+    val result = transferUseCase(wSrc.id, wDst.id, BigDecimal("200.00"), "Trip transfer")
+
+    assertTrue(result is TransferResult.Failure)
+    assertEquals(BigDecimal("500.00"), wallets[wSrc.id]?.balance?.amount)
+    assertEquals(BigDecimal("100.00"), wallets[wDst.id]?.balance?.amount)
+    assertTrue(txs[wSrc.id].isNullOrEmpty())
+    assertTrue(txs[wDst.id].isNullOrEmpty())
+  }
+
+  @Test
+  fun `43 failed wallet deletion rolls back transaction deletion atomically`() = runTest {
+    val wallets = mutableMapOf<String, CurrencyWallet>()
+    val txs = mutableMapOf<String, MutableList<WalletTransaction>>()
+    val mutex = Mutex()
+
+    val rollbackRunner = object : TransactionRunner {
+      override suspend fun <T> runInTransaction(block: suspend () -> T): T = mutex.withLock {
+        val walletSnap = HashMap(wallets)
+        val txSnap = txs.mapValues { it.value.toMutableList() }.toMutableMap()
+        try {
+          block()
+        } catch (t: Throwable) {
+          wallets.clear()
+          wallets.putAll(walletSnap)
+          txs.clear()
+          txs.putAll(txSnap)
+          throw t
+        }
+      }
+    }
+
+    val failingDeleteWalletRepo = object : CurrencyWalletRepository {
+      override fun observeAllWallets(): Flow<List<CurrencyWallet>> = MutableStateFlow(wallets.values.toList())
+      override suspend fun getWalletByCurrency(currency: Currency) = wallets.values.find { it.currency == currency }
+      override suspend fun getWalletById(id: String) = wallets[id]
+      override suspend fun saveWallet(wallet: CurrencyWallet) { wallets[wallet.id] = wallet }
+      override suspend fun deleteWallet(id: String) {
+        txs.remove(id)
+        throw IllegalStateException("Simulated failure deleting wallet row")
+      }
+    }
+
+    val wUsd = CurrencyWallet.create(usd, BigDecimal("250.00"))
+    wallets[wUsd.id] = wUsd
+    txs[wUsd.id] = mutableListOf(
+      WalletTransaction(
+        walletId = wUsd.id,
+        type = WalletTransactionType.DEPOSIT,
+        amount = Money.of("250.00", usd)
+      )
+    )
+
+    val deleteUseCase = DeleteCurrencyWalletUseCase(failingDeleteWalletRepo, rollbackRunner)
+    var thrown = false
+    try {
+      deleteUseCase(wUsd.id)
+    } catch (_: IllegalStateException) {
+      thrown = true
+    }
+
+    assertTrue(thrown)
+    assertNotNull(wallets[wUsd.id])
+    assertEquals(1, txs[wUsd.id]?.size)
   }
 }

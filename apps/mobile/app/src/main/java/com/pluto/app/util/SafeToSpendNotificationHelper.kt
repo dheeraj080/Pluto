@@ -89,14 +89,22 @@ class SafeToSpendNotificationHelper(
     }
 
     val todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-    val remainingDouble = summary.safeToSpendTodayHome.amount.toDouble()
+    val remainingAmount = summary.safeToSpendTodayHome.amount
 
     if (!force) {
       val lastNotifiedDate = prefs.getString(KEY_LAST_NOTIFIED_DATE, null)
-      val lastNotifiedAmount = prefs.getFloat(KEY_LAST_NOTIFIED_AMOUNT, Float.MAX_VALUE).toDouble()
+      val lastNotifiedRaw = prefs.all[KEY_LAST_NOTIFIED_AMOUNT]
+      val lastNotifiedAmount: BigDecimal? = when (lastNotifiedRaw) {
+        is String -> lastNotifiedRaw.toBigDecimalOrNull()
+        is Float -> BigDecimal(lastNotifiedRaw.toString())
+        is Number -> lastNotifiedRaw.toString().toBigDecimalOrNull()
+        else -> null
+      }
 
       // If already alerted today and spending hasn't dropped further by at least 1.0, don't spam
-      if (lastNotifiedDate == todayKey && remainingDouble >= lastNotifiedAmount - 1.0) {
+      if (lastNotifiedDate == todayKey && lastNotifiedAmount != null &&
+        remainingAmount >= lastNotifiedAmount.subtract(BigDecimal.ONE)
+      ) {
         return false
       }
     }
@@ -150,7 +158,7 @@ class SafeToSpendNotificationHelper(
       NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
       prefs.edit()
         .putString(KEY_LAST_NOTIFIED_DATE, todayKey)
-        .putFloat(KEY_LAST_NOTIFIED_AMOUNT, remainingDouble.toFloat())
+        .putString(KEY_LAST_NOTIFIED_AMOUNT, remainingAmount.toPlainString())
         .apply()
       true
     } catch (e: SecurityException) {
