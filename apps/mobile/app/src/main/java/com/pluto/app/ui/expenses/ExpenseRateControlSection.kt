@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -264,110 +263,91 @@ fun ExpenseDateRow(
     )
   }
 
-  Column(modifier = modifier.fillMaxWidth()) {
+  Row(
+    modifier = modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.spacedBy(8.dp)
+  ) {
     Surface(
       modifier = Modifier
-        .fillMaxWidth()
+        .weight(1f)
         .minimumInteractiveComponentSize()
-        .clip(PlutoShapes.large)
+        .clip(PlutoShapes.medium)
         .clickable { showDatePicker = true }
         .testTag("expense_date_selector"),
-      shape = PlutoShapes.large,
+      shape = PlutoShapes.medium,
       color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
       border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
       Row(
         modifier = Modifier
           .fillMaxWidth()
-          .padding(horizontal = 14.dp, vertical = 12.dp),
+          .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
       ) {
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(10.dp),
-          modifier = Modifier.weight(1f)
-        ) {
-          Icon(
-            imageVector = Icons.Rounded.CalendarToday,
-            contentDescription = "Transaction date",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(18.dp)
-          )
-          Column {
-            Text(
-              text = "Transaction Date",
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-              text = dateLabel,
-              style = MaterialTheme.typography.bodyMedium,
-              fontWeight = FontWeight.SemiBold,
-              color = MaterialTheme.colorScheme.onSurface
-            )
-          }
-        }
-        Text(
-          text = "Change",
-          style = MaterialTheme.typography.labelMedium,
-          fontWeight = FontWeight.SemiBold,
-          color = MaterialTheme.colorScheme.primary
+        Icon(
+          imageVector = Icons.Rounded.CalendarToday,
+          contentDescription = "Transaction date",
+          tint = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.size(16.dp)
         )
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Date",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+          Text(
+            text = dateLabel,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+          )
+        }
       }
     }
 
-    Spacer(modifier = Modifier.size(8.dp))
-
     Surface(
       modifier = Modifier
-        .fillMaxWidth()
+        .weight(1f)
         .minimumInteractiveComponentSize()
-        .clip(PlutoShapes.large)
+        .clip(PlutoShapes.medium)
         .clickable { showTimePicker = true }
         .testTag("expense_time_selector"),
-      shape = PlutoShapes.large,
+      shape = PlutoShapes.medium,
       color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
       border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
       Row(
         modifier = Modifier
           .fillMaxWidth()
-          .padding(horizontal = 14.dp, vertical = 12.dp),
+          .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
       ) {
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(10.dp),
-          modifier = Modifier.weight(1f)
-        ) {
-          Icon(
-            imageVector = Icons.Rounded.Timer,
-            contentDescription = "Transaction time",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(18.dp)
-          )
-          Column {
-            Text(
-              text = "Transaction Time",
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-              text = timeLabel,
-              style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
-              fontWeight = FontWeight.SemiBold,
-              color = MaterialTheme.colorScheme.onSurface
-            )
-          }
-        }
-        Text(
-          text = "Change",
-          style = MaterialTheme.typography.labelMedium,
-          fontWeight = FontWeight.SemiBold,
-          color = MaterialTheme.colorScheme.primary
+        Icon(
+          imageVector = Icons.Rounded.Timer,
+          contentDescription = "Transaction time",
+          tint = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.size(16.dp)
         )
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = "Time",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+          Text(
+            text = timeLabel,
+            style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+          )
+        }
       }
     }
   }
@@ -408,8 +388,8 @@ fun ExpenseRateControlSection(
       Column(
         modifier = Modifier
           .fillMaxWidth()
-          .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+          .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
       ) {
         Row(
           modifier = Modifier.fillMaxWidth(),
@@ -489,8 +469,8 @@ fun ExpenseRateControlSection(
     Column(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(14.dp),
-      verticalArrangement = Arrangement.spacedBy(10.dp)
+        .padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
       // 1. Converted Home Total + Currency Swap / Home Picker
       Row(
@@ -526,7 +506,7 @@ fun ExpenseRateControlSection(
               }
             Text(
               text = amountText,
-              style = MaterialTheme.typography.titleLarge.merge(PlutoNumericStyle),
+              style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
               fontWeight = FontWeight.Bold,
               color = if (preview.isRateUnavailable) {
                 MaterialTheme.colorScheme.error

@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -110,12 +109,12 @@ fun ExpenseEntryScreen(
   Column(
     modifier = modifier
       .fillMaxWidth()
-      .navigationBarsPadding()
+      .heightIn(max = 560.dp)
       .imePadding()
       .verticalScroll(rememberScrollState())
-      .padding(horizontal = 24.dp)
-      .padding(top = 4.dp, bottom = 24.dp),
-    verticalArrangement = Arrangement.spacedBy(14.dp)
+      .padding(horizontal = 16.dp)
+      .padding(top = 2.dp, bottom = 16.dp),
+    verticalArrangement = Arrangement.spacedBy(10.dp)
   ) {
     // 1. Bottom Sheet Header Row
     Row(
@@ -184,7 +183,7 @@ fun ExpenseEntryScreen(
           .testTag("expense_currency_selector")
       ) {
         Row(
-          modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+          modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
           verticalAlignment = Alignment.CenterVertically
         ) {
           if (formState.localCurrency.flagEmoji.isNotBlank()) {
@@ -227,7 +226,7 @@ fun ExpenseEntryScreen(
         keyboardOptions = KeyboardOptions(
           keyboardType = if (formState.localCurrency.decimalPlaces == 0) KeyboardType.Number else KeyboardType.Decimal
         ),
-        textStyle = MaterialTheme.typography.headlineMedium.merge(PlutoNumericStyle).copy(fontWeight = FontWeight.Bold),
+        textStyle = MaterialTheme.typography.titleLarge.merge(PlutoNumericStyle).copy(fontWeight = FontWeight.Bold),
         shape = PlutoShapes.large
       )
     }
@@ -487,8 +486,8 @@ fun ExpenseEntryScreen(
       Column(
         modifier = Modifier
           .fillMaxWidth()
-          .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+          .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
       ) {
         Row(
           modifier = Modifier.fillMaxWidth(),
