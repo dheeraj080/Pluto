@@ -76,6 +76,14 @@ jobs:
         working-directory: apps/mobile
         run: bash ./gradlew :app:testDebugUnitTest --no-daemon
 
+      - name: Upload JVM unit-test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jvm-test-results
+          path: apps/mobile/app/build/test-results/testDebugUnitTest/**
+          if-no-files-found: ignore
+
       # npx runs the emulator from the app directory so firebase.json and
       # firestore.rules resolve. Gradle tests hardcode the same 8085/9099 ports.
       - name: Firestore/Auth emulator tests

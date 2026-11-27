@@ -445,6 +445,7 @@ fun ExpenseEntryScreen(
             onClick = viewModel::onClearReceipt,
             modifier = Modifier
               .minimumInteractiveComponentSize()
+              .size(48.dp)
               .testTag("expense_receipt_clear_button")
           ) {
             Icon(
