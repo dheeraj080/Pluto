@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -88,21 +89,28 @@ class ResponsivenessUiTest {
 
   @Test
   fun `navigation tabs keep accessible targets at compact width across font scales`() {
+    val fontScale = mutableStateOf(1.0f)
+    composeTestRule.setContent {
+      PlutoTheme {
+        val currentDensity = LocalDensity.current
+        CompositionLocalProvider(
+          LocalDensity provides Density(
+            density = currentDensity.density,
+            fontScale = fontScale.value
+          )
+        ) {
+          PlutoNavigationBar(
+            selectedTab = TopLevelDestination.EXPENSES,
+            onTabSelected = {}
+          )
+        }
+      }
+    }
+
     listOf(1.0f, PlutoResponsive.LargeFontScale, PlutoResponsive.ExtraLargeFontScale)
       .forEach { scale ->
-        composeTestRule.setContent {
-          PlutoTheme {
-            val currentDensity = LocalDensity.current
-            CompositionLocalProvider(
-              LocalDensity provides Density(density = currentDensity.density, fontScale = scale)
-            ) {
-              PlutoNavigationBar(
-                selectedTab = TopLevelDestination.EXPENSES,
-                onTabSelected = {}
-              )
-            }
-          }
-        }
+        composeTestRule.runOnIdle { fontScale.value = scale }
+        composeTestRule.waitForIdle()
 
         TopLevelDestination.entries.forEach { destination ->
           composeTestRule.onNodeWithTag("nav_tab_${destination.name.lowercase()}")
@@ -114,24 +122,26 @@ class ResponsivenessUiTest {
 
   @Test
   fun `large font layout helper follows the documented threshold`() {
-    fun render(scale: Float) {
-      composeTestRule.setContent {
-        val currentDensity = LocalDensity.current
-        CompositionLocalProvider(
-          LocalDensity provides Density(density = currentDensity.density, fontScale = scale)
-        ) {
-          Text(
-            text = if (useLargeFontLayout()) "large" else "normal",
-            modifier = Modifier.testTag("responsiveness_layout_mode")
-          )
-        }
+    val fontScale = mutableStateOf(1.2f)
+    composeTestRule.setContent {
+      val currentDensity = LocalDensity.current
+      CompositionLocalProvider(
+        LocalDensity provides Density(
+          density = currentDensity.density,
+          fontScale = fontScale.value
+        )
+      ) {
+        Text(
+          text = if (useLargeFontLayout()) "large" else "normal",
+          modifier = Modifier.testTag("responsiveness_layout_mode")
+        )
       }
     }
 
-    render(1.2f)
     composeTestRule.onNodeWithText("normal").assertIsDisplayed()
 
-    render(PlutoResponsive.LargeFontScale)
+    composeTestRule.runOnIdle { fontScale.value = PlutoResponsive.LargeFontScale }
+    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithText("large").assertIsDisplayed()
   }
 }
