@@ -251,12 +251,16 @@ fun TransactionRowItem(
         Text(
           text = timeFormat.format(Date(expense.timestamp)),
           style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
-          color = MaterialTheme.colorScheme.onSurfaceVariant
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis
         )
         Text(
           text = "· ${expense.category.name}",
           style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis
         )
         if (expense.isRecurring) {
           Row(verticalAlignment = Alignment.CenterVertically) {

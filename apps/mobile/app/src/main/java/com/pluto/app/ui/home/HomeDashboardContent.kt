@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pluto.app.domain.model.Category
 import com.pluto.app.domain.model.CurrencyWallet
@@ -50,6 +51,7 @@ import com.pluto.app.domain.model.UnifiedTransactionType
 import com.pluto.app.domain.model.UserSettings
 import com.pluto.app.ui.components.PlutoButton
 import com.pluto.app.ui.components.PlutoButtonVariant
+import com.pluto.app.ui.components.DualCurrencyAmountView
 import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.components.SectionHeader
 import com.pluto.app.ui.theme.PlutoNumericStyle
@@ -338,31 +340,28 @@ fun ManageExpensesSection(
                   text = item.title,
                   style = MaterialTheme.typography.bodyMedium,
                   fontWeight = FontWeight.SemiBold,
-                  color = MaterialTheme.colorScheme.onSurface
+                  color = MaterialTheme.colorScheme.onSurface,
+                  maxLines = 2,
+                  overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                   text = formattedDate,
                   style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-                  color = MaterialTheme.colorScheme.onSurfaceVariant
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis
                 )
               }
 
-              Column(horizontalAlignment = Alignment.End) {
-                Text(
-                  text = item.primaryAmountFormatted,
-                  style = MaterialTheme.typography.bodyLarge.merge(PlutoNumericStyle),
-                  fontWeight = FontWeight.Bold,
-                  color = MaterialTheme.colorScheme.onSurface
-                )
-                item.secondaryAmountFormatted?.let { secondary ->
-                  Text(
-                    text = secondary,
-                    style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-                    color = MaterialTheme.colorScheme.primary
-                  )
-                }
-              }
+              DualCurrencyAmountView(
+                primaryAmount = item.primaryAmountFormatted,
+                secondaryAmount = item.secondaryAmountFormatted,
+                primaryStyle = MaterialTheme.typography.bodyLarge,
+                primaryFontWeight = FontWeight.Bold,
+                secondaryStyle = MaterialTheme.typography.labelSmall,
+                secondaryColor = MaterialTheme.colorScheme.primary
+              )
             }
 
             if (index < expenseItems.lastIndex) {

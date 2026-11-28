@@ -19,6 +19,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -33,7 +34,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -86,6 +89,7 @@ import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.components.PrimaryActionButton
 import com.pluto.app.ui.theme.PlutoMotion
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoResponsive
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.plutoHeading
 import com.pluto.app.ui.theme.plutoPressableScale
@@ -269,83 +273,97 @@ private fun WelcomeStep(
   onGetStarted: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  Column(
-    modifier = modifier
-      .fillMaxSize()
-      .padding(horizontal = 24.dp, vertical = 20.dp),
-    horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.SpaceBetween
+  BoxWithConstraints(
+    modifier = modifier.fillMaxSize()
   ) {
-    Spacer(modifier = Modifier.height(16.dp))
+    val isShortHeight = maxHeight < PlutoResponsive.ShortHeight
+    val heroHeight = if (isShortHeight) 120.dp else 190.dp
+    val sectionSpacing = if (isShortHeight) 16.dp else 28.dp
+    val copySpacing = if (isShortHeight) 10.dp else 16.dp
+    val featureSpacing = if (isShortHeight) 16.dp else 32.dp
 
     Column(
-      horizontalAlignment = Alignment.CenterHorizontally,
-      modifier = Modifier.fillMaxWidth()
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(horizontal = 24.dp, vertical = if (isShortHeight) 12.dp else 20.dp)
     ) {
-      Image(
-        painter = painterResource(id = R.drawable.img_onboarding_hero),
-        contentDescription = "Pluto multi-currency finance illustration",
-        contentScale = ContentScale.Crop,
+      // Only the copy scrolls; the CTA stays pinned to the bottom of the available height.
+      Column(
         modifier = Modifier
+          .weight(1f)
           .fillMaxWidth()
-          .height(190.dp)
-          .clip(PlutoShapes.extraLarge)
-          .border(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
-            shape = PlutoShapes.extraLarge
-          )
-          .testTag("onboarding_hero_image")
-      )
-
-      Spacer(modifier = Modifier.height(28.dp))
-
-      Text(
-        text = "Your money, wherever life takes you.",
-        style = MaterialTheme.typography.headlineMedium,
-        fontWeight = FontWeight.Bold,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onBackground,
-        modifier = Modifier.plutoHeading()
-      )
-
-      Spacer(modifier = Modifier.height(16.dp))
-
-      Text(
-        text = "Track expenses, convert currencies in real-time, and understand your spending across countries with ease.",
-        style = MaterialTheme.typography.bodyLarge,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        lineHeight = 24.sp
-      )
-
-      Spacer(modifier = Modifier.height(32.dp))
-
-      // Feature highlights
-      Surface(
-        shape = PlutoShapes.large,
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.fillMaxWidth()
+          .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
       ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-          FeatureHighlightRow(
-            icon = Icons.Rounded.Public,
-            text = "Dual-currency tracking: reference and primary currencies"
-          )
-          Spacer(modifier = Modifier.height(12.dp))
-          FeatureHighlightRow(
-            icon = Icons.Rounded.Verified,
-            text = "Live exchange rates cached for offline use"
-          )
+        Spacer(modifier = Modifier.height(if (isShortHeight) 8.dp else 16.dp))
+
+        Image(
+          painter = painterResource(id = R.drawable.img_onboarding_hero),
+          contentDescription = "Pluto multi-currency finance illustration",
+          contentScale = ContentScale.Crop,
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(heroHeight)
+            .clip(PlutoShapes.extraLarge)
+            .border(
+              width = 1.dp,
+              color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
+              shape = PlutoShapes.extraLarge
+            )
+            .testTag("onboarding_hero_image")
+        )
+
+        Spacer(modifier = Modifier.height(sectionSpacing))
+
+        Text(
+          text = "Your money, wherever life takes you.",
+          style = MaterialTheme.typography.headlineMedium,
+          fontWeight = FontWeight.Bold,
+          textAlign = TextAlign.Center,
+          color = MaterialTheme.colorScheme.onBackground,
+          modifier = Modifier.plutoHeading()
+        )
+
+        Spacer(modifier = Modifier.height(copySpacing))
+
+        Text(
+          text = "Track expenses, convert currencies in real-time, and understand your spending across countries with ease.",
+          style = MaterialTheme.typography.bodyLarge,
+          textAlign = TextAlign.Center,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          lineHeight = 24.sp
+        )
+
+        Spacer(modifier = Modifier.height(featureSpacing))
+
+        // Feature highlights
+        Surface(
+          shape = PlutoShapes.large,
+          color = MaterialTheme.colorScheme.surface,
+          modifier = Modifier.fillMaxWidth()
+        ) {
+          Column(modifier = Modifier.padding(16.dp)) {
+            FeatureHighlightRow(
+              icon = Icons.Rounded.Public,
+              text = "Dual-currency tracking: reference and primary currencies"
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            FeatureHighlightRow(
+              icon = Icons.Rounded.Verified,
+              text = "Live exchange rates cached for offline use"
+            )
+          }
         }
       }
-    }
 
-    PrimaryActionButton(
-      text = "Get Started",
-      onClick = onGetStarted,
-      testTag = "onboarding_get_started_button"
-    )
+      Spacer(modifier = Modifier.height(if (isShortHeight) 8.dp else 16.dp))
+
+      PrimaryActionButton(
+        text = "Get Started",
+        onClick = onGetStarted,
+        testTag = "onboarding_get_started_button"
+      )
+    }
   }
 }
 

@@ -25,9 +25,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pluto.app.domain.model.CategorySpendingSummary
@@ -38,6 +40,7 @@ import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.theme.PlutoNumericStyle
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
+import com.pluto.app.ui.theme.useLargeFontLayout
 import java.math.BigDecimal
 
 /**
@@ -66,94 +69,29 @@ fun CashFlowSummaryBar(
       )
       Spacer(modifier = Modifier.height(8.dp))
 
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.sm),
-        verticalAlignment = Alignment.Top
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "INCOME",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-          val hasIncomeDest = summary.totalIncomeDest != null
-          val incomePrimary = if (hasIncomeDest) {
-            "+PRIMARY · ${summary.totalIncomeDest!!.formatWithCode()}"
-          } else {
-            "+REFERENCE · ${summary.totalIncomeHome.formatWithCode()}"
-          }
-          Text(
-            text = incomePrimary,
-            style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.secondary
-          )
-          if (hasIncomeDest) {
-            Text(
-              text = "+REFERENCE · ${summary.totalIncomeHome.formatWithCode()}",
-              style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-          }
-        }
-
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "EXPENSES",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-          val expensePrimary = "-${if (summary.totalDestSpending != null) "PRIMARY · " else "REFERENCE · "}${
-            (summary.totalDestSpending ?: summary.totalHomeSpending).formatWithCode()
-          }"
-          val expenseSecondary = if (summary.totalDestSpending != null) {
-            "-REFERENCE · ${summary.totalHomeSpending.formatWithCode()}"
-          } else null
-          Text(
-            text = expensePrimary,
-            style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.error
-          )
-          expenseSecondary?.let { secondary ->
-            Text(
-              text = secondary,
-              style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-          }
-        }
-
+      val useLargeFont = useLargeFontLayout()
+      if (useLargeFont) {
         Column(
-          modifier = Modifier.weight(1f),
-          horizontalAlignment = Alignment.End
+          modifier = Modifier.fillMaxWidth(),
+          verticalArrangement = Arrangement.spacedBy(PlutoSpacing.md)
         ) {
-          Text(
-            text = "NET FLOW",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+          CashFlowMetrics(
+            summary = summary,
+            useLargeFont = true,
+            metricModifier = Modifier.fillMaxWidth()
           )
-          val isNetPositive = summary.netCashFlowHome.amount >= BigDecimal.ZERO
-          val signPrefix = if (isNetPositive) "+" else ""
-          val netPrimary = signPrefix + (if (summary.netCashFlowDest != null) "PRIMARY · " else "REFERENCE · ") +
-            (summary.netCashFlowDest ?: summary.netCashFlowHome).formatWithCode()
-          val netSecondary = if (summary.netCashFlowDest != null) {
-            "${signPrefix}REFERENCE · ${summary.netCashFlowHome.formatWithCode()}"
-          } else null
-          Text(
-            text = netPrimary,
-            style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold,
-            color = if (isNetPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
+        }
+      } else {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.sm),
+          verticalAlignment = Alignment.Top
+        ) {
+          CashFlowMetrics(
+            summary = summary,
+            useLargeFont = false,
+            metricModifier = Modifier.weight(1f)
           )
-          netSecondary?.let { secondary ->
-            Text(
-              text = secondary,
-              style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-          }
         }
       }
 
@@ -175,10 +113,109 @@ fun CashFlowSummaryBar(
           Text(
             text = "Excludes ${summary.unvaluedIncomeCurrencies.joinToString(", ") { it.code }} deposits (rate unavailable)",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
           )
         }
       }
+    }
+  }
+}
+
+@Composable
+private fun CashFlowMetrics(
+  summary: DashboardSummary,
+  useLargeFont: Boolean,
+  metricModifier: Modifier
+) {
+  val hasIncomeDest = summary.totalIncomeDest != null
+  val incomePrimary = if (hasIncomeDest) {
+    "+PRIMARY · ${summary.totalIncomeDest!!.formatWithCode()}"
+  } else {
+    "+REFERENCE · ${summary.totalIncomeHome.formatWithCode()}"
+  }
+  val incomeSecondary = if (hasIncomeDest) {
+    "+REFERENCE · ${summary.totalIncomeHome.formatWithCode()}"
+  } else null
+  val expensePrimary = "-${if (summary.totalDestSpending != null) "PRIMARY · " else "REFERENCE · "}${
+    (summary.totalDestSpending ?: summary.totalHomeSpending).formatWithCode()
+  }"
+  val expenseSecondary = if (summary.totalDestSpending != null) {
+    "-REFERENCE · ${summary.totalHomeSpending.formatWithCode()}"
+  } else null
+  val isNetPositive = summary.netCashFlowHome.amount >= BigDecimal.ZERO
+  val signPrefix = if (isNetPositive) "+" else ""
+  val netPrimary = signPrefix + (if (summary.netCashFlowDest != null) "PRIMARY · " else "REFERENCE · ") +
+    (summary.netCashFlowDest ?: summary.netCashFlowHome).formatWithCode()
+  val netSecondary = if (summary.netCashFlowDest != null) {
+    "${signPrefix}REFERENCE · ${summary.netCashFlowHome.formatWithCode()}"
+  } else null
+
+  CashFlowMetric(
+    label = "INCOME",
+    primary = incomePrimary,
+    secondary = incomeSecondary,
+    primaryColor = MaterialTheme.colorScheme.secondary,
+    useLargeFont = useLargeFont,
+    modifier = metricModifier
+  )
+  CashFlowMetric(
+    label = "EXPENSES",
+    primary = expensePrimary,
+    secondary = expenseSecondary,
+    primaryColor = MaterialTheme.colorScheme.error,
+    useLargeFont = useLargeFont,
+    modifier = metricModifier
+  )
+  CashFlowMetric(
+    label = "NET FLOW",
+    primary = netPrimary,
+    secondary = netSecondary,
+    primaryColor = if (isNetPositive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
+    useLargeFont = useLargeFont,
+    alignEnd = !useLargeFont,
+    modifier = metricModifier
+  )
+}
+
+@Composable
+private fun CashFlowMetric(
+  label: String,
+  primary: String,
+  secondary: String?,
+  primaryColor: Color,
+  useLargeFont: Boolean,
+  alignEnd: Boolean = false,
+  modifier: Modifier = Modifier
+) {
+  Column(
+    modifier = modifier,
+    horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start
+  ) {
+    Text(
+      text = label,
+      style = MaterialTheme.typography.labelSmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis
+    )
+    Text(
+      text = primary,
+      style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
+      fontWeight = FontWeight.Bold,
+      color = primaryColor,
+      maxLines = if (useLargeFont) 2 else 1,
+      overflow = TextOverflow.Ellipsis
+    )
+    secondary?.let {
+      Text(
+        text = it,
+        style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
+      )
     }
   }
 }
@@ -264,71 +301,30 @@ private fun CategoryBudgetRow(item: CategorySpendingSummary) {
     (item.budgetProgress ?: 0f) >= 0.75f -> MaterialTheme.colorScheme.tertiary
     else -> MaterialTheme.colorScheme.primary
   }
+  val useLargeFont = useLargeFontLayout()
 
   Column {
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.SpaceBetween,
-      verticalAlignment = Alignment.CenterVertically
-    ) {
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-          text = item.category.name,
-          style = MaterialTheme.typography.bodyMedium,
-          fontWeight = FontWeight.SemiBold
-        )
-        if (item.isOverBudget) {
-          Spacer(modifier = Modifier.width(6.dp))
-          Surface(
-            shape = PlutoShapes.small,
-            color = MaterialTheme.colorScheme.errorContainer
-          ) {
-            Text(
-              text = "OVER",
-              style = MaterialTheme.typography.labelSmall,
-              fontWeight = FontWeight.Bold,
-              color = MaterialTheme.colorScheme.onErrorContainer,
-              fontSize = 9.sp,
-              modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-            )
-          }
-        }
+    if (useLargeFont) {
+      Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+      ) {
+        CategoryNameWithOverBadge(item = item, useLargeFont = true)
+        CategoryBudgetAmounts(item = item, hasBudget = hasBudget, useLargeFont = true)
       }
-
-      Column(horizontalAlignment = Alignment.End) {
-        val hasDestAmount = item.totalDestAmount != null
-        val amountLabel = if (hasDestAmount) {
-          "PRIMARY · ${item.totalDestAmount!!.formatWithCode()}"
-        } else {
-          "REFERENCE · ${item.totalHomeAmount.formatWithCode()}"
-        }
-        if (hasBudget) {
-          val budgetLabel = item.budgetDest?.formatWithCode() ?: item.budgetHome?.formatWithCode() ?: "—"
-          Text(
-            text = "$amountLabel / $budgetLabel",
-            style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold,
-            color = if (item.isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-          )
-          Text(
-            text = "${((item.budgetProgress ?: 0f) * 100).toInt()}% of budget",
-            style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-        } else {
-          Text(
-            text = amountLabel,
-            style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold
-          )
-          if (hasDestAmount) {
-            Text(
-              text = "REFERENCE · ${item.totalHomeAmount.formatWithCode()}",
-              style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-          }
-        }
+    } else {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        CategoryNameWithOverBadge(
+          item = item,
+          useLargeFont = false,
+          modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        CategoryBudgetAmounts(item = item, hasBudget = hasBudget, useLargeFont = false)
       }
     }
 
@@ -344,5 +340,93 @@ private fun CategoryBudgetRow(item: CategorySpendingSummary) {
       trackColor = MaterialTheme.colorScheme.surfaceVariant,
       strokeCap = StrokeCap.Round
     )
+  }
+}
+
+@Composable
+private fun CategoryNameWithOverBadge(
+  item: CategorySpendingSummary,
+  useLargeFont: Boolean,
+  modifier: Modifier = Modifier
+) {
+  Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+    Text(
+      text = item.category.name,
+      style = MaterialTheme.typography.bodyMedium,
+      fontWeight = FontWeight.SemiBold,
+      maxLines = if (useLargeFont) 2 else 1,
+      overflow = TextOverflow.Ellipsis
+    )
+    if (item.isOverBudget) {
+      Spacer(modifier = Modifier.width(6.dp))
+      Surface(
+        shape = PlutoShapes.small,
+        color = MaterialTheme.colorScheme.errorContainer
+      ) {
+        Text(
+          text = "OVER",
+          style = MaterialTheme.typography.labelSmall,
+          fontWeight = FontWeight.Bold,
+          color = MaterialTheme.colorScheme.onErrorContainer,
+          fontSize = 9.sp,
+          modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun CategoryBudgetAmounts(
+  item: CategorySpendingSummary,
+  hasBudget: Boolean,
+  useLargeFont: Boolean,
+  modifier: Modifier = Modifier
+) {
+  Column(
+    modifier = modifier,
+    horizontalAlignment = if (useLargeFont) Alignment.Start else Alignment.End
+  ) {
+    val hasDestAmount = item.totalDestAmount != null
+    val amountLabel = if (hasDestAmount) {
+      "PRIMARY · ${item.totalDestAmount!!.formatWithCode()}"
+    } else {
+      "REFERENCE · ${item.totalHomeAmount.formatWithCode()}"
+    }
+    if (hasBudget) {
+      val budgetLabel = item.budgetDest?.formatWithCode() ?: item.budgetHome?.formatWithCode() ?: "—"
+      Text(
+        text = "$amountLabel / $budgetLabel",
+        style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
+        fontWeight = FontWeight.Bold,
+        color = if (item.isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
+      )
+      Text(
+        text = "${((item.budgetProgress ?: 0f) * 100).toInt()}% of budget",
+        style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+      )
+    } else {
+      Text(
+        text = amountLabel,
+        style = MaterialTheme.typography.bodyMedium.merge(PlutoNumericStyle),
+        fontWeight = FontWeight.Bold,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
+      )
+      if (hasDestAmount) {
+        Text(
+          text = "REFERENCE · ${item.totalHomeAmount.formatWithCode()}",
+          style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 2,
+          overflow = TextOverflow.Ellipsis
+        )
+      }
+    }
   }
 }

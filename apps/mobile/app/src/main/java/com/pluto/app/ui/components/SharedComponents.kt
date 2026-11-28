@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -60,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import com.pluto.app.domain.model.Currency
 import com.pluto.app.ui.theme.PlutoMotion
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoResponsive
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 import com.pluto.app.ui.theme.plutoHeading
@@ -625,26 +627,36 @@ fun DualCurrencyAmountView(
   secondaryStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodySmall,
   secondaryColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
   secondaryFontWeight: FontWeight = FontWeight.Medium,
-  horizontalAlignment: Alignment.Horizontal = Alignment.End
+  horizontalAlignment: Alignment.Horizontal = Alignment.End,
+  maxWidthFraction: Float = PlutoResponsive.AmountColumnWidthFraction
 ) {
-  Column(
-    modifier = modifier,
-    horizontalAlignment = horizontalAlignment
-  ) {
-    Text(
-      text = primaryAmount,
-      style = primaryStyle.merge(PlutoNumericStyle),
-      fontWeight = primaryFontWeight,
-      color = primaryColor
-    )
-    if (!secondaryAmount.isNullOrBlank()) {
-      Spacer(modifier = Modifier.height(PlutoSpacing.xxs))
+  // A Row measures non-weighted children first. Without a bound, long reference strings can
+  // claim the whole row and leave a weighted label column with ~0dp (character-by-character
+  // wrapping). Cap the amount column to a share of the row so the label always has room.
+  BoxWithConstraints(modifier = modifier) {
+    Column(
+      modifier = Modifier.widthIn(max = maxWidth * maxWidthFraction.coerceIn(0.1f, 1f)),
+      horizontalAlignment = horizontalAlignment
+    ) {
       Text(
-        text = secondaryAmount,
-        style = secondaryStyle.merge(PlutoNumericStyle),
-        fontWeight = secondaryFontWeight,
-        color = secondaryColor
+        text = primaryAmount,
+        style = primaryStyle.merge(PlutoNumericStyle),
+        fontWeight = primaryFontWeight,
+        color = primaryColor,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
       )
+      if (!secondaryAmount.isNullOrBlank()) {
+        Spacer(modifier = Modifier.height(PlutoSpacing.xxs))
+        Text(
+          text = secondaryAmount,
+          style = secondaryStyle.merge(PlutoNumericStyle),
+          fontWeight = secondaryFontWeight,
+          color = secondaryColor,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis
+        )
+      }
     }
   }
 }

@@ -9,12 +9,14 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -72,6 +74,7 @@ import com.pluto.app.ui.components.PlutoButton
 import com.pluto.app.ui.components.PlutoButtonVariant
 import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoResponsive
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 import kotlinx.coroutines.Dispatchers
@@ -203,74 +206,89 @@ fun ExpenseDetailSheetContent(
     )
 
     Dialog(onDismissRequest = { showReceiptViewerDialog = false }) {
-      Surface(
-        shape = PlutoShapes.large,
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(8.dp)
-      ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+      BoxWithConstraints {
+        val isShortHeight = maxHeight < PlutoResponsive.ShortHeight
+        val previewMaxHeight = if (isShortHeight) 280.dp else 520.dp
+        val imageMaxHeight = if (isShortHeight) 160.dp else 380.dp
+        Surface(
+          shape = PlutoShapes.large,
+          color = MaterialTheme.colorScheme.surface,
+          modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = previewMaxHeight)
+            .padding(8.dp)
+        ) {
+          Column(
+            modifier = Modifier
+              .verticalScroll(rememberScrollState())
+              .padding(16.dp)
           ) {
-            Text(
-              text = "Receipt Photo",
-              style = MaterialTheme.typography.titleMedium,
-              fontWeight = FontWeight.Bold
-            )
-            IconButton(
-              onClick = { showReceiptViewerDialog = false },
-              modifier = Modifier.minimumInteractiveComponentSize()
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
             ) {
-              Icon(Icons.Rounded.Close, contentDescription = "Close preview")
-            }
-          }
-
-          Spacer(modifier = Modifier.height(12.dp))
-
-          when (val loadState = receiptLoadState) {
-            is ReceiptDecodeState.Loading -> {
-              Box(
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .height(260.dp)
-                  .clip(PlutoShapes.medium)
-                  .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
+              Text(
+                text = "Receipt Photo",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+              )
+              IconButton(
+                onClick = { showReceiptViewerDialog = false },
+                modifier = Modifier.minimumInteractiveComponentSize()
               ) {
-                CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                Icon(Icons.Rounded.Close, contentDescription = "Close preview")
               }
             }
 
-            is ReceiptDecodeState.Loaded -> {
-              Image(
-                bitmap = loadState.bitmap,
-                contentDescription = "Full receipt photo",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .height(380.dp)
-                  .clip(PlutoShapes.medium)
-              )
-            }
+            Spacer(modifier = Modifier.height(12.dp))
 
-            is ReceiptDecodeState.Failed -> {
-              Box(
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .height(200.dp)
-                  .clip(PlutoShapes.medium)
-                  .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-              ) {
-                Text(
-                  text = "Unable to load receipt image",
-                  style = MaterialTheme.typography.bodyMedium,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            when (val loadState = receiptLoadState) {
+              is ReceiptDecodeState.Loading -> {
+                Box(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (isShortHeight) 140.dp else 260.dp)
+                    .clip(PlutoShapes.medium)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                  contentAlignment = Alignment.Center
+                ) {
+                  CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                }
+              }
+
+              is ReceiptDecodeState.Loaded -> {
+                Box(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = imageMaxHeight)
+                    .clip(PlutoShapes.medium),
+                  contentAlignment = Alignment.Center
+                ) {
+                  Image(
+                    bitmap = loadState.bitmap,
+                    contentDescription = "Full receipt photo",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
+                  )
+                }
+              }
+
+              is ReceiptDecodeState.Failed -> {
+                Box(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (isShortHeight) 120.dp else 200.dp)
+                    .clip(PlutoShapes.medium)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                  contentAlignment = Alignment.Center
+                ) {
+                  Text(
+                    text = "Unable to load receipt image",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                  )
+                }
               }
             }
           }

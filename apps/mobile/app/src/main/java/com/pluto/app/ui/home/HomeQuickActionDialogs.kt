@@ -1,11 +1,13 @@
 package com.pluto.app.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -28,6 +30,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +47,7 @@ import com.pluto.app.domain.model.CurrencyWallet
 import com.pluto.app.ui.components.PlutoButton
 import com.pluto.app.ui.components.PlutoButtonVariant
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoResponsive
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 import java.math.BigDecimal
@@ -75,21 +79,31 @@ fun QuickIncomeDialog(
   var noteText by remember { mutableStateOf("") }
   var expanded by remember { mutableStateOf(false) }
 
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
   ModalBottomSheet(
     onDismissRequest = { if (!isSubmitting) onDismiss() },
+    sheetState = sheetState,
     dragHandle = { BottomSheetDefaults.DragHandle() },
     containerColor = MaterialTheme.colorScheme.surface,
     modifier = Modifier.testTag("quick_income_bottom_sheet")
   ) {
-    Column(
+    BoxWithConstraints(
       modifier = Modifier
         .fillMaxWidth()
         .navigationBarsPadding()
         .imePadding()
-        .padding(horizontal = 24.dp)
-        .padding(bottom = 24.dp)
-        .verticalScroll(rememberScrollState())
     ) {
+      val bodyMaxHeight = PlutoResponsive.sheetBodyMaxHeight(maxHeight)
+      Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = bodyMaxHeight)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 12.dp)
+        ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -212,36 +226,39 @@ fun QuickIncomeDialog(
             modifier = Modifier.testTag("quick_income_error_text")
           )
         }
+      }
+    }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.md)
-        ) {
-          PlutoButton(
-            text = "Cancel",
-            onClick = onDismiss,
-            variant = PlutoButtonVariant.OUTLINED,
-            enabled = !isSubmitting,
-            modifier = Modifier.weight(1f)
-          )
-          PlutoButton(
-            text = if (isSubmitting) "Saving..." else "Save Income",
-            onClick = {
-              val wallet = selectedWallet ?: return@PlutoButton
-              val amt = amountText.toBigDecimalOrNull() ?: return@PlutoButton
-              if (amt > BigDecimal.ZERO) {
-                onConfirm(wallet.id, amt, noteText)
-              }
-            },
-            variant = PlutoButtonVariant.PRIMARY,
-            enabled = !isSubmitting &&
-              selectedWallet != null &&
-              (amountText.toBigDecimalOrNull() ?: BigDecimal.ZERO) > BigDecimal.ZERO,
-            modifier = Modifier.weight(1f)
-          )
-        }
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 24.dp)
+          .padding(bottom = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.md)
+      ) {
+        PlutoButton(
+          text = "Cancel",
+          onClick = onDismiss,
+          variant = PlutoButtonVariant.OUTLINED,
+          enabled = !isSubmitting,
+          modifier = Modifier.weight(1f)
+        )
+        PlutoButton(
+          text = if (isSubmitting) "Saving..." else "Save Income",
+          onClick = {
+            val wallet = selectedWallet ?: return@PlutoButton
+            val amt = amountText.toBigDecimalOrNull() ?: return@PlutoButton
+            if (amt > BigDecimal.ZERO) {
+              onConfirm(wallet.id, amt, noteText)
+            }
+          },
+          variant = PlutoButtonVariant.PRIMARY,
+          enabled = !isSubmitting &&
+            selectedWallet != null &&
+            (amountText.toBigDecimalOrNull() ?: BigDecimal.ZERO) > BigDecimal.ZERO,
+          modifier = Modifier.weight(1f)
+        )
+      }
       }
     }
   }
@@ -288,21 +305,31 @@ fun QuickTransferDialog(
   var srcExpanded by remember { mutableStateOf(false) }
   var dstExpanded by remember { mutableStateOf(false) }
 
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
   ModalBottomSheet(
     onDismissRequest = { if (!isSubmitting) onDismiss() },
+    sheetState = sheetState,
     dragHandle = { BottomSheetDefaults.DragHandle() },
     containerColor = MaterialTheme.colorScheme.surface,
     modifier = Modifier.testTag("quick_transfer_bottom_sheet")
   ) {
-    Column(
+    BoxWithConstraints(
       modifier = Modifier
         .fillMaxWidth()
         .navigationBarsPadding()
         .imePadding()
-        .padding(horizontal = 24.dp)
-        .padding(bottom = 24.dp)
-        .verticalScroll(rememberScrollState())
     ) {
+      val bodyMaxHeight = PlutoResponsive.sheetBodyMaxHeight(maxHeight)
+      Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = bodyMaxHeight)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 12.dp)
+        ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -456,38 +483,41 @@ fun QuickTransferDialog(
             modifier = Modifier.testTag("quick_transfer_error_text")
           )
         }
+      }
+    }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.md)
-        ) {
-          PlutoButton(
-            text = "Cancel",
-            onClick = onDismiss,
-            variant = PlutoButtonVariant.OUTLINED,
-            enabled = !isSubmitting,
-            modifier = Modifier.weight(1f)
-          )
-          PlutoButton(
-            text = if (isSubmitting) "Transferring..." else "Execute Transfer",
-            onClick = {
-              val src = srcWallet ?: return@PlutoButton
-              val dst = dstWallet ?: return@PlutoButton
-              val amt = amountText.toBigDecimalOrNull() ?: return@PlutoButton
-              if (amt > BigDecimal.ZERO && src.id != dst.id) {
-                onConfirm(src.id, dst.id, amt, noteText)
-              }
-            },
-            variant = PlutoButtonVariant.PRIMARY,
-            enabled = !isSubmitting &&
-              wallets.size >= 2 &&
-              srcWallet?.id != dstWallet?.id &&
-              (amountText.toBigDecimalOrNull() ?: BigDecimal.ZERO) > BigDecimal.ZERO,
-            modifier = Modifier.weight(1f)
-          )
-        }
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 24.dp)
+          .padding(bottom = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.md)
+      ) {
+        PlutoButton(
+          text = "Cancel",
+          onClick = onDismiss,
+          variant = PlutoButtonVariant.OUTLINED,
+          enabled = !isSubmitting,
+          modifier = Modifier.weight(1f)
+        )
+        PlutoButton(
+          text = if (isSubmitting) "Transferring..." else "Execute Transfer",
+          onClick = {
+            val src = srcWallet ?: return@PlutoButton
+            val dst = dstWallet ?: return@PlutoButton
+            val amt = amountText.toBigDecimalOrNull() ?: return@PlutoButton
+            if (amt > BigDecimal.ZERO && src.id != dst.id) {
+              onConfirm(src.id, dst.id, amt, noteText)
+            }
+          },
+          variant = PlutoButtonVariant.PRIMARY,
+          enabled = !isSubmitting &&
+            wallets.size >= 2 &&
+            srcWallet?.id != dstWallet?.id &&
+            (amountText.toBigDecimalOrNull() ?: BigDecimal.ZERO) > BigDecimal.ZERO,
+          modifier = Modifier.weight(1f)
+        )
+      }
       }
     }
   }

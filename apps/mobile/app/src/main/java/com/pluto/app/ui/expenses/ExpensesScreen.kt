@@ -251,13 +251,13 @@ fun ExpensesScreen(
 
       Spacer(modifier = Modifier.height(4.dp))
 
-      // List Content Grouped by Day (with tablet List-Detail split pane on >= 600.dp)
+      // List Content Grouped by Day (inner split threshold accounts for the shell navigation rail)
       BoxWithConstraints(
         modifier = Modifier
           .fillMaxSize()
           .weight(1f)
       ) {
-        val isWideLayout = maxWidth >= 600.dp
+        val isWideLayout = maxWidth >= 520.dp
 
         when (val state = listState) {
           is ExpenseListUiState.Loading -> {

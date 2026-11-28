@@ -105,6 +105,7 @@ import com.pluto.app.ui.theme.PlutoThemeDefaults
 import com.pluto.app.ui.theme.plutoHeading
 import com.pluto.app.ui.theme.plutoPressableScale
 import com.pluto.app.ui.theme.rememberPrefersReducedMotion
+import com.pluto.app.ui.theme.useLargeFontLayout
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.SimpleDateFormat
@@ -280,6 +281,7 @@ fun StackedCardsHero(
 
         // Prominent available balance + portfolio equivalent
         Column {
+          val useLargeFont = useLargeFontLayout()
           Text(
             text = "Available balance",
             style = MaterialTheme.typography.labelSmall,
@@ -291,7 +293,7 @@ fun StackedCardsHero(
             style = MaterialTheme.typography.displaySmall.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
             color = heroColors.onHeroContainer,
-            maxLines = 1,
+            maxLines = if (useLargeFont) 2 else 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.testTag("hero_travel_balance_amount")
           )
@@ -1162,51 +1164,47 @@ fun CycleRunwayModuleCard(
         }
       }
 
-      Row(
+      val useLargeFont = useLargeFontLayout()
+      Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(if (useLargeFont) PlutoSpacing.sm else 0.dp)
       ) {
-        Column(modifier = Modifier.weight(1f)) {
-          val primaryDaily = runwaySummary.dailyRunwaySafeToSpendDest ?: runwaySummary.dailyRunwaySafeToSpendHome
-          val hasDestDaily = runwaySummary.dailyRunwaySafeToSpendDest != null
-          Text(
-            text = "Cycle pace/day: ${if (hasDestDaily) "PRIMARY · " else "REFERENCE · "}${primaryDaily.formatWithCode()}",
-            style = MaterialTheme.typography.headlineSmall.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.testTag("runway_safe_to_spend_value")
-          )
-          if (hasDestDaily) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Column(modifier = Modifier.weight(1f)) {
+            val primaryDaily = runwaySummary.dailyRunwaySafeToSpendDest ?: runwaySummary.dailyRunwaySafeToSpendHome
+            val hasDestDaily = runwaySummary.dailyRunwaySafeToSpendDest != null
             Text(
-              text = "Cycle pace/day: REFERENCE · ${runwaySummary.dailyRunwaySafeToSpendHome.formatWithCode()}",
-              style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
-              color = MaterialTheme.colorScheme.onSurfaceVariant
+              text = "Cycle pace/day: ${if (hasDestDaily) "PRIMARY · " else "REFERENCE · "}${primaryDaily.formatWithCode()}",
+              style = MaterialTheme.typography.headlineSmall.merge(PlutoNumericStyle),
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.onSurface,
+              maxLines = if (useLargeFont) 2 else 1,
+              overflow = TextOverflow.Ellipsis,
+              modifier = Modifier.testTag("runway_safe_to_spend_value")
             )
+            if (hasDestDaily) {
+              Text(
+                text = "Cycle pace/day: REFERENCE · ${runwaySummary.dailyRunwaySafeToSpendHome.formatWithCode()}",
+                style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+              )
+            }
+          }
+          if (!useLargeFont) {
+            RunwayDaysRemainingBadge(daysRemaining = runwaySummary.daysRemaining)
           }
         }
-
-        Surface(
-          shape = PlutoShapes.large,
-          color = MaterialTheme.colorScheme.surfaceVariant,
-          modifier = Modifier.testTag("runway_days_remaining")
-        ) {
-          Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-          ) {
-            Text(
-              text = "${runwaySummary.daysRemaining}",
-              style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
-              fontWeight = FontWeight.Bold,
-              color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-              text = "days left",
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-          }
+        if (useLargeFont) {
+          RunwayDaysRemainingBadge(
+            daysRemaining = runwaySummary.daysRemaining,
+            modifier = Modifier.align(Alignment.End)
+          )
         }
       }
 
@@ -1238,6 +1236,35 @@ fun CycleRunwayModuleCard(
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
       }
+    }
+  }
+}
+
+@Composable
+private fun RunwayDaysRemainingBadge(
+  daysRemaining: Int,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    shape = PlutoShapes.large,
+    color = MaterialTheme.colorScheme.surfaceVariant,
+    modifier = modifier.testTag("runway_days_remaining")
+  ) {
+    Column(
+      modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+      horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+      Text(
+        text = "$daysRemaining",
+        style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary
+      )
+      Text(
+        text = "days left",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+      )
     }
   }
 }

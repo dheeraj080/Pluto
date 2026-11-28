@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -729,7 +730,10 @@ private fun CategoryBudgetRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+          modifier = Modifier.weight(1f, fill = false),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
           Surface(
             shape = CircleShape,
             color = parseCategoryColor(item.category.colorHex).copy(alpha = 0.15f),
@@ -744,16 +748,20 @@ private fun CategoryBudgetRow(
             }
           }
           Spacer(modifier = Modifier.width(10.dp))
-          Column {
+          Column(modifier = Modifier.weight(1f)) {
             Text(
               text = item.category.name,
               style = MaterialTheme.typography.titleMedium,
-              fontWeight = FontWeight.SemiBold
+              fontWeight = FontWeight.SemiBold,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis
             )
             Text(
               text = "${item.transactionCount} transactions",
               style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
-              color = MaterialTheme.colorScheme.onSurfaceVariant
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis
             )
           }
         }

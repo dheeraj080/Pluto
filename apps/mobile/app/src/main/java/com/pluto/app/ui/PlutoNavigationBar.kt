@@ -44,6 +44,7 @@ import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 import com.pluto.app.ui.theme.plutoPressableScale
 import com.pluto.app.ui.theme.rememberPrefersReducedMotion
+import com.pluto.app.ui.theme.useLargeFontLayout
 
 @Composable
 fun PlutoNavigationBar(
@@ -52,6 +53,7 @@ fun PlutoNavigationBar(
   modifier: Modifier = Modifier
 ) {
   val prefersReducedMotion = rememberPrefersReducedMotion()
+  val useLargeFont = useLargeFontLayout()
 
   Surface(
     color = MaterialTheme.colorScheme.surface,
@@ -133,7 +135,7 @@ fun PlutoNavigationBar(
               tonalElevation = 0.dp,
               shadowElevation = 0.dp,
               modifier = Modifier
-                .width(56.dp)
+                .width(if (useLargeFont) 48.dp else 56.dp)
                 .height(30.dp)
             ) {
               Box(contentAlignment = Alignment.Center) {
@@ -152,8 +154,8 @@ fun PlutoNavigationBar(
               fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
               color = labelColor,
               textAlign = TextAlign.Center,
-              softWrap = true,
-              maxLines = 2,
+              softWrap = !useLargeFont,
+              maxLines = if (useLargeFont) 1 else 2,
               overflow = TextOverflow.Ellipsis
             )
           }

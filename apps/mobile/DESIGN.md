@@ -151,23 +151,25 @@ Pluto restricts chromatic intensity to purposeful brand highlights and semantic 
 **Character:** Crisp geometric `Manrope` paired with engineered tabular alignment in `Roboto Mono` so balances, exchange rates, and live dual-zone clocks never jump horizontally as digits change.
 
 ### Hierarchy (`ui/theme/Type.kt`)
-- **Display** (`displayLarge` 38.sp / 44.sp Bold, `-0.5.sp` tracking; `displayMedium` 32.sp / 38.sp Bold): Hero balance totals and primary converter outputs (merged with `PlutoNumericStyle` for numbers).
-- **Headline** (`headlineLarge` 28.sp / 34.sp Bold; `headlineMedium` 24.sp / 30.sp SemiBold; `headlineSmall` 20.sp / 26.sp SemiBold): Screen headers, onboarding steps, and major section KPIs.
-- **Title** (`titleLarge` 18.sp / 24.sp SemiBold; `titleMedium` 15.sp / 22.sp SemiBold; `titleSmall` 13.sp / 18.sp Medium): Card titles, section headers (`Modifier.plutoHeading()`), top bar titles, and clock readouts.
-- **Body** (`bodyLarge` 15.sp / 22.sp; `bodyMedium` 13.sp / 18.sp; `bodySmall` 11.sp / 15.sp): Transaction descriptions, hints, empty-state guidance, and secondary currency conversions.
+- **Display** (`displayLarge` 38.sp / 46.sp ExtraBold; `displayMedium` 32.sp / 40.sp Bold; `displaySmall` 30.sp / 38.sp Bold; `-0.01em` tracking): Hero balance totals and primary converter outputs (merged with `PlutoNumericStyle` for numbers).
+- **Headline** (`headlineLarge` 28.sp / 36.sp Bold; `headlineMedium` 24.sp / 32.sp Bold; `headlineSmall` 20.sp / 28.sp SemiBold): Screen headers, onboarding steps, and major section KPIs.
+- **Title** (`titleLarge` 18.sp / 25.sp Bold; `titleMedium` 16.sp / 23.sp SemiBold; `titleSmall` 14.sp / 20.sp SemiBold): Card titles, section headers (`Modifier.plutoHeading()`), top bar titles, and clock readouts.
+- **Body** (`bodyLarge` 15.sp / 23.sp; `bodyMedium` 13.sp / 20.sp; `bodySmall` 12.sp / 18.sp): Transaction descriptions, hints, empty-state guidance, and secondary currency conversions.
 - **Label** (`labelLarge` 13.sp / 18.sp SemiBold; `labelMedium` 11.sp / 16.sp Medium; `labelSmall` 10.sp / 14.sp Medium): Button labels, navigation labels, category pills, and `PRIMARY` / `REFERENCE` clock prefixes.
 
 ### Named Rules
-- **The Tabular Numeric Rule.** Every currency amount, rate, percentage, and live time value MUST merge `PlutoNumericStyle` (`RobotoMonoFontFamily` + `"tnum"`) with `maxLines = 1` and explicit overflow handling (`TextOverflow.Ellipsis` or `softWrap = false` where appropriate).
-- **The System Scale Rule.** Specify all type sizes in `.sp`, avoid fixed-height text containers that clip at `font_scale = 1.3`, and verify wrap/truncation behavior on narrow viewports.
+- **The Tabular Numeric Rule.** Every currency amount, rate, percentage, and live time value MUST merge `PlutoNumericStyle` (`RobotoMonoFontFamily` + `"tnum"`) with explicit line and overflow handling (`maxLines` + `TextOverflow.Ellipsis`). Never let a tabular value claim unbounded width in a `Row`: trailing amount columns use `DualCurrencyAmountView`, which caps itself at `PlutoResponsive.AmountColumnWidthFraction` of the row so a leading `weight(1f)` label column keeps readable width.
+- **The System Scale Rule.** Every text size is in `.sp` and the system font scale flows through unmodified — never clamp `fontScale` or shrink text. Use `fontScale()` / `useLargeFontLayout()` from `ui/theme/Responsive.kt` to **reflow** instead: stack dense rows, allow tabular values a second line, reduce chart label density, and keep CTAs reachable when `fontScale >= 1.3`. Fixed-height text containers must be avoided; sheets/dialogs must scroll with sticky footers.
+- **The Height Rule.** Width-only breakpoints are insufficient. Short landscape and foldable panes (`maxHeight < PlutoResponsive.ShortHeight`, 480.dp) use scrollable, height-aware layouts; no primary action may be pushed off-screen.
 
 ## Layout
 
 Pluto builds on a strict `4.dp` / `8.dp` spatial grid defined in `PlutoSpacing` (`xxs = 2.dp`, `xs = 4.dp`, `sm = 8.dp`, `md = 12.dp`, `lg = 16.dp`, `xl = 20.dp`, `xxl = 24.dp`, `xxxl = 32.dp`, `huge = 48.dp`).
 
 - **Adaptive Navigation**: `MainAppShell` uses Material 3 `NavigationSuiteScaffold` (`currentWindowAdaptiveInfo()`) to switch seamlessly from bottom `NavigationBar` on compact screens to side `NavigationRail` on medium/expanded screens across the 4 top-level destinations (`Home`, `Expenses`, `Budgets`, `Insights`). Secondary flows (`Converter`, `Wallets`, `WalletDetail`, `Settings`, `CurrencyPicker`) hide the navigation bar/rail cleanly.
-- **Responsive Width Bounds**: Constrain wide form/hero content (e.g., `widthIn(max = 600.dp)` or `widthIn(max = 840.dp)`) centered horizontally so tablet layouts stay readable without stretching.
-- **Edge-to-Edge & Insets**: `MainActivity` enables `enableEdgeToEdge()`; scaffolds and custom bottom sheets/bars respect `WindowInsets` (`safeDrawing`, `navigationBars`, `ime`).
+- **Responsive Width Bounds**: Constrain wide form/hero content (e.g., `widthIn(max = 640.dp)` or `widthIn(max = 840.dp)`) centered horizontally so tablet layouts stay readable without stretching. Shared thresholds live in `PlutoResponsive` (`CompactWidth` 360.dp, `MediumWidth` 600.dp, `ExpandedWidth` 840.dp). The list/detail split thresholds account for the navigation rail that appears at 600.dp outer width.
+- **Height & Font-Scale Matrix**: Verify 320/360/600/840dp widths at 1.0/1.3/1.8x font scale plus short landscape (`w800dp-h360dp`). `ResponsivenessUiTest` covers compact-width tab targets, bounded amount columns, and the large-font threshold; sheet/dialog CTAs must remain reachable in every cell.
+- **Edge-to-Edge & Insets**: `MainActivity` enables `enableEdgeToEdge()`; the shell owns window insets, and custom bottom sheets/bars respect `WindowInsets` (`safeDrawing`, `navigationBars`, `ime`). Apply `navigationBarsPadding()` before `imePadding()` consistently.
 
 ## Elevation
 

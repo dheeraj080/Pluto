@@ -1,11 +1,13 @@
 package com.pluto.app.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -29,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +50,7 @@ import com.pluto.app.domain.model.UserSettings
 import com.pluto.app.ui.components.PlutoButton
 import com.pluto.app.ui.components.PlutoButtonVariant
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoResponsive
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 import java.math.BigDecimal
@@ -167,22 +171,32 @@ fun SpendingCapsDialog(
     }
   }
 
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
   ModalBottomSheet(
     onDismissRequest = onDismiss,
+    sheetState = sheetState,
     dragHandle = { BottomSheetDefaults.DragHandle() },
     containerColor = MaterialTheme.colorScheme.surface,
     modifier = Modifier.testTag("spending_caps_dialog")
   ) {
-    Column(
+    BoxWithConstraints(
       modifier = Modifier
         .fillMaxWidth()
-        .verticalScroll(rememberScrollState())
         .navigationBarsPadding()
         .imePadding()
-        .padding(horizontal = 24.dp)
-        .padding(bottom = 24.dp),
-      verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+      val bodyMaxHeight = PlutoResponsive.sheetBodyMaxHeight(maxHeight)
+      Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = bodyMaxHeight)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 12.dp),
+          verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -372,9 +386,13 @@ fun SpendingCapsDialog(
       }
 
       Spacer(modifier = Modifier.height(10.dp))
+      }
 
       Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 24.dp)
+          .padding(bottom = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.md),
         verticalAlignment = Alignment.CenterVertically
       ) {
@@ -406,6 +424,7 @@ fun SpendingCapsDialog(
           enabled = canSave,
           testTag = "dialog_save_caps_button"
         )
+      }
       }
     }
   }

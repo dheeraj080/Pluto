@@ -1,11 +1,11 @@
 package com.pluto.app.expense
 
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.pluto.app.domain.model.Category
@@ -144,7 +144,7 @@ class ExpenseRateControlUiTest {
   }
 
   @Test
-  fun `editing foreign expense allows Keep Original even after switching to home currency`() {
+  fun `editing foreign expense restores original amount currencies and rate without exchange card`() {
     val now = System.currentTimeMillis()
     val settings = UserSettings(
       homeCurrency = Currency.INR,
@@ -160,7 +160,7 @@ class ExpenseRateControlUiTest {
       source = "historical_checkout"
     )
     val existing = Expense.create(
-      id = "exp-ui-keep-orig",
+      id = "exp-ui-restore-original",
       originalAmount = Money.of("10.00", Currency.EUR),
       homeCurrency = Currency.INR,
       exchangeRate = originalRate,
@@ -183,22 +183,19 @@ class ExpenseRateControlUiTest {
     }
     composeTestRule.waitForIdle()
 
-    // Switch local currency to home currency (INR) -> Keep Original chip remains available
-    composeTestRule.onNodeWithTag("currency_chip_home")
-      .performScrollTo()
-      .performClick()
+    composeTestRule.onNodeWithTag("currency_chip_home").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("expense_rate_display_text").assertDoesNotExist()
+
+    composeTestRule.runOnIdle { vm.onLocalCurrencyChanged(Currency.INR) }
+    composeTestRule.waitForIdle()
+    assertEquals(Currency.INR, vm.formState.value.localCurrency)
+
+    composeTestRule.runOnIdle { vm.onRestoreOriginalRate() }
     composeTestRule.waitForIdle()
 
-    composeTestRule.onNodeWithTag("expense_restore_original_rate_button")
-      .performScrollTo()
-      .assertIsDisplayed()
-      .performClick()
-    composeTestRule.waitForIdle()
-
-    composeTestRule.onNodeWithText("Recorded Rate")
-      .performScrollTo()
-      .assertIsDisplayed()
     assertEquals(Currency.EUR, vm.formState.value.localCurrency)
+    assertEquals(Currency.INR, vm.formState.value.homeCurrency)
+    assertEquals("10.00", vm.formState.value.amount)
     assertEquals("934.00", vm.formState.value.conversionPreview.convertedMoney?.amount?.toPlainString())
   }
 }

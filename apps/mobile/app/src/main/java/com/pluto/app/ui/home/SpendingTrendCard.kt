@@ -2,7 +2,6 @@ package com.pluto.app.ui.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -40,16 +39,19 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.pluto.app.domain.model.DailySpendPoint
 import com.pluto.app.domain.model.DashboardSummary
 import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoResponsive
 import com.pluto.app.ui.theme.PlutoShapes
+import com.pluto.app.ui.theme.useLargeFontLayout
 import java.math.BigDecimal
 import kotlin.math.roundToInt
 
@@ -177,67 +179,129 @@ private fun TrendCardHeader(
   activePoint: DailySpendPoint?,
   modifier: Modifier = Modifier
 ) {
+  val largeFontLayout = useLargeFontLayout()
+  val hasDestTotal = summary.thirtyDayTotalDest != null
+  val primaryTotal = if (hasDestTotal) {
+    "PRIMARY · ${summary.thirtyDayTotalDest!!.formatWithCode()}"
+  } else {
+    "REFERENCE · ${summary.thirtyDayTotalHome.formatWithCode()}"
+  }
+  val referenceTotal = "REFERENCE · ${summary.thirtyDayTotalHome.formatWithCode()}"
+
+  if (largeFontLayout) {
+    // Reflow: the total gets its own row rather than competing with the title.
+    Column(
+      modifier = modifier.fillMaxWidth(),
+      verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+      TrendCardTitleBlock(
+        activePoint = activePoint,
+        modifier = Modifier.fillMaxWidth()
+      )
+      TrendCardTotalBlock(
+        primaryTotal = primaryTotal,
+        referenceTotal = referenceTotal,
+        hasDestTotal = hasDestTotal,
+        largeFontLayout = true,
+        modifier = Modifier.fillMaxWidth()
+      )
+    }
+  } else {
+    Row(
+      modifier = modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      TrendCardTitleBlock(
+        activePoint = activePoint,
+        modifier = Modifier.weight(1f, fill = false)
+      )
+      TrendCardTotalBlock(
+        primaryTotal = primaryTotal,
+        referenceTotal = referenceTotal,
+        hasDestTotal = hasDestTotal,
+        largeFontLayout = false,
+        modifier = Modifier.weight(PlutoResponsive.AmountColumnWidthFraction, fill = false)
+      )
+    }
+  }
+}
+
+@Composable
+private fun TrendCardTitleBlock(
+  activePoint: DailySpendPoint?,
+  modifier: Modifier = Modifier
+) {
+  val largeFontLayout = useLargeFontLayout()
   Row(
-    modifier = modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceBetween,
+    modifier = modifier,
     verticalAlignment = Alignment.CenterVertically
   ) {
-    // Left: Icon + Title
-    Row(verticalAlignment = Alignment.CenterVertically) {
-      Surface(
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        modifier = Modifier.size(36.dp)
-      ) {
-        Box(contentAlignment = Alignment.Center) {
-          Icon(
-            imageVector = Icons.AutoMirrored.Rounded.ShowChart,
-            contentDescription = "Spending Trend Chart",
-            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.size(20.dp)
-          )
-        }
-      }
-
-      Spacer(modifier = Modifier.width(10.dp))
-
-      Column {
-        Text(
-          text = "30-Day Spending Pattern",
-          style = MaterialTheme.typography.titleMedium,
-          fontWeight = FontWeight.Bold,
-          color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-          text = if (activePoint != null) "Scrubbing ${activePoint.dayLabel}" else "Daily expenditure pattern",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(
+      shape = CircleShape,
+      color = MaterialTheme.colorScheme.primaryContainer,
+      modifier = Modifier.size(36.dp)
+    ) {
+      Box(contentAlignment = Alignment.Center) {
+        Icon(
+          imageVector = Icons.AutoMirrored.Rounded.ShowChart,
+          contentDescription = "Spending Trend Chart",
+          tint = MaterialTheme.colorScheme.onPrimaryContainer,
+          modifier = Modifier.size(20.dp)
         )
       }
     }
 
-    // Right: Dual-Currency 30-Day Total
-    Column(horizontalAlignment = Alignment.End) {
-      val hasDestTotal = summary.thirtyDayTotalDest != null
-      val primaryTotal = if (hasDestTotal) {
-        "PRIMARY · ${summary.thirtyDayTotalDest!!.formatWithCode()}"
-      } else {
-        "REFERENCE · ${summary.thirtyDayTotalHome.formatWithCode()}"
-      }
+    Spacer(modifier = Modifier.width(10.dp))
 
+    Column {
       Text(
-        text = primaryTotal,
-        style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
+        text = "30-Day Spending Pattern",
+        style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = if (largeFontLayout) 2 else 1,
+        overflow = TextOverflow.Ellipsis
       )
-      if (hasDestTotal) {
-        Text(
-          text = "REFERENCE · ${summary.thirtyDayTotalHome.formatWithCode()}",
-          style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-          color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-      }
+      Text(
+        text = if (activePoint != null) "Scrubbing ${activePoint.dayLabel}" else "Daily expenditure pattern",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+      )
+    }
+  }
+}
+
+@Composable
+private fun TrendCardTotalBlock(
+  primaryTotal: String,
+  referenceTotal: String,
+  hasDestTotal: Boolean,
+  largeFontLayout: Boolean,
+  modifier: Modifier = Modifier
+) {
+  Column(
+    horizontalAlignment = if (largeFontLayout) Alignment.Start else Alignment.End,
+    modifier = modifier
+  ) {
+    Text(
+      text = primaryTotal,
+      style = MaterialTheme.typography.titleMedium.merge(PlutoNumericStyle),
+      fontWeight = FontWeight.Bold,
+      color = MaterialTheme.colorScheme.primary,
+      maxLines = if (largeFontLayout) 2 else 1,
+      overflow = TextOverflow.Ellipsis
+    )
+    if (hasDestTotal) {
+      Text(
+        text = referenceTotal,
+        style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+      )
     }
   }
 }
@@ -247,79 +311,131 @@ private fun TrendTelemetryBar(
   summary: DashboardSummary,
   modifier: Modifier = Modifier
 ) {
-  Row(
-    modifier = modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.spacedBy(8.dp)
-  ) {
-    // 1. Daily Average Pill
-    val hasAvgDest = summary.thirtyDayDailyAvgDest != null
-    val avgDest = if (hasAvgDest) {
-      "PRIMARY · ${summary.thirtyDayDailyAvgDest!!.formatWithCode()}"
-    } else {
-      "REFERENCE · ${summary.thirtyDayDailyAvgHome.formatWithCode()}"
-    }
-    TelemetryMetricPill(
-      label = "Daily Avg",
-      value = avgDest,
-      subValue = if (hasAvgDest) "REFERENCE · ${summary.thirtyDayDailyAvgHome.formatWithCode()}" else null,
-      modifier = Modifier.weight(1f)
-    )
+  val largeFontLayout = useLargeFontLayout()
 
-    // 2. Peak Day Pill
-    val peak = summary.thirtyDayPeakDay
-    val peakVal = peak?.let {
-      val hasDest = it.amountDest != null
-      "${if (hasDest) "PRIMARY · " else "REFERENCE · "}${(it.amountDest ?: it.amountHome).formatWithCode()}"
-    } ?: "None"
-    val peakSub = peak?.dayLabel
-    TelemetryMetricPill(
-      label = "Peak Day",
-      value = peakVal,
-      subValue = peakSub,
-      modifier = Modifier.weight(1f)
-    )
+  // 1. Daily Average values
+  val hasAvgDest = summary.thirtyDayDailyAvgDest != null
+  val avgDest = if (hasAvgDest) {
+    "PRIMARY · ${summary.thirtyDayDailyAvgDest!!.formatWithCode()}"
+  } else {
+    "REFERENCE · ${summary.thirtyDayDailyAvgHome.formatWithCode()}"
+  }
+  val avgSub = if (hasAvgDest) {
+    "REFERENCE · ${summary.thirtyDayDailyAvgHome.formatWithCode()}"
+  } else {
+    null
+  }
 
-    // 3. Trend % Pill
-    val trendPct = summary.thirtyDayTrendPercentage
-    val (trendText, trendColor, trendIcon) = when {
-      trendPct == null -> Triple("Baseline", MaterialTheme.colorScheme.onSurfaceVariant, Icons.AutoMirrored.Rounded.TrendingFlat)
-      trendPct > 5.0 -> Triple("+${"%.1f".format(trendPct)}%", MaterialTheme.colorScheme.error, Icons.AutoMirrored.Rounded.TrendingUp)
-      trendPct < -5.0 -> Triple("${"%.1f".format(trendPct)}%", MaterialTheme.colorScheme.secondary, Icons.AutoMirrored.Rounded.TrendingDown)
-      else -> Triple("Stable", MaterialTheme.colorScheme.secondary, Icons.AutoMirrored.Rounded.TrendingFlat)
-    }
+  // 2. Peak Day values
+  val peak = summary.thirtyDayPeakDay
+  val peakVal = peak?.let {
+    val hasDest = it.amountDest != null
+    "${if (hasDest) "PRIMARY · " else "REFERENCE · "}${(it.amountDest ?: it.amountHome).formatWithCode()}"
+  } ?: "None"
+  val peakSub = peak?.dayLabel
 
-    Surface(
-      shape = PlutoShapes.medium,
-      color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-      modifier = Modifier.weight(1f)
+  // 3. Trend % values
+  val trendPct = summary.thirtyDayTrendPercentage
+  val (trendText, trendColor, trendIcon) = when {
+    trendPct == null -> Triple("Baseline", MaterialTheme.colorScheme.onSurfaceVariant, Icons.AutoMirrored.Rounded.TrendingFlat)
+    trendPct > 5.0 -> Triple("+${"%.1f".format(trendPct)}%", MaterialTheme.colorScheme.error, Icons.AutoMirrored.Rounded.TrendingUp)
+    trendPct < -5.0 -> Triple("${"%.1f".format(trendPct)}%", MaterialTheme.colorScheme.secondary, Icons.AutoMirrored.Rounded.TrendingDown)
+    else -> Triple("Stable", MaterialTheme.colorScheme.secondary, Icons.AutoMirrored.Rounded.TrendingFlat)
+  }
+
+  if (largeFontLayout) {
+    // Reflow: each metric fills its own row so long currency values stay readable.
+    Column(
+      modifier = modifier.fillMaxWidth(),
+      verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-      Column(
-        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-      ) {
-        Text(
-          text = "Trend (15d)",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          fontSize = 10.sp
+      TelemetryMetricPill(
+        label = "Daily Avg",
+        value = avgDest,
+        subValue = avgSub,
+        modifier = Modifier.fillMaxWidth()
+      )
+      TelemetryMetricPill(
+        label = "Peak Day",
+        value = peakVal,
+        subValue = peakSub,
+        modifier = Modifier.fillMaxWidth()
+      )
+      TrendTelemetryPill(
+        trendText = trendText,
+        trendColor = trendColor,
+        trendIcon = trendIcon,
+        modifier = Modifier.fillMaxWidth()
+      )
+    }
+  } else {
+    Row(
+      modifier = modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+      TelemetryMetricPill(
+        label = "Daily Avg",
+        value = avgDest,
+        subValue = avgSub,
+        modifier = Modifier.weight(1f)
+      )
+      TelemetryMetricPill(
+        label = "Peak Day",
+        value = peakVal,
+        subValue = peakSub,
+        modifier = Modifier.weight(1f)
+      )
+      TrendTelemetryPill(
+        trendText = trendText,
+        trendColor = trendColor,
+        trendIcon = trendIcon,
+        modifier = Modifier.weight(1f)
+      )
+    }
+  }
+}
+
+@Composable
+private fun TrendTelemetryPill(
+  trendText: String,
+  trendColor: Color,
+  trendIcon: ImageVector,
+  modifier: Modifier = Modifier
+) {
+  val largeFontLayout = useLargeFontLayout()
+  Surface(
+    shape = PlutoShapes.medium,
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+    modifier = modifier
+  ) {
+    Column(
+      modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+      horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+      Text(
+        text = "Trend (15d)",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = if (largeFontLayout) 2 else 1,
+        overflow = TextOverflow.Ellipsis
+      )
+      Spacer(modifier = Modifier.height(2.dp))
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+          imageVector = trendIcon,
+          contentDescription = null,
+          tint = trendColor,
+          modifier = Modifier.size(13.dp)
         )
-        Spacer(modifier = Modifier.height(2.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-          Icon(
-            imageVector = trendIcon,
-            contentDescription = null,
-            tint = trendColor,
-            modifier = Modifier.size(13.dp)
-          )
-          Spacer(modifier = Modifier.width(3.dp))
-          Text(
-            text = trendText,
-            style = MaterialTheme.typography.labelMedium.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold,
-            color = trendColor,
-            maxLines = 1
-          )
-        }
+        Spacer(modifier = Modifier.width(3.dp))
+        Text(
+          text = trendText,
+          style = MaterialTheme.typography.labelMedium.merge(PlutoNumericStyle),
+          fontWeight = FontWeight.Bold,
+          color = trendColor,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis
+        )
       }
     }
   }
@@ -332,6 +448,7 @@ private fun TelemetryMetricPill(
   subValue: String?,
   modifier: Modifier = Modifier
 ) {
+  val largeFontLayout = useLargeFontLayout()
   Surface(
     shape = PlutoShapes.medium,
     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
@@ -345,7 +462,8 @@ private fun TelemetryMetricPill(
         text = label,
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        fontSize = 10.sp
+        maxLines = if (largeFontLayout) 2 else 1,
+        overflow = TextOverflow.Ellipsis
       )
       Spacer(modifier = Modifier.height(2.dp))
       Text(
@@ -353,15 +471,16 @@ private fun TelemetryMetricPill(
         style = MaterialTheme.typography.labelMedium.merge(PlutoNumericStyle),
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onSurface,
-        maxLines = 1
+        maxLines = if (largeFontLayout) 3 else 1,
+        overflow = TextOverflow.Ellipsis
       )
       if (subValue != null) {
         Text(
           text = subValue,
           style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
-          fontSize = 9.sp,
-          maxLines = 1
+          maxLines = if (largeFontLayout) 2 else 1,
+          overflow = TextOverflow.Ellipsis
         )
       }
     }
@@ -587,7 +706,9 @@ private fun ScrubberTooltipPill(
         Text(
           text = point.fullDateLabel,
           style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
           val hasPointDest = point.amountDest != null
@@ -600,14 +721,18 @@ private fun ScrubberTooltipPill(
             text = primaryText,
             style = MaterialTheme.typography.titleSmall.merge(PlutoNumericStyle),
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
           )
           if (hasPointDest) {
             Spacer(modifier = Modifier.width(6.dp))
             Text(
               text = "REFERENCE · ${point.amountHome.formatWithCode()}",
               style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-              color = MaterialTheme.colorScheme.onSurfaceVariant
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis
             )
           }
         }
@@ -640,7 +765,13 @@ private fun TrendXAxisLabels(
   points: List<DailySpendPoint>,
   modifier: Modifier = Modifier
 ) {
-  val indices = listOf(0, 7, 14, 21, points.lastIndex).filter { it in points.indices }.distinct()
+  val largeFontLayout = useLargeFontLayout()
+  val indices = if (largeFontLayout) {
+    // Fewer labels at large font scales so they cannot overlap at narrow widths.
+    listOf(0, points.lastIndex / 2, points.lastIndex)
+  } else {
+    listOf(0, 7, 14, 21, points.lastIndex)
+  }.filter { it in points.indices }.distinct()
 
   Row(
     modifier = modifier
@@ -654,8 +785,9 @@ private fun TrendXAxisLabels(
       Text(
         text = label,
         style = MaterialTheme.typography.labelSmall,
-        fontSize = 10.sp,
-        color = if (idx == points.lastIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        color = if (idx == points.lastIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
       )
     }
   }

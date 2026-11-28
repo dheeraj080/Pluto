@@ -143,7 +143,7 @@ fun WalletListScreen(
         .fillMaxSize()
         .padding(innerPadding)
     ) {
-      val isWideLayout = maxWidth >= 600.dp
+      val isWideLayout = maxWidth >= 520.dp
       val summary = valuationSummary
 
       if (summary == null || !summary.hasAnyWallets) {

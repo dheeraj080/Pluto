@@ -1,14 +1,19 @@
 package com.pluto.app.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.FileDownload
@@ -34,6 +39,7 @@ import com.pluto.app.ui.components.PlutoButton
 import com.pluto.app.ui.components.PlutoButtonVariant
 import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoResponsive
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 import com.pluto.app.util.BackupSummary
@@ -84,7 +90,15 @@ fun BackupRestoreDialog(
       }
     },
     text = {
-      Column(modifier = Modifier.fillMaxWidth()) {
+      BoxWithConstraints {
+        val bodyMaxHeight = if (maxHeight < PlutoResponsive.ShortHeight) 260.dp else 420.dp
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = bodyMaxHeight)
+            .verticalScroll(rememberScrollState())
+            .imePadding()
+        ) {
         if (pendingRestoreSummary != null) {
           // Summary preview of archive pending restore
           Text(
@@ -246,6 +260,7 @@ fun BackupRestoreDialog(
             Text("Processing backup...", style = MaterialTheme.typography.bodySmall)
           }
         }
+        }
       }
     },
     confirmButton = {
@@ -270,19 +285,28 @@ fun BackupRestoreDialog(
         )
       },
       text = {
-        Column(modifier = Modifier.fillMaxWidth()) {
-          Text(
-            text = "Replace All permanently deletes every expense, wallet, and ledger transaction currently stored on this device, then replaces them with the contents of this backup. Your current settings and exchange rates are overwritten too.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-          Spacer(modifier = Modifier.height(10.dp))
-          Text(
-            text = "This cannot be undone.",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.error
-          )
+        BoxWithConstraints {
+          val bodyMaxHeight = if (maxHeight < PlutoResponsive.ShortHeight) 200.dp else 300.dp
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .heightIn(max = bodyMaxHeight)
+              .verticalScroll(rememberScrollState())
+              .imePadding()
+          ) {
+            Text(
+              text = "Replace All permanently deletes every expense, wallet, and ledger transaction currently stored on this device, then replaces them with the contents of this backup. Your current settings and exchange rates are overwritten too.",
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+              text = "This cannot be undone.",
+              style = MaterialTheme.typography.bodyMedium,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.error
+            )
+          }
         }
       },
       confirmButton = {

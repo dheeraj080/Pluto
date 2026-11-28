@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -68,6 +69,7 @@ import com.pluto.app.ui.components.PlutoCard
 import com.pluto.app.ui.components.PlutoTopBar
 import com.pluto.app.ui.components.SectionHeader
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoResponsive
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 import java.math.BigDecimal
@@ -118,36 +120,43 @@ fun WalletDetailScreen(
     )
   }
 
-  Scaffold(
+  Box(
     modifier = modifier.fillMaxSize(),
-    topBar = {
-      PlutoTopBar(
-        title = "${currentWallet.currency.code} Ledger",
-        onNavigateBack = onNavigateBack,
-        titleStyle = MaterialTheme.typography.titleLarge,
-        backButtonTestTag = "wallet_detail_back_button",
-        actions = {
-          IconButton(
-            onClick = { showDeleteDialog = true },
-            modifier = Modifier
-              .minimumInteractiveComponentSize()
-              .testTag("wallet_detail_delete_button")
-          ) {
-            Icon(
-              Icons.Rounded.Delete,
-              contentDescription = "Delete wallet",
-              tint = MaterialTheme.colorScheme.error
-            )
+    contentAlignment = Alignment.TopCenter
+  ) {
+    Scaffold(
+      modifier = Modifier
+        .widthIn(max = PlutoResponsive.ExpandedWidth)
+        .fillMaxSize(),
+      topBar = {
+        PlutoTopBar(
+          title = "${currentWallet.currency.code} Ledger",
+          onNavigateBack = onNavigateBack,
+          titleStyle = MaterialTheme.typography.titleLarge,
+          backButtonTestTag = "wallet_detail_back_button",
+          actions = {
+            IconButton(
+              onClick = { showDeleteDialog = true },
+              modifier = Modifier
+                .minimumInteractiveComponentSize()
+                .testTag("wallet_detail_delete_button")
+            ) {
+              Icon(
+                Icons.Rounded.Delete,
+                contentDescription = "Delete wallet",
+                tint = MaterialTheme.colorScheme.error
+              )
+            }
           }
-        }
+        )
+      }
+    ) { innerPadding ->
+      WalletDetailPaneContent(
+        wallet = currentWallet,
+        viewModel = viewModel,
+        modifier = Modifier.padding(innerPadding)
       )
     }
-  ) { innerPadding ->
-    WalletDetailPaneContent(
-      wallet = currentWallet,
-      viewModel = viewModel,
-      modifier = Modifier.padding(innerPadding)
-    )
   }
 }
 

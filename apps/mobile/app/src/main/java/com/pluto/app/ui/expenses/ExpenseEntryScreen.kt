@@ -5,8 +5,10 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -68,8 +71,11 @@ import com.pluto.app.domain.model.Currency
 import com.pluto.app.domain.model.Expense
 import com.pluto.app.domain.model.RecurrenceFrequency
 import com.pluto.app.domain.model.UserSettings
+import com.pluto.app.ui.components.PlutoButton
+import com.pluto.app.ui.components.PlutoButtonVariant
 import com.pluto.app.ui.components.PrimaryActionButton
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoResponsive
 import com.pluto.app.ui.theme.PlutoShapes
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -79,14 +85,11 @@ fun ExpenseEntryScreen(
   userSettings: UserSettings,
   onNavigateBack: () -> Unit,
   onOpenLocalCurrencyPicker: () -> Unit = {},
-  onOpenHomeCurrencyPicker: () -> Unit = {},
   onExpenseSaved: (Expense) -> Unit,
   modifier: Modifier = Modifier
 ) {
   val formState by viewModel.formState.collectAsStateWithLifecycle()
   val isEditing = formState.isEditing
-  val visitingCurrency = userSettings.destinationCurrency
-  val homeCurrency = userSettings.homeCurrency
 
   val photoPickerLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.PickVisualMedia(),
@@ -95,84 +98,94 @@ fun ExpenseEntryScreen(
 
   var amountTouched by remember(formState.editingExpenseId) { mutableStateOf(false) }
 
-  Column(
+  BoxWithConstraints(
     modifier = modifier
       .fillMaxWidth()
-      .heightIn(max = 560.dp)
       .imePadding()
-      .verticalScroll(rememberScrollState())
-      .padding(horizontal = 16.dp)
-      .padding(top = 2.dp, bottom = 16.dp),
-    verticalArrangement = Arrangement.spacedBy(10.dp)
   ) {
-    ExpenseEntryHeader(
-      isEditing = isEditing,
-      onClose = onNavigateBack
-    )
+    val bodyMaxHeight = PlutoResponsive.sheetBodyMaxHeight(maxHeight)
 
-    AmountAndCurrencySection(
-      formState = formState,
-      visitingCurrency = visitingCurrency,
-      homeCurrency = homeCurrency,
-      isEditing = isEditing,
-      showAmountError = amountTouched && !formState.isValidAmount,
-      onAmountChanged = {
-        amountTouched = true
-        viewModel.onAmountChanged(it)
-      },
-      onLocalCurrencyChanged = viewModel::onLocalCurrencyChanged,
-      onOpenLocalCurrencyPicker = onOpenLocalCurrencyPicker
-    )
-
-    ExpenseDateRow(
-      transactionDateMillis = formState.transactionDateMillis,
-      onDateChanged = viewModel::onDateChanged
-    )
-
-    ExpenseRateControlSection(
-      formState = formState,
-      currencyChangeNotice = formState.currencyChangeNotice,
-      onOpenHomeCurrencyPicker = onOpenHomeCurrencyPicker,
-      onSwapCurrencies = viewModel::onSwapCurrencies,
-      onRefreshLiveRate = viewModel::refreshLiveExchangeRate,
-      onRefreshRateForDate = viewModel::onRefreshRateForTransactionDate,
-      onRestoreOriginalRate = viewModel::onRestoreOriginalRate
-    )
-
-    CategorySelectorSection(
-      selectedCategory = formState.category,
-      onCategorySelected = viewModel::onCategoryChanged
-    )
-
-    OptionalDetailsSection(
-      merchant = formState.merchant,
-      note = formState.note,
-      receiptUri = formState.receiptUri,
-      onMerchantChanged = viewModel::onMerchantChanged,
-      onNoteChanged = viewModel::onNoteChanged,
-      onPickReceipt = {
-        photoPickerLauncher.launch(
-          PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+    Column(modifier = Modifier.fillMaxWidth()) {
+      // Only the form fields scroll; the Save action stays pinned above the keyboard.
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .heightIn(max = bodyMaxHeight)
+          .verticalScroll(rememberScrollState())
+          .padding(horizontal = 16.dp)
+          .padding(top = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+      ) {
+        ExpenseEntryHeader(
+          isEditing = isEditing,
+          onClose = onNavigateBack
         )
-      },
-      onClearReceipt = viewModel::onClearReceipt
-    )
 
-    RecurringTransactionSection(
-      isRecurring = formState.isRecurring,
-      frequency = formState.recurrenceFrequency,
-      onRecurringToggled = viewModel::onRecurringToggled,
-      onFrequencyChanged = viewModel::onRecurrenceFrequencyChanged
-    )
+        AmountAndCurrencySection(
+          formState = formState,
+          showAmountError = amountTouched && !formState.isValidAmount,
+          onAmountChanged = {
+            amountTouched = true
+            viewModel.onAmountChanged(it)
+          },
+          onOpenLocalCurrencyPicker = onOpenLocalCurrencyPicker
+        )
 
-    SaveFooterSection(
-      formState = formState,
-      isEditing = isEditing,
-      onSave = {
-        amountTouched = true
-        viewModel.saveExpense(onSuccess = onExpenseSaved)
+        ExpenseDateRow(
+          transactionDateMillis = formState.transactionDateMillis,
+          onDateChanged = viewModel::onDateChanged
+        )
+
+        if (formState.requiresExplicitRateChoice) {
+          RateUnavailableRescueSection(
+            isRefreshing = formState.isRefreshingRate,
+            onUseMarketRate = viewModel::refreshLiveExchangeRate
+          )
+        }
+
+        CategorySelectorSection(
+          selectedCategory = formState.category,
+          onCategorySelected = viewModel::onCategoryChanged
+        )
+
+        OptionalDetailsSection(
+          merchant = formState.merchant,
+          note = formState.note,
+          receiptUri = formState.receiptUri,
+          onMerchantChanged = viewModel::onMerchantChanged,
+          onNoteChanged = viewModel::onNoteChanged,
+          onPickReceipt = {
+            photoPickerLauncher.launch(
+              PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+            )
+          },
+          onClearReceipt = viewModel::onClearReceipt
+        )
+
+        RecurringTransactionSection(
+          isRecurring = formState.isRecurring,
+          frequency = formState.recurrenceFrequency,
+          onRecurringToggled = viewModel::onRecurringToggled,
+          onFrequencyChanged = viewModel::onRecurrenceFrequencyChanged
+        )
       }
-    )
+
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 16.dp)
+          .padding(bottom = 16.dp)
+      ) {
+        SaveFooterSection(
+          formState = formState,
+          isEditing = isEditing,
+          onSave = {
+            amountTouched = true
+            viewModel.saveExpense(onSuccess = onExpenseSaved)
+          }
+        )
+      }
+    }
   }
 }
 
@@ -219,122 +232,106 @@ private fun ExpenseEntryHeader(
   }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AmountAndCurrencySection(
   formState: ExpenseEntryFormState,
-  visitingCurrency: Currency,
-  homeCurrency: Currency,
-  isEditing: Boolean,
   showAmountError: Boolean,
   onAmountChanged: (String) -> Unit,
-  onLocalCurrencyChanged: (Currency) -> Unit,
   onOpenLocalCurrencyPicker: () -> Unit
 ) {
-  val primaryChipCurrency = if (isEditing) formState.localCurrency else visitingCurrency
-  val referenceChipCurrency = if (isEditing) formState.homeCurrency else homeCurrency
+  Row(
+    modifier = Modifier.fillMaxWidth(),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(10.dp)
+  ) {
+    CurrencySelectorPill(
+      currency = formState.localCurrency,
+      containerColor = MaterialTheme.colorScheme.primaryContainer,
+      contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+      showDropdown = true,
+      onClick = onOpenLocalCurrencyPicker,
+      modifier = Modifier.testTag("expense_currency_selector")
+    )
 
-  Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(10.dp)
+    OutlinedTextField(
+      value = formState.amount,
+      onValueChange = onAmountChanged,
+      modifier = Modifier
+        .weight(1f)
+        .testTag("expense_entry_amount_input"),
+      placeholder = { Text(formState.localCurrency.zeroPlaceholder()) },
+      label = { Text("Amount (${formState.localCurrency.symbol}) *") },
+      isError = showAmountError,
+      supportingText = if (showAmountError) {
+        { Text("Enter an amount greater than 0") }
+      } else null,
+      singleLine = true,
+      keyboardOptions = KeyboardOptions(
+        keyboardType = if (formState.localCurrency.decimalPlaces == 0) {
+          KeyboardType.Number
+        } else {
+          KeyboardType.Decimal
+        }
+      ),
+      textStyle = MaterialTheme.typography.titleLarge.merge(PlutoNumericStyle)
+        .copy(fontWeight = FontWeight.Bold),
+      shape = PlutoShapes.large
+    )
+  }
+}
+
+@Composable
+private fun RateUnavailableRescueSection(
+  isRefreshing: Boolean,
+  onUseMarketRate: () -> Unit
+) {
+  Surface(
+    shape = PlutoShapes.medium,
+    color = MaterialTheme.colorScheme.errorContainer,
+    modifier = Modifier
+      .fillMaxWidth()
+      .testTag("expense_rate_rescue_container")
+  ) {
+    Column(
+      modifier = Modifier.padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-      CurrencySelectorPill(
-        currency = formState.localCurrency,
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        showDropdown = true,
-        onClick = onOpenLocalCurrencyPicker,
-        modifier = Modifier.testTag("expense_currency_selector")
-      )
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        Icon(
+          imageVector = Icons.Rounded.WarningAmber,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.onErrorContainer,
+          modifier = Modifier.size(18.dp)
+        )
+        Text(
+          text = "A market rate is needed to save this entry.",
+          style = MaterialTheme.typography.bodySmall,
+          fontWeight = FontWeight.Medium,
+          color = MaterialTheme.colorScheme.onErrorContainer,
+          modifier = Modifier.testTag("expense_rate_unavailable_message")
+        )
+      }
 
-      OutlinedTextField(
-        value = formState.amount,
-        onValueChange = onAmountChanged,
-        modifier = Modifier
-          .weight(1f)
-          .testTag("expense_entry_amount_input"),
-        placeholder = { Text(formState.localCurrency.zeroPlaceholder()) },
-        label = { Text("Amount (${formState.localCurrency.symbol}) *") },
-        isError = showAmountError,
-        supportingText = if (showAmountError) {
-          { Text("Enter an amount greater than 0") }
-        } else null,
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(
-          keyboardType = if (formState.localCurrency.decimalPlaces == 0) {
-            KeyboardType.Number
-          } else {
-            KeyboardType.Decimal
-          }
-        ),
-        textStyle = MaterialTheme.typography.titleLarge.merge(PlutoNumericStyle)
-          .copy(fontWeight = FontWeight.Bold),
-        shape = PlutoShapes.large
-      )
-    }
-
-    FlowRow(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(8.dp),
-      verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-      Text(
-        text = "Currency:",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.align(Alignment.CenterVertically)
-      )
-
-      PlutoFilterChip(
-        selected = formState.localCurrency == primaryChipCurrency,
-        onClick = { onLocalCurrencyChanged(primaryChipCurrency) },
-        label = "${primaryChipCurrency.flagEmoji} ${primaryChipCurrency.code} (Primary)",
-        testTag = "currency_chip_visiting"
-      )
-
-      PlutoFilterChip(
-        selected = formState.localCurrency == referenceChipCurrency,
-        onClick = { onLocalCurrencyChanged(referenceChipCurrency) },
-        label = "${referenceChipCurrency.flagEmoji} ${referenceChipCurrency.code} (Reference)",
-        testTag = "currency_chip_home"
-      )
-    }
-
-    if (isEditing) {
-      Text(
-        text = "Editing uses the recorded currency pair. New entries use your defaults.",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+      PlutoButton(
+        text = "Use today's market rate",
+        onClick = onUseMarketRate,
+        modifier = Modifier.fillMaxWidth(),
+        variant = PlutoButtonVariant.OUTLINED,
+        isLoading = isRefreshing,
+        testTag = "expense_use_live_rate_button"
       )
     }
   }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CategorySelectorSection(
   selectedCategory: Category,
   onCategorySelected: (Category) -> Unit
 ) {
-  var showAllCategories by remember { mutableStateOf(false) }
-  val commonCategories = listOf(
-    Category.FOOD,
-    Category.GROCERIES,
-    Category.TRANSPORT,
-    Category.ACCOMMODATION,
-    Category.SHOPPING,
-    Category.HEALTH,
-    Category.BILLS,
-    Category.OTHER
-  )
-  val visibleCategories = if (showAllCategories) {
-    Category.DEFAULT_CATEGORIES
-  } else {
-    (listOf(selectedCategory) + commonCategories).distinctBy { it.id }
-  }
-
   Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
     Text(
       text = "Category *",
@@ -343,14 +340,15 @@ private fun CategorySelectorSection(
       color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 
-    FlowRow(
-      horizontalArrangement = Arrangement.spacedBy(8.dp),
-      verticalArrangement = Arrangement.spacedBy(6.dp),
+    Row(
       modifier = Modifier
         .fillMaxWidth()
-        .testTag("expense_entry_category_list")
+        .horizontalScroll(rememberScrollState())
+        .testTag("expense_entry_category_list"),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+      verticalAlignment = Alignment.CenterVertically
     ) {
-      visibleCategories.forEach { category ->
+      Category.DEFAULT_CATEGORIES.forEach { category ->
         PlutoFilterChip(
           selected = selectedCategory == category,
           onClick = { onCategorySelected(category) },
@@ -358,16 +356,7 @@ private fun CategorySelectorSection(
           testTag = "category_chip_${category.id}"
         )
       }
-    }
-
-    TextButton(
-      onClick = { showAllCategories = !showAllCategories },
-      modifier = Modifier.minimumInteractiveComponentSize()
-    ) {
-      Text(
-        text = if (showAllCategories) "Fewer categories" else "More categories",
-        style = MaterialTheme.typography.labelSmall
-      )
+      Spacer(modifier = Modifier.width(2.dp))
     }
   }
 }

@@ -33,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDatePickerState
@@ -263,25 +264,26 @@ fun ExpenseDateRow(
     )
   }
 
-  Row(
-    modifier = modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.spacedBy(8.dp)
+  Surface(
+    modifier = modifier
+      .fillMaxWidth()
+      .clip(PlutoShapes.medium)
+      .testTag("expense_date_time_selector"),
+    shape = PlutoShapes.medium,
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
   ) {
-    Surface(
-      modifier = Modifier
-        .weight(1f)
-        .minimumInteractiveComponentSize()
-        .clip(PlutoShapes.medium)
-        .clickable { showDatePicker = true }
-        .testTag("expense_date_selector"),
-      shape = PlutoShapes.medium,
-      color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      verticalAlignment = Alignment.CenterVertically
     ) {
       Row(
         modifier = Modifier
-          .fillMaxWidth()
-          .padding(horizontal = 10.dp, vertical = 8.dp),
+          .weight(1f)
+          .minimumInteractiveComponentSize()
+          .clickable { showDatePicker = true }
+          .padding(horizontal = 10.dp, vertical = 8.dp)
+          .testTag("expense_date_selector"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
       ) {
@@ -307,23 +309,19 @@ fun ExpenseDateRow(
           )
         }
       }
-    }
 
-    Surface(
-      modifier = Modifier
-        .weight(1f)
-        .minimumInteractiveComponentSize()
-        .clip(PlutoShapes.medium)
-        .clickable { showTimePicker = true }
-        .testTag("expense_time_selector"),
-      shape = PlutoShapes.medium,
-      color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-    ) {
+      VerticalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        thickness = 1.dp,
+        modifier = Modifier.heightIn(min = 32.dp)
+      )
+
       Row(
         modifier = Modifier
-          .fillMaxWidth()
-          .padding(horizontal = 10.dp, vertical = 8.dp),
+          .minimumInteractiveComponentSize()
+          .clickable { showTimePicker = true }
+          .padding(horizontal = 10.dp, vertical = 8.dp)
+          .testTag("expense_time_selector"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
       ) {
@@ -333,7 +331,7 @@ fun ExpenseDateRow(
           tint = MaterialTheme.colorScheme.primary,
           modifier = Modifier.size(16.dp)
         )
-        Column(modifier = Modifier.weight(1f)) {
+        Column {
           Text(
             text = "Time",
             style = MaterialTheme.typography.labelSmall,

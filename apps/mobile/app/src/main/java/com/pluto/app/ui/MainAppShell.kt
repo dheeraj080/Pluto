@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
@@ -196,7 +197,6 @@ fun MainAppShell(
         userSettings = userSettings,
         onNavigateBack = { isAddingOrEditingExpense = false },
         onOpenLocalCurrencyPicker = { navController.navigate(CurrencyPickerRoute(CurrencyPickerTarget.EXPENSE_LOCAL)) },
-        onOpenHomeCurrencyPicker = { navController.navigate(CurrencyPickerRoute(CurrencyPickerTarget.EXPENSE_HOME)) },
         onExpenseSaved = { savedExpense ->
           isAddingOrEditingExpense = false
           if (selectedExpenseDetail?.id == savedExpense.id) {
@@ -272,6 +272,7 @@ fun MainAppShell(
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
+          .safeDrawingPadding()
           .fillMaxHeight()
           .testTag("main_bottom_nav_bar")
       ) {

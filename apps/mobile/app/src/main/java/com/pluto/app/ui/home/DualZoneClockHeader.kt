@@ -83,6 +83,7 @@ import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 import com.pluto.app.ui.theme.plutoHeading
 import com.pluto.app.ui.theme.plutoPressableScale
+import com.pluto.app.ui.theme.useLargeFontLayout
 import kotlinx.coroutines.delay
 import java.util.Locale
 import java.util.TimeZone
@@ -289,6 +290,12 @@ private fun DualZoneClockSurface(
   )
   val localPrefix = stringResource(R.string.dual_clock_local_prefix)
   val homePrefix = stringResource(R.string.dual_clock_home_prefix)
+  val largeFontLayout = useLargeFontLayout()
+  val localZoneLabel = stringResource(R.string.dual_clock_zone_label, localPrefix, snapshot.localLabel)
+  val homeZoneLabel = stringResource(R.string.dual_clock_zone_label, homePrefix, snapshot.homeLabel)
+  val badgeLabel = snapshot.dayRolloverLabel?.let {
+    stringResource(R.string.dual_clock_badge_with_rollover, snapshot.offsetBadgeText, it)
+  } ?: snapshot.offsetBadgeText
 
   Surface(
     shape = shape,
@@ -313,113 +320,239 @@ private fun DualZoneClockSurface(
       }
       .testTag("home_dual_zone_clock_chip")
   ) {
-    Row(
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(contentPadding),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.weight(1f)
+    if (largeFontLayout) {
+      // Reflow: one zone per row and the offset badge on its own row so neither
+      // clock is squeezed and every time string keeps its full system-scaled size.
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(contentPadding),
+        verticalArrangement = Arrangement.spacedBy(PlutoSpacing.sm)
       ) {
-        DayNightIndicatorIcon(
+        DualClockLocalZone(
+          label = localZoneLabel,
+          time = snapshot.localTimeFormatted,
           isDaytime = snapshot.localIsDaytime,
           dayTint = dayIconTint,
           nightTint = nightIconTint,
-          testTag = "dual_clock_local_day_night_icon"
+          contentColor = contentColor,
+          secondaryContentColor = secondaryContentColor,
+          labelStyle = labelStyle,
+          timeStyle = timeStyle,
+          iconSpacing = iconSpacing,
+          largeFontLayout = true,
+          modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.width(iconSpacing))
-        Column {
-          Text(
-            text = stringResource(R.string.dual_clock_zone_label, localPrefix, snapshot.localLabel),
-            style = labelStyle,
-            color = secondaryContentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.testTag("dual_clock_local_label")
-          )
-          Text(
-            text = snapshot.localTimeFormatted,
-            style = timeStyle.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold,
-            color = contentColor,
-            maxLines = 1,
-            softWrap = false,
-            modifier = Modifier.testTag("dual_clock_local_time")
-          )
-        }
-      }
-
-      val badgeLabel = snapshot.dayRolloverLabel?.let {
-        stringResource(R.string.dual_clock_badge_with_rollover, snapshot.offsetBadgeText, it)
-      } ?: snapshot.offsetBadgeText
-      Surface(
-        shape = PlutoShapes.small,
-        color = badgeColor,
-        border = badgeBorder
-      ) {
-        Text(
-          text = badgeLabel,
-          style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
-          fontWeight = FontWeight.Bold,
-          color = badgeTextColor,
-          maxLines = 1,
-          softWrap = false,
-          modifier = Modifier
-            .padding(badgePadding)
-            .testTag("dual_clock_offset_badge")
+        DualClockOffsetBadge(
+          label = badgeLabel,
+          color = badgeColor,
+          border = badgeBorder,
+          textColor = badgeTextColor,
+          padding = badgePadding,
+          largeFontLayout = true
         )
-      }
-
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.End,
-        modifier = Modifier.weight(1f)
-      ) {
-        Column(
-          horizontalAlignment = Alignment.End,
-          modifier = Modifier.weight(1f, fill = false)
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-              text = stringResource(R.string.dual_clock_zone_label, homePrefix, snapshot.homeLabel),
-              style = labelStyle,
-              color = secondaryContentColor,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-              modifier = Modifier
-                .weight(1f, fill = false)
-                .testTag("dual_clock_home_label")
-            )
-            Spacer(modifier = Modifier.width(2.dp))
-            Icon(
-              imageVector = Icons.Rounded.KeyboardArrowDown,
-              contentDescription = null,
-              tint = secondaryContentColor,
-              modifier = Modifier.size(14.dp)
-            )
-          }
-          Text(
-            text = snapshot.homeTimeFormatted,
-            style = timeStyle.merge(PlutoNumericStyle),
-            fontWeight = FontWeight.Bold,
-            color = contentColor,
-            maxLines = 1,
-            softWrap = false,
-            modifier = Modifier.testTag("dual_clock_home_time")
-          )
-        }
-        Spacer(modifier = Modifier.width(iconSpacing))
-        DayNightIndicatorIcon(
+        DualClockHomeZone(
+          label = homeZoneLabel,
+          time = snapshot.homeTimeFormatted,
           isDaytime = snapshot.homeIsDaytime,
           dayTint = dayIconTint,
           nightTint = nightIconTint,
-          testTag = "dual_clock_home_day_night_icon"
+          contentColor = contentColor,
+          secondaryContentColor = secondaryContentColor,
+          labelStyle = labelStyle,
+          timeStyle = timeStyle,
+          iconSpacing = iconSpacing,
+          largeFontLayout = true,
+          modifier = Modifier.fillMaxWidth()
+        )
+      }
+    } else {
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(contentPadding),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+      ) {
+        DualClockLocalZone(
+          label = localZoneLabel,
+          time = snapshot.localTimeFormatted,
+          isDaytime = snapshot.localIsDaytime,
+          dayTint = dayIconTint,
+          nightTint = nightIconTint,
+          contentColor = contentColor,
+          secondaryContentColor = secondaryContentColor,
+          labelStyle = labelStyle,
+          timeStyle = timeStyle,
+          iconSpacing = iconSpacing,
+          largeFontLayout = false,
+          modifier = Modifier.weight(1f)
+        )
+        DualClockOffsetBadge(
+          label = badgeLabel,
+          color = badgeColor,
+          border = badgeBorder,
+          textColor = badgeTextColor,
+          padding = badgePadding,
+          largeFontLayout = false
+        )
+        DualClockHomeZone(
+          label = homeZoneLabel,
+          time = snapshot.homeTimeFormatted,
+          isDaytime = snapshot.homeIsDaytime,
+          dayTint = dayIconTint,
+          nightTint = nightIconTint,
+          contentColor = contentColor,
+          secondaryContentColor = secondaryContentColor,
+          labelStyle = labelStyle,
+          timeStyle = timeStyle,
+          iconSpacing = iconSpacing,
+          largeFontLayout = false,
+          modifier = Modifier.weight(1f)
         )
       }
     }
+  }
+}
+
+@Composable
+private fun DualClockLocalZone(
+  label: String,
+  time: String,
+  isDaytime: Boolean,
+  dayTint: androidx.compose.ui.graphics.Color,
+  nightTint: androidx.compose.ui.graphics.Color,
+  contentColor: androidx.compose.ui.graphics.Color,
+  secondaryContentColor: androidx.compose.ui.graphics.Color,
+  labelStyle: TextStyle,
+  timeStyle: TextStyle,
+  iconSpacing: Dp,
+  largeFontLayout: Boolean,
+  modifier: Modifier = Modifier
+) {
+  Row(
+    verticalAlignment = Alignment.CenterVertically,
+    modifier = modifier
+  ) {
+    DayNightIndicatorIcon(
+      isDaytime = isDaytime,
+      dayTint = dayTint,
+      nightTint = nightTint,
+      testTag = "dual_clock_local_day_night_icon"
+    )
+    Spacer(modifier = Modifier.width(iconSpacing))
+    Column {
+      Text(
+        text = label,
+        style = labelStyle,
+        color = secondaryContentColor,
+        maxLines = if (largeFontLayout) 2 else 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.testTag("dual_clock_local_label")
+      )
+      Text(
+        text = time,
+        style = timeStyle.merge(PlutoNumericStyle),
+        fontWeight = FontWeight.Bold,
+        color = contentColor,
+        maxLines = if (largeFontLayout) 2 else 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.testTag("dual_clock_local_time")
+      )
+    }
+  }
+}
+
+@Composable
+private fun DualClockOffsetBadge(
+  label: String,
+  color: androidx.compose.ui.graphics.Color,
+  border: BorderStroke?,
+  textColor: androidx.compose.ui.graphics.Color,
+  padding: PaddingValues,
+  largeFontLayout: Boolean,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    shape = PlutoShapes.small,
+    color = color,
+    border = border,
+    modifier = modifier
+  ) {
+    Text(
+      text = label,
+      style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
+      fontWeight = FontWeight.Bold,
+      color = textColor,
+      maxLines = if (largeFontLayout) 2 else 1,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier
+        .padding(padding)
+        .testTag("dual_clock_offset_badge")
+    )
+  }
+}
+
+@Composable
+private fun DualClockHomeZone(
+  label: String,
+  time: String,
+  isDaytime: Boolean,
+  dayTint: androidx.compose.ui.graphics.Color,
+  nightTint: androidx.compose.ui.graphics.Color,
+  contentColor: androidx.compose.ui.graphics.Color,
+  secondaryContentColor: androidx.compose.ui.graphics.Color,
+  labelStyle: TextStyle,
+  timeStyle: TextStyle,
+  iconSpacing: Dp,
+  largeFontLayout: Boolean,
+  modifier: Modifier = Modifier
+) {
+  Row(
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.End,
+    modifier = modifier
+  ) {
+    Column(
+      horizontalAlignment = Alignment.End,
+      modifier = Modifier.weight(1f, fill = false)
+    ) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+          text = label,
+          style = labelStyle,
+          color = secondaryContentColor,
+          maxLines = if (largeFontLayout) 2 else 1,
+          overflow = TextOverflow.Ellipsis,
+          modifier = Modifier
+            .weight(1f, fill = false)
+            .testTag("dual_clock_home_label")
+        )
+        Spacer(modifier = Modifier.width(2.dp))
+        Icon(
+          imageVector = Icons.Rounded.KeyboardArrowDown,
+          contentDescription = null,
+          tint = secondaryContentColor,
+          modifier = Modifier.size(14.dp)
+        )
+      }
+      Text(
+        text = time,
+        style = timeStyle.merge(PlutoNumericStyle),
+        fontWeight = FontWeight.Bold,
+        color = contentColor,
+        maxLines = if (largeFontLayout) 2 else 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.testTag("dual_clock_home_time")
+      )
+    }
+    Spacer(modifier = Modifier.width(iconSpacing))
+    DayNightIndicatorIcon(
+      isDaytime = isDaytime,
+      dayTint = dayTint,
+      nightTint = nightTint,
+      testTag = "dual_clock_home_day_night_icon"
+    )
   }
 }
 
@@ -704,7 +837,9 @@ private fun TimeZonePickerRow(
       text = item.liveTimeFormatted,
       style = MaterialTheme.typography.titleSmall.merge(PlutoNumericStyle),
       fontWeight = FontWeight.Bold,
-      color = if (item.isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+      color = if (item.isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis
     )
 
     if (item.isSelected) {

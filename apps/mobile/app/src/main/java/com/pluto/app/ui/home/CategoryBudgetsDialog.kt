@@ -2,6 +2,7 @@ package com.pluto.app.ui.home
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,7 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.Clear
@@ -35,6 +38,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,6 +60,7 @@ import com.pluto.app.domain.model.UserSettings
 import com.pluto.app.ui.components.PlutoButton
 import com.pluto.app.ui.components.PlutoButtonVariant
 import com.pluto.app.ui.theme.PlutoNumericStyle
+import com.pluto.app.ui.theme.PlutoResponsive
 import com.pluto.app.ui.theme.PlutoShapes
 import com.pluto.app.ui.theme.PlutoSpacing
 import java.math.BigDecimal
@@ -141,22 +146,34 @@ fun CategoryBudgetsDialog(
   }
 
   val rate = currentRateToBase
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
   ModalBottomSheet(
     onDismissRequest = onDismiss,
+    sheetState = sheetState,
     dragHandle = { BottomSheetDefaults.DragHandle() },
     containerColor = MaterialTheme.colorScheme.surface,
     modifier = modifier.testTag("category_budgets_dialog")
   ) {
-    Column(
-      modifier = Modifier
-        .fillMaxWidth()
-        .navigationBarsPadding()
-        .imePadding()
-        .padding(horizontal = 24.dp)
-        .padding(bottom = 24.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+      val isShortHeight = maxHeight < PlutoResponsive.ShortHeight
+      val listMaxHeight = if (isShortHeight) 160.dp else 320.dp
+      val bodyMaxHeight = PlutoResponsive.sheetBodyMaxHeight(maxHeight)
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .navigationBarsPadding()
+          .imePadding()
+      ) {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = bodyMaxHeight)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 12.dp),
+          verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -271,7 +288,7 @@ fun CategoryBudgetsDialog(
         LazyColumn(
           modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 320.dp),
+            .heightIn(max = listMaxHeight),
           verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
           items(Category.DEFAULT_CATEGORIES, key = { it.id }) { cat ->
@@ -362,57 +379,61 @@ fun CategoryBudgetsDialog(
             }
           }
         }
-      Spacer(modifier = Modifier.height(6.dp))
-
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.md),
-        verticalAlignment = Alignment.CenterVertically
-      ) {
-        TextButton(
-          onClick = { onSave(emptyMap()) },
-          modifier = Modifier.testTag("dialog_clear_all_category_budgets")
-        ) {
-          Text("Clear All", color = MaterialTheme.colorScheme.error)
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 12.dp),
+          horizontalArrangement = Arrangement.spacedBy(PlutoSpacing.md),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          TextButton(
+            onClick = { onSave(emptyMap()) },
+            modifier = Modifier.testTag("dialog_clear_all_category_budgets")
+          ) {
+            Text("Clear All", color = MaterialTheme.colorScheme.error)
+          }
 
-        PlutoButton(
-          text = "Cancel",
-          onClick = onDismiss,
-          variant = PlutoButtonVariant.OUTLINED
-        )
+          Spacer(modifier = Modifier.weight(1f))
 
-        val canSave = !isRateUnavailable || budgetInputs.isEmpty()
-        PlutoButton(
-          text = "Save Budgets",
-          onClick = {
-            val activeRate = rate
-            if (selectedBudgetCurrency != homeCurrency && activeRate == null) {
-              if (budgetInputs.isEmpty()) {
-                onSave(emptyMap())
-              }
-              return@PlutoButton
-            }
-            val resultBudgets = mutableMapOf<String, BigDecimal>()
-            budgetInputs.forEach { (catId, text) ->
-              val entered = text.toBigDecimalOrNull()
-              if (entered != null && entered > BigDecimal.ZERO) {
-                val homeAmount = if (selectedBudgetCurrency == homeCurrency) {
-                  entered.setScale(homeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
-                } else {
-                  entered.multiply(activeRate!!).setScale(homeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+          PlutoButton(
+            text = "Cancel",
+            onClick = onDismiss,
+            variant = PlutoButtonVariant.OUTLINED
+          )
+
+          val canSave = !isRateUnavailable || budgetInputs.isEmpty()
+          PlutoButton(
+            text = "Save Budgets",
+            onClick = {
+              val activeRate = rate
+              if (selectedBudgetCurrency != homeCurrency && activeRate == null) {
+                if (budgetInputs.isEmpty()) {
+                  onSave(emptyMap())
                 }
-                resultBudgets[catId] = homeAmount
+                return@PlutoButton
               }
-            }
-            onSave(resultBudgets)
-          },
-          variant = PlutoButtonVariant.PRIMARY,
-          enabled = canSave,
-          testTag = "dialog_save_category_budgets_button"
-        )
+              val resultBudgets = mutableMapOf<String, BigDecimal>()
+              budgetInputs.forEach { (catId, text) ->
+                val entered = text.toBigDecimalOrNull()
+                if (entered != null && entered > BigDecimal.ZERO) {
+                  val homeAmount = if (selectedBudgetCurrency == homeCurrency) {
+                    entered.setScale(homeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+                  } else {
+                    entered.multiply(activeRate!!).setScale(homeCurrency.decimalPlaces, RoundingMode.HALF_EVEN)
+                  }
+                  resultBudgets[catId] = homeAmount
+                }
+              }
+              onSave(resultBudgets)
+            },
+            variant = PlutoButtonVariant.PRIMARY,
+            enabled = canSave,
+            testTag = "dialog_save_category_budgets_button"
+          )
+        }
       }
     }
   }
