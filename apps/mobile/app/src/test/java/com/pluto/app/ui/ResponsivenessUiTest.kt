@@ -76,21 +76,14 @@ class ResponsivenessUiTest {
       }
     }
 
-    val labelWidth = with(composeTestRule.density) {
-      pxToDp(
-        composeTestRule.onNodeWithTag("responsiveness_label")
-          .fetchSemanticsNode().size.width.toFloat()
-      )
-    }
-    val amountWidth = with(composeTestRule.density) {
-      pxToDp(
-        composeTestRule.onNodeWithTag("responsiveness_amount")
-          .fetchSemanticsNode().size.width.toFloat()
-      )
-    }
+    val density = composeTestRule.density.density
+    val labelWidthDp = composeTestRule.onNodeWithTag("responsiveness_label")
+      .fetchSemanticsNode().size.width / density
+    val amountWidthDp = composeTestRule.onNodeWithTag("responsiveness_amount")
+      .fetchSemanticsNode().size.width / density
 
-    assertTrue("label column collapsed to $labelWidth", labelWidth >= 100.dp)
-    assertTrue("amount column too wide: $amountWidth", amountWidth <= 160.dp)
+    assertTrue("label column collapsed to ${labelWidthDp}dp", labelWidthDp >= 100f)
+    assertTrue("amount column too wide: ${amountWidthDp}dp", amountWidthDp <= 160f)
   }
 
   @Test
