@@ -222,7 +222,7 @@ private fun ExpenseEntryHeader(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AmountAndCurrencySection(
-  formState: ExpenseFormState,
+  formState: ExpenseEntryFormState,
   visitingCurrency: Currency,
   homeCurrency: Currency,
   isEditing: Boolean,
@@ -625,7 +625,7 @@ private fun RecurringTransactionSection(
 
 @Composable
 private fun SaveFooterSection(
-  formState: ExpenseFormState,
+  formState: ExpenseEntryFormState,
   isEditing: Boolean,
   onSave: () -> Unit
 ) {
