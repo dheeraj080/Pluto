@@ -1,10 +1,10 @@
 package com.pluto.app.expense
 
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -183,8 +183,8 @@ class ExpenseRateControlUiTest {
     }
     composeTestRule.waitForIdle()
 
-    composeTestRule.onNodeWithTag("currency_chip_home").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("expense_rate_display_text").assertDoesNotExist()
+    composeTestRule.onAllNodesWithTag("currency_chip_home").assertCountEquals(0)
+    composeTestRule.onAllNodesWithTag("expense_rate_display_text").assertCountEquals(0)
 
     composeTestRule.runOnIdle { vm.onLocalCurrencyChanged(Currency.INR) }
     composeTestRule.waitForIdle()

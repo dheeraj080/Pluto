@@ -14,7 +14,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.toDp
 import com.pluto.app.ui.components.DualCurrencyAmountView
 import com.pluto.app.ui.navigation.TopLevelDestination
 import com.pluto.app.ui.theme.PlutoResponsive
@@ -78,12 +77,16 @@ class ResponsivenessUiTest {
     }
 
     val labelWidth = with(composeTestRule.density) {
-      composeTestRule.onNodeWithTag("responsiveness_label")
-        .fetchSemanticsNode().size.width.toDp()
+      pxToDp(
+        composeTestRule.onNodeWithTag("responsiveness_label")
+          .fetchSemanticsNode().size.width.toFloat()
+      )
     }
     val amountWidth = with(composeTestRule.density) {
-      composeTestRule.onNodeWithTag("responsiveness_amount")
-        .fetchSemanticsNode().size.width.toDp()
+      pxToDp(
+        composeTestRule.onNodeWithTag("responsiveness_amount")
+          .fetchSemanticsNode().size.width.toFloat()
+      )
     }
 
     assertTrue("label column collapsed to $labelWidth", labelWidth >= 100.dp)
