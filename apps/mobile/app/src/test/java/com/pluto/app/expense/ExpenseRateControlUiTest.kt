@@ -122,7 +122,6 @@ class ExpenseRateControlUiTest {
       .assertIsDisplayed()
 
     composeTestRule.onNodeWithTag("expense_entry_save_button")
-      .performScrollTo()
       .assertIsNotEnabled()
 
     // Explicit choice: use today's market rate for the backdated expense
@@ -132,7 +131,6 @@ class ExpenseRateControlUiTest {
     composeTestRule.waitForIdle()
 
     composeTestRule.onNodeWithTag("expense_entry_save_button")
-      .performScrollTo()
       .assertIsEnabled()
       .performClick()
     composeTestRule.waitForIdle()
