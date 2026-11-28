@@ -6,7 +6,7 @@ import java.util.UUID
  * Represents an individual financial expense transaction.
  *
  * Adheres strictly to the Currency Principle:
- * - [originalAmount]: What the user actually spent in [originalCurrency]. This must NEVER be overwritten.
+ * - [originalAmount]: What the user actually spent in [originalCurrency]. Routine display and sync must never overwrite it; an explicit edit that changes the amount or currency records a new snapshot.
  * - [homeAmount]: Equivalent amount in the user's reference [homeCurrency] at the time of recording or recalculation.
  * - [exchangeRate]: The conversion rate applied (`originalAmount * exchangeRate = homeAmount`).
  * - [exchangeRateSource]: Details of how the rate was obtained ("open_er_api", "offline_cache", etc.). Recorded snapshots are immutable even if the feature that produced them is retired.

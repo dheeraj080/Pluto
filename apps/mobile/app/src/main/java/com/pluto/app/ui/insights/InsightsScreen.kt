@@ -108,6 +108,14 @@ enum class ExportFormat(val label: String, val extension: String, val mimeType: 
   CLIPBOARD("Text Summary (Clipboard)", ".txt", "text/plain")
 }
 
+private fun DashboardPeriod.toReportPeriodLabel(nowMillis: Long = System.currentTimeMillis()): String {
+  return if (this == DashboardPeriod.THIS_MONTH) {
+    SimpleDateFormat("MM-yyyy", Locale.getDefault()).format(Date(nowMillis))
+  } else {
+    label
+  }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InsightsScreen(
@@ -248,6 +256,7 @@ internal fun InsightsContent(
 ) {
   val context = LocalContext.current
   val coroutineScope = rememberCoroutineScope()
+  val reportPeriodLabel = remember(selectedPeriod) { selectedPeriod.toReportPeriodLabel() }
 
   val totalSpentPrimary = "${if (summary.totalDestSpending != null) "PRIMARY · " else "REFERENCE · "}${
     (summary.totalDestSpending ?: summary.totalHomeSpending).format()
@@ -276,7 +285,7 @@ internal fun InsightsContent(
   // Quick Export Handlers
   fun exportAndShare(format: ExportFormat) {
     if (periodExpenses.isEmpty()) {
-      onShowSnackbar("No expenses found for ${selectedPeriod.label} to export.")
+      onShowSnackbar("No expenses found for $reportPeriodLabel to export.")
       return
     }
 
@@ -291,7 +300,7 @@ internal fun InsightsContent(
                 expenses = periodExpenses,
                 categorySummaries = summary.categoryBreakdowns,
                 homeCurrency = userSettings.homeCurrency,
-                periodTitle = selectedPeriod.label,
+                periodTitle = reportPeriodLabel,
                 totalHomeSpentStr = summary.totalHomeSpending.formatWithCode()
               )
             }
@@ -299,7 +308,7 @@ internal fun InsightsContent(
               context = context,
               file = pdfFile,
               mimeType = "application/pdf",
-              title = "Pluto Expense Report (${selectedPeriod.label})"
+              title = "Pluto Expense Report ($reportPeriodLabel)"
             )
             onShowSnackbar("PDF Statement generated and ready to share!")
           }
@@ -309,21 +318,21 @@ internal fun InsightsContent(
               ExpenseExportService.generateCsv(
                 expenses = periodExpenses,
                 homeCurrency = userSettings.homeCurrency,
-                periodTitle = selectedPeriod.label
+                periodTitle = reportPeriodLabel
               )
             }
             val csvFile = withContext(Dispatchers.IO) {
               ExpenseExportService.saveCsvToCache(
                 context = context,
                 csvContent = csvContent,
-                periodTitle = selectedPeriod.label
+                periodTitle = reportPeriodLabel
               )
             }
             ExpenseExportService.shareFile(
               context = context,
               file = csvFile,
               mimeType = "text/csv",
-              title = "Pluto Expenses Export (${selectedPeriod.label})"
+              title = "Pluto Expenses Export ($reportPeriodLabel)"
             )
             onShowSnackbar("CSV Spreadsheet generated and ready to share!")
           }
@@ -331,7 +340,7 @@ internal fun InsightsContent(
           ExportFormat.CLIPBOARD -> {
             val reportText = buildString {
               appendLine("Pluto Financial Report")
-              appendLine("Period: ${selectedPeriod.label}")
+              appendLine("Period: $reportPeriodLabel")
               append("Total Spent: $totalSpentPrimary")
               totalSpentSecondary?.let { append(" ($it)") }
               appendLine()
@@ -377,7 +386,7 @@ internal fun InsightsContent(
       text = {
         Column {
           Text(
-            text = "Choose format to export ${periodExpenses.size} expenses for ${selectedPeriod.label}:",
+            text = "Choose format to export ${periodExpenses.size} expenses for $reportPeriodLabel:",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
@@ -534,7 +543,7 @@ internal fun InsightsContent(
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-              text = "Total Spent · ${selectedPeriod.label}",
+              text = "Total Spent · $reportPeriodLabel",
               style = MaterialTheme.typography.labelMedium,
               fontWeight = FontWeight.SemiBold,
               color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -691,7 +700,7 @@ internal fun InsightsContent(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-              text = "Highest Recorded Expenses (${selectedPeriod.label})",
+              text = "Highest Recorded Expenses ($reportPeriodLabel)",
               style = MaterialTheme.typography.titleMedium,
               fontWeight = FontWeight.Bold,
               modifier = Modifier.plutoHeading()
@@ -811,7 +820,7 @@ internal fun InsightsContent(
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-          text = "Export ${periodExpenses.size} expenses recorded during ${selectedPeriod.label}. Share formatted PDF statements with your accountant or export CSV spreadsheets for Excel.",
+          text = "Export ${periodExpenses.size} expenses recorded during $reportPeriodLabel. Share formatted PDF statements with your accountant or export CSV spreadsheets for Excel.",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           lineHeight = 18.sp

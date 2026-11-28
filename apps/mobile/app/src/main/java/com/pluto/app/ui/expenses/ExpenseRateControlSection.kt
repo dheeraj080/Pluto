@@ -143,10 +143,10 @@ internal fun rateSourceLabel(
   if (isPreservedOriginal) return "Recorded Rate"
   return when {
     source.startsWith("manual") || source == "expense_custom_rate" -> "Recorded Rate"
-    isPriorDay && isExplicitLiveForPastDate && source == "open_er_api" -> "Live Rate (Past Date)"
+    isPriorDay && isExplicitLiveForPastDate && source == "open_er_api" -> "Market Rate (Past Date)"
     isPriorDay && !isExplicitLiveForPastDate && source == "open_er_api" -> "Historical Rate"
     isPriorDay && !isExplicitLiveForPastDate && source == "open_er_api_inverse" -> "Historical Inverse"
-    source == "open_er_api" -> "Live Rate"
+    source == "open_er_api" -> "Market Rate"
     source.endsWith("_stale") -> "Stale Cache"
     source.startsWith("derived_inverse") -> "Inverse Cached"
     source == "identity" -> "Same Currency"
@@ -357,6 +357,7 @@ fun ExpenseDateRow(
 @Composable
 fun ExpenseRateControlSection(
   formState: ExpenseEntryFormState,
+  currencyChangeNotice: String? = null,
   onOpenHomeCurrencyPicker: () -> Unit,
   onSwapCurrencies: () -> Unit,
   onRefreshLiveRate: () -> Unit,
@@ -377,6 +378,7 @@ fun ExpenseRateControlSection(
   val isExplicitLiveForPastDate = isPriorDay &&
     formState.rateUpdatePolicy == RateUpdatePolicy.REFRESH_LIVE &&
     !isPreservingSnapshot
+  var showRateDetails by remember { mutableStateOf(false) }
 
   if (!isForeign) {
     Surface(
@@ -434,7 +436,7 @@ fun ExpenseRateControlSection(
                 modifier = Modifier.size(16.dp)
               )
             },
-            label = { Text("Keep Original", style = MaterialTheme.typography.labelSmall) },
+            label = { Text("Restore Original", style = MaterialTheme.typography.labelSmall) },
             shape = PlutoShapes.medium,
             modifier = Modifier
               .heightIn(min = 48.dp)
@@ -492,7 +494,7 @@ fun ExpenseRateControlSection(
             ) {
               CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
               Text(
-                text = "Looking up exchange rate...",
+                text = "Checking market rate…",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
               )
@@ -603,7 +605,9 @@ fun ExpenseRateControlSection(
               else -> MaterialTheme.colorScheme.surface
             },
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-            modifier = Modifier.testTag("expense_rate_source_badge")
+            modifier = Modifier
+              .clickable { showRateDetails = !showRateDetails }
+              .testTag("expense_rate_source_badge")
           ) {
             Row(
               modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -633,21 +637,30 @@ fun ExpenseRateControlSection(
         }
       }
 
-      if (isPreservingSnapshot) {
+      if (showRateDetails && isPreservingSnapshot) {
         Text(
-          text = "Preserving this expense's original exchange rate when editing amount or date.",
+          text = "Recorded rate is retained for this entry.",
           style = MaterialTheme.typography.labelSmall,
           color = MaterialTheme.colorScheme.primary
         )
-      } else if (isExplicitLiveForPastDate && preview.exchangeRate != null && !preview.isRateUnavailable) {
+      } else if (showRateDetails && isExplicitLiveForPastDate && preview.exchangeRate != null && !preview.isRateUnavailable) {
         Text(
-          text = "Using today's live rate for an earlier date by your explicit choice.",
+          text = "Today's market rate is applied to this earlier date.",
           style = MaterialTheme.typography.labelSmall,
           color = MaterialTheme.colorScheme.tertiary
         )
       }
 
-      // 3. Rate Controls (Refresh Live, Date Lookup, Keep Original)
+      if (showRateDetails && currencyChangeNotice != null) {
+        Text(
+          text = currencyChangeNotice,
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.testTag("expense_currency_change_notice")
+        )
+      }
+
+      // 3. Rate Controls (Refresh Market Rate, Date Lookup, Restore Original)
       FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -672,8 +685,8 @@ fun ExpenseRateControlSection(
             Text(
               text = when {
                 formState.isRefreshingRate -> "Updating…"
-                isPriorDay -> "Use Live Rate"
-                else -> "Refresh Live"
+                isPriorDay -> "Use Market Rate"
+                else -> "Refresh Market Rate"
               },
               style = MaterialTheme.typography.labelSmall
             )
@@ -696,7 +709,7 @@ fun ExpenseRateControlSection(
                 modifier = Modifier.size(16.dp)
               )
             },
-            label = { Text("Keep Original", style = MaterialTheme.typography.labelSmall) },
+            label = { Text("Restore Original", style = MaterialTheme.typography.labelSmall) },
             shape = PlutoShapes.medium,
             modifier = Modifier
               .heightIn(min = 48.dp)
@@ -744,9 +757,9 @@ fun ExpenseRateControlSection(
             )
             Text(
               text = if (isHistoricalMiss) {
-                "No historical rate available for this date. Choose another date or explicitly use today's live rate."
+                "No rate is available for this date. Choose another date or use today's market rate."
               } else {
-                "Rate unavailable offline. Retry or use today's live rate."
+                "Rate unavailable offline. Retry or use today's market rate."
               },
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.error,
@@ -762,7 +775,7 @@ fun ExpenseRateControlSection(
             verticalArrangement = Arrangement.spacedBy(PlutoSpacing.sm)
           ) {
             PlutoButton(
-              text = if (isHistoricalMiss) "Use Live Rate" else "Retry",
+              text = if (isHistoricalMiss) "Use Market Rate" else "Retry",
               onClick = onRefreshLiveRate,
               enabled = !formState.isRefreshingRate,
               variant = PlutoButtonVariant.OUTLINED,

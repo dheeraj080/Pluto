@@ -73,7 +73,7 @@ data class ConversionPreviewState(
 data class ExpenseEntryFormState(
   val editingExpenseId: String? = null, // Null if creating, non-null if editing
   val amount: String = "",
-  val localCurrency: Currency = Currency.USD,
+  val localCurrency: Currency = Currency.EUR,
   val homeCurrency: Currency = Currency.USD,
   val category: Category = Category.FOOD,
   val transactionDateMillis: Long = System.currentTimeMillis(),
@@ -295,13 +295,13 @@ class ExpenseViewModel(
       current.copy(
         localCurrency = currency,
         amount = currency.normalizeForScale(current.amount),
-        currencyChangeNotice = "Spent currency changed to ${currency.code}; the entered amount was not converted.",
+        currencyChangeNotice = "Primary currency for this entry: ${currency.code}. Amounts are unchanged.",
         rateUpdatePolicy = if (willUseLocalSnapshot) {
           RateUpdatePolicy.PRESERVE_EXISTING
         } else {
           RateUpdatePolicy.REFRESH_FOR_DATE
         },
-        conversionPreview = if (currency == current.homeCurrency || willUseLocalSnapshot) {
+        conversionPreview = if (willUseLocalSnapshot) {
           current.conversionPreview
         } else {
           ConversionPreviewState(isLoading = true)
@@ -319,13 +319,13 @@ class ExpenseViewModel(
       val willUseLocalSnapshot = current.isEditing && pairMatchesOriginal
       current.copy(
         homeCurrency = currency,
-        currencyChangeNotice = "Reference currency changed to ${currency.code}; existing amounts stay unchanged until saved.",
+        currencyChangeNotice = "Reference currency for this entry: ${currency.code}. Amounts are unchanged until saved.",
         rateUpdatePolicy = if (willUseLocalSnapshot) {
           RateUpdatePolicy.PRESERVE_EXISTING
         } else {
           RateUpdatePolicy.REFRESH_FOR_DATE
         },
-        conversionPreview = if (current.localCurrency == currency || willUseLocalSnapshot) {
+        conversionPreview = if (willUseLocalSnapshot) {
           current.conversionPreview
         } else {
           ConversionPreviewState(isLoading = true)
@@ -352,13 +352,13 @@ class ExpenseViewModel(
         localCurrency = nextLocal,
         homeCurrency = nextHome,
         amount = nextLocal.normalizeForScale(current.amount),
-        currencyChangeNotice = "Currencies swapped. The entered amount was not converted.",
+        currencyChangeNotice = "Currencies swapped for this entry. Amounts are unchanged.",
         rateUpdatePolicy = if (willUseLocalSnapshot) {
           RateUpdatePolicy.PRESERVE_EXISTING
         } else {
           RateUpdatePolicy.REFRESH_FOR_DATE
         },
-        conversionPreview = if (nextLocal == nextHome || willUseLocalSnapshot) {
+        conversionPreview = if (willUseLocalSnapshot) {
           current.conversionPreview
         } else {
           ConversionPreviewState(isLoading = true)
@@ -402,9 +402,9 @@ class ExpenseViewModel(
       it.copy(
         localCurrency = original.originalCurrency,
         homeCurrency = original.homeCurrency,
-        amount = original.originalCurrency.normalizeForScale(it.amount),
+        amount = original.originalAmount.amount.toPlainString(),
         rateUpdatePolicy = RateUpdatePolicy.PRESERVE_EXISTING,
-        currencyChangeNotice = null,
+        currencyChangeNotice = "Original amount, currencies, and rate restored for this entry.",
         errorMessage = null
       )
     }
@@ -480,6 +480,7 @@ class ExpenseViewModel(
     initialMerchant: String = "",
     initialNote: String = ""
   ) {
+    previewJob?.cancel()
     currentEditingExpense = null
     viewModelScope.launch {
       val settings = userSettingsRepository.getSettings()
@@ -503,6 +504,7 @@ class ExpenseViewModel(
   }
 
   fun prepareEditForm(expense: Expense) {
+    previewJob?.cancel()
     currentEditingExpense = expense
     val localCurr = expense.originalCurrency
     val homeCurr = expense.homeCurrency

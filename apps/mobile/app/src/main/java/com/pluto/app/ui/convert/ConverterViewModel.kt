@@ -37,13 +37,15 @@ sealed interface ConverterUiState {
 }
 
 class ConverterViewModel(
-  private val convertCurrencyUseCase: ConvertCurrencyUseCase
+  private val convertCurrencyUseCase: ConvertCurrencyUseCase,
+  initialSourceCurrency: Currency = Currency.INR,
+  initialTargetCurrency: Currency = Currency.USD
 ) : ViewModel() {
 
-  private val _sourceCurrency = MutableStateFlow(Currency.EUR)
+  private val _sourceCurrency = MutableStateFlow(initialSourceCurrency)
   val sourceCurrency: StateFlow<Currency> = _sourceCurrency.asStateFlow()
 
-  private val _targetCurrency = MutableStateFlow(Currency.INR)
+  private val _targetCurrency = MutableStateFlow(initialTargetCurrency)
   val targetCurrency: StateFlow<Currency> = _targetCurrency.asStateFlow()
 
   private val _amountInput = MutableStateFlow("100")

@@ -172,7 +172,11 @@ class CurrencyEngineTest {
       )
     )
 
-    viewModel = ConverterViewModel(useCase)
+    viewModel = ConverterViewModel(
+      convertCurrencyUseCase = useCase,
+      initialSourceCurrency = Currency.EUR,
+      initialTargetCurrency = Currency.INR
+    )
     viewModel.onAmountChanged("100")
     advanceUntilIdle()
 
