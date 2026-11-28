@@ -259,18 +259,18 @@ internal fun InsightsContent(
   val coroutineScope = rememberCoroutineScope()
   val reportPeriodLabel = remember(selectedPeriod) { selectedPeriod.toReportPeriodLabel() }
 
-  val totalSpentPrimary = "${if (summary.totalDestSpending != null) "PRIMARY · " else "REFERENCE · "}${
+  val totalSpentPrimary = "${
     (summary.totalDestSpending ?: summary.totalHomeSpending).format()
   } (${if (summary.totalDestSpending != null) userSettings.destinationCurrency.code else userSettings.homeCurrency.code})"
   val totalSpentSecondary = if (summary.totalDestSpending != null) {
-    "REFERENCE · ${summary.totalHomeSpending.format()} (${userSettings.homeCurrency.code})"
+    "${summary.totalHomeSpending.format()} (${userSettings.homeCurrency.code})"
   } else null
 
-  val dailyBurnPrimary = "${if (summary.thirtyDayDailyAvgDest != null) "PRIMARY · " else "REFERENCE · "}${
+  val dailyBurnPrimary = "${
     (summary.thirtyDayDailyAvgDest ?: summary.thirtyDayDailyAvgHome).format()
   } (${if (summary.thirtyDayDailyAvgDest != null) userSettings.destinationCurrency.code else userSettings.homeCurrency.code})"
   val dailyBurnSecondary = if (summary.thirtyDayDailyAvgDest != null) {
-    "REFERENCE · ${summary.thirtyDayDailyAvgHome.format()} (${userSettings.homeCurrency.code})"
+    "${summary.thirtyDayDailyAvgHome.format()} (${userSettings.homeCurrency.code})"
   } else null
 
   // Period-filtered expenses for accurate statement export
@@ -714,7 +714,6 @@ internal fun InsightsContent(
 
           topExpenses.forEach { exp ->
             val title = if (exp.note.isNotBlank()) exp.note else if (exp.merchant.isNotBlank()) exp.merchant else exp.category.name
-            val homeLabel = if (exp.homeCurrency == userSettings.homeCurrency) "REFERENCE · " else "RECORDED REFERENCE · "
             Row(
               modifier = Modifier
                 .fillMaxWidth()
@@ -759,8 +758,8 @@ internal fun InsightsContent(
               }
 
               DualCurrencyAmountView(
-                primaryAmount = "SPENT · ${exp.originalAmount.formatWithCode()}",
-                secondaryAmount = "$homeLabel${exp.homeAmount.formatWithCode()}",
+                primaryAmount = exp.originalAmount.formatWithCode(),
+                secondaryAmount = exp.homeAmount.formatWithCode(),
                 primaryStyle = MaterialTheme.typography.titleSmall,
                 secondaryStyle = MaterialTheme.typography.bodySmall,
                 secondaryFontWeight = FontWeight.Normal,
@@ -938,7 +937,7 @@ private fun CurrencyDistributionRow(
 
       DualCurrencyAmountView(
         primaryAmount = curSummary.totalOriginalAmount.formatWithCode(),
-        secondaryAmount = "REFERENCE · ${curSummary.totalHomeEquivalent.formatWithCode()}",
+        secondaryAmount = curSummary.totalHomeEquivalent.formatWithCode(),
         primaryStyle = MaterialTheme.typography.titleSmall,
         secondaryStyle = MaterialTheme.typography.bodySmall,
         secondaryFontWeight = FontWeight.Normal,

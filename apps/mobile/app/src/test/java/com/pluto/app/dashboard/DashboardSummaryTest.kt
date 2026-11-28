@@ -368,10 +368,10 @@ class DashboardSummaryTest {
 
     // Unified item shows the actually-spent currency and the immutable home snapshot with ISO codes.
     val item = summary.unifiedRecentTransactions.first()
-    assertTrue(item.primaryAmountFormatted.startsWith("SPENT ·"))
-    assertTrue(item.primaryAmountFormatted.contains("JPY"))
-    assertTrue(item.secondaryAmountFormatted?.startsWith("REFERENCE ·") == true)
-    assertTrue(item.secondaryAmountFormatted?.contains("(USD)") == true)
+    assertTrue(item.primaryAmountFormatted.endsWith("(JPY)"))
+    assertFalse(item.primaryAmountFormatted.contains("SPENT"))
+    assertTrue(item.secondaryAmountFormatted?.endsWith("(USD)") == true)
+    assertFalse(item.secondaryAmountFormatted?.contains("REFERENCE") == true)
   }
 
   @Test
@@ -880,10 +880,10 @@ class DashboardSummaryTest {
     assertEquals(listOf(eur), summary.unconvertibleHomeCurrencies)
 
     val item = summary.unifiedRecentTransactions.first { it.id == expense.id }
-    assertTrue(item.primaryAmountFormatted.startsWith("SPENT ·"))
-    assertTrue(item.primaryAmountFormatted.contains("JPY"))
-    assertTrue(item.secondaryAmountFormatted?.startsWith("RECORDED REFERENCE ·") == true)
-    assertTrue(item.secondaryAmountFormatted?.contains("EUR") == true)
+    assertTrue(item.primaryAmountFormatted.endsWith("(JPY)"))
+    assertFalse(item.primaryAmountFormatted.contains("SPENT"))
+    assertTrue(item.secondaryAmountFormatted?.endsWith("(EUR)") == true)
+    assertFalse(item.secondaryAmountFormatted?.contains("REFERENCE") == true)
     assertEquals("100.00", expense.homeAmount.amount.toPlainString())
   }
 

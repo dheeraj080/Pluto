@@ -19,7 +19,6 @@ import com.pluto.app.ui.components.DualCurrencyAmountView
 import com.pluto.app.ui.navigation.TopLevelDestination
 import com.pluto.app.ui.theme.PlutoResponsive
 import com.pluto.app.ui.theme.PlutoTheme
-import com.pluto.app.ui.theme.Typography
 import com.pluto.app.ui.theme.useLargeFontLayout
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -43,13 +42,6 @@ class ResponsivenessUiTest {
   val composeTestRule = createComposeRule()
 
   @Test
-  fun `typography defines displaySmall between displayMedium and headlineLarge`() {
-    assertTrue(Typography.displaySmall.fontSize < Typography.displayMedium.fontSize)
-    assertTrue(Typography.displaySmall.fontSize > Typography.headlineLarge.fontSize)
-    assertTrue(Typography.displaySmall.fontSize.value >= 24f)
-  }
-
-  @Test
   fun `dual currency amount column never takes more than half of a compact row`() {
     composeTestRule.setContent {
       PlutoTheme {
@@ -68,8 +60,8 @@ class ResponsivenessUiTest {
                 .testTag("responsiveness_label")
             )
             DualCurrencyAmountView(
-              primaryAmount = "SPENT · 12,345,678.90 (USD)",
-              secondaryAmount = "RECORDED REFERENCE · 1,234,567.89 (INR)",
+              primaryAmount = "12,345,678.90 (USD)",
+              secondaryAmount = "1,234,567.89 (INR)",
               modifier = Modifier.testTag("responsiveness_amount")
             )
           }

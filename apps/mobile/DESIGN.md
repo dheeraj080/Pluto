@@ -151,7 +151,7 @@ Pluto restricts chromatic intensity to purposeful brand highlights and semantic 
 **Character:** Crisp geometric `Manrope` paired with engineered tabular alignment in `Roboto Mono` so balances, exchange rates, and live dual-zone clocks never jump horizontally as digits change.
 
 ### Hierarchy (`ui/theme/Type.kt`)
-- **Display** (`displayLarge` 38.sp / 46.sp ExtraBold; `displayMedium` 32.sp / 40.sp Bold; `displaySmall` 30.sp / 38.sp Bold; `-0.01em` tracking): Hero balance totals and primary converter outputs (merged with `PlutoNumericStyle` for numbers).
+- **Display** (`displayLarge` 38.sp / 46.sp ExtraBold; `displayMedium` 32.sp / 40.sp Bold; `-0.01em` tracking): Hero balance totals and primary converter outputs (merged with `PlutoNumericStyle` for numbers).
 - **Headline** (`headlineLarge` 28.sp / 36.sp Bold; `headlineMedium` 24.sp / 32.sp Bold; `headlineSmall` 20.sp / 28.sp SemiBold): Screen headers, onboarding steps, and major section KPIs.
 - **Title** (`titleLarge` 18.sp / 25.sp Bold; `titleMedium` 16.sp / 23.sp SemiBold; `titleSmall` 14.sp / 20.sp SemiBold): Card titles, section headers (`Modifier.plutoHeading()`), top bar titles, and clock readouts.
 - **Body** (`bodyLarge` 15.sp / 23.sp; `bodyMedium` 13.sp / 20.sp; `bodySmall` 12.sp / 18.sp): Transaction descriptions, hints, empty-state guidance, and secondary currency conversions.
@@ -215,7 +215,7 @@ Defined centrally in `PlutoShapes` (`ui/theme/Shape.kt`):
 - **Do** use `MaterialTheme.colorScheme`, `PlutoShapes`, `PlutoSpacing`, `PlutoMotion`, and `PlutoNumericStyle` from `ui/theme/`.
 - **Do** enforce `minimumInteractiveComponentSize()` (`>= 48.dp`), `testTag(...)` (`snake_case`), `contentDescription`, and `plutoHeading()` on all new interactive Composables.
 - **Do** gate every movement/scale animation behind `rememberPrefersReducedMotion()` and use `PlutoMotion.NoBounceSpring` (`DampingRatioNoBouncy`).
-- **Do** place user-facing strings in `app/src/main/res/values/strings.xml`, show the actually-spent currency and immutable reference snapshot on transaction rows, and keep primary and reference currencies together on aggregate totals.
+- **Do** place user-facing strings in `app/src/main/res/values/strings.xml`, show the actually-spent currency and immutable reference snapshot on transaction rows using ISO currency codes (no `SPENT` / `PRIMARY` / `REFERENCE` prefixes on amounts), and keep primary and reference currencies together on aggregate totals.
 - **Don't** emit web CSS, HTML, Tailwind, `oklch()`, or iOS/Cupertino widgets (`CupertinoSwitch`, bottom-only tablet bars) in Android UI code.
 - **Don't** hardcode hex colors or raw `.dp` magic spacing numbers when a `PlutoSpacing` or `MaterialTheme.colorScheme` token exists.
 - **Don't** omit `tnum` (`PlutoNumericStyle`) on amounts, rates, deltas, or live time readouts.

@@ -51,13 +51,6 @@ val Typography = Typography(
     lineHeight = 40.sp,
     letterSpacing = (-0.01).em
   ),
-  displaySmall = TextStyle(
-    fontFamily = ManropeFontFamily,
-    fontWeight = FontWeight.Bold,
-    fontSize = 30.sp,
-    lineHeight = 38.sp,
-    letterSpacing = (-0.01).em
-  ),
   headlineLarge = TextStyle(
     fontFamily = ManropeFontFamily,
     fontWeight = FontWeight.Bold,

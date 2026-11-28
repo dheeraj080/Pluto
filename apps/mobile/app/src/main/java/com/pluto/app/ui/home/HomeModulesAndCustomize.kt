@@ -769,18 +769,17 @@ fun DailySafeToSpendModuleCard(
     if (isRemainingNegative) {
       "-${Money.of(summary.safeToSpendTodayDest.amount.abs(), destCurrency).formatWithCode()}"
     } else {
-      "PRIMARY · ${summary.safeToSpendTodayDest.formatWithCode()}"
+      summary.safeToSpendTodayDest.formatWithCode()
     }
   } else if (hasBudgetBase) {
-    "REFERENCE · ${summary.safeToSpendTodayHome.formatWithCode()}"
+    summary.safeToSpendTodayHome.formatWithCode()
   } else {
-    val todayAmount = summary.todayDestSpending ?: summary.todayHomeSpending
-    "${if (summary.todayDestSpending != null) "PRIMARY · " else "REFERENCE · "}${todayAmount.formatWithCode()}"
+    (summary.todayDestSpending ?: summary.todayHomeSpending).formatWithCode()
   }
   val secondaryAmountFormatted = if (hasBudgetBase) {
-    "REFERENCE · ${summary.safeToSpendTodayHome.formatWithCode()}"
+    summary.safeToSpendTodayHome.formatWithCode()
   } else {
-    "REFERENCE · ${summary.todayHomeSpending.formatWithCode()}"
+    summary.todayHomeSpending.formatWithCode()
   }
   // Avoid showing the same amount twice; without a budget base the value is simply today's spend.
   val amountLabel = if (hasBudgetBase) "DAILY SAFE-TO-SPEND" else "Spent today"
@@ -977,7 +976,7 @@ fun DailySafeToSpendModuleCard(
         )
         if (hasBudgetBase) {
           val todayAmount = summary.todayDestSpending ?: summary.todayHomeSpending
-          val spentDestText = "${if (summary.todayDestSpending != null) "PRIMARY · " else "REFERENCE · "}${todayAmount.formatWithCode()}"
+          val spentDestText = todayAmount.formatWithCode()
           Text(
             text = "Spent today: $spentDestText",
             style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
@@ -1178,7 +1177,7 @@ fun CycleRunwayModuleCard(
             val primaryDaily = runwaySummary.dailyRunwaySafeToSpendDest ?: runwaySummary.dailyRunwaySafeToSpendHome
             val hasDestDaily = runwaySummary.dailyRunwaySafeToSpendDest != null
             Text(
-              text = "Cycle pace/day: ${if (hasDestDaily) "PRIMARY · " else "REFERENCE · "}${primaryDaily.formatWithCode()}",
+              text = "Cycle pace/day: ${primaryDaily.formatWithCode()}",
               style = MaterialTheme.typography.headlineSmall.merge(PlutoNumericStyle),
               fontWeight = FontWeight.Bold,
               color = MaterialTheme.colorScheme.onSurface,
@@ -1188,7 +1187,7 @@ fun CycleRunwayModuleCard(
             )
             if (hasDestDaily) {
               Text(
-                text = "Cycle pace/day: REFERENCE · ${runwaySummary.dailyRunwaySafeToSpendHome.formatWithCode()}",
+                text = "Cycle pace/day: ${runwaySummary.dailyRunwaySafeToSpendHome.formatWithCode()}",
                 style = MaterialTheme.typography.bodySmall.merge(PlutoNumericStyle),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,

@@ -131,25 +131,22 @@ private fun CashFlowMetrics(
 ) {
   val hasIncomeDest = summary.totalIncomeDest != null
   val incomePrimary = if (hasIncomeDest) {
-    "+PRIMARY · ${summary.totalIncomeDest!!.formatWithCode()}"
+    "+${summary.totalIncomeDest!!.formatWithCode()}"
   } else {
-    "+REFERENCE · ${summary.totalIncomeHome.formatWithCode()}"
+    "+${summary.totalIncomeHome.formatWithCode()}"
   }
   val incomeSecondary = if (hasIncomeDest) {
-    "+REFERENCE · ${summary.totalIncomeHome.formatWithCode()}"
+    "+${summary.totalIncomeHome.formatWithCode()}"
   } else null
-  val expensePrimary = "-${if (summary.totalDestSpending != null) "PRIMARY · " else "REFERENCE · "}${
-    (summary.totalDestSpending ?: summary.totalHomeSpending).formatWithCode()
-  }"
+  val expensePrimary = "-${(summary.totalDestSpending ?: summary.totalHomeSpending).formatWithCode()}"
   val expenseSecondary = if (summary.totalDestSpending != null) {
-    "-REFERENCE · ${summary.totalHomeSpending.formatWithCode()}"
+    "-${summary.totalHomeSpending.formatWithCode()}"
   } else null
   val isNetPositive = summary.netCashFlowHome.amount >= BigDecimal.ZERO
   val signPrefix = if (isNetPositive) "+" else ""
-  val netPrimary = signPrefix + (if (summary.netCashFlowDest != null) "PRIMARY · " else "REFERENCE · ") +
-    (summary.netCashFlowDest ?: summary.netCashFlowHome).formatWithCode()
+  val netPrimary = signPrefix + (summary.netCashFlowDest ?: summary.netCashFlowHome).formatWithCode()
   val netSecondary = if (summary.netCashFlowDest != null) {
-    "${signPrefix}REFERENCE · ${summary.netCashFlowHome.formatWithCode()}"
+    "${signPrefix}${summary.netCashFlowHome.formatWithCode()}"
   } else null
 
   CashFlowMetric(
@@ -389,9 +386,9 @@ private fun CategoryBudgetAmounts(
   ) {
     val hasDestAmount = item.totalDestAmount != null
     val amountLabel = if (hasDestAmount) {
-      "PRIMARY · ${item.totalDestAmount!!.formatWithCode()}"
+      item.totalDestAmount!!.formatWithCode()
     } else {
-      "REFERENCE · ${item.totalHomeAmount.formatWithCode()}"
+      item.totalHomeAmount.formatWithCode()
     }
     if (hasBudget) {
       val budgetLabel = item.budgetDest?.formatWithCode() ?: item.budgetHome?.formatWithCode() ?: "—"
@@ -420,7 +417,7 @@ private fun CategoryBudgetAmounts(
       )
       if (hasDestAmount) {
         Text(
-          text = "REFERENCE · ${item.totalHomeAmount.formatWithCode()}",
+          text = item.totalHomeAmount.formatWithCode(),
           style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           maxLines = 2,

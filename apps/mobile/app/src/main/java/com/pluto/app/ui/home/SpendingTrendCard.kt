@@ -182,11 +182,11 @@ private fun TrendCardHeader(
   val largeFontLayout = useLargeFontLayout()
   val hasDestTotal = summary.thirtyDayTotalDest != null
   val primaryTotal = if (hasDestTotal) {
-    "PRIMARY · ${summary.thirtyDayTotalDest!!.formatWithCode()}"
+    summary.thirtyDayTotalDest!!.formatWithCode()
   } else {
-    "REFERENCE · ${summary.thirtyDayTotalHome.formatWithCode()}"
+    summary.thirtyDayTotalHome.formatWithCode()
   }
-  val referenceTotal = "REFERENCE · ${summary.thirtyDayTotalHome.formatWithCode()}"
+  val referenceTotal = summary.thirtyDayTotalHome.formatWithCode()
 
   if (largeFontLayout) {
     // Reflow: the total gets its own row rather than competing with the title.
@@ -316,12 +316,12 @@ private fun TrendTelemetryBar(
   // 1. Daily Average values
   val hasAvgDest = summary.thirtyDayDailyAvgDest != null
   val avgDest = if (hasAvgDest) {
-    "PRIMARY · ${summary.thirtyDayDailyAvgDest!!.formatWithCode()}"
+    summary.thirtyDayDailyAvgDest!!.formatWithCode()
   } else {
-    "REFERENCE · ${summary.thirtyDayDailyAvgHome.formatWithCode()}"
+    summary.thirtyDayDailyAvgHome.formatWithCode()
   }
   val avgSub = if (hasAvgDest) {
-    "REFERENCE · ${summary.thirtyDayDailyAvgHome.formatWithCode()}"
+    summary.thirtyDayDailyAvgHome.formatWithCode()
   } else {
     null
   }
@@ -329,8 +329,7 @@ private fun TrendTelemetryBar(
   // 2. Peak Day values
   val peak = summary.thirtyDayPeakDay
   val peakVal = peak?.let {
-    val hasDest = it.amountDest != null
-    "${if (hasDest) "PRIMARY · " else "REFERENCE · "}${(it.amountDest ?: it.amountHome).formatWithCode()}"
+    (it.amountDest ?: it.amountHome).formatWithCode()
   } ?: "None"
   val peakSub = peak?.dayLabel
 
@@ -713,9 +712,9 @@ private fun ScrubberTooltipPill(
         Row(verticalAlignment = Alignment.CenterVertically) {
           val hasPointDest = point.amountDest != null
           val primaryText = if (hasPointDest) {
-            "PRIMARY · ${point.amountDest!!.formatWithCode()}"
+            point.amountDest!!.formatWithCode()
           } else {
-            "REFERENCE · ${point.amountHome.formatWithCode()}"
+            point.amountHome.formatWithCode()
           }
           Text(
             text = primaryText,
@@ -728,7 +727,7 @@ private fun ScrubberTooltipPill(
           if (hasPointDest) {
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-              text = "REFERENCE · ${point.amountHome.formatWithCode()}",
+              text = point.amountHome.formatWithCode(),
               style = MaterialTheme.typography.labelSmall.merge(PlutoNumericStyle),
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               maxLines = 1,

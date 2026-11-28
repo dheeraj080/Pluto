@@ -234,9 +234,9 @@ private fun BudgetsContent(
   val hasDailyCap = (summary.dailySpendingCap != null && summary.dailySpendingCap > BigDecimal.ZERO)
 
   val primarySpentMoney = summary.totalDestSpending ?: summary.totalHomeSpending
-  val totalSpentPrimary = "${if (summary.totalDestSpending != null) "PRIMARY · " else "REFERENCE · "}${primarySpentMoney.formatWithCode()}"
+  val totalSpentPrimary = primarySpentMoney.formatWithCode()
   val totalSpentSecondary = if (summary.totalDestSpending != null) {
-    "REFERENCE · ${summary.totalHomeSpending.formatWithCode()}"
+    summary.totalHomeSpending.formatWithCode()
   } else null
 
   val safeToSpendPrimary = if (summary.safeToSpendTodayDest != null) {
@@ -244,13 +244,13 @@ private fun BudgetsContent(
     if (money.amount < BigDecimal.ZERO) {
       "-${Money.of(money.amount.abs(), destCurrency).formatWithCode()}"
     } else {
-      "PRIMARY · ${money.formatWithCode()}"
+      money.formatWithCode()
     }
   } else {
-    "REFERENCE · ${summary.safeToSpendTodayHome.formatWithCode()}"
+    summary.safeToSpendTodayHome.formatWithCode()
   }
   val safeToSpendSecondary = if (summary.safeToSpendTodayDest != null) {
-    "REFERENCE · ${summary.safeToSpendTodayHome.formatWithCode()}"
+    summary.safeToSpendTodayHome.formatWithCode()
   } else null
 
   Box(
@@ -769,12 +769,12 @@ private fun CategoryBudgetRow(
         val hasDestAmount = item.totalDestAmount != null
         DualCurrencyAmountView(
           primaryAmount = if (hasDestAmount) {
-            "PRIMARY · ${item.totalDestAmount!!.formatWithCode()}"
+            item.totalDestAmount!!.formatWithCode()
           } else {
-            "REFERENCE · ${item.totalHomeAmount.formatWithCode()}"
+            item.totalHomeAmount.formatWithCode()
           },
           secondaryAmount = item.budgetHome?.let {
-            "REFERENCE · ${item.totalHomeAmount.formatWithCode()} / ${it.formatWithCode()}"
+            "${item.totalHomeAmount.formatWithCode()} / ${it.formatWithCode()}"
           },
           primaryStyle = MaterialTheme.typography.titleMedium,
           primaryColor = if (isOver) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,

@@ -325,9 +325,8 @@ class GetDashboardSummaryUseCase {
 
     // 10. Unified Activity Feed (1. Spent currency, 2. Immutable reference snapshot)
     val expenseItems = allExpenses.map { exp ->
-      val homeLabel = if (exp.homeCurrency == currentHomeCurrency) "REFERENCE · " else "RECORDED REFERENCE · "
-      val primaryStr = "SPENT · ${exp.originalAmount.formatWithCode()}"
-      val secondaryStr = "$homeLabel${exp.homeAmount.formatWithCode()}"
+      val primaryStr = exp.originalAmount.formatWithCode()
+      val secondaryStr = exp.homeAmount.formatWithCode()
 
       com.pluto.app.domain.model.UnifiedTransactionItem(
         id = exp.id,
@@ -360,8 +359,8 @@ class GetDashboardSummaryUseCase {
           val primaryStr = "+${destMoney.format()} (${destMoney.currency.code})"
           val secondaryStr = when {
             homeMoney == null -> "Rate to ${currentHomeCurrency.code} unavailable"
-            destMoney.currency != currentHomeCurrency -> "REFERENCE · ≈ +${homeMoney.format()} (${currentHomeCurrency.code})"
-            else -> "REFERENCE · +${homeMoney.format()} (${currentHomeCurrency.code})"
+            destMoney.currency != currentHomeCurrency -> "≈ +${homeMoney.format()} (${currentHomeCurrency.code})"
+            else -> "+${homeMoney.format()} (${currentHomeCurrency.code})"
           }
 
           com.pluto.app.domain.model.UnifiedTransactionItem(
